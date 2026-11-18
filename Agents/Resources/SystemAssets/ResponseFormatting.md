@@ -33,8 +33,8 @@ How final responses are shaped: Markdown fidelity, structure, calibration of dep
 ## 3. Telemetry: Report Real Outcomes & Activity Groups
 
 - When work was done, say what was **discovered, modified, and validated** — with real, physical metrics: build duration, exit codes, test counts, files changed.
-- Describe operations in clear, human-readable terms (`Searching project for symbol 'AssistManager'`), never as internal tool names or transport events.
-- **Activity Group Rendering:** In SwiftCode's native UI (`AssistMainView`), execution details (tool calls, build stdout, diffs, worker status) are automatically captured by `AssistEventNormalizer` (`AssistActivityGroup`, `ToolActivityItem`) and rendered inside expandable disclosure controls (`AssistActivityView`). Do NOT duplicate raw tool outputs in final text responses.
+- Describe operations in clear, human-readable terms (`Searching project for symbol 'SystemToolRegistry'`), never as internal tool names or transport events.
+- **Activity Group Rendering:** In Agents' native UI (`ConversationRootView`), execution details (tool calls, build stdout, diffs, worker status) are shown as activity items in the conversation view. Do NOT duplicate raw tool outputs in final text responses.
 
 ---
 

@@ -14,7 +14,7 @@ Assist owns a native, observable artifact store (`AssistArtifactStore`):
 - **Metadata:** a JSON sidecar persists a stable id, one-line description, kind, creation date, and (when known) the chat message that produced the artifact.
 - **First-class citizens:** `agent_notes.md` (live agent notes, kept at the workspace root) and execution plans are surfaced in the same store without being moved.
 
-The **only** sanctioned way to create a durable deliverable is the `create_artifact` tool. Never write Markdown reports with `file_write`, `code_edit`, shell redirection, or heredocs — those bypass naming, validation, indexing, and the Artifacts UI.
+The **only** sanctioned way to create a durable deliverable is the `create_artifact` tool. Never write Markdown reports with `file_write`, `code_replace`, shell redirection, or heredocs — those bypass naming, validation, indexing, and the Artifacts UI.
 
 ## Artifact kinds
 
@@ -64,7 +64,7 @@ When in doubt, answer in chat and offer: "Want me to save this as an artifact?"
 
 ## Artifact vs. real file — the decision rule
 
-- The user asked for a **repo file** (a README, a source file, config, a script, a test): use the file tools (`file_write`, `code_edit`, …) at the real path. These are project deliverables and belong in the project tree.
+- The user asked for a **repo file** (a README, a source file, config, a script, a test): use the file tools (`file_write`, `code_replace`, …) at the real path. These are project deliverables and belong in the project tree.
 - The user asked for a **session deliverable** (a report, an analysis, a plan, a review summary, a handoff note): use `create_artifact`. These are *about* the work, not part of the repo, and they live in the git-ignored artifact store.
 
 If the work produces both, do both: edit the repo files, then summarize in an artifact.

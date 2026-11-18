@@ -186,11 +186,4 @@ struct SystemAssetsTests {
         #expect(!prompt.text.isEmpty)
         #expect(prompt.loadError != nil)
     }
-
-    @Test("Pinned upstream revision constant matches the sync script")
-    func pinnedRevisionConstant() {
-        #expect(SystemAssetManager.pinnedRevision == "ac20a141d3b001fcc6dba5062fb2b1aced846efa")
-        #expect(SystemAssetManager.upstreamRepository == "dylans2010/Qwen-Code")
-        #expect(SystemAssetManager.upstreamDirectory == "Sources/QwenCode/Resources/SystemAssets")
-    }
 }

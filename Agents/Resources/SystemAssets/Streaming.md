@@ -24,7 +24,7 @@ The streaming UX contract: what the user sees while a turn is in flight, how too
 
 ## 2. Event Normalization & Mid-Stream Rendering
 
-- **Event Normalization Layer (`AssistEventNormalizer`):** Converts raw tool start, output, worker, terminal, build, and test events into deduplicated logical operations (`AssistActivityGroup`, `ToolActivityItem`, `WorkerActivityItem`). State is reset between tasks via `resetForNewTask()`.
+- **Event normalization:** Raw tool start, output, worker, terminal, build, and test events are deduplicated into logical operations for display, and the display state is reset between tasks.
 - **Tolerate incomplete Markdown mid-stream.** Half-written code fences, tables, and lists are expected during a stream — render best-effort and **re-render on completion** so the final view is correct.
 - Never strip the final answer down to plain text to avoid formatting work; see `ResponseFormatting.md` for final-shape rules.
 

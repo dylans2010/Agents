@@ -61,10 +61,10 @@ How Assist owns the session transcript, persists durable memory, retrieves prior
 
 ## 6. Session Reset Semantics
 
-Clearing a conversation in `AssistMainView` is **narrow and well-defined**:
+Clearing a conversation in `ConversationRootView` is **narrow and well-defined**:
 
-- **Cleared:** transient execution state (in-flight tasks, partial drafts, queued turns) and request-scoped retrieval metadata (per-request search/snapshot bookkeeping). Resets `AssistEventNormalizer` via `resetForNewTask()`.
-- **Never cleared:** the shared SystemIndex cache, persisted memory entries, context snapshots, on-disk changes, or shipped assets.
+- **Cleared:** transient execution state (in-flight tasks, partial drafts, queued turns) and request-scoped retrieval metadata (per-request search/snapshot bookkeeping).
+- **Never cleared:** the shared System Asset index (`SystemAssetIndex`), persisted memory entries, context snapshots, on-disk changes, or shipped assets.
 
 A reset ends the current line of thinking — it does not erase the shared foundation another turn may still need.
 

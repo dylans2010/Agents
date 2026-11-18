@@ -50,7 +50,7 @@ Assist abstracts provider differences through `AssistAvailableModel` and `Assist
 ## 4. Dynamic Model Discovery & Hidden Provider Filtering
 
 - **Dynamic Model Discovery (`AssistModelDiscoveryService`):** Asks live provider endpoints for currently available models. Model discovery is decoupled from message submission to prevent blocking user turns.
-- **Provider Filtering (`hiddenProviderNames`):** Providers can be persistently hidden or restored via `hiddenProviderNames` (persisted under `UserDefaults` key `com.swiftcode.assist.hidden_provider_names`), filtering visible model options in `AssistSettingsView`.
+- **Model Filtering:** Individual models can be hidden from the composer picker in `ModelsSettingsPane` (`CatalogModelEntry.isHidden`, toggled via `setModelPreference`); there is no provider-level hiding.
 - **Default Model Safeguard:** Antigravity SDK default models (`Self.sdkDefaultModelIDs`) are explicitly treated as configured, agentic, and capable of tool calling regardless of whether discovery calls succeed, preventing unintended model shifts.
 
 ---

@@ -20,7 +20,7 @@ Always route tasks directly to their dedicated native capability:
 * Git status / log / branch → `version_control_operator` (action: "status", "log", etc.)
 * Git diff / inspect changes → `version_control_operator` (action: "diff") or native diff inspector
 * Project build / compile → `project_build` (approval-exempt, non-blocking)
-* File search / symbol search → `file_search` or `semantic_search`
+* File search / symbol search → `search_files` or `semantic_query_engine`
 * Code editing / patching → `code_replace` or `file_write`
 * File movement / creation / deletion → Native file system tools (`file_write`, `file_delete`, `dir_create`)
 * Archive / Zip / Tar / Gzip → `zip_file`, `unzip_file`, `tar_archive_create`, `tar_archive_extract`, `gzip_compress_file`, `gzip_decompress_file`

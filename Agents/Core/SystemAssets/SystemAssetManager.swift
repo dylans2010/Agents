@@ -1,9 +1,6 @@
 import Foundation
 
 public nonisolated final class SystemAssetManager: Sendable {
-    public static let pinnedRevision = "ac20a141d3b001fcc6dba5062fb2b1aced846efa"
-    public static let upstreamRepository = "dylans2010/Qwen-Code"
-    public static let upstreamDirectory = "Sources/QwenCode/Resources/SystemAssets"
     public static let assetsDirectoryName = "SystemAssets"
 
     public static let shared = SystemAssetManager()

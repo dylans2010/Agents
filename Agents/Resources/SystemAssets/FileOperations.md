@@ -70,7 +70,7 @@ File system modification protocols, targeted code edits, directory operations, X
 
 - Paths are **workspace-relative** (e.g. `Sources/App.swift`). Absolute paths, `..` segments, symlink escapes, and null bytes are rejected.
 - Any path resolving outside the active project root triggers a security error — treat this as a hard stop, not a suggestion.
-- System prefixes (`/System`, `/usr`, `/bin`, `/sbin`, `/etc`, `/var`, `/Library`, `/private`, `/dev`, `/tmp`) are off-limits to all file operations and redirections — except the isolated scripts directory `/tmp/swiftcode/scripts` (and paths beneath it), allowed for script authoring/execution through the filesystem carve-out (see `Safeguards.md` §6).
+- System prefixes are unreachable through file operations: every path must be workspace-relative and is containment-checked against the workspace root, so an absolute path outside the workspace is rejected (see `Safeguards.md` §6).
 
 ---
 
