@@ -10,6 +10,7 @@ public protocol AssistantTaskRuntime: Sendable {
     func tasksMarkMissed(taskId: String, reason: String) async throws -> JSONValue
     func tasksRecover() async throws -> JSONValue
     func createParentThread(projectID: UUID) async throws -> UUID
+    func deleteParentThread(_ threadID: UUID) async throws
     func listAssistants() async throws -> RemoteAssistants
     func fetchWorkspace(includeArchived: Bool) async throws -> RemoteWorkspace
 }
@@ -17,6 +18,10 @@ public protocol AssistantTaskRuntime: Sendable {
 extension AgentsRuntimeClient: AssistantTaskRuntime {
     public func createParentThread(projectID: UUID) async throws -> UUID {
         try await newThread(projectID: projectID)
+    }
+
+    public func deleteParentThread(_ threadID: UUID) async throws {
+        _ = try await deleteThreadPermanently(threadID: threadID.uuidString)
     }
 }
 
@@ -350,11 +355,16 @@ public struct AssistantTaskList: Sendable {
     public var tasks: [AssistantTaskRecord]
     public var baseline: String
     public var origin: String
+    public var decodeFailures: [AssistantTaskDecodeFailure]
 
-    public init(tasks: [AssistantTaskRecord] = [], baseline: String = "", origin: String = "") {
+    public init(
+        tasks: [AssistantTaskRecord] = [], baseline: String = "", origin: String = "",
+        decodeFailures: [AssistantTaskDecodeFailure] = []
+    ) {
         self.tasks = tasks
         self.baseline = baseline
         self.origin = origin
+        self.decodeFailures = decodeFailures
     }
 }
 
@@ -418,19 +428,32 @@ public struct AssistantTaskFailedRun: Sendable, Hashable {
     }
 }
 
+public struct AssistantTaskDecodeFailure: Sendable, Hashable {
+    public var taskID: UUID?
+    public var message: String
+
+    public init(taskID: UUID?, message: String) {
+        self.taskID = taskID
+        self.message = message
+    }
+}
+
 public struct AssistantTaskPollOutcome: Sendable {
     public var ran: [AssistantTaskRunOutcome]
     public var skipped: [AssistantTaskSkippedRun]
     public var failed: [AssistantTaskFailedRun]
+    public var decodeFailures: [AssistantTaskDecodeFailure]
     public var cycleError: String?
 
     public init(
         ran: [AssistantTaskRunOutcome] = [], skipped: [AssistantTaskSkippedRun] = [],
-        failed: [AssistantTaskFailedRun] = [], cycleError: String? = nil
+        failed: [AssistantTaskFailedRun] = [], decodeFailures: [AssistantTaskDecodeFailure] = [],
+        cycleError: String? = nil
     ) {
         self.ran = ran
         self.skipped = skipped
         self.failed = failed
+        self.decodeFailures = decodeFailures
         self.cycleError = cycleError
     }
 }
@@ -564,13 +587,26 @@ public actor AssistantTaskManager {
 
     public func listTasks() async throws -> AssistantTaskList {
         let result = try await runtime.tasksList()
-        let tasks = (result["tasks"]?.arrayValue ?? []).compactMap { try? AssistantTaskRecord(json: $0) }
+        var tasks: [AssistantTaskRecord] = []
+        var decodeFailures: [AssistantTaskDecodeFailure] = []
+        for value in result["tasks"]?.arrayValue ?? [] {
+            do {
+                tasks.append(try AssistantTaskRecord(json: value))
+            } catch {
+                decodeFailures.append(AssistantTaskDecodeFailure(
+                    taskID: Self.taskID(from: value, key: "id"),
+                    message: "Could not decode an automated task record: \(error.localizedDescription)"
+                ))
+            }
+        }
         let baselineValue = result["baseline"]?.stringValue ?? ""
         let origin = result["origin"]?.stringValue ?? ""
         if !baselineValue.isEmpty {
             baseline = baselineValue
         }
-        return AssistantTaskList(tasks: tasks, baseline: baselineValue, origin: origin)
+        return AssistantTaskList(
+            tasks: tasks, baseline: baselineValue, origin: origin, decodeFailures: decodeFailures
+        )
     }
 
     public func saveTask(_ task: AssistantTaskRecord, baseline: String) async throws -> AssistantTaskRecord {
@@ -594,7 +630,8 @@ public actor AssistantTaskManager {
         } catch {
             throw Self.staleChecked(error)
         }
-        baseline = nil
+        self.baseline = nil
+        _ = try? await listTasks()
     }
 
     public func setEnabled(_ task: AssistantTaskRecord, enabled: Bool, baseline: String) async throws -> AssistantTaskRecord {
@@ -642,12 +679,11 @@ public actor AssistantTaskManager {
         var outcome = AssistantTaskPollOutcome()
         let due: [AssistantTaskDueEntry]
         do {
-            due = try await dueEntries()
+            let (entries, failures) = try await dueEntries()
+            due = entries
+            outcome.decodeFailures.append(contentsOf: failures)
         } catch {
             outcome.cycleError = error.localizedDescription
-            return outcome
-        }
-        guard !due.isEmpty else {
             return outcome
         }
         let listed: AssistantTaskList
@@ -657,30 +693,40 @@ public actor AssistantTaskManager {
             outcome.cycleError = error.localizedDescription
             return outcome
         }
+        outcome.decodeFailures.append(contentsOf: listed.decodeFailures)
+        guard !due.isEmpty else {
+            return outcome
+        }
+        let assistants: RemoteAssistants
+        let workspace: RemoteWorkspace
+        do {
+            async let listedAssistants = runtime.listAssistants()
+            async let fetchedWorkspace = runtime.fetchWorkspace(includeArchived: false)
+            (assistants, workspace) = try await (listedAssistants, fetchedWorkspace)
+        } catch {
+            outcome.cycleError = error.localizedDescription
+            return outcome
+        }
         let byID = Dictionary(uniqueKeysWithValues: listed.tasks.map { ($0.id, $0) })
         for entry in due {
             guard let task = byID[entry.taskID] else {
+                outcome.decodeFailures.append(AssistantTaskDecodeFailure(
+                    taskID: entry.taskID,
+                    message: "Due run references an automated task that is no longer listed."
+                ))
                 continue
             }
-            do {
-                if let reason = try await skipReason(for: task) {
-                    do {
-                        _ = try await runtime.tasksMarkMissed(taskId: task.id.uuidString, reason: reason.message(task: task))
-                    } catch {
-                        outcome.failed.append(AssistantTaskFailedRun(
-                            task: task,
-                            message: "Could not record the missed run: \(error.localizedDescription)"
-                        ))
-                        continue
-                    }
-                    outcome.skipped.append(AssistantTaskSkippedRun(task: task, reason: reason))
+            if let reason = Self.skipReason(for: task, assistants: assistants.assistants, workspace: workspace) {
+                do {
+                    _ = try await runtime.tasksMarkMissed(taskId: task.id.uuidString, reason: reason.message(task: task))
+                } catch {
+                    outcome.failed.append(AssistantTaskFailedRun(
+                        task: task,
+                        message: "Could not record the missed run: \(error.localizedDescription)"
+                    ))
                     continue
                 }
-            } catch {
-                outcome.failed.append(AssistantTaskFailedRun(
-                    task: task,
-                    message: "Could not validate the task before running: \(error.localizedDescription)"
-                ))
+                outcome.skipped.append(AssistantTaskSkippedRun(task: task, reason: reason))
                 continue
             }
             do {
@@ -717,7 +763,13 @@ public actor AssistantTaskManager {
 
     private func runNowUnchecked(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome {
         let parentThreadID = try await runtime.createParentThread(projectID: task.workspaceID)
-        let result = try await runtime.tasksRunNow(taskId: task.id.uuidString, parentThreadId: parentThreadID.uuidString)
+        let result: JSONValue
+        do {
+            result = try await runtime.tasksRunNow(taskId: task.id.uuidString, parentThreadId: parentThreadID.uuidString)
+        } catch {
+            try? await runtime.deleteParentThread(parentThreadID)
+            throw error
+        }
         guard let updated = try? AssistantTaskRecord(json: result["task"] ?? .null) else {
             throw AssistantTaskError.invalidResult("Run-now did not return the updated task.")
         }
@@ -726,9 +778,25 @@ public actor AssistantTaskManager {
         return AssistantTaskRunOutcome(task: updated, workerID: workerID, parentThreadID: parentThreadID)
     }
 
-    private func dueEntries() async throws -> [AssistantTaskDueEntry] {
+    private func dueEntries() async throws -> ([AssistantTaskDueEntry], [AssistantTaskDecodeFailure]) {
         let result = try await runtime.tasksDue()
-        return (result["dueTasks"]?.arrayValue ?? []).compactMap { try? AssistantTaskDueEntry(json: $0) }
+        var entries: [AssistantTaskDueEntry] = []
+        var failures: [AssistantTaskDecodeFailure] = []
+        for value in result["dueTasks"]?.arrayValue ?? [] {
+            do {
+                entries.append(try AssistantTaskDueEntry(json: value))
+            } catch {
+                failures.append(AssistantTaskDecodeFailure(
+                    taskID: Self.taskID(from: value, key: "taskId"),
+                    message: "Could not decode a due automated task entry: \(error.localizedDescription)"
+                ))
+            }
+        }
+        return (entries, failures)
+    }
+
+    private static func taskID(from value: JSONValue, key: String) -> UUID? {
+        value[key]?.stringValue.flatMap { UUID(uuidString: $0) }
     }
 
     private func updateBaseline(from result: JSONValue) {

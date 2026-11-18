@@ -26,6 +26,13 @@ struct AssistantTaskManagerTests {
         var now: Int64 = 1_790_000_000
         var parentThreadID = UUID()
         var newThreadProjectIDs: [UUID] = []
+        var deleteParentThreadCalls: [UUID] = []
+        var deleteParentThreadError: Error?
+        var listAssistantsCalls = 0
+        var fetchWorkspaceCalls = 0
+        var extraListValues: [JSONValue] = []
+        var extraDueValues: [JSONValue] = []
+        var listTasksError: Error?
         var runNowCalls: [(taskId: String, parentThreadId: String)] = []
         var markMissedCalls: [(taskId: String, reason: String)] = []
         var recoverCalls = 0
@@ -37,6 +44,10 @@ struct AssistantTaskManagerTests {
         func setNow(_ value: Int64) { now = value }
         func setRunNowError(_ value: Error?) { runNowError = value }
         func setParentThreadID(_ value: UUID) { parentThreadID = value }
+        func setDeleteParentThreadError(_ value: Error?) { deleteParentThreadError = value }
+        func setExtraListValues(_ value: [JSONValue]) { extraListValues = value }
+        func setExtraDueValues(_ value: [JSONValue]) { extraDueValues = value }
+        func setListTasksError(_ value: Error?) { listTasksError = value }
 
         private func rotateBaseline() {
             baselineCounter += 1
@@ -62,7 +73,10 @@ struct AssistantTaskManagerTests {
         }
 
         func tasksList() async throws -> JSONValue {
-            let values = try tasks.map { try $0.encoded() }
+            if let listTasksError {
+                throw listTasksError
+            }
+            let values = try tasks.map { try $0.encoded() } + extraListValues
             return .object([
                 "tasks": .array(values),
                 "baseline": .string(baseline),
@@ -76,6 +90,9 @@ struct AssistantTaskManagerTests {
                 throw FakeStaleBaselineError()
             }
             var incoming = try AssistantTaskRecord(json: task)
+            if let reason = AssistantTaskManager.unavailableTriggerReason(incoming.trigger) {
+                throw FakeTaskError(message: reason)
+            }
             if let index = tasks.firstIndex(where: { $0.id == incoming.id }) {
                 let stored = tasks[index]
                 incoming.createdAt = stored.createdAt
@@ -134,7 +151,20 @@ struct AssistantTaskManagerTests {
         }
 
         func tasksDue() async throws -> JSONValue {
-            let due = tasks.filter { ($0.nextRunAt ?? .max) <= now }
+            for task in tasks where task.isActive {
+                if let reason = AssistantTaskManager.unavailableTriggerReason(task.trigger) {
+                    throw FakeTaskError(message: reason)
+                }
+            }
+            let due = tasks.filter { task in
+                guard task.isActive else {
+                    return false
+                }
+                if let maxRuns = task.limits.maxRuns, task.runCount >= maxRuns {
+                    return false
+                }
+                return (task.nextRunAt ?? .max) <= now
+            }
             let values: [JSONValue] = due.map { task in
                 .object([
                     "taskId": .string(task.id.uuidString),
@@ -143,7 +173,7 @@ struct AssistantTaskManagerTests {
                     "nextRunAt": .int(task.nextRunAt ?? now),
                     "runCount": .int(Int64(task.runCount)),
                 ])
-            }
+            } + extraDueValues
             return .object(["dueTasks": .array(values), "now": .int(now)])
         }
 
@@ -184,12 +214,21 @@ struct AssistantTaskManagerTests {
             return parentThreadID
         }
 
+        func deleteParentThread(_ threadID: UUID) async throws {
+            deleteParentThreadCalls.append(threadID)
+            if let deleteParentThreadError {
+                throw deleteParentThreadError
+            }
+        }
+
         func listAssistants() async throws -> RemoteAssistants {
-            RemoteAssistants(assistants: assistants, baseline: "", origin: "local")
+            listAssistantsCalls += 1
+            return RemoteAssistants(assistants: assistants, baseline: "", origin: "local")
         }
 
         func fetchWorkspace(includeArchived: Bool) async throws -> RemoteWorkspace {
-            workspace
+            fetchWorkspaceCalls += 1
+            return workspace
         }
     }
 
@@ -259,6 +298,7 @@ struct AssistantTaskManagerTests {
         try await manager.deleteTask(id: task.id, baseline: listedAfterRename.baseline)
         let listedAfterDelete = try await manager.listTasks()
         #expect(listedAfterDelete.tasks.isEmpty)
+        #expect(await manager.currentBaseline == listedAfterDelete.baseline)
     }
 
     @Test("Stale baseline save and delete throw the stale-baseline error")
@@ -328,6 +368,7 @@ struct AssistantTaskManagerTests {
         let runCalls = await fake.runNowCalls
         #expect(runCalls.count == 1)
         #expect(runCalls[0].parentThreadId == parentThreadID.uuidString)
+        #expect(await fake.deleteParentThreadCalls.isEmpty)
     }
 
     @Test("Run-now rejects an approval-required task without creating a thread")
@@ -382,7 +423,7 @@ struct AssistantTaskManagerTests {
         #expect(listed.tasks.first { $0.name == "Future" }?.lastOutcome == nil)
     }
 
-    @Test("Poll never runs paused or disabled tasks")
+    @Test("Poll never surfaces paused or disabled tasks: they never reach the run loop")
     func pollNeverRunsPausedOrDisabledTasks() async throws {
         let fake = FakeTaskRuntime()
         let assistantID = UUID()
@@ -393,32 +434,98 @@ struct AssistantTaskManagerTests {
         await fake.setTasks([paused, disabled])
         let outcome = await manager.pollNow()
         #expect(outcome.ran.isEmpty)
-        #expect(outcome.skipped.count == 2)
-        #expect(outcome.skipped.map { $0.reason }.contains(.paused))
-        #expect(outcome.skipped.map { $0.reason }.contains(.disabled))
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(outcome.decodeFailures.isEmpty)
+        #expect(outcome.cycleError == nil)
         #expect(await fake.runNowCalls.isEmpty)
         #expect(await fake.newThreadProjectIDs.isEmpty)
-        #expect(await fake.markMissedCalls.count == 2)
+        #expect(await fake.markMissedCalls.isEmpty)
+        #expect(await fake.listAssistantsCalls == 0)
+        #expect(await fake.fetchWorkspaceCalls == 0)
+        let listed = try await manager.listTasks()
+        #expect(listed.tasks.count == 2)
     }
 
-    @Test("Poll skips max-runs tasks and unavailable triggers with reasons")
-    func pollSkipsMaxRunsAndUnavailableTriggers() async throws {
+    @Test("Poll never surfaces max-runs tasks: they never reach the run loop")
+    func pollNeverSurfacesMaxRunsTasks() async throws {
         let fake = FakeTaskRuntime()
         let assistantID = UUID()
         let workspaceID = UUID()
         let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
         let capped = Self.makeTask(name: "Capped", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000, maxRuns: 2, runCount: 2)
-        let gitTriggered = Self.makeTask(name: "GitTriggered", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000, trigger: "gitCommit")
-        await fake.setTasks([capped, gitTriggered])
+        await fake.setTasks([capped])
         let outcome = await manager.pollNow()
         #expect(outcome.ran.isEmpty)
-        #expect(outcome.skipped.count == 2)
-        #expect(outcome.skipped.map { $0.reason }.contains(.maxRunsReached(2)))
-        #expect(outcome.skipped.map { $0.reason }.contains(.triggerUnavailable("gitCommit")))
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(outcome.cycleError == nil)
         #expect(await fake.runNowCalls.isEmpty)
-        let missed = await fake.markMissedCalls
-        #expect(missed.contains { $0.reason.contains("maximum of 2 runs") })
-        #expect(missed.contains { $0.reason.contains("not available") })
+        #expect(await fake.markMissedCalls.isEmpty)
+    }
+
+    @Test("Save rejects tasks with unavailable triggers, like the real engine")
+    func saveRejectsUnavailableTriggerTasks() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let listed = try await manager.listTasks()
+        let gitTriggered = Self.makeTask(name: "GitTriggered", assistantID: assistantID, workspaceID: workspaceID, trigger: "gitCommit")
+        do {
+            _ = try await manager.saveTask(gitTriggered, baseline: listed.baseline)
+            Issue.record("saveTask should have rejected the gitCommit trigger")
+        } catch let error as FakeTaskError {
+            #expect(error.message.contains("not available"))
+        }
+        let listedAfter = try await manager.listTasks()
+        #expect(listedAfter.tasks.isEmpty)
+    }
+
+    @Test("Poll degrades to a cycle error when the due call fails")
+    func pollDegradesToCycleErrorWhenDueCallFails() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let gitTriggered = Self.makeTask(name: "GitTriggered", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000, trigger: "gitCommit")
+        await fake.setTasks([gitTriggered])
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.isEmpty)
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(outcome.cycleError?.contains("not available") == true)
+        #expect(await fake.runNowCalls.isEmpty)
+    }
+
+    @Test("Static skip reason flags max-runs and unavailable triggers without a runtime")
+    func staticSkipReasonFlagsMaxRunsAndUnavailableTriggers() {
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let assistants = [Self.makeAssistant(id: assistantID)]
+        let workspace = Self.makeWorkspace(projectID: workspaceID)
+        let capped = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, maxRuns: 2, runCount: 2)
+        #expect(AssistantTaskManager.skipReason(for: capped, assistants: assistants, workspace: workspace) == .maxRunsReached(2))
+        let gitTriggered = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, trigger: "gitCommit")
+        #expect(AssistantTaskManager.skipReason(for: gitTriggered, assistants: assistants, workspace: workspace) == .triggerUnavailable("gitCommit"))
+    }
+
+    @Test("Poll fetches assistants and workspace once per cycle, not once per due task")
+    func pollFetchesAssistantsAndWorkspaceOncePerCycle() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let first = Self.makeTask(name: "First", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000)
+        let second = Self.makeTask(name: "Second", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000)
+        let third = Self.makeTask(name: "Third", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000)
+        await fake.setTasks([first, second, third])
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.count == 3)
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(await fake.listAssistantsCalls == 1)
+        #expect(await fake.fetchWorkspaceCalls == 1)
     }
 
     @Test("Destructive tasks are never auto-run: approval-required assistants stay missed")
@@ -544,6 +651,161 @@ struct AssistantTaskManagerTests {
         #expect(outcome.failed[0].message.contains("already has a running worker"))
         #expect(await fake.markMissedCalls.count == 1)
         #expect(await fake.markMissedCalls[0].reason.contains("Run failed"))
+        #expect(await fake.newThreadProjectIDs == [workspaceID])
+        #expect(await fake.deleteParentThreadCalls == [await fake.parentThreadID])
+    }
+
+    @Test("A failed run-now still reports the run error when thread cleanup fails")
+    func failedRunNowStillReportsOriginalErrorWhenThreadCleanupFails() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setRunNowError(FakeTaskError(message: "Automated task 'Nightly review' already has a running worker"))
+        await fake.setDeleteParentThreadError(FakeTaskError(message: "Thread delete failed"))
+        let task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000)
+        await fake.setTasks([task])
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.isEmpty)
+        #expect(outcome.failed.count == 1)
+        #expect(outcome.failed[0].message.contains("already has a running worker"))
+        #expect(await fake.deleteParentThreadCalls.count == 1)
+    }
+
+    @Test("List surfaces undecodable task records instead of dropping them")
+    func listTasksSurfacesUndecodableRecords() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let good = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID)
+        let brokenID = UUID()
+        let brokenWithID: JSONValue = .object([
+            "id": .string(brokenID.uuidString),
+            "name": .string("Broken"),
+        ])
+        let brokenWithoutID: JSONValue = .object([
+            "name": .string("Nameless"),
+        ])
+        await fake.setTasks([good])
+        await fake.setExtraListValues([brokenWithID, brokenWithoutID])
+        let listed = try await manager.listTasks()
+        #expect(listed.tasks.count == 1)
+        #expect(listed.tasks[0].id == good.id)
+        #expect(listed.decodeFailures.count == 2)
+        #expect(listed.decodeFailures.contains { $0.taskID == brokenID })
+        #expect(listed.decodeFailures.contains { $0.taskID == nil })
+    }
+
+    @Test("Poll surfaces undecodable due entries instead of dropping them")
+    func pollNowSurfacesUndecodableDueEntries() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let good = Self.makeTask(name: "Good", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000)
+        let brokenDue: JSONValue = .object([
+            "taskName": .string("Broken"),
+        ])
+        await fake.setTasks([good])
+        await fake.setExtraDueValues([brokenDue])
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.count == 1)
+        #expect(outcome.ran[0].task.name == "Good")
+        #expect(outcome.decodeFailures.count == 1)
+        #expect(outcome.decodeFailures[0].taskID == nil)
+    }
+
+    @Test("Poll surfaces a due entry whose task is no longer listed")
+    func pollNowSurfacesDueEntryForMissingTask() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let missingID = UUID()
+        let dangling: JSONValue = .object([
+            "taskId": .string(missingID.uuidString),
+            "taskName": .string("Gone"),
+            "occurrence": .int(1_789_999_000),
+            "nextRunAt": .int(1_789_999_000),
+            "runCount": .int(0),
+        ])
+        await fake.setTasks([])
+        await fake.setExtraDueValues([dangling])
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.isEmpty)
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(outcome.decodeFailures.count == 1)
+        #expect(outcome.decodeFailures[0].taskID == missingID)
+    }
+
+    @Test("Poll surfaces an undecodable task record behind its due entry")
+    func pollNowSurfacesUndecodableTaskRecordBehindDueEntry() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let brokenID = UUID()
+        let brokenRecord: JSONValue = .object([
+            "id": .string(brokenID.uuidString),
+            "name": .string("Broken"),
+        ])
+        let dueForBroken: JSONValue = .object([
+            "taskId": .string(brokenID.uuidString),
+            "taskName": .string("Broken"),
+            "occurrence": .int(1_789_999_000),
+            "nextRunAt": .int(1_789_999_000),
+            "runCount": .int(0),
+        ])
+        await fake.setTasks([])
+        await fake.setExtraListValues([brokenRecord])
+        await fake.setExtraDueValues([dueForBroken])
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.isEmpty)
+        #expect(outcome.decodeFailures.count == 2)
+        #expect(outcome.decodeFailures.filter { $0.taskID == brokenID }.count == 2)
+    }
+
+    @Test("Delete refreshes the baseline so the next save succeeds")
+    func deleteRefreshesBaselineForNextSave() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let listed = try await manager.listTasks()
+        let first = Self.makeTask(name: "First", assistantID: assistantID, workspaceID: workspaceID)
+        let second = Self.makeTask(name: "Second", assistantID: assistantID, workspaceID: workspaceID)
+        let savedFirst = try await manager.saveTask(first, baseline: listed.baseline)
+        let listedAfterFirst = try await manager.listTasks()
+        let savedSecond = try await manager.saveTask(second, baseline: listedAfterFirst.baseline)
+        let baselineBeforeDelete = await manager.currentBaseline
+        try await manager.deleteTask(id: savedFirst.id, baseline: baselineBeforeDelete ?? "")
+        #expect(await manager.currentBaseline != baselineBeforeDelete)
+        let listedAfterDelete = try await manager.listTasks()
+        #expect(listedAfterDelete.tasks.count == 1)
+        #expect(await manager.currentBaseline == listedAfterDelete.baseline)
+        var renamed = savedSecond
+        renamed.name = "Second renamed"
+        let resaved = try await manager.saveTask(renamed, baseline: await manager.currentBaseline ?? "")
+        #expect(resaved.name == "Second renamed")
+    }
+
+    @Test("Delete leaves the baseline unknown when the refresh list fails")
+    func deleteLeavesBaselineUnknownWhenRefreshFails() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let listed = try await manager.listTasks()
+        let task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID)
+        let saved = try await manager.saveTask(task, baseline: listed.baseline)
+        await fake.setListTasksError(FakeTaskError(message: "List failed"))
+        try await manager.deleteTask(id: saved.id, baseline: await manager.currentBaseline ?? "")
+        #expect(await manager.currentBaseline == nil)
+        await fake.setListTasksError(nil)
+        let listedAfter = try await manager.listTasks()
+        #expect(listedAfter.tasks.isEmpty)
     }
 
     @Test("Task records round trip through JSON without losing unknown fields")
