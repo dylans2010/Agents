@@ -705,7 +705,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "workers",
                 kind: "array",
                 required: true,
-                description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles.",
+                description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles, plus an optional assistantId UUID whose assistant supplies the worker's provider and model.",
             },
         ],
     },

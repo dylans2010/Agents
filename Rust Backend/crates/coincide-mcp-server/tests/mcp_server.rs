@@ -495,7 +495,7 @@ fn tools_list_returns_the_real_registry() {
 #[test]
 fn tools_call_executes_real_file_operations() {
     let workspace = temp_dir("agents-mcp-workspace");
-    let mut session = Session::spawn(workspace.path(), None);
+    let (mut session, control) = spawn_bound(workspace.path(), None);
     initialize(&mut session);
     let path = workspace.path().join("hello.txt");
     let write = call_text(
@@ -532,6 +532,7 @@ fn tools_call_executes_real_file_operations() {
     call_text(&mut session, "delete_file", json!({"path": moved}));
     assert!(!moved.exists());
     session.close();
+    control.stop();
 }
 
 #[test]
@@ -575,7 +576,7 @@ fn unknown_tool_and_malformed_requests_return_jsonrpc_errors() {
 #[test]
 fn panicking_tool_call_returns_internal_error_and_the_server_survives() {
     let workspace = temp_dir("agents-mcp-workspace");
-    let mut session = Session::spawn(workspace.path(), None);
+    let (mut session, control) = spawn_bound(workspace.path(), None);
     initialize(&mut session);
     call(
         &mut session,
@@ -600,6 +601,7 @@ fn panicking_tool_call_returns_internal_error_and_the_server_survives() {
     );
     assert_eq!(ping["result"], json!({}));
     session.close();
+    control.stop();
 }
 
 #[test]
@@ -685,7 +687,7 @@ fn ranked(result: &Value) -> Vec<(String, String, String, i64, String, String, V
 fn search_skills_matches_canonical_ranking() {
     let workspace = temp_dir("agents-mcp-workspace");
     let assets = retrieval_fixtures();
-    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    let (mut session, control) = spawn_bound(workspace.path(), Some(assets.path()));
     initialize(&mut session);
     let alpha = search_skills(&mut session, "alpha", 10);
     assert_eq!(alpha["documentCount"].as_u64().unwrap(), 5);
@@ -806,6 +808,7 @@ fn search_skills_matches_canonical_ranking() {
         ]
     );
     session.close();
+    control.stop();
 }
 
 
@@ -813,7 +816,7 @@ fn search_skills_matches_canonical_ranking() {
 fn search_skills_exact_document_id_returns_first_section() {
     let workspace = temp_dir("agents-mcp-workspace");
     let assets = retrieval_fixtures();
-    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    let (mut session, control) = spawn_bound(workspace.path(), Some(assets.path()));
     initialize(&mut session);
     let exact = search_skills(&mut session, "alphanotes", 10);
     assert_eq!(
@@ -829,13 +832,14 @@ fn search_skills_exact_document_id_returns_first_section() {
         )]
     );
     session.close();
+    control.stop();
 }
 
 #[test]
 fn search_skills_full_document_readable_outside_top_results() {
     let workspace = temp_dir("agents-mcp-workspace");
     let assets = retrieval_fixtures();
-    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    let (mut session, control) = spawn_bound(workspace.path(), Some(assets.path()));
     initialize(&mut session);
     let top = search_skills(&mut session, "alpha", 1);
     let results = top["results"].as_array().unwrap();
@@ -854,6 +858,7 @@ fn search_skills_full_document_readable_outside_top_results() {
     let text = read["result"]["contents"][0]["text"].as_str().unwrap();
     assert_eq!(text, RETRIEVAL_BETA);
     session.close();
+    control.stop();
 }
 
 const ASSET_ALPHA: &str = "<!-- system-index-category: Guides -->\n<!-- system-index-tags: alpha, walkthrough -->\n<!-- system-index-depends: Beta.md -->\n# Alpha Guide\n\n## Getting Started\nAlpha tokens live here for the alpha walkthrough.\n\n## Advanced Alpha\nDeep alpha material.\n";
@@ -890,7 +895,7 @@ fn sorted_keys(value: &Value) -> Vec<&str> {
 fn system_asset_tools_read_list_metadata_and_related() {
     let workspace = temp_dir("agents-mcp-workspace");
     let assets = asset_tool_fixtures();
-    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    let (mut session, control) = spawn_bound(workspace.path(), Some(assets.path()));
     initialize(&mut session);
     let read = asset_tool(
         &mut session,
@@ -1108,6 +1113,7 @@ fn system_asset_tools_read_list_metadata_and_related() {
         .unwrap()
         .contains("unknown SystemAsset"));
     session.close();
+    control.stop();
 }
 
 #[test]
@@ -1293,6 +1299,65 @@ fn resources_read_rejects_an_asset_over_the_size_limit() {
         "unexpected oversize error: {message}"
     );
     session.close();
+}
+
+struct FakeControl {
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl FakeControl {
+    fn serve(socket_path: &std::path::Path) -> Self {
+        use std::os::unix::net::UnixListener;
+        let listener = UnixListener::bind(socket_path).unwrap();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
+        let reply = serde_json::to_string(&json!({"result": {}})).unwrap();
+        let handle = std::thread::spawn(move || {
+            listener.set_nonblocking(true).unwrap();
+            while !flag.load(std::sync::atomic::Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_nonblocking(false).unwrap();
+                        let mut request = String::new();
+                        let mut reader = BufReader::new(stream.try_clone().unwrap());
+                        if reader.read_line(&mut request).is_ok() {
+                            assert!(request.contains("threads.read"));
+                            stream.write_all(reply.as_bytes()).unwrap();
+                            stream.write_all(b"\n").unwrap();
+                            stream.flush().unwrap();
+                        }
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(std::time::Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("control accept failed: {error}"),
+                }
+            }
+        });
+        FakeControl {
+            stop,
+            handle: Some(handle),
+        }
+    }
+
+    fn stop(mut self) {
+        self.stop
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        if let Some(handle) = self.handle.take() {
+            handle.join().unwrap();
+        }
+    }
+}
+
+fn spawn_bound(
+    workspace: &std::path::Path,
+    assets: Option<&std::path::Path>,
+) -> (Session, FakeControl) {
+    let socket_path = workspace.join("control.sock");
+    let control = FakeControl::serve(&socket_path);
+    let session = spawn_with_thread(workspace, assets, "thread-1", &socket_path);
+    (session, control)
 }
 
 fn spawn_with_thread(
