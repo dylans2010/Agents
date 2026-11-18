@@ -4583,7 +4583,12 @@ mod tests {
         let id = text(&thread, "id");
         let session = Session::fixture_worker(|_, events| {
             for id in 0..2 * agent::MAX_SESSION_EVENTS {
-                let _ = events.send(Event::Frame(json!({"id": id})));
+                let frame = if id == 0 {
+                    json!({"id": id, "method": "item/started"})
+                } else {
+                    json!({"id": id})
+                };
+                let _ = events.send(Event::Frame(frame));
             }
         });
         let deadline = Instant::now() + Duration::from_secs(5);
