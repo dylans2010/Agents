@@ -3844,14 +3844,93 @@ public nonisolated enum SystemToolRegistry {
         return definition(named: name, for: toolset)
     }
 
+    public static let readOnlyDeniedToolNames: Set<String> = [
+        "asset_catalog_manager", "asset_image_add", "automated_repair_engine", "batch_rename_files", "binary_plist_converter", "cancel_worker",
+        "click", "click_point", "clipboard_manager_tool", "code_format", "code_generate", "code_insert",
+        "code_multi_edit", "code_mutation_engine", "code_replace", "code_snippet_manager", "colorset_builder", "compiler_diagnostics_engine",
+        "context_persistence_store", "copy_file", "create_artifact", "create_directory", "create_file", "create_terminal",
+        "csv_to_json", "delete_artifact", "delete_directory", "delete_file", "delete_worker", "dependency_resolution_engine",
+        "dir_create", "dir_delete", "docc_build", "docs_generate", "double_click", "drag",
+        "edit_file", "file_append", "file_backup", "file_copy", "file_create", "file_delete",
+        "file_move", "file_rename", "file_write", "format_json_file", "generate_xcodeproj", "git_bisect",
+        "git_branch_checkout", "git_branch_create", "git_branch_manager", "git_cherry_pick", "git_commit", "git_conflict_resolver",
+        "git_pull", "git_push", "git_stash_operator", "github_repo", "gzip_compress_file", "gzip_decompress_file",
+        "hotkey", "icon_generator_tool", "image_convert_format", "image_decode_base64", "image_generate_thumbnail", "import_cleanup",
+        "intel_generate_tests", "invoke_menu", "json_to_csv", "json_validate", "launch_app", "localization_manager",
+        "localize_app", "manage_memory", "markdown_toc_generate", "mem_clear", "mem_delete", "mem_store",
+        "move_cursor", "move_file", "multi_edit_file", "package_dependency_add", "package_dependency_update", "patch_application_engine",
+        "performance_benchmark", "plist_edit", "plist_editor", "plist_to_json", "preflight_checks", "press_key",
+        "project_archive", "project_build", "project_clean", "project_restore", "project_snapshot", "project_test",
+        "readme_generate", "regex_replace_in_files", "report_to_user", "right_click", "run_build", "run_command",
+        "run_tests", "safe_undo", "save_to_memory", "scroll", "session_export", "set_value",
+        "set_window_frame", "simulator_boot", "simulator_controller", "start_subagent", "string_catalog_migrator", "strings_localization",
+        "svg_to_png", "swift_format_lint", "swift_package_manager", "symbol_move_file", "symbol_rename_project", "tar_archive_create",
+        "tar_archive_extract", "test_data_factory", "test_run_single", "test_snapshot_manage", "type_text", "ui_test_scaffold",
+        "unzip_file", "use_app", "use_system", "use_terminal", "use_workers", "version_control_operator",
+        "write_file", "write_terminal", "yaml_validate", "zip_file", "zoom",
+    ]
+
+    public static let terminalToolNames: Set<String> = [
+        "binary_size_report", "code_signing_diagnose", "compiler_diagnostics_engine", "create_terminal", "dependency_resolution_engine", "device_list",
+        "disk_space_analyzer", "docc_build", "generate_xcodeproj", "github_repo", "gzip_compress_file", "gzip_decompress_file",
+        "icon_generator_tool", "image_convert_format", "image_extract_metadata", "image_generate_thumbnail", "image_get_dimensions", "mach_o_binary_analyzer",
+        "package_dependency_audit", "package_dependency_update", "package_manifest_validate", "performance_benchmark", "preflight_checks", "process_monitor_tool",
+        "project_archive", "project_build", "project_build_settings", "project_clean", "project_scheme_list", "project_signing",
+        "project_target_list", "project_test", "provisioning_check", "provisioning_profile_reader", "reverse_analyze", "run_build",
+        "run_command", "run_tests", "signing_certificate_inspector", "simulator_boot", "simulator_controller", "simulator_list",
+        "spm_dependency_tree", "svg_to_png", "swift_ast_inspector", "swift_format_lint", "swift_package_manager", "tar_archive_create",
+        "tar_archive_extract", "test_coverage_report", "test_coverage_reporter", "test_run_single", "unzip_file", "use_system",
+        "use_terminal", "write_terminal", "xcode_build_settings_inspector", "xcode_device_destination_finder", "xcode_scheme_manager", "xcode_toolchain_info",
+        "xcresult_parser", "zip_file",
+    ]
+
+    public static let gitMutatingToolNames: Set<String> = [
+        "git_bisect", "git_branch_checkout", "git_branch_create", "git_branch_manager", "git_cherry_pick", "git_commit",
+        "git_pull", "git_push", "git_stash_operator", "version_control_operator",
+    ]
+
+    public static let deleteToolNames: Set<String> = [
+        "delete_artifact", "delete_directory", "delete_file", "delete_worker", "dir_delete", "file_delete",
+        "mem_clear", "mem_delete", "project_clean", "test_snapshot_manage",
+    ]
+
+    public static var approvalRequiredDeniedToolNames: Set<String> {
+        terminalToolNames.union(gitMutatingToolNames).union(deleteToolNames)
+    }
+
+    public static func isDeniedByPermissionProfile(_ tool: String, profile: AssistantPermissionProfile) -> Bool {
+        switch profile {
+        case .readOnly:
+            return readOnlyDeniedToolNames.contains(tool)
+        case .approvalRequired:
+            return approvalRequiredDeniedToolNames.contains(tool)
+        case .workspaceModify, .terminal:
+            return false
+        }
+    }
+
+    public static func permissionProfile(forAssistantId assistantId: String?, in assistants: [RemoteAssistant]) -> AssistantPermissionProfile? {
+        guard let assistantId else { return nil }
+        guard let id = UUID(uuidString: assistantId), let assistant = assistants.first(where: { $0.id == id }) else { return .readOnly }
+        return AssistantPermissionProfile(remote: assistant.permissionProfile) ?? .readOnly
+    }
+
+    public static func permissionProfile(forThread thread: RemoteThreadSummary, in assistants: [RemoteAssistant]) -> AssistantPermissionProfile? {
+        permissionProfile(forAssistantId: thread.assistantId, in: assistants)
+    }
+
     public static func execute(
         _ name: String,
         arguments: [String: JSONValue],
         toolset: AgentToolset,
         runtime: AgentsRuntimeClient,
         sessionThreadId: String? = nil,
-        allowedTools: [String]? = nil
+        allowedTools: [String]? = nil,
+        permissionProfile: AssistantPermissionProfile? = nil
     ) async throws -> JSONValue {
+        if let permissionProfile, isDeniedByPermissionProfile(name, profile: permissionProfile) {
+            throw SystemToolError.toolNotActive(tool: name, toolset: toolset)
+        }
         var pinnedArguments = arguments
         if let sessionThreadId, !sessionThreadId.isEmpty {
             pinnedArguments["threadId"] = .string(sessionThreadId)
@@ -4454,7 +4533,7 @@ public nonisolated enum SystemToolRegistry {
                   case .object(let toolArguments) = parsed else {
                 throw SystemToolError.executionFailed(tool: name, message: "arguments must be a JSON object string.")
             }
-            return try await execute(toolName, arguments: toolArguments, toolset: toolset, runtime: runtime, sessionThreadId: sessionThreadId, allowedTools: allowedTools)
+            return try await execute(toolName, arguments: toolArguments, toolset: toolset, runtime: runtime, sessionThreadId: sessionThreadId, allowedTools: allowedTools, permissionProfile: permissionProfile)
         case "take_screenshot":
             let threadId = try requiredString(arguments, "threadId", tool: name)
             let includeScreenshot = optionalBool(arguments, "include_screenshot") ?? true

@@ -3395,4 +3395,294 @@ struct ToolsetTests {
         await client.close()
     }
 
+
+    private static func assistant(
+        id: UUID = UUID(),
+        profile: RemoteAssistant.PermissionProfile
+    ) -> RemoteAssistant {
+        RemoteAssistant(
+            id: id,
+            name: "Profile Probe",
+            category: .codeReviewSecurity,
+            systemPrompt: "Probe.",
+            permissionProfile: profile
+        )
+    }
+
+    private static func expectProfileDenied(
+        _ tool: String,
+        arguments: [String: JSONValue],
+        profile: AssistantPermissionProfile,
+        client: AgentsRuntimeClient
+    ) async {
+        do {
+            _ = try await SystemToolRegistry.execute(
+                tool, arguments: arguments, toolset: .system, runtime: client, permissionProfile: profile
+            )
+            Issue.record("Expected toolNotActive error for \(tool) under \(profile)")
+        } catch let error as SystemToolError {
+            #expect(error == .toolNotActive(tool: tool, toolset: .system))
+        } catch {
+            Issue.record("Unexpected error for \(tool): \(error)")
+        }
+    }
+
+    @Test("Read-only profile denies write tools before any dispatch")
+    func readOnlyProfileDeniesWriteTools() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let denied: [String] = [
+            "write_file", "edit_file", "delete_file", "git_commit", "create_terminal",
+            "use_terminal", "mem_store", "use_app", "use_workers", "simulator_boot",
+            "code_snippet_manager", "string_catalog_migrator", "write_terminal", "run_build",
+        ]
+        for tool in denied {
+            await Self.expectProfileDenied(tool, arguments: [:], profile: .readOnly, client: client)
+        }
+        let probe = tempRoot.appendingPathComponent("probe.txt")
+        await Self.expectProfileDenied(
+            "write_file",
+            arguments: [
+                "cwd": .string(tempRoot.path),
+                "path": .string("probe.txt"),
+                "content": .string("must not land"),
+            ],
+            profile: .readOnly,
+            client: client
+        )
+        #expect(!FileManager.default.fileExists(atPath: probe.path))
+        await client.close()
+    }
+
+    @Test("Read-only profile allows read tools")
+    func readOnlyProfileAllowsReadTools() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let listed = try await SystemToolRegistry.execute(
+            "view_memory",
+            arguments: ["scope": .string("global")],
+            toolset: .system, runtime: client, permissionProfile: .readOnly
+        )
+        #expect(listed.arrayValue != nil)
+        let files = try await SystemToolRegistry.execute(
+            "list_files",
+            arguments: ["cwd": .string(tempRoot.path)],
+            toolset: .system, runtime: client, permissionProfile: .readOnly
+        )
+        #expect(files.arrayValue != nil)
+        _ = try await SystemToolRegistry.execute(
+            "write_file",
+            arguments: [
+                "cwd": .string(tempRoot.path),
+                "path": .string("seed.txt"),
+                "content": .string("seed"),
+            ],
+            toolset: .system, runtime: client
+        )
+        let read = try await SystemToolRegistry.execute(
+            "read_file",
+            arguments: ["cwd": .string(tempRoot.path), "path": .string("seed.txt")],
+            toolset: .system, runtime: client, permissionProfile: .readOnly
+        )
+        #expect(read["content"]?.stringValue == "seed")
+        await client.close()
+    }
+
+    @Test("Approval-required profile denies terminal, git-mutating, and delete tools")
+    func approvalRequiredProfileDeniesRiskyTools() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let denied: [String] = [
+            "use_terminal", "run_build", "create_terminal", "project_build", "write_terminal",
+            "image_get_dimensions", "simulator_list", "project_clean",
+            "git_push", "git_commit", "git_branch_create", "version_control_operator",
+            "git_stash_operator", "git_bisect",
+            "delete_file", "mem_clear", "delete_worker", "test_snapshot_manage",
+        ]
+        for tool in denied {
+            await Self.expectProfileDenied(tool, arguments: [:], profile: .approvalRequired, client: client)
+        }
+        let stored = try await SystemToolRegistry.execute(
+            "mem_store",
+            arguments: ["key": .string("approved"), "value": .string("yes"), "scope": .string("global")],
+            toolset: .system, runtime: client, permissionProfile: .approvalRequired
+        )
+        #expect(stored["overwritten"]?.boolValue == false)
+        await client.close()
+    }
+
+    @Test("Workspace-modify and terminal profiles deny nothing at the gate")
+    func permissiveProfilesDenyNothing() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        for profile in [AssistantPermissionProfile.workspaceModify, AssistantPermissionProfile.terminal] {
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    "write_file", arguments: [:], toolset: .system, runtime: client, permissionProfile: profile
+                )
+                Issue.record("Expected missingArgument error for write_file under \(profile)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: "write_file", argument: "cwd"))
+            } catch {
+                Issue.record("Unexpected error for write_file: \(error)")
+            }
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    "use_terminal", arguments: [:], toolset: .system, runtime: client, permissionProfile: profile
+                )
+                Issue.record("Expected missingArgument error for use_terminal under \(profile)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: "use_terminal", argument: "threadId"))
+            } catch {
+                Issue.record("Unexpected error for use_terminal: \(error)")
+            }
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    "git_push", arguments: [:], toolset: .system, runtime: client, permissionProfile: profile
+                )
+                Issue.record("Expected missingArgument error for git_push under \(profile)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: "git_push", argument: "threadId"))
+            } catch {
+                Issue.record("Unexpected error for git_push: \(error)")
+            }
+        }
+        await client.close()
+    }
+
+    @Test("No assistant profile behaves exactly as today")
+    func noAssistantProfileBehavesAsToday() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "write_file", arguments: [:], toolset: .system, runtime: client
+            )
+            Issue.record("Expected missingArgument error for write_file without a profile")
+        } catch let error as SystemToolError {
+            #expect(error == .missingArgument(tool: "write_file", argument: "cwd"))
+        } catch {
+            Issue.record("Unexpected error for write_file: \(error)")
+        }
+        let stored = try await SystemToolRegistry.execute(
+            "mem_store",
+            arguments: ["key": .string("plain"), "value": .string("yes"), "scope": .string("global")],
+            toolset: .system, runtime: client
+        )
+        #expect(stored["overwritten"]?.boolValue == false)
+        await client.close()
+    }
+
+    @Test("Profile gate applies through use_mcp sub-dispatch")
+    func profileGateAppliesThroughUseMcp() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "use_mcp",
+                arguments: [
+                    "serverName": .string("coincide"),
+                    "toolName": .string("mem_store"),
+                    "arguments": .string("{\"key\": \"via_mcp\", \"value\": \"no\", \"scope\": \"global\"}"),
+                ],
+                toolset: .system, runtime: client, permissionProfile: .readOnly
+            )
+            Issue.record("Expected toolNotActive error for mem_store reached through use_mcp under read-only")
+        } catch let error as SystemToolError {
+            #expect(error == .toolNotActive(tool: "mem_store", toolset: .system))
+        } catch {
+            Issue.record("Unexpected error for use_mcp mem_store: \(error)")
+        }
+        let listed = try await SystemToolRegistry.execute(
+            "use_mcp",
+            arguments: [
+                "serverName": .string("coincide"),
+                "toolName": .string("view_memory"),
+                "arguments": .string("{\"scope\": \"global\"}"),
+            ],
+            toolset: .system, runtime: client, permissionProfile: .readOnly
+        )
+        #expect(listed.arrayValue != nil)
+        await client.close()
+    }
+
+    @Test("Permission profile resolves from thread to assistant, failing closed")
+    func permissionProfileResolution() {
+        let readOnlyID = UUID()
+        let modifyID = UUID()
+        let terminalID = UUID()
+        let approvalID = UUID()
+        let unknownProfileID = UUID()
+        let assistants = [
+            Self.assistant(id: readOnlyID, profile: .readOnly),
+            Self.assistant(id: modifyID, profile: .workspaceModify),
+            Self.assistant(id: terminalID, profile: .terminal),
+            Self.assistant(id: approvalID, profile: .approvalRequired),
+            Self.assistant(id: unknownProfileID, profile: .unknown),
+        ]
+        #expect(SystemToolRegistry.permissionProfile(forAssistantId: nil, in: assistants) == nil)
+        #expect(SystemToolRegistry.permissionProfile(forAssistantId: readOnlyID.uuidString, in: assistants) == .readOnly)
+        #expect(SystemToolRegistry.permissionProfile(forAssistantId: modifyID.uuidString, in: assistants) == .workspaceModify)
+        #expect(SystemToolRegistry.permissionProfile(forAssistantId: terminalID.uuidString, in: assistants) == .terminal)
+        #expect(SystemToolRegistry.permissionProfile(forAssistantId: approvalID.uuidString, in: assistants) == .approvalRequired)
+        #expect(SystemToolRegistry.permissionProfile(forAssistantId: unknownProfileID.uuidString, in: assistants) == .readOnly)
+        #expect(SystemToolRegistry.permissionProfile(forAssistantId: UUID().uuidString, in: assistants) == .readOnly)
+        #expect(SystemToolRegistry.permissionProfile(forAssistantId: "not-a-uuid", in: assistants) == .readOnly)
+        let plainThread = RemoteThreadSummary(
+            id: UUID(),
+            projectID: UUID(),
+            title: "Plain",
+            selection: RemoteSelection(provider: "codex", modelID: "default", modelName: "Default")
+        )
+        #expect(SystemToolRegistry.permissionProfile(forThread: plainThread, in: assistants) == nil)
+        let assistedThread = RemoteThreadSummary(
+            id: UUID(),
+            projectID: UUID(),
+            title: "Assisted",
+            selection: RemoteSelection(provider: "codex", modelID: "default", modelName: "Default"),
+            assistantId: approvalID.uuidString
+        )
+        #expect(SystemToolRegistry.permissionProfile(forThread: assistedThread, in: assistants) == .approvalRequired)
+        let orphanThread = RemoteThreadSummary(
+            id: UUID(),
+            projectID: UUID(),
+            title: "Orphan",
+            selection: RemoteSelection(provider: "codex", modelID: "default", modelName: "Default"),
+            assistantId: UUID().uuidString
+        )
+        #expect(SystemToolRegistry.permissionProfile(forThread: orphanThread, in: assistants) == .readOnly)
+    }
+
+    @Test("Permission profile deny sets name only registered tools")
+    func permissionProfileDenySetsAreRegisteredTools() {
+        let registered = Set(SystemToolRegistry.systemTools.map(\\.name))
+        #expect(SystemToolRegistry.readOnlyDeniedToolNames.count == 137)
+        #expect(SystemToolRegistry.terminalToolNames.count == 62)
+        #expect(SystemToolRegistry.gitMutatingToolNames.count == 10)
+        #expect(SystemToolRegistry.deleteToolNames.count == 10)
+        #expect(SystemToolRegistry.approvalRequiredDeniedToolNames.count == 81)
+        #expect(SystemToolRegistry.readOnlyDeniedToolNames.isSubset(of: registered))
+        #expect(SystemToolRegistry.terminalToolNames.isSubset(of: registered))
+        #expect(SystemToolRegistry.gitMutatingToolNames.isSubset(of: registered))
+        #expect(SystemToolRegistry.deleteToolNames.isSubset(of: registered))
+        #expect(SystemToolRegistry.readOnlyDeniedToolNames.contains("write_file"))
+        #expect(!SystemToolRegistry.readOnlyDeniedToolNames.contains("read_file"))
+        #expect(SystemToolRegistry.terminalToolNames.contains("use_terminal"))
+        #expect(SystemToolRegistry.gitMutatingToolNames.contains("git_push"))
+        #expect(SystemToolRegistry.deleteToolNames.contains("delete_file"))
+        #expect(SystemToolRegistry.terminalToolNames.contains("project_clean"))
+        #expect(SystemToolRegistry.deleteToolNames.contains("project_clean"))
+        #expect(!SystemToolRegistry.approvalRequiredDeniedToolNames.contains("read_file"))
+        #expect(!SystemToolRegistry.approvalRequiredDeniedToolNames.contains("mem_store"))
+        #expect(SystemToolRegistry.isDeniedByPermissionProfile("write_file", profile: .readOnly))
+        #expect(!SystemToolRegistry.isDeniedByPermissionProfile("read_file", profile: .readOnly))
+        #expect(SystemToolRegistry.isDeniedByPermissionProfile("use_terminal", profile: .approvalRequired))
+        #expect(SystemToolRegistry.isDeniedByPermissionProfile("git_push", profile: .approvalRequired))
+        #expect(SystemToolRegistry.isDeniedByPermissionProfile("delete_file", profile: .approvalRequired))
+        #expect(!SystemToolRegistry.isDeniedByPermissionProfile("write_file", profile: .approvalRequired))
+        #expect(!SystemToolRegistry.isDeniedByPermissionProfile("write_file", profile: .workspaceModify))
+        #expect(!SystemToolRegistry.isDeniedByPermissionProfile("use_terminal", profile: .terminal))
+        #expect(!SystemToolRegistry.isDeniedByPermissionProfile("git_push", profile: .terminal))
+    }
+
 }
