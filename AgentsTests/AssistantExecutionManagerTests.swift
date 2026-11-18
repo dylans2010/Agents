@@ -27,6 +27,7 @@ struct AssistantExecutionManagerTests {
         var gitStateValue = RemoteGitState(isRepository: true, branch: "main")
         var newThreadError: Error?
         var sendError: Error?
+        var stopError: Error?
 
         init() {
             let threadID = workerThreadID
@@ -35,9 +36,9 @@ struct AssistantExecutionManagerTests {
             workerResultValue = workerStatusValue
         }
 
-        static func transcript(threadID: UUID, items: [RemoteItem], turn: RemoteTurnState = RemoteTurnState(), turnChanges: [String: [RemoteChangedFile]] = [:]) -> RemoteTranscript {
+        static func transcript(threadID: UUID, items: [RemoteItem], turn: RemoteTurnState = RemoteTurnState(), turnChanges: [String: [RemoteChangedFile]] = [:], unseen: String? = nil) -> RemoteTranscript {
             RemoteTranscript(
-                thread: RemoteThreadSummary(id: threadID, projectID: UUID(), title: "Test", selection: RemoteSelection(provider: "claude", modelID: "sonnet", modelName: "Sonnet")),
+                thread: RemoteThreadSummary(id: threadID, projectID: UUID(), title: "Test", selection: RemoteSelection(provider: "claude", modelID: "sonnet", modelName: "Sonnet"), unseen: unseen),
                 items: items,
                 turn: turn,
                 turnChanges: turnChanges
@@ -53,6 +54,7 @@ struct AssistantExecutionManagerTests {
         func setWorkersByParent(_ value: [WorkerRecord]) { workersByParent = value }
         func setNewThreadError(_ value: Error?) { newThreadError = value }
         func setSendError(_ value: Error?) { sendError = value }
+        func setStopError(_ value: Error?) { stopError = value }
         func setNewThreadID(_ value: UUID) { newThreadID = value }
 
         func newThread(projectID: UUID?, systemPrompt: String?, toolset: AgentToolset?, allowedTools: [String]?, assistantId: String?, selection: RemoteSelectionOverride?) async throws -> UUID {
@@ -76,6 +78,7 @@ struct AssistantExecutionManagerTests {
         }
 
         func stop(thread: UUID) async throws {
+            if let stopError { throw stopError }
             stoppedThreads.append(thread)
         }
 
@@ -553,6 +556,66 @@ struct AssistantExecutionManagerTests {
         #expect(await manager.run(id: runID)?.status == .cancelled)
     }
 
+    @Test("Failed cancel refreshes the run once and resumes polling instead of stranding it")
+    func failedCancelResumesPolling() async throws {
+        struct StopFailure: Error {}
+        let runtime = FakeAssistantRuntime()
+        let threadID = UUID()
+        await runtime.setNewThreadID(threadID)
+        await runtime.setStopError(StopFailure())
+        let (manager, dir) = try Self.makeManager(
+            runtime: runtime, catalog: AssistantCatalog(builtIns: [Self.definition()]), pollInterval: .milliseconds(50))
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let runID = try await manager.start(assistantID: "builtin.code-maintenance.tidy-imports", task: "Tidy the imports.")
+        let outcome = await manager.cancel(runID: runID)
+        if case .failed = outcome {
+        } else {
+            Issue.record("Expected failed outcome, got \(outcome)")
+        }
+        #expect(await manager.run(id: runID)?.status == .running)
+        #expect(await manager.run(id: runID)?.endedAt == nil)
+        await runtime.setStopError(nil)
+        await runtime.setTranscript(FakeAssistantRuntime.transcript(threadID: threadID, items: [], turn: RemoteTurnState(isRunning: false)))
+        await runtime.setPollStatus(RuntimePollStatus(turnResultsSerial: 1, turnResultsRecent: [TurnResultEntry(serial: 1, threadID: threadID.uuidString, outcome: "completed")]))
+        try await Task.sleep(for: .milliseconds(400))
+        #expect(await manager.run(id: runID)?.status == .completed)
+    }
+
+    @Test("Unknown turn outcome fails the run with a descriptive error instead of a running zombie")
+    func unknownTurnOutcomeFailsRun() async throws {
+        let runtime = FakeAssistantRuntime()
+        let threadID = UUID()
+        await runtime.setNewThreadID(threadID)
+        await runtime.setTranscript(FakeAssistantRuntime.transcript(threadID: threadID, items: [], turn: RemoteTurnState(isRunning: false)))
+        await runtime.setPollStatus(RuntimePollStatus(turnResultsSerial: 1, turnResultsRecent: [TurnResultEntry(serial: 1, threadID: threadID.uuidString, outcome: "stalled")]))
+        let (manager, dir) = try Self.makeManager(
+            runtime: runtime, catalog: AssistantCatalog(builtIns: [Self.definition()]), pollInterval: .milliseconds(50))
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let runID = try await manager.start(assistantID: "builtin.code-maintenance.tidy-imports", task: "Tidy the imports.")
+        try await Task.sleep(for: .milliseconds(400))
+        let run = await manager.run(id: runID)
+        #expect(run?.status == .failed)
+        #expect(run?.endedAt != nil)
+        #expect(run?.errors.contains("Unknown run outcome 'stalled'") == true)
+    }
+
+    @Test("Unknown unseen outcome fails the run with a descriptive error instead of a running zombie")
+    func unknownUnseenOutcomeFailsRun() async throws {
+        let runtime = FakeAssistantRuntime()
+        let threadID = UUID()
+        await runtime.setNewThreadID(threadID)
+        await runtime.setTranscript(FakeAssistantRuntime.transcript(threadID: threadID, items: [], turn: RemoteTurnState(isRunning: false), unseen: "stalled"))
+        let (manager, dir) = try Self.makeManager(
+            runtime: runtime, catalog: AssistantCatalog(builtIns: [Self.definition()]), pollInterval: .milliseconds(50))
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let runID = try await manager.start(assistantID: "builtin.code-maintenance.tidy-imports", task: "Tidy the imports.")
+        try await Task.sleep(for: .milliseconds(400))
+        let run = await manager.run(id: runID)
+        #expect(run?.status == .failed)
+        #expect(run?.endedAt != nil)
+        #expect(run?.errors.contains("Unknown run outcome 'stalled'") == true)
+    }
+
     @Test("Background run completes from the worker status and picks up the worker result")
     func backgroundCompletion() async throws {
         let runtime = FakeAssistantRuntime()
@@ -660,6 +723,7 @@ struct AssistantExecutionManagerTests {
 
     @Test("Run status maps only from statuses the runtime produces")
     func runStatusMapping() {
+        #expect(AssistantRunStatus(workerStatus: "queued") == .queued)
         #expect(AssistantRunStatus(workerStatus: "running") == .running)
         #expect(AssistantRunStatus(workerStatus: "completed") == .completed)
         #expect(AssistantRunStatus(workerStatus: "failed") == .failed)

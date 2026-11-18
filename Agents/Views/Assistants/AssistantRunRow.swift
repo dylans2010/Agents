@@ -69,7 +69,9 @@ struct AssistantRunStatusBadge: View {
     var body: some View {
         let color: Color
         switch status {
+        case .queued: color = AppTheme.secondaryLabel
         case .running: color = AppTheme.accent
+        case .awaitingApproval: color = AppTheme.warning
         case .completed: color = AppTheme.success
         case .failed: color = AppTheme.danger
         case .cancelled: color = AppTheme.warning

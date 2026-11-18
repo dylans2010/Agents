@@ -225,6 +225,27 @@ struct AssistantDashboardViewModelTests {
         #expect(AssistantRunStatus.cancelled.isTerminal == true)
     }
 
+    @Test("Unified status carries the execution states with titles and Codable round trips")
+    func unifiedStatusCoversExecutionStates() throws {
+        #expect(AssistantRunStatus.queued.title == "Queued")
+        #expect(AssistantRunStatus.running.title == "Running")
+        #expect(AssistantRunStatus.awaitingApproval.title == "Awaiting Approval")
+        #expect(AssistantRunStatus.completed.title == "Completed")
+        #expect(AssistantRunStatus.failed.title == "Failed")
+        #expect(AssistantRunStatus.cancelled.title == "Cancelled")
+        #expect(AssistantRunStatus.unknown.title == "Unknown")
+        #expect(AssistantRunStatus.queued.isTerminal == false)
+        #expect(AssistantRunStatus.awaitingApproval.isTerminal == false)
+        #expect(AssistantRunStatus.unknown.isTerminal == false)
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+        for status in AssistantRunStatus.allCases {
+            let data = try encoder.encode(status)
+            #expect(try decoder.decode(AssistantRunStatus.self, from: data) == status)
+        }
+        #expect(AssistantRunStatus.allCases.count == 7)
+    }
+
     @Test("Assistant filter excludes runs without an assistant id")
     func assistantFilterExcludesUnattributedRuns() {
         let assistantID = UUID().uuidString

@@ -2,41 +2,6 @@ import CoincideRemoteKit
 import Foundation
 import Observation
 
-public enum AssistantRunStatus: String, CaseIterable, Sendable {
-    case running
-    case completed
-    case failed
-    case cancelled
-    case unknown
-
-    public var title: String {
-        switch self {
-        case .running: return "Running"
-        case .completed: return "Completed"
-        case .failed: return "Failed"
-        case .cancelled: return "Cancelled"
-        case .unknown: return "Unknown"
-        }
-    }
-
-    public static func from(runtimeStatus: String) -> AssistantRunStatus {
-        switch runtimeStatus {
-        case "running": return .running
-        case "completed": return .completed
-        case "failed": return .failed
-        case "cancelled": return .cancelled
-        default: return .unknown
-        }
-    }
-
-    public var isTerminal: Bool {
-        switch self {
-        case .completed, .failed, .cancelled: return true
-        case .running, .unknown: return false
-        }
-    }
-}
-
 public enum AssistantRunStatusFilter: String, CaseIterable, Sendable, Identifiable {
     case all
     case running

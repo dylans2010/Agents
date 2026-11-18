@@ -8,6 +8,29 @@ public enum AssistantRunStatus: String, Codable, Hashable, Sendable, CaseIterabl
     case completed
     case failed
     case cancelled
+    case unknown
+
+    public var title: String {
+        switch self {
+        case .queued: return "Queued"
+        case .running: return "Running"
+        case .awaitingApproval: return "Awaiting Approval"
+        case .completed: return "Completed"
+        case .failed: return "Failed"
+        case .cancelled: return "Cancelled"
+        case .unknown: return "Unknown"
+        }
+    }
+
+    public static func from(runtimeStatus: String) -> AssistantRunStatus {
+        switch runtimeStatus {
+        case "running": return .running
+        case "completed": return .completed
+        case "failed": return .failed
+        case "cancelled": return .cancelled
+        default: return .unknown
+        }
+    }
 
     public var isTerminal: Bool {
         self == .completed || self == .failed || self == .cancelled
@@ -15,6 +38,8 @@ public enum AssistantRunStatus: String, Codable, Hashable, Sendable, CaseIterabl
 
     public init(workerStatus: String) {
         switch workerStatus {
+        case "queued":
+            self = .queued
         case "completed":
             self = .completed
         case "failed":
@@ -415,7 +440,6 @@ public enum AssistantRunError: Error, Equatable, Sendable, LocalizedError {
     case emptyTask
     case taskTooLong(limit: Int)
     case workerNameTooLong(limit: Int)
-    case unknownTools(names: [String])
     case runNotFound(id: UUID)
     case runLimitReached(limit: Int)
     case runtimeFailure(message: String)
@@ -434,8 +458,6 @@ public enum AssistantRunError: Error, Equatable, Sendable, LocalizedError {
             return "Task exceeds the \(limit)-character worker task limit"
         case .workerNameTooLong(let limit):
             return "Worker name exceeds the \(limit)-character limit"
-        case .unknownTools(let names):
-            return "Unknown tools: \(names.joined(separator: ", "))"
         case .runNotFound(let id):
             return "No run with id \(id.uuidString)"
         case .runLimitReached(let limit):

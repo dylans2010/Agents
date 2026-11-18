@@ -113,10 +113,6 @@ public actor AssistantExecutionManager {
         guard !trimmed.isEmpty else {
             throw AssistantRunError.emptyTask
         }
-        let unknown = SystemToolRegistry.unknownToolNames(in: definition.allowedTools)
-        guard unknown.isEmpty else {
-            throw AssistantRunError.unknownTools(names: unknown)
-        }
         let resolvedConfig = definition.modelConfig.resolvingCurrent(provider: currentProvider, model: currentModel)
         let descriptor = AssistantPromptDescriptor(
             id: definition.persistenceID?.uuidString ?? definition.id,
@@ -310,6 +306,10 @@ public actor AssistantExecutionManager {
                 try await runtime.stop(thread: threadID)
             }
         } catch {
+            _ = await refresh(runID: runID)
+            if let current = runs[runID], !current.isTerminal {
+                pollTasks[runID] = Task { await self.pollLoop(runID: runID) }
+            }
             return .failed(.runtimeFailure(message: error.localizedDescription))
         }
         run.status = .cancelled
@@ -438,7 +438,7 @@ public actor AssistantExecutionManager {
                             }
                         }
                         runs[runID] = run
-                        await finish(runID: runID, status: AssistantRunStatus(workerStatus: record.status))
+                        await finish(runID: runID, status: AssistantRunStatus(workerStatus: record.status), outcome: record.status)
                         return true
                     }
                 }
@@ -449,7 +449,7 @@ public actor AssistantExecutionManager {
                     run.lastTurnSerial = watermark
                     if let entry = entries.first(where: { $0.threadID == observedThreadID.uuidString }) {
                         runs[runID] = run
-                        await finish(runID: runID, status: AssistantRunStatus(turnOutcome: entry.outcome))
+                        await finish(runID: runID, status: AssistantRunStatus(turnOutcome: entry.outcome), outcome: entry.outcome)
                         return true
                     }
                 } catch {
@@ -459,7 +459,7 @@ public actor AssistantExecutionManager {
                 }
                 if let unseen = transcript.thread.unseen, !unseen.isEmpty {
                     runs[runID] = run
-                    await finish(runID: runID, status: AssistantRunStatus(unseen: unseen))
+                    await finish(runID: runID, status: AssistantRunStatus(unseen: unseen), outcome: unseen)
                     return true
                 }
             }
@@ -474,11 +474,16 @@ public actor AssistantExecutionManager {
         }
     }
 
-    private func finish(runID: UUID, status: AssistantRunStatus) async {
+    private func finish(runID: UUID, status: AssistantRunStatus, outcome: String? = nil) async {
         guard var run = runs[runID], !run.isTerminal else {
             return
         }
-        run.status = status
+        if status.isTerminal {
+            run.status = status
+        } else {
+            run.status = .failed
+            run.errors.append("Unknown run outcome '\(outcome ?? status.rawValue)'")
+        }
         run.endedAt = Date()
         if let threadID = run.threadID {
             if let diff = try? await runtime.fetchDiff(thread: threadID, scope: .uncommitted),
@@ -491,7 +496,7 @@ public actor AssistantExecutionManager {
         pollTasks[runID] = nil
         persist()
         let report = AssistantRunReport(run: run)
-        switch status {
+        switch run.status {
         case .completed:
             emit(.completed(report), for: runID)
         case .failed:
