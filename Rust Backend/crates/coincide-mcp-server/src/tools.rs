@@ -21907,11 +21907,11 @@ mod tests {
         );
         assert!(crate::assets::thread_profile_allows(&read_only, "read_file"));
         assert!(!crate::assets::thread_profile_allows(&read_only, "write_file"));
-        let unknown = crate::assets::ThreadProfile::Known(
+        let rootProfile = crate::assets::ThreadProfile::Known(
             stored_profile_value(&json!({"permissionProfile": "root"})).to_owned(),
         );
-        assert!(!crate::assets::thread_profile_allows(&unknown, "read_file"));
-        assert!(!crate::assets::thread_profile_allows(&unknown, "write_file"));
+        assert!(!crate::assets::thread_profile_allows(&rootProfile, "read_file"));
+        assert!(!crate::assets::thread_profile_allows(&rootProfile, "write_file"));
     }
 
     #[test]
