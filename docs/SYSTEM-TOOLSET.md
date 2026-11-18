@@ -1739,3 +1739,23 @@ System Tools cannot switch to OpenCode or Lithos (`agent.rs`:
 provider are left untouched, and the error names the explicit action.
 Threads stored as Provider Tools, or with no stored toolset, switch
 freely.
+
+## Error sanitization
+
+Every error that can reach the user passes through `ErrorSanitizer`
+(`Agents/Core/ErrorSanitizer.swift`) before it is displayed: toasts via
+`AppModel.presentError`, the stored `lastError` shown in inline banners, and
+runtime failures surfaced from the poll loop. The layer strips filesystem
+paths (home directory, Application Support, temporary directories, curl-config
+paths), credentials and key material, internal identifiers (thread UUIDs,
+provider-internal codes), transport details (socket addresses, URLs, ports),
+and internal prompt and asset fragments, then keeps the actionable remainder
+and appends a next step (for example, retrying after a connection failure)
+when the original text names one. Raw Rust error strings are sanitized where
+they cross into Swift in `AgentsFFIBridge` as well as at display time.
+Programmatic error kinds pass through untouched: `AgentsRuntimeError` cases
+and `RemoteError.code` values are preserved exactly, and only the
+human-readable message is sanitized. Diagnostic output uses the same stripping
+via `ErrorSanitizer.diagnosticMessage`, prefixed with the untouched kind, so
+logs and diagnostic exports never carry prompts, credentials, or transport
+details either.

@@ -133,6 +133,7 @@ public final class AppModel {
     @ObservationIgnored private var lastObservedTurnSerial: UInt64 = 0
     @ObservationIgnored private var lastPollActive: Bool = false
     @ObservationIgnored private var pollFastUntil: Date = .distantPast
+    @ObservationIgnored private var lastPollErrorMessage: String?
 
     /// Lifecycle hooks consumed by `AppDelegate` & `StatusBarController`.
     @ObservationIgnored public var onStatusChanged: (@MainActor (RuntimePollStatus) -> Void)?
@@ -259,8 +260,9 @@ public final class AppModel {
                 startPollLoop()
             }
         } catch {
-            self.lastError = error.localizedDescription
-            presentToast("Runtime Startup Failed", detail: error.localizedDescription, style: .error)
+            let message = ErrorSanitizer.displayMessage(for: error)
+            self.lastError = message
+            presentToast("Runtime Startup Failed", detail: message, style: .error)
         }
     }
 
@@ -288,7 +290,23 @@ public final class AppModel {
 
     private func performSinglePollTick() async {
         guard let client = runtime else { return }
-        guard let polled = try? await client.pollStatus() else { return }
+        let polled: RuntimePollStatus
+        do {
+            polled = try await client.pollStatus()
+        } catch {
+            let message = ErrorSanitizer.displayMessage(for: error)
+            if lastPollErrorMessage != message {
+                lastPollErrorMessage = message
+                lastError = message
+            }
+            return
+        }
+        if let previousPollError = lastPollErrorMessage {
+            lastPollErrorMessage = nil
+            if lastError == previousPollError {
+                lastError = nil
+            }
+        }
         lastPollActive = polled.busy || polled.running > 0 || polled.starting > 0 || !polled.runningThreadIDs.isEmpty
         if polled.busy {
             return
@@ -381,7 +399,7 @@ public final class AppModel {
             let ws = try await client.fetchWorkspace(includeArchived: showArchivedThreads)
             self.workspace = ws
         } catch {
-            self.lastError = error.localizedDescription
+            self.lastError = ErrorSanitizer.displayMessage(for: error)
         }
     }
 
@@ -453,7 +471,7 @@ public final class AppModel {
                 await refreshTerminals()
             }
         } catch {
-            self.lastError = error.localizedDescription
+            self.lastError = ErrorSanitizer.displayMessage(for: error)
         }
     }
 
@@ -989,7 +1007,7 @@ public final class AppModel {
                 activeDiff = resolved
             }
         } catch {
-            self.lastError = error.localizedDescription
+            self.lastError = ErrorSanitizer.displayMessage(for: error)
         }
     }
 
@@ -1001,7 +1019,7 @@ public final class AppModel {
                 activeGitState = state
             }
         } catch {
-            self.lastError = error.localizedDescription
+            self.lastError = ErrorSanitizer.displayMessage(for: error)
         }
     }
 
@@ -1391,7 +1409,7 @@ public final class AppModel {
     }
 
     public func presentError(_ error: Error) {
-        let message = error.localizedDescription
+        let message = ErrorSanitizer.displayMessage(for: error)
         self.lastError = message
         presentToast("Action Failed", detail: message, style: .error)
     }

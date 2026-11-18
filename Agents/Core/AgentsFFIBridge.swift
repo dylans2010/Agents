@@ -79,7 +79,7 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
             self.runtimePtr = opened
         } else {
             let message = Self.consumeCString(outError) ?? "Unknown runtime initialization failure"
-            throw AgentsRuntimeError.openFailed(message)
+            throw AgentsRuntimeError.openFailed(ErrorSanitizer.sanitizeText(message))
         }
     }
 
@@ -198,7 +198,7 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
                envelope["ok"]?.boolValue == false,
                let errorText = envelope["error"]?.stringValue
             {
-                throw AgentsRuntimeError.desktopFailure(errorText)
+                throw AgentsRuntimeError.desktopFailure(ErrorSanitizer.sanitizeText(errorText))
             }
             return try decoder.decode(RuntimePollStatus.self, from: data)
         }
@@ -314,7 +314,7 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
                 let errMsg = envelope.error?.stringValue
                     ?? envelope.error?["message"]?.stringValue
                     ?? "Desktop operation '\(action)' failed."
-                throw AgentsRuntimeError.desktopFailure(errMsg)
+                throw AgentsRuntimeError.desktopFailure(ErrorSanitizer.sanitizeText(errMsg))
             }
 
             let resultJSON = envelope.result ?? .object([:])
@@ -806,7 +806,7 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
             if polled["ready"]?.boolValue == true {
                 let result = polled["result"] ?? .object([:])
                 if let errorText = result["error"]?.stringValue, !errorText.isEmpty {
-                    throw AgentsRuntimeError.desktopFailure(errorText)
+                    throw AgentsRuntimeError.desktopFailure(ErrorSanitizer.sanitizeText(errorText))
                 }
                 return result
             }
@@ -836,7 +836,7 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
             if polled["ready"]?.boolValue == true {
                 let result = polled["result"] ?? .object([:])
                 if let errorText = result["error"]?.stringValue, !errorText.isEmpty {
-                    throw AgentsRuntimeError.desktopFailure(errorText)
+                    throw AgentsRuntimeError.desktopFailure(ErrorSanitizer.sanitizeText(errorText))
                 }
                 return result
             }

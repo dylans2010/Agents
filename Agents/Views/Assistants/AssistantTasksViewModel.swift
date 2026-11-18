@@ -759,7 +759,7 @@ public final class AssistantTasksViewModel {
             baseline = listed.baseline
             lastError = nil
         } catch {
-            lastError = error.localizedDescription
+            lastError = ErrorSanitizer.displayMessage(for: error)
         }
     }
 
@@ -769,7 +769,7 @@ public final class AssistantTasksViewModel {
             await reload()
             return missed
         } catch {
-            lastError = error.localizedDescription
+            lastError = ErrorSanitizer.displayMessage(for: error)
             return []
         }
     }
@@ -839,7 +839,7 @@ public final class AssistantTasksViewModel {
             selectedTaskID = saved.id
             return true
         } catch {
-            lastError = error.localizedDescription
+            lastError = ErrorSanitizer.displayMessage(for: error)
             return false
         }
     }
@@ -854,7 +854,7 @@ public final class AssistantTasksViewModel {
             }
             return true
         } catch {
-            lastError = error.localizedDescription
+            lastError = ErrorSanitizer.displayMessage(for: error)
             return false
         }
     }
@@ -866,7 +866,7 @@ public final class AssistantTasksViewModel {
             await reload()
             return true
         } catch {
-            lastError = error.localizedDescription
+            lastError = ErrorSanitizer.displayMessage(for: error)
             return false
         }
     }
@@ -878,7 +878,7 @@ public final class AssistantTasksViewModel {
             await reload()
             return true
         } catch {
-            lastError = error.localizedDescription
+            lastError = ErrorSanitizer.displayMessage(for: error)
             return false
         }
     }
@@ -891,7 +891,7 @@ public final class AssistantTasksViewModel {
             await reload()
             return true
         } catch {
-            lastError = error.localizedDescription
+            lastError = ErrorSanitizer.displayMessage(for: error)
             return false
         }
     }
