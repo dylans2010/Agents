@@ -1759,3 +1759,7 @@ human-readable message is sanitized. Diagnostic output uses the same stripping
 via `ErrorSanitizer.diagnosticMessage`, prefixed with the untouched kind, so
 logs and diagnostic exports never carry prompts, credentials, or transport
 details either.
+
+## Daemon connection status
+
+The Mac app surfaces the Agents runtime connection as a real status, never a fabricated one: `connected` when the FFI runtime handle is open and status polls answer, `checking` before the first bootstrap attempt has reported back, `unreachable` when the runtime handle never opened for a reason other than its data-directory configuration, or when consecutive status polls stop answering, and `misconfigured` only when the runtime itself reports a data-directory problem (a non-absolute path, a missing `HOME`, a path that is not a regular directory, or a directory it cannot create). The runtime has no daemon-starting state to report — `open` either returns a handle or fails — so none is shown. Every non-connected state shows the runtime's own error text, sanitized for display by `ErrorSanitizer`, as the diagnosis, with Retry Connection and Open Settings (General, where the data directory lives) as the recovery actions.

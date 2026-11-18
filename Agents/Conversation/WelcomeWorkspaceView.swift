@@ -196,6 +196,8 @@ struct WelcomeWorkspaceView: View {
                     .padding(.top, 2)
                 }
 
+                daemonStatusCard
+
                 // Google Antigravity Status Card
                 antigravityStatusCard
 
@@ -258,6 +260,74 @@ struct WelcomeWorkspaceView: View {
             .padding(.horizontal, 28)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    @ViewBuilder
+    private var daemonStatusCard: some View {
+        switch appModel.daemonConnectionStatus {
+        case .connected, .checking:
+            HStack(spacing: 8) {
+                if appModel.daemonConnectionStatus == .checking {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Circle()
+                        .fill(AppTheme.success)
+                        .frame(width: 7, height: 7)
+                }
+                Text(appModel.daemonConnectionStatus.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(AppTheme.elevatedCardFill, in: Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(AppTheme.separator.opacity(0.8), lineWidth: 1)
+            )
+        case .unreachable(let detail), .misconfigured(let detail):
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.warning)
+                    Text(appModel.daemonConnectionStatus.title)
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(AppTheme.primaryLabel)
+                }
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                HStack(spacing: 8) {
+                    Button {
+                        Task { await appModel.retryDaemonConnection() }
+                    } label: {
+                        Label("Retry Connection", systemImage: "arrow.clockwise")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+                    Button {
+                        openGeneralSettings()
+                    } label: {
+                        Text("Open Settings")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                }
+            }
+            .padding(15)
+            .frame(maxWidth: 680, alignment: .leading)
+            .background(AppTheme.elevatedCardFill, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge)
+                    .strokeBorder(AppTheme.separator.opacity(0.85), lineWidth: 1)
+            )
         }
     }
 
@@ -442,6 +512,11 @@ struct WelcomeWorkspaceView: View {
 
     private func openAntigravitySettings() {
         appModel.selectedSettingsTab = .antigravity
+        openSettings()
+    }
+
+    private func openGeneralSettings() {
+        appModel.selectedSettingsTab = .general
         openSettings()
     }
 }

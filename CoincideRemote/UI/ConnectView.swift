@@ -16,6 +16,9 @@ struct ConnectView: View {
     @State private var payload: RemotePairingPayload?
     @State private var manualHost = ""
 
+    static let macSetupInstructions = "On your Mac, open Agents Settings, go to System › Remote, turn on Enable Coincide Remote LAN / Tailscale Server, then tap Pair iPhone or iPad."
+    static let localNetworkDeniedMessage = "Local Network access is off, so no Macs appear here. You can still pair by scanning the code, and Paired Macs below still connect."
+
     var body: some View {
         ScrollView {
             VStack(spacing: 28) {
@@ -68,7 +71,7 @@ struct ConnectView: View {
                 .font(.title2.bold())
                 .foregroundStyle(theme.ink)
                 .multilineTextAlignment(.center)
-            Text("On your Mac, open Coincide’s Settings › General › Remote, turn on Allow Coincide Remote, and click Pair iPhone or iPad.")
+            Text(Self.macSetupInstructions)
                 .font(.callout)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(theme.secondaryInk)
@@ -105,31 +108,35 @@ struct ConnectView: View {
                 .padding(.top, 4)
             }
             if let error {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.callout)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(error)
+                        .foregroundStyle(theme.ink)
+                }
+                .font(.callout)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             Text("The code works once, for a few minutes. Copy Code on the Mac puts it on your clipboard with Universal Clipboard.")
                 .font(.footnote)
                 .foregroundStyle(theme.tertiaryInk)
                 .multilineTextAlignment(.center)
                 .padding(.top, 4)
-            // Sample projects and threads, with no Mac: for App Review, and anyone without their Mac at hand.
             if isOnboarding {
+                Divider()
+                    .padding(.top, 10)
                 Button {
                     navigator.reset()
                     client.startDemo()
                 } label: {
                     Label("Explore the Demo", systemImage: "play.circle")
-                        .foregroundStyle(theme.ink)
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(theme.secondaryInk)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.plain)
                 .disabled(pairing)
-                .padding(.top, 10)
                 Text("No Mac at hand? Look around with sample projects and threads. Nothing connects to a Mac.")
                     .font(.footnote)
                     .foregroundStyle(theme.tertiaryInk)
@@ -195,7 +202,7 @@ struct ConnectView: View {
                 }
             } else if client.bonjour.isDenied {
                 SidebarHeader(Text("On This Network"))
-                Text("Allow Local Network access for Coincide in Settings › Privacy & Security › Local Network to find Macs nearby.")
+                Text(Self.localNetworkDeniedMessage)
                     .font(.footnote)
                     .foregroundStyle(theme.secondaryInk)
                     .padding(.horizontal, 10)
@@ -274,6 +281,7 @@ struct ConnectView: View {
 struct PairingScanner: View {
     let found: (String) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
 
     var body: some View {
         NavigationStack {
@@ -284,7 +292,8 @@ struct PairingScanner: View {
                         .overlay(alignment: .bottom) {
                             Text("Point the camera at the code on your Mac.")
                                 .padding(12)
-                                .glassEffect(.regular, in: .capsule)
+                                .background(theme.surface, in: .capsule)
+                                .overlay(Capsule().strokeBorder(theme.border, lineWidth: theme.borderWidth))
                                 .padding(.bottom, 40)
                         }
                 } else {

@@ -26,6 +26,19 @@ public final class AppModel {
     public var acpRegistry: [ACPRegistryAgentInfo] = []
     public var status: RuntimePollStatus = RuntimePollStatus()
 
+    public private(set) var daemonOpenFailure: String?
+    public private(set) var consecutivePollFailures: Int = 0
+    public private(set) var lastPollError: String?
+
+    public var daemonConnectionStatus: DaemonConnectionStatus {
+        DaemonConnectionStatus.status(
+            runtimeOpen: runtime?.isOpen == true,
+            consecutivePollFailures: consecutivePollFailures,
+            lastPollError: lastPollError,
+            openFailure: daemonOpenFailure
+        )
+    }
+
     // MARK: - Shell Chrome, Inspector & Integrated Terminal State
 
     public var inspectorVisible: Bool {
@@ -127,6 +140,8 @@ public final class AppModel {
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var toastDismissTask: Task<Void, Never>?
     @ObservationIgnored private var toastUndoHandler: (@MainActor () -> Void)?
+    @ObservationIgnored private var daemonReconnectInFlight = false
+    @ObservationIgnored private var bootstrapDataDir: String?
     @ObservationIgnored private var lastObservedRevision: UInt64 = 0
     @ObservationIgnored private var lastObservedRunningIDs: Set<String> = []
     @ObservationIgnored private var lastObservedAttentionCount: Int = 0
@@ -222,12 +237,16 @@ public final class AppModel {
 
     public func bootstrap(dataDir: String? = nil, startPolling: Bool = true) async {
         guard !isBootstrapped else { return }
+        self.bootstrapDataDir = dataDir
         applyAppearanceToNSApp()
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.2.0"
 
         do {
             let client = try AgentsRuntimeClient(dataDir: dataDir, appVersion: version)
             self.runtime = client
+            self.daemonOpenFailure = nil
+            self.consecutivePollFailures = 0
+            self.lastPollError = nil
             self.isBootstrapped = true
 
             if let initialStatus = try? await client.pollStatus() {
@@ -262,6 +281,9 @@ public final class AppModel {
         } catch {
             let message = ErrorSanitizer.displayMessage(for: error)
             self.lastError = message
+            if runtime == nil {
+                daemonOpenFailure = message
+            }
             presentToast("Runtime Startup Failed", detail: message, style: .error)
         }
     }
@@ -293,12 +315,14 @@ public final class AppModel {
         let polled: RuntimePollStatus
         do {
             polled = try await client.pollStatus()
+            notePollSuccess()
         } catch {
             let message = ErrorSanitizer.displayMessage(for: error)
             if lastPollErrorMessage != message {
                 lastPollErrorMessage = message
                 lastError = message
             }
+            recordPollFailure(message)
             return
         }
         if let previousPollError = lastPollErrorMessage {
@@ -364,6 +388,36 @@ public final class AppModel {
                 {
                     onAgentTurnFinished?(summary)
                 }
+            }
+        }
+    }
+
+    private func notePollSuccess() {
+        consecutivePollFailures = 0
+        lastPollError = nil
+    }
+
+    private func recordPollFailure(_ message: String) {
+        guard runtime != nil else { return }
+        consecutivePollFailures += 1
+        lastPollError = message
+    }
+
+    public func retryDaemonConnection() async {
+        guard !daemonReconnectInFlight else { return }
+        daemonReconnectInFlight = true
+        defer { daemonReconnectInFlight = false }
+        daemonOpenFailure = nil
+        consecutivePollFailures = 0
+        lastPollError = nil
+        if runtime == nil {
+            await bootstrap(dataDir: bootstrapDataDir)
+        } else if let client = runtime {
+            do {
+                status = try await client.pollStatus()
+                notePollSuccess()
+            } catch {
+                recordPollFailure(ErrorSanitizer.displayMessage(for: error))
             }
         }
     }
@@ -737,7 +791,10 @@ public final class AppModel {
         delivery: RemoteSendRequest.Delivery = .automatic,
         to threadID: UUID? = nil
     ) async -> String? {
-        guard let client = runtime else { return nil }
+        guard let client = runtime else {
+            presentDaemonUnavailable()
+            return nil
+        }
         let targetThread: UUID?
         if let threadID {
             targetThread = threadID
@@ -1412,6 +1469,15 @@ public final class AppModel {
         let message = ErrorSanitizer.displayMessage(for: error)
         self.lastError = message
         presentToast("Action Failed", detail: message, style: .error)
+    }
+
+    private func presentDaemonUnavailable() {
+        let connectionStatus = daemonConnectionStatus
+        presentToast(
+            connectionStatus.title,
+            detail: connectionStatus.detail ?? "The Agents runtime has not started yet. Try again in a moment.",
+            style: .error
+        )
     }
 
     public func presentToast(
