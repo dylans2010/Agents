@@ -287,6 +287,11 @@ fn relative_path(path: &str) -> Result<&Path> {
                 .all(|part| matches!(part, Component::Normal(_))),
         "Use a relative project path without dot or parent components"
     );
+    ensure!(
+        path.components()
+            .all(|part| part.as_os_str().as_encoded_bytes() != b".git"),
+        "Refusing to operate on a protected Git directory path"
+    );
     Ok(path)
 }
 
@@ -734,6 +739,7 @@ pub fn read_file(directory: &Path, path: &str, offset: usize, limit: usize) -> R
     ensure!((1..=5000).contains(&limit), "Line limit must be 1–5000");
     let relative = relative_path(path)?;
     let root = directory.canonicalize()?;
+    crate::workspace_tools::refuse_intermediate_symlinks(&root, relative)?;
     let joined = root.join(relative);
     let meta = std::fs::symlink_metadata(&joined)?;
     ensure!(
@@ -837,6 +843,46 @@ mod tests {
             std::os::unix::fs::symlink(".git/config", root.join("leak")).unwrap();
             assert!(read_file(root, "leak", 0, 10).is_err());
         }
+    }
+    #[test]
+    fn read_file_refuses_literal_git_config_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git").join("config"), "[core]\n").unwrap();
+        std::fs::create_dir(root.join("sub")).unwrap();
+        std::fs::write(root.join("sub").join("notes.txt"), "hello\n").unwrap();
+        std::fs::write(root.join("dotted.name.txt"), "dots\n").unwrap();
+        assert!(read_file(root, ".git/config", 0, 10).is_err());
+        assert!(read_file(root, ".git", 0, 10).is_err());
+        assert_eq!(
+            read_file(root, "sub/notes.txt", 0, 10).unwrap()["text"],
+            "hello\n"
+        );
+        assert_eq!(
+            read_file(root, "dotted.name.txt", 0, 10).unwrap()["text"],
+            "dots\n"
+        );
+    }
+    #[test]
+    fn read_file_refuses_intermediate_symlink() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git").join("config"), "[core]\n").unwrap();
+        std::fs::create_dir(root.join("real")).unwrap();
+        std::fs::write(root.join("real").join("notes.txt"), "hello\n").unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(".git", root.join("link")).unwrap();
+            assert!(read_file(root, "link/config", 0, 10).is_err());
+            std::os::unix::fs::symlink("real", root.join("alias")).unwrap();
+            assert!(read_file(root, "alias/notes.txt", 0, 10).is_err());
+        }
+        assert_eq!(
+            read_file(root, "real/notes.txt", 0, 10).unwrap()["text"],
+            "hello\n"
+        );
     }
     #[test]
     fn git_history_lists_commits_and_shows_files_and_range_diffs() {

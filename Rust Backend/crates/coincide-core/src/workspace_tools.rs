@@ -215,8 +215,24 @@ fn workspace_parent_for_write(cwd: &Path, rel_str: &str) -> Result<(PathBuf, Str
     Ok((canonical_parent, name))
 }
 
+pub(crate) fn refuse_intermediate_symlinks(canonical_root: &Path, rel: &Path) -> Result<()> {
+    let mut current = canonical_root.to_path_buf();
+    if let Some(parent_rel) = rel.parent() {
+        for component in parent_rel.components() {
+            current.push(component);
+            let meta = fs::symlink_metadata(&current)?;
+            ensure!(
+                meta.is_dir() && !meta.file_type().is_symlink(),
+                "Intermediate workspace path is not a regular directory"
+            );
+        }
+    }
+    Ok(())
+}
+
 fn read_workspace_text(cwd: &Path, rel_str: &str) -> Result<(String, PathBuf)> {
     let (canonical_root, joined) = workspace_target_parts(cwd, rel_str)?;
+    refuse_intermediate_symlinks(&canonical_root, validate_relative_workspace_path(rel_str)?)?;
     let meta = fs::symlink_metadata(&joined)?;
     ensure!(
         meta.is_file() && !meta.file_type().is_symlink(),
@@ -891,6 +907,92 @@ mod tests {
             }))
             .unwrap()["text"],
             "real\n"
+        );
+    }
+
+    #[test]
+    fn read_file_refuses_literal_git_config_on_both_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git").join("config"), "[core]\n").unwrap();
+        std::fs::write(root.join("real.txt"), "real\n").unwrap();
+        assert!(read_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": ".git/config",
+        }))
+        .is_err());
+        assert!(read_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": ".git/config",
+            "lineOffset": 0,
+            "lineLimit": 10,
+        }))
+        .is_err());
+        assert_eq!(
+            read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "real.txt",
+            }))
+            .unwrap()["text"],
+            "real\n"
+        );
+    }
+
+    #[test]
+    fn read_file_refuses_intermediate_symlink_on_both_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git").join("config"), "[core]\n").unwrap();
+        std::fs::create_dir(root.join("real")).unwrap();
+        std::fs::write(root.join("real").join("notes.txt"), "hello\n").unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(".git", root.join("link")).unwrap();
+            assert!(read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "link/config",
+            }))
+            .is_err());
+            assert!(read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "link/config",
+                "lineOffset": 0,
+                "lineLimit": 10,
+            }))
+            .is_err());
+            std::os::unix::fs::symlink("real", root.join("alias")).unwrap();
+            assert!(read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "alias/notes.txt",
+            }))
+            .is_err());
+            assert!(read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "alias/notes.txt",
+                "lineOffset": 0,
+                "lineLimit": 10,
+            }))
+            .is_err());
+        }
+        assert_eq!(
+            read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "real/notes.txt",
+            }))
+            .unwrap()["text"],
+            "hello\n"
+        );
+        assert_eq!(
+            read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "real/notes.txt",
+                "lineOffset": 0,
+                "lineLimit": 10,
+            }))
+            .unwrap()["text"],
+            "hello\n"
         );
     }
 }

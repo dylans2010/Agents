@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–144
+# Hardening Audit — Slices 71–146
 
 ## Summary
 
@@ -70,7 +70,14 @@ reserve and partial-dest cleanup, a final-symlink refusal on both
 `read_file` paths, and `with_session_defaults` now overwriting a
 model-supplied `cwd` with the session cwd — 3 further defects fixed and
 5 regression tests added, bringing the totals to **33 defects fixed and
-33 regression tests**. The remaining
+33 regression tests**. Slice 146, appended after that, fixed the two
+MAJOR findings from Slice 145's re-verification of Slice 144 — the
+literal `.git/config` read on the paged path and the intermediate-
+directory symlink bypass on both read paths — plus the two MINOR doc
+corrections it raised, and added 4 regression tests, bringing the
+totals to **35 defects fixed and 37 regression tests**. The two MINORs
+are description-only and not counted as defects, following the Slice
+105/109 precedent. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -1378,7 +1385,7 @@ the slice's push report.
 **Mac-gate checks owed:** none new; no code changed, so there is
 nothing to build.
 
-## Slice 144 — Slice 141 defects: `copy_file` cap, `read_file` symlink guard, cwd pin (3 defects, 5 tests)
+## Slice 144 — Slice 141 defects: `copy_file` cap, `read_file` symlink guard, cwd pin (remote `4dc0a144`, 3 defects, 5 tests)
 
 **Fixed (3):** the two real defects from Slice 141's audit, plus the
 cheap cwd pin it recommended.
@@ -1432,7 +1439,7 @@ cheap cwd pin it recommended.
   to non-empty (`:7824`: `state.cwd.to_str().filter(|cwd|
   !cwd.is_empty())`). `state.cwd` is always populated: `--cwd` is
   required by `parse_args` (`main.rs:48`) and must be absolute, and
-  the only other `ServerState` constructions are the four test sites,
+  the only other `ServerState` constructions are the five test sites,
   all with `cwd: "/tmp"` — so the guard never fires in practice; it
   is defense-in-depth for direct construction. The `use_mcp`
   recursion re-enters `call()` (`tools.rs:17405`), which applies
@@ -1476,7 +1483,12 @@ registry definition, param, or description changed. Full diff read —
 only the five intended files, only the intended hunks. The local
 pre-push commit SHA and tree are in the slice's push report. The
 Slice 138 remote SHA was verified against the GitHub API and
-backfilled in the Slice 138 section above; the Slice 139 MINOR (the
+backfilled in the Slice 138 section above; the Slice 144 remote SHA
+was verified against the GitHub API by Slice 146
+(`4dc0a1440ee07f29b574db5490b8a8c9f95a4a3d`, tree
+`fbb6d20e6dfc97bf4dc3b1895bc3d000aa8b0ebd`, parent
+`d43601463a1aeff025fdc3beebd9b22f6458721e`) and backfilled in the
+Slice 144 section header above; the Slice 139 MINOR (the
 `:6949` sentence, see the re-verify note below) is fixed in this
 slice. Owed as follow-up, not done here: `docs/MAC-GATE.md` still
 says 3,003 Rust tests, but this slice adds 5 (3,008 by this slice's
@@ -1484,6 +1496,110 @@ count: 2,227 short-form + 736 fully-qualified + 45 `gpui_kit`) —
 same staleness pattern as Slice 134, fixed then in Slice 136.
 
 **Mac-gate checks owed:** the 5 new tests above, plus the Xcode
+build as usual; no new Mac-gate surface beyond the tests.
+
+## Slice 146 — Slice 145 findings: literal `.git/config` read and intermediate-symlink bypass on both read paths (2 defects, 4 tests)
+
+**Correction of the record:** Slice 144's Fix 2 wording — "Fixed on
+both paths" and, in `docs/SYSTEM-TOOLSET.md`, "closing the
+`.git/config` symlink leak" — was premature. Slice 144's final-symlink
+refusal closed only the planted-final-symlink case. The literal
+`.git/config` path and the intermediate-directory symlink case both
+still returned file contents after Slice 144, as Slice 145 traced.
+The leak is closed by this slice, not by Slice 144. Slice 144's
+section above is left as written; the correction lives here.
+
+**Fixed (2):** the two MAJOR findings from Slice 145's re-verification
+of Slice 144.
+
+- **Fix 1 — paged `read_file` read `.git/config` by literal path.**
+  `workspace::read_file` (`workspace.rs:738`) had no `.git` guard:
+  its `relative_path` (`:281–296`) only required `Normal` components,
+  unlike `validate_relative_workspace_path`
+  (`workspace_tools.rs:145–161`), and the paged branch in
+  `workspace_tools::read_file` never called the latter, so
+  `read_file({cwd, path: ".git/config", lineOffset: 0, lineLimit: 10})`
+  returned the file with no symlink at all. Fixed by adding the
+  `.git`-component refusal to `relative_path` itself
+  (`workspace.rs:290–294`, same byte comparison as
+  `validate_relative_workspace_path`). Callers checked first:
+  `relative_path` has only two — `read_file` (`:740`) and `diff`
+  (`:327`), which passes the path as a git pathspec to the git runner.
+  No git tooling reads `.git` file contents through it (the git
+  functions use the git runner directly), and a `.git/config`
+  pathspec matches nothing in git anyway, so refusing it in `diff`
+  only turns a no-op diff into an error. The guard therefore lives in
+  `relative_path`, covering both callers with one change. The
+  non-paged path was already refused by
+  `validate_relative_workspace_path` — now proven by test, since the
+  existing `workspace_paths_refuse_git_internals` test covers
+  write/delete/move but, as Slice 145 noted, not read.
+- **Fix 2 — intermediate directory symlink bypassed both read
+  paths.** Both guards checked only the final component with
+  `symlink_metadata` (`workspace_tools.rs:236–240`,
+  `workspace.rs:744–748`); intermediate components were resolved by
+  the kernel, so a planted `link -> .git` plus a read of
+  `link/config` stat-ed the resolved regular file `.git/config`,
+  canonicalized inside the root, and returned its contents. Fixed
+  with one shared read-only helper,
+  `refuse_intermediate_symlinks` (`workspace_tools.rs:218–231`,
+  `pub(crate)`), which walks the parent components exactly the way
+  `workspace_parent_for_write` (`:184–216`) already does for writes —
+  same "Intermediate workspace path is not a regular directory"
+  refusal — but read-only: a missing intermediate propagates the
+  `NotFound` io error instead of creating the directory, so a read
+  never creates directories as a side effect. It is called from both
+  read paths: `read_workspace_text` (`:235`) and
+  `workspace::read_file` (`workspace.rs:742`). The write path's walk
+  itself was not reused because it creates missing directories, which
+  is wrong for a read; no second mechanism was invented — the walk
+  logic is mirrored once in the shared helper. Tradeoff, recorded:
+  this refuses intermediate symlinks even when they point inside the
+  workspace, stricter than the old canonicalize-stays-inside behavior
+  — consistent with the no-symlink policy reads already enforce on
+  final components, and a genuinely needed symlink read can go
+  through the terminal. Side effect, consistent with that policy:
+  `edit_file` gains the same refusal, since its pre-write read and
+  post-write verification both route through `read_workspace_text`.
+
+**MINORs fixed (2, description-only, not counted as defects,
+following the Slice 105/109 precedent):** (1) the Slice 144 section's
+"four test sites" sentence now reads "five test sites" — verified:
+`tools.rs:21334, 21351, 21368, 21386, 21403`, every site with
+`cwd: "/tmp"`, plus production `main.rs:59`; (2)
+`docs/MAC-GATE.md` refreshed to the true Rust total **3,012** (2,231
+real short-form — 2,232 raw minus the one `//` comment line at
+`diff_panel_ui_tests.rs:5` — + 736 fully-qualified + 45 `gpui_kit`;
+core 1,832, `coincide-mcp-server` 20, desktop 1,148). Swift `@Test`
+verified at 128 and left alone.
+
+**Tests added (4):** `read_file_refuses_literal_git_config_path`
+(`workspace.rs:848`, paged path directly — literal `.git/config`
+and `.git` refused, `sub/notes.txt` and `dotted.name.txt` still
+read); `read_file_refuses_intermediate_symlink`
+(`workspace.rs:868`, paged path directly — `link/config` refused
+where `link -> .git`, and `alias/notes.txt` refused where `alias`
+points at a real in-workspace directory, proving the stricter
+tradeoff; `real/notes.txt` still reads);
+`read_file_refuses_literal_git_config_on_both_paths`
+(`workspace_tools.rs:914`, non-paged plus paged through the public
+entry); `read_file_refuses_intermediate_symlink_on_both_paths`
+(`workspace_tools.rs:943`, non-paged plus paged, including the
+in-workspace `alias` refusal on both paths). All written, not
+executed — `cargo test -p coincide-core` on Dylan's Mac is the gate.
+
+**Verification:** static only (no cargo in this environment, as for
+every slice in this record). Each fix traced by hand (literal
+`.git/config` refused on both paths; `link/config` refused on both
+paths; normal files, files in subdirectories, and files with dots in
+names still read on both paths); brace/paren/bracket deltas zero-net
+vs. the parent on both Rust files; zero new `//` comments in the Rust
+diff; no secrets; no registry definition, param, or description
+changed. Full diff read — only the five intended files, only the
+intended hunks. The local pre-push commit SHA and tree are in the
+slice's push report; the remote SHA is owed backfill by a later slice.
+
+**Mac-gate checks owed:** the 4 new tests above, plus the Xcode
 build as usual; no new Mac-gate surface beyond the tests.
 
 ## Documented, not fixed
@@ -1567,7 +1683,7 @@ limitation of the audited component, or a question owed to Dylan.
   count short-form `#[test]` attributes, fully-qualified
   `#[::core::prelude::v1::test]` attributes, and `#[gpui_kit::test]`
   attributes, and sum them. At HEAD the
-  expected total is **3,003** (2,222 + 736 + 45). Method and per-crate table:
+  expected total is **3,012** (2,231 + 736 + 45). Method and per-crate table:
   `docs/MAC-GATE.md:139-173`. Known wrinkle documented there: one `//`
   comment line in `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`
   mentions the glob import and must not be counted as an attribute; and
@@ -1728,6 +1844,41 @@ limitation of the audited component, or a question owed to Dylan.
   (207 arms, 199 single + 8 multi); depth G5 32+33, G6 37+1,
   computer-use 20 generic forward; Slice 139's own diff is docs-only
   (2 files +129/−5); program diff 224 files +54,420/−3,595.
+  **Slice 145 re-verification (no commit):** Slice 145 re-verified Slice
+  144 read-only and passed it **NOT CLEAN** — two MAJOR findings and
+  two MINORs, all fixed in Slice 146. Fix 1 confirmed as written: the
+  5 GiB cap (`MAX_FILE_COPY_BYTES`, `workspace_tools.rs:14`;
+  length read once and refused above the cap, `:331–336`), the
+  free-space reserve (`:341–347`, source refused when it would eat
+  into a 5 GiB reserve), the `libc::statvfs` probe using `f_frsize`
+  (`:363–378`, `available_bytes`), the partial-destination cleanup
+  on mid-copy error (`:348–354`), and `libc` 0.2 already a
+  `coincide-core` dependency (`Cargo.toml:27`, no new dependency).
+  Fix 2 confirmed for final symlinks only: non-paged routes through
+  `read_workspace_text` (`:585`, refusal at `:220–224`) and paged
+  refuses before canonicalizing (`workspace.rs:733–743`), with the
+  returned JSON shape identical on both branches. Fix 3 confirmed:
+  the cwd pin (`tools.rs:7819–7831`, non-empty guard at `:7824`),
+  `--cwd` required and absolute (`main.rs:48`), and the `use_mcp`
+  recursion re-entering `call()` (`tools.rs:17405`) through
+  `with_session_defaults` (`:16894`). The 5 tests confirmed present;
+  docs totals 33 defects / 33 tests confirmed; Rust total 3,008
+  re-measured (2,227 real short-form + 736 fully-qualified + 45
+  `gpui_kit`). Finding 1 (MAJOR): the literal `.git/config` read
+  was never closed — `workspace::read_file` had no `.git` guard and
+  the paged branch never called `validate_relative_workspace_path`,
+  so the file was retrievable with no symlink at all, contradicting
+  Slice 144's "Fixed on both paths" claim; fixed in Slice 146 by
+  the `.git` refusal in `relative_path`. Finding 2 (MAJOR): an
+  intermediate-directory symlink (`link -> .git`, read
+  `link/config`) bypassed both read paths, since both guards checked
+  only the final component; fixed in Slice 146 by the shared
+  intermediate-symlink walk. Finding 3 (MINOR): the Slice 144
+  section's "four test sites" sentence miscounts — five test sites
+  (`tools.rs:21334, 21351, 21368, 21386, 21403`); fixed in Slice
+  146. Finding 4 (MINOR): `docs/MAC-GATE.md` still said 3,003 Rust
+  tests after Slice 144's 5 new tests (true total 3,008); refreshed
+  in Slice 146 to 3,012 after its own 4 new tests.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)

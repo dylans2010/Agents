@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–144)
+### Hardening wave (Slices 69–146)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–144 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–146 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -1036,6 +1036,28 @@ no entries in this file either and are not backfilled here. Full record:
   the same trust boundary as the agent). Statically verified only;
   `cargo test -p coincide-core` and `cargo test -p
   coincide-mcp-server` on Dylan's Mac are owed. Full record:
+  `docs/HARDENING-AUDIT.md`.
+
+- **Slice 146** — Slice 145's re-verification findings fixed: the
+  `.git/config` leak Slice 144 claimed closed is actually closed
+  here — the literal path is now refused on the paged path by a
+  `.git`-component guard in `workspace::relative_path` (which also
+  covers the `git.diff` pathspec; no git tooling reads `.git` file
+  contents through it), and an intermediate-directory symlink
+  (`link -> .git`, read `link/config`) is now refused on both read
+  paths by a shared read-only walk mirroring the write path's
+  intermediate check (missing intermediates error instead of being
+  created; in-workspace-pointing intermediate symlinks are refused
+  too, by design — a genuinely needed symlink read goes through the
+  terminal). Also fixed the "four test sites" miscount (five:
+  `tools.rs:21334, 21351, 21368, 21386, 21403`) and refreshed
+  `docs/MAC-GATE.md` to the true Rust total 3,012 (2,231 real
+  short-form + 736 fully-qualified + 45 `gpui_kit`; core 1,832,
+  `coincide-mcp-server` 20). 2 defects fixed, 4 tests added —
+  bringing the totals to 35 defects / 37 tests (the two MINOR doc
+  fixes are description-only and not counted, per the Slice 105/109
+  precedent). Statically verified only; `cargo test -p coincide-core`
+  on Dylan's Mac is owed. Full record:
   `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
