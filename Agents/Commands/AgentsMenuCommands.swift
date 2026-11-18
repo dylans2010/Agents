@@ -94,7 +94,7 @@ public struct AgentsMenuCommands: Commands {
 
         // MARK: - View Menu (Inspector, Terminal, Palette & Zoom)
         CommandGroup(after: .sidebar) {
-            Button(appModel.inspectorVisible ? "Hide Inspector" : "Toggle Inspector") {
+            Button(appModel.inspectorVisible ? "Hide Inspector" : "Show Inspector") {
                 appModel.toggleInspector()
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
@@ -124,7 +124,7 @@ public struct AgentsMenuCommands: Commands {
             }
             .keyboardShortcut("s", modifiers: [.command, .option])
 
-            Button(appModel.terminalVisible ? "Hide Terminal" : "Toggle Terminal") {
+            Button(appModel.terminalVisible ? "Hide Terminal" : "Show Terminal") {
                 appModel.toggleTerminal()
             }
             .keyboardShortcut("j", modifiers: [.command])
@@ -189,12 +189,14 @@ public struct AgentsMenuCommands: Commands {
                     await appModel.performThreadAction(.pin(!thread.isPinned), on: thread.id)
                 }
             }
+            .keyboardShortcut("p", modifiers: [.command, .shift])
             .disabled(selectedThread == nil)
 
             Button("Fork Thread") {
                 guard let threadID = appModel.selectedThreadUUID else { return }
                 Task { _ = await appModel.forkThread(threadID) }
             }
+            .keyboardShortcut("f", modifiers: [.command, .shift])
             .disabled(selectedThread == nil)
 
             Button("Mark Seen") {
@@ -212,6 +214,7 @@ public struct AgentsMenuCommands: Commands {
                     await appModel.performThreadAction(.archive(!thread.isArchived), on: thread.id)
                 }
             }
+            .keyboardShortcut("a", modifiers: [.command, .shift])
             .disabled(selectedThread == nil)
 
             Divider()

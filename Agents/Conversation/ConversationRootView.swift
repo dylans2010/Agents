@@ -114,15 +114,14 @@ public struct ConversationRootView: View {
         }
         .onChange(of: appModel.showFindBar) { _, isVisible in
             if isVisible {
-                activeFindIndex = max(0, matchingFindItemIDs.count - 1)
+                activeFindIndex = 0
                 DispatchQueue.main.async {
                     isFindFieldFocused = true
                 }
             }
         }
         .onChange(of: appModel.findQuery) { _, _ in
-            let matches = matchingFindItemIDs
-            activeFindIndex = matches.isEmpty ? 0 : matches.count - 1
+            activeFindIndex = 0
         }
         .task(id: "\(appModel.selectedThreadID ?? "none"):\(appModel.status.revision)") {
             await refreshLightweightDiffBadge()
@@ -356,7 +355,7 @@ public struct ConversationRootView: View {
                 if uncommittedDiffFileCount > 0 {
                     Text("\(uncommittedDiffFileCount)")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppTheme.onAccent)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(AppTheme.accent, in: Capsule())
@@ -462,6 +461,7 @@ public struct ConversationRootView: View {
                 TextField("Find in conversation…", text: $appModel.findQuery)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12.5))
+                    .accessibilityLabel("Find in conversation")
                     .focused($isFindFieldFocused)
                     .onSubmit {
                         stepFindMatch(delta: 1)
@@ -552,6 +552,7 @@ public struct ConversationRootView: View {
             TextField("Conversation title", text: $renameDraft)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 12.5))
+                .accessibilityLabel("Conversation title")
                 .frame(minWidth: 240, idealWidth: 280, maxWidth: 340)
                 .onSubmit {
                     commitThreadRename(for: thread)

@@ -350,7 +350,8 @@ struct ComposerBarView: View {
 
     @ViewBuilder
     private var composerFooterControls: some View {
-        HStack(spacing: 8) {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
             // 1. Attach Button (`NSOpenPanel`)
             Button {
                 presentAttachmentOpenPanel()
@@ -429,10 +430,11 @@ struct ComposerBarView: View {
 
             // 7. Primary Send / Queue / Steer / Stop Button (`⌘.`)
             primaryActionButtons
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
+            .padding(.top, 4)
         }
-        .padding(.horizontal, 10)
-        .padding(.bottom, 8)
-        .padding(.top, 4)
     }
 
     private var resolvedFooterModelLabel: String {

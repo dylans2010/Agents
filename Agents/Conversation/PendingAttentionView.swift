@@ -17,19 +17,21 @@ struct PendingAttentionView: View {
         let waiting = pendingItems
         if !waiting.isEmpty {
             VStack(spacing: 10) {
-                ForEach(waiting) { item in
+                ForEach(Array(waiting.enumerated()), id: \.element.id) { index, item in
                     switch item.kind {
                     case .approval:
                         ApprovalAttentionCard(
                             item: item,
                             threadID: transcript.thread.id,
-                            appModel: appModel
+                            appModel: appModel,
+                            isFirst: index == 0
                         )
                     case .question:
                         QuestionAttentionCard(
                             item: item,
                             threadID: transcript.thread.id,
-                            appModel: appModel
+                            appModel: appModel,
+                            isFirst: index == 0
                         )
                     default:
                         EmptyView()
@@ -50,6 +52,7 @@ private struct ApprovalAttentionCard: View {
     let item: RemoteItem
     let threadID: UUID
     let appModel: AppModel
+    let isFirst: Bool
 
     @State private var noteText: String = ""
     @State private var submittingOptionID: String? = nil
@@ -152,6 +155,7 @@ private struct ApprovalAttentionCard: View {
                 )
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 12))
+                .accessibilityLabel(approval.textPlaceholder ?? "Optional instructions or reason")
             }
 
             HStack(spacing: 8) {
@@ -190,7 +194,7 @@ private struct ApprovalAttentionCard: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.regular)
-            .keyboardShortcut(.return, modifiers: [.command])
+            .keyboardShortcut(isFirst ? KeyboardShortcut(.return, modifiers: [.command]) : nil)
             .disabled(isBusy)
         } else {
             Button(role: isDestructive ? .destructive : nil) {
@@ -236,6 +240,7 @@ private struct QuestionAttentionCard: View {
     let item: RemoteItem
     let threadID: UUID
     let appModel: AppModel
+    let isFirst: Bool
 
     @State private var selectedOptions: [String: Set<String>] = [:]
     @State private var customAnswers: [String: String] = [:]
@@ -346,7 +351,7 @@ private struct QuestionAttentionCard: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
                 .disabled(!canSubmit || isSubmitting || isDismissing || didResolve)
-                .keyboardShortcut(.return, modifiers: [.command])
+                .keyboardShortcut(isFirst ? KeyboardShortcut(.return, modifiers: [.command]) : nil)
             }
         }
         .padding(14)

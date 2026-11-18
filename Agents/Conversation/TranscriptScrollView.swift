@@ -202,6 +202,7 @@ struct TranscriptScrollView: View {
                         .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
+                    .keyboardShortcut(.downArrow, modifiers: [.command])
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
