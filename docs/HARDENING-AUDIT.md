@@ -1175,8 +1175,10 @@ zero new `//` comments (docs only, no `.rs` changed); `git diff --stat`
 shows only this record and the `SYSTEM-TOOLSET.md` hardening entry.
 Audit baseline: local `main` `07da5097`, remote `main`
 `de82d77fd05b995c8312a662d8f88a02bde78576`, same tree
-`d9bc052544d775c26453086dda9ae56a74056935`. Remote SHA to be backfilled by
-the next slice.
+`d9bc052544d775c26453086dda9ae56a74056935`. Remote SHA
+`3da030fdabe379e6455ef3b5ee153fa1aad3f689` (tree
+`380ec9676dcfe90a371b88faad7a5911198a943e`, same as local `d1f46398`),
+backfilled by Slice 133.
 
 **Mac-gate checks owed:** none new; the Slice 128 Mac-gate item (the
 1,148 desktop tests never run here) stands, now with the corrected
@@ -1229,7 +1231,8 @@ limitation of the audited component, or a question owed to Dylan.
 - **One pre-existing `///` doc comment** at
   `Rust Backend/crates/coincide-core/src/remote_protocol.rs:655`
   ("A phone allowed to connect, as Settings lists it."). Pre-existing,
-  not introduced by this wave (Slices 64/70).
+  not introduced by this wave (Slices 64/70). Whether to remove it is the
+  parent's call, per the coordinator's standing instruction.
 - **No Swift compiled in this environment** — restated here because it
   bounds everything above: Xcode build + `swift test` + `cargo test` +
   live checks on Dylan's Mac are the gate for all slices in this record.
@@ -1359,6 +1362,26 @@ limitation of the audited component, or a question owed to Dylan.
   (2) MINOR — the Slice 128 `rust.yml` cite attached the macOS job to
   the Windows/Linux step lines `:415,668`; the macOS job is `desktop`
   at `:124`. Both fixed in Slice 130.
+  **Slice 131 re-verification (no commit):** Slice 131 re-verified Slice
+  130 read-only and passed it with zero findings — remote `3da030fd` /
+  tree `380ec967` match the live API and the local HEAD `d1f46398`; the
+  Slice 130 diff touches only the two docs files; F1 counts re-measured
+  at HEAD as 3,002 real / 1,148 desktop (2,221 real short-form + 736
+  fully-qualified + 45 `gpui_kit`; desktop 368 raw short-form); F2
+  `rust.yml` cites exact (`desktop` :124, `desktop-windows` :296 step
+  :415, `desktop-linux` :532 step :668); the Slice 128 backfill is
+  present; totals recounted at 29 defects / 27 tests; program diff
+  224 files +54,116/−3,595.
+  **Slice 132 re-verification (no commit):** Slice 132 was the final
+  full-repo re-verification and passed with zero findings — sync
+  tree-identical; registry 332/332/332 with 0 mismatches (1,087 params
+  each side, 63 distinct actions); catalog 279/300 (278 exact + 1 alias
+  + 1 duplicate + 20 NONE); 10-tool realness sample 9 REAL + 1
+  real-but-heuristic (`search_symbol`), 0 stubs; Swift `@Test` 128,
+  Rust 3,002 real, Swift files 148, Rust files 707 excluding `vendor/`,
+  docs 28, program diff 224 files +54,116/−3,595, 90 commits; secrets
+  sweep 0 real; comments sweep 0 new code comments (6 `//` lines all
+  explained); all 8 open items still accurately documented.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)
