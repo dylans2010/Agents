@@ -1,40 +1,28 @@
 import SwiftUI
 
 public struct AssistantTaskRow: View {
-    public let task: AssistantTask
+    public let task: AssistantTaskRecord
     public let assistantName: String
     public let workspaceName: String
 
-    public init(task: AssistantTask, assistantName: String, workspaceName: String) {
+    public init(task: AssistantTaskRecord, assistantName: String, workspaceName: String) {
         self.task = task
         self.assistantName = assistantName
         self.workspaceName = workspaceName
     }
 
     private var statusLabel: String {
-        if !task.enabled {
-            return "Disabled"
-        }
-        if task.paused {
-            return "Paused"
-        }
-        if task.lastOutcome == .failed {
-            return "Failed"
-        }
-        if task.lastOutcome == .missed {
-            return "Missed"
-        }
-        return "Active"
+        task.statusLabel
     }
 
     private var statusTint: Color {
         if !task.enabled || task.paused {
             return AppTheme.secondaryLabel
         }
-        if task.lastOutcome == .failed {
+        if task.lastOutcome == "failed" {
             return AppTheme.danger
         }
-        if task.lastOutcome == .missed {
+        if task.lastOutcome == "missed" {
             return AppTheme.warning
         }
         return AppTheme.success
@@ -42,7 +30,7 @@ public struct AssistantTaskRow: View {
 
     public var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: task.trigger == .timer ? "timer" : "clock.badge.exclamationmark")
+            Image(systemName: task.triggerKind == .timer ? "timer" : "clock.badge.exclamationmark")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(AppTheme.secondaryLabel)
                 .frame(width: 30, height: 30)
@@ -70,11 +58,11 @@ public struct AssistantTaskRow: View {
                     .lineLimit(1)
 
                 HStack(spacing: 4) {
-                    if let nextRun = task.nextRunAt, task.isActive {
+                    if let nextRun = task.nextRunAtDate, task.isActive {
                         Text("Next \(AssistantTaskDateFormatting.dateTime(nextRun, timeZoneID: task.schedule.timeZoneID))")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(AppTheme.primaryLabel)
-                    } else if let lastRun = task.lastRunAt {
+                    } else if let lastRun = task.lastRunAtDate {
                         Text("Last run \(AssistantTaskDateFormatting.dateTime(lastRun, timeZoneID: task.schedule.timeZoneID))")
                             .font(.system(size: 11))
                             .foregroundStyle(AppTheme.tertiaryLabel)

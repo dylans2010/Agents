@@ -68,6 +68,16 @@ public enum AssistantTaskOutcome: Hashable, Sendable {
     case interrupted
     case unknown(String)
 
+    public init(rawValue: String) {
+        switch rawValue {
+        case "completed": self = .completed
+        case "failed": self = .failed
+        case "missed": self = .missed
+        case "interrupted": self = .interrupted
+        case let value: self = .unknown(value)
+        }
+    }
+
     public var displayName: String {
         switch self {
         case .completed: "Completed"
@@ -92,13 +102,7 @@ public enum AssistantTaskOutcome: Hashable, Sendable {
 extension AssistantTaskOutcome: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        switch try container.decode(String.self) {
-        case "completed": self = .completed
-        case "failed": self = .failed
-        case "missed": self = .missed
-        case "interrupted": self = .interrupted
-        case let value: self = .unknown(value)
-        }
+        self.init(rawValue: try container.decode(String.self))
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -136,93 +140,36 @@ public enum AssistantTaskScheduleKind: String, Codable, Hashable, Sendable, Case
     }
 }
 
-public struct AssistantTaskSchedule: Codable, Hashable, Sendable {
-    public var kind: AssistantTaskScheduleKind
-    public var timeZoneID: String
-    public var date: Date
-    public var hour: Int
-    public var minute: Int
-    public var weekday: Int
-    public var weekdays: [Int]?
-    public var intervalMinutes: Int?
-    public var cron: String?
-
-    public init(
-        kind: AssistantTaskScheduleKind,
-        timeZoneID: String = TimeZone.current.identifier,
-        date: Date = Date(),
-        hour: Int = 9,
-        minute: Int = 0,
-        weekday: Int = 2,
-        weekdays: [Int]? = nil,
-        intervalMinutes: Int? = nil,
-        cron: String? = nil
-    ) {
-        self.kind = kind
-        self.timeZoneID = timeZoneID
-        self.date = date
-        self.hour = hour
-        self.minute = minute
-        self.weekday = weekday
-        self.weekdays = weekdays
-        self.intervalMinutes = intervalMinutes
-        self.cron = cron
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case kind
-        case timeZoneID
-        case date
-        case hour
-        case minute
-        case weekday
-        case weekdays
-        case intervalMinutes
-        case cron
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        kind = (try? container.decode(AssistantTaskScheduleKind.self, forKey: .kind)) ?? .unknown
-        timeZoneID = (try? container.decode(String.self, forKey: .timeZoneID)) ?? TimeZone.current.identifier
-        if let text = try? container.decode(String.self, forKey: .date),
-           let parsed = ISO8601DateFormatter().date(from: text) {
-            date = parsed
-        } else if let seconds = try? container.decode(Double.self, forKey: .date) {
-            date = Date(timeIntervalSinceReferenceDate: seconds)
-        } else {
-            date = Date()
-        }
-        hour = (try? container.decode(Int.self, forKey: .hour)) ?? 9
-        minute = (try? container.decode(Int.self, forKey: .minute)) ?? 0
-        weekday = (try? container.decode(Int.self, forKey: .weekday)) ?? 2
-        weekdays = try? container.decode([Int].self, forKey: .weekdays)
-        intervalMinutes = try? container.decode(Int.self, forKey: .intervalMinutes)
-        cron = try? container.decode(String.self, forKey: .cron)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(kind, forKey: .kind)
-        try container.encode(timeZoneID, forKey: .timeZoneID)
-        try container.encode(ISO8601DateFormatter().string(from: date), forKey: .date)
-        try container.encode(hour, forKey: .hour)
-        try container.encode(minute, forKey: .minute)
-        try container.encode(weekday, forKey: .weekday)
-        try container.encodeIfPresent(weekdays, forKey: .weekdays)
-        try container.encodeIfPresent(intervalMinutes, forKey: .intervalMinutes)
-        try container.encodeIfPresent(cron, forKey: .cron)
+extension AssistantTaskSchedule {
+    public var kindEnum: AssistantTaskScheduleKind {
+        AssistantTaskScheduleKind(rawValue: kind) ?? .unknown
     }
 
     public var timeZone: TimeZone {
         TimeZone(identifier: timeZoneID) ?? .current
     }
 
+    public var onceDate: Date? {
+        switch date {
+        case .string(let text):
+            ISO8601DateFormatter().date(from: text)
+        case .int(let seconds):
+            Date(timeIntervalSince1970: TimeInterval(seconds))
+        case .double(let seconds):
+            Date(timeIntervalSince1970: seconds)
+        default:
+            nil
+        }
+    }
+
     public var summary: String {
         let time = AssistantTaskDateFormatting.time(hour: hour, minute: minute, timeZoneID: timeZoneID)
-        switch kind {
+        switch kindEnum {
         case .once:
-            return "Once on \(AssistantTaskDateFormatting.date(date, timeZoneID: timeZoneID)) at \(time)"
+            if let anchor = onceDate {
+                return "Once on \(AssistantTaskDateFormatting.date(anchor, timeZoneID: timeZoneID)) at \(time)"
+            }
+            return "Once"
         case .daily:
             return "Daily at \(time)"
         case .weekly:
@@ -263,23 +210,24 @@ public struct AssistantTaskSchedule: Codable, Hashable, Sendable {
 
     public func upcomingRuns(after: Date, count: Int) -> [Date] {
         guard count > 0 else { return [] }
-        switch kind {
+        switch kindEnum {
         case .once:
-            return date > after ? [date] : []
+            guard let anchor = onceDate, anchor > after else { return [] }
+            return [anchor]
         case .interval:
-            guard let intervalMinutes, intervalMinutes > 0 else { return [] }
+            guard let intervalMinutes, intervalMinutes > 0, let anchor = onceDate else { return [] }
             let step = TimeInterval(intervalMinutes * 60)
             var first: Date
-            if date > after {
-                first = date
+            if anchor > after {
+                first = anchor
             } else {
-                let elapsed = after.timeIntervalSince(date)
+                let elapsed = after.timeIntervalSince(anchor)
                 let steps = Int(elapsed / step) + 1
-                first = date.addingTimeInterval(TimeInterval(steps) * step)
+                first = anchor.addingTimeInterval(TimeInterval(steps) * step)
             }
             return (0..<count).map { first.addingTimeInterval(TimeInterval($0) * step) }
         case .daily, .weekly, .weekdays, .days:
-            guard kind != .days || !(weekdays ?? []).isEmpty else { return [] }
+            guard kindEnum != .days || !(weekdays ?? []).isEmpty else { return [] }
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = timeZone
             var results: [Date] = []
@@ -290,7 +238,7 @@ public struct AssistantTaskSchedule: Codable, Hashable, Sendable {
                 var matching = DateComponents()
                 matching.hour = hour
                 matching.minute = minute
-                if kind == .weekly {
+                if kindEnum == .weekly {
                     matching.weekday = weekday
                 }
                 guard let next = calendar.nextDate(
@@ -304,10 +252,10 @@ public struct AssistantTaskSchedule: Codable, Hashable, Sendable {
                 }
                 cursor = next
                 let dayOfWeek = calendar.component(.weekday, from: next)
-                if kind == .weekdays, !(2...6).contains(dayOfWeek) {
+                if kindEnum == .weekdays, !(2...6).contains(dayOfWeek) {
                     continue
                 }
-                if kind == .days, !(weekdays ?? []).contains(dayOfWeek) {
+                if kindEnum == .days, !(weekdays ?? []).contains(dayOfWeek) {
                     continue
                 }
                 results.append(next)
@@ -319,473 +267,91 @@ public struct AssistantTaskSchedule: Codable, Hashable, Sendable {
     }
 }
 
-public indirect enum AssistantTaskJSONValue: Hashable, Sendable {
-    case string(String)
-    case number(Double)
-    case bool(Bool)
-    case null
-    case array([AssistantTaskJSONValue])
-    case object([String: AssistantTaskJSONValue])
+extension AssistantTaskRecord {
+    public var triggerKind: AssistantTaskTriggerKind {
+        AssistantTaskTriggerKind(rawValue: trigger) ?? .timer
+    }
 
+    public var lastOutcomeEnum: AssistantTaskOutcome? {
+        lastOutcome.map(AssistantTaskOutcome.init(rawValue:))
+    }
+
+    public var lastRunAtDate: Date? {
+        lastRunAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
+
+    public var lastMissedAtDate: Date? {
+        lastMissedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
+
+    public var nextRunAtDate: Date? {
+        nextRunAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
+
+    public var createdAtDate: Date {
+        Date(timeIntervalSince1970: TimeInterval(createdAt))
+    }
+
+    public var updatedAtDate: Date {
+        Date(timeIntervalSince1970: TimeInterval(updatedAt))
+    }
+
+    public var hasFailed: Bool {
+        lastOutcome == "failed"
+    }
+
+    public var hasUnconfirmedRun: Bool {
+        lastWorkerID != nil && lastOutcome == nil && lastRunAt != nil
+    }
+
+    public var statusLabel: String {
+        if !enabled {
+            return "Disabled"
+        }
+        if paused {
+            return "Paused"
+        }
+        if lastOutcome == "failed" {
+            return "Failed"
+        }
+        if lastOutcome == "missed" {
+            return "Missed"
+        }
+        return "Active"
+    }
+}
+
+extension AssistantTaskFailurePolicy {
+    public var failureBehaviorEnum: AssistantTaskFailureBehavior {
+        AssistantTaskFailureBehavior(rawValue: behavior) ?? .retryWithBackoff
+    }
+}
+
+extension JSONValue {
     public init?(jsonText: String) {
         guard let data = jsonText.data(using: .utf8),
-              let parsed = try? JSONSerialization.jsonObject(with: data, options: []),
-              let value = Self(any: parsed) else {
+              let value = try? JSONDecoder().decode(JSONValue.self, from: data) else {
             return nil
         }
         self = value
     }
 
-    public init?(any: Any) {
-        switch any {
-        case let text as String:
-            self = .string(text)
-        case let number as NSNumber:
-            if CFGetTypeID(number) == CFBooleanGetTypeID() {
-                self = .bool(number.boolValue)
-            } else {
-                self = .number(number.doubleValue)
-            }
-        case is NSNull:
-            self = .null
-        case let items as [Any]:
-            let values = items.compactMap(Self.init(any:))
-            guard values.count == items.count else { return nil }
-            self = .array(values)
-        case let object as [String: Any]:
-            var values: [String: AssistantTaskJSONValue] = [:]
-            for (key, item) in object {
-                guard let value = Self(any: item) else { return nil }
-                values[key] = value
-            }
-            self = .object(values)
-        default:
-            return nil
+    public var displayText: String {
+        if case .string(let text) = self {
+            return text
         }
-    }
-
-    public var anyValue: Any {
-        switch self {
-        case .string(let text): text
-        case .number(let number): number
-        case .bool(let flag): flag
-        case .null: NSNull()
-        case .array(let items): items.map(\.anyValue)
-        case .object(let object): object.mapValues(\.anyValue)
-        }
-    }
-
-    public var jsonText: String {
-        guard let data = try? JSONSerialization.data(withJSONObject: anyValue, options: []),
+        guard let data = try? JSONEncoder().encode(self),
               let text = String(data: data, encoding: .utf8) else {
             return "null"
         }
         return text
     }
-}
 
-extension AssistantTaskJSONValue: Codable {
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let text = try? container.decode(String.self) {
-            self = .string(text)
-            return
+    public var isPlainString: Bool {
+        if case .string = self {
+            return true
         }
-        if let flag = try? container.decode(Bool.self) {
-            self = .bool(flag)
-            return
-        }
-        if let number = try? container.decode(Double.self) {
-            self = .number(number)
-            return
-        }
-        if container.decodeNil() {
-            self = .null
-            return
-        }
-        if let items = try? container.decode([AssistantTaskJSONValue].self) {
-            self = .array(items)
-            return
-        }
-        if let object = try? container.decode([String: AssistantTaskJSONValue].self) {
-            self = .object(object)
-            return
-        }
-        throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unsupported JSON value")
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .string(let text): try container.encode(text)
-        case .number(let number): try container.encode(number)
-        case .bool(let flag): try container.encode(flag)
-        case .null: try container.encodeNil()
-        case .array(let items): try container.encode(items)
-        case .object(let object): try container.encode(object)
-        }
-    }
-}
-
-public enum AssistantTaskInputValue: Hashable, Sendable {
-    case string(String)
-    case json(AssistantTaskJSONValue)
-
-    public var displayText: String {
-        switch self {
-        case .string(let text): text
-        case .json(let value): value.jsonText
-        }
-    }
-
-    public var isJSON: Bool {
-        if case .json = self { return true }
         return false
-    }
-}
-
-extension AssistantTaskInputValue: Codable {
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let text = try? container.decode(String.self) {
-            self = .string(text)
-            return
-        }
-        let value = try container.decode(AssistantTaskJSONValue.self)
-        self = .json(value)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .string(let text): try container.encode(text)
-        case .json(let value): try container.encode(value)
-        }
-    }
-}
-
-public struct AssistantTaskLimits: Codable, Hashable, Sendable {
-    public var maxRuns: Int?
-    public var maxConcurrent: Int
-
-    public init(maxRuns: Int? = nil, maxConcurrent: Int = 1) {
-        self.maxRuns = maxRuns
-        self.maxConcurrent = maxConcurrent
-    }
-}
-
-public struct AssistantTaskNotificationPrefs: Codable, Hashable, Sendable {
-    public var onSuccess: Bool
-    public var onFailure: Bool
-    public var onMissed: Bool
-
-    public init(onSuccess: Bool = false, onFailure: Bool = true, onMissed: Bool = true) {
-        self.onSuccess = onSuccess
-        self.onFailure = onFailure
-        self.onMissed = onMissed
-    }
-}
-
-public struct AssistantTaskFailurePolicy: Codable, Hashable, Sendable {
-    public var behavior: AssistantTaskFailureBehavior
-    public var maxRetries: Int
-    public var backoffSeconds: Int
-
-    public init(
-        behavior: AssistantTaskFailureBehavior = .retryWithBackoff,
-        maxRetries: Int = 3,
-        backoffSeconds: Int = 300
-    ) {
-        self.behavior = behavior
-        self.maxRetries = maxRetries
-        self.backoffSeconds = backoffSeconds
-    }
-}
-
-public struct AssistantTaskApproval: Codable, Hashable, Sendable {
-    public var required: Bool
-    public var actions: [String]
-
-    public init(required: Bool = false, actions: [String] = []) {
-        self.required = required
-        self.actions = actions
-    }
-}
-
-public struct AssistantTask: Codable, Hashable, Sendable, Identifiable {
-    public var id: UUID
-    public var name: String
-    public var assistantID: UUID
-    public var workspaceID: UUID
-    public var inputs: [String: AssistantTaskInputValue]
-    public var schedule: AssistantTaskSchedule
-    public var trigger: AssistantTaskTriggerKind
-    public var enabled: Bool
-    public var paused: Bool
-    public var limits: AssistantTaskLimits
-    public var notifications: AssistantTaskNotificationPrefs
-    public var failurePolicy: AssistantTaskFailurePolicy
-    public var approval: AssistantTaskApproval
-    public var runCount: Int
-    public var lastRunAt: Date?
-    public var lastOutcome: AssistantTaskOutcome?
-    public var lastMessage: String?
-    public var lastMissedAt: Date?
-    public var missedCount: Int
-    public var lastWorkerID: UUID?
-    public var nextRunAt: Date?
-    public var createdAt: Date
-    public var updatedAt: Date
-    public var extra: [String: AssistantTaskJSONValue]
-
-    public init(
-        id: UUID,
-        name: String,
-        assistantID: UUID,
-        workspaceID: UUID,
-        inputs: [String: AssistantTaskInputValue] = [:],
-        schedule: AssistantTaskSchedule,
-        trigger: AssistantTaskTriggerKind = .timer,
-        enabled: Bool = true,
-        paused: Bool = false,
-        limits: AssistantTaskLimits = AssistantTaskLimits(),
-        notifications: AssistantTaskNotificationPrefs = AssistantTaskNotificationPrefs(),
-        failurePolicy: AssistantTaskFailurePolicy = AssistantTaskFailurePolicy(),
-        approval: AssistantTaskApproval = AssistantTaskApproval(),
-        runCount: Int = 0,
-        lastRunAt: Date? = nil,
-        lastOutcome: AssistantTaskOutcome? = nil,
-        lastMessage: String? = nil,
-        lastMissedAt: Date? = nil,
-        missedCount: Int = 0,
-        lastWorkerID: UUID? = nil,
-        nextRunAt: Date? = nil,
-        createdAt: Date = Date(),
-        updatedAt: Date = Date(),
-        extra: [String: AssistantTaskJSONValue] = [:]
-    ) {
-        self.id = id
-        self.name = name
-        self.assistantID = assistantID
-        self.workspaceID = workspaceID
-        self.inputs = inputs
-        self.schedule = schedule
-        self.trigger = trigger
-        self.enabled = enabled
-        self.paused = paused
-        self.limits = limits
-        self.notifications = notifications
-        self.failurePolicy = failurePolicy
-        self.approval = approval
-        self.runCount = runCount
-        self.lastRunAt = lastRunAt
-        self.lastOutcome = lastOutcome
-        self.lastMessage = lastMessage
-        self.lastMissedAt = lastMissedAt
-        self.missedCount = missedCount
-        self.lastWorkerID = lastWorkerID
-        self.nextRunAt = nextRunAt
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-        self.extra = extra
-    }
-
-    public var isActive: Bool {
-        enabled && !paused
-    }
-
-    public var hasFailed: Bool {
-        lastOutcome == .failed
-    }
-
-    public var hasRunningWorker: Bool {
-        lastWorkerID != nil && lastOutcome == nil && lastRunAt != nil
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case assistantID
-        case workspaceID
-        case inputs
-        case schedule
-        case trigger
-        case enabled
-        case paused
-        case limits
-        case notifications
-        case failurePolicy
-        case approval
-        case runCount
-        case lastRunAt
-        case lastOutcome
-        case lastMessage
-        case lastMissedAt
-        case missedCount
-        case lastWorkerID
-        case nextRunAt
-        case createdAt
-        case updatedAt
-    }
-
-    private struct DynamicCodingKey: CodingKey {
-        var stringValue: String
-        var intValue: Int?
-
-        init?(stringValue: String) {
-            self.stringValue = stringValue
-            self.intValue = nil
-        }
-
-        init?(intValue: Int) {
-            self.stringValue = String(intValue)
-            self.intValue = intValue
-        }
-    }
-
-    private static func epochDate(from container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> Date? {
-        guard let seconds = try? container.decode(Int64.self, forKey: key) else { return nil }
-        return Date(timeIntervalSince1970: TimeInterval(seconds))
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        name = (try? container.decode(String.self, forKey: .name)) ?? ""
-        assistantID = try container.decode(UUID.self, forKey: .assistantID)
-        workspaceID = try container.decode(UUID.self, forKey: .workspaceID)
-        inputs = (try? container.decode([String: AssistantTaskInputValue].self, forKey: .inputs)) ?? [:]
-        schedule = try container.decode(AssistantTaskSchedule.self, forKey: .schedule)
-        trigger = (try? container.decode(AssistantTaskTriggerKind.self, forKey: .trigger)) ?? .timer
-        enabled = (try? container.decode(Bool.self, forKey: .enabled)) ?? true
-        paused = (try? container.decode(Bool.self, forKey: .paused)) ?? false
-        limits = (try? container.decode(AssistantTaskLimits.self, forKey: .limits)) ?? AssistantTaskLimits()
-        notifications = (try? container.decode(AssistantTaskNotificationPrefs.self, forKey: .notifications)) ?? AssistantTaskNotificationPrefs()
-        failurePolicy = (try? container.decode(AssistantTaskFailurePolicy.self, forKey: .failurePolicy)) ?? AssistantTaskFailurePolicy()
-        approval = (try? container.decode(AssistantTaskApproval.self, forKey: .approval)) ?? AssistantTaskApproval()
-        runCount = (try? container.decode(Int.self, forKey: .runCount)) ?? 0
-        lastRunAt = Self.epochDate(from: container, key: .lastRunAt)
-        lastOutcome = try? container.decode(AssistantTaskOutcome.self, forKey: .lastOutcome)
-        lastMessage = try? container.decode(String.self, forKey: .lastMessage)
-        lastMissedAt = Self.epochDate(from: container, key: .lastMissedAt)
-        missedCount = (try? container.decode(Int.self, forKey: .missedCount)) ?? 0
-        lastWorkerID = try? container.decode(UUID.self, forKey: .lastWorkerID)
-        nextRunAt = Self.epochDate(from: container, key: .nextRunAt)
-        createdAt = Self.epochDate(from: container, key: .createdAt) ?? Date(timeIntervalSince1970: 0)
-        updatedAt = Self.epochDate(from: container, key: .updatedAt) ?? Date(timeIntervalSince1970: 0)
-        let extraContainer = try decoder.container(keyedBy: DynamicCodingKey.self)
-        var extra: [String: AssistantTaskJSONValue] = [:]
-        for key in extraContainer.allKeys where CodingKeys(rawValue: key.stringValue) == nil {
-            if let value = try? extraContainer.decode(AssistantTaskJSONValue.self, forKey: key) {
-                extra[key.stringValue] = value
-            }
-        }
-        self.extra = extra
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(name, forKey: .name)
-        try container.encode(assistantID, forKey: .assistantID)
-        try container.encode(workspaceID, forKey: .workspaceID)
-        try container.encode(inputs, forKey: .inputs)
-        try container.encode(schedule, forKey: .schedule)
-        try container.encode(trigger, forKey: .trigger)
-        try container.encode(enabled, forKey: .enabled)
-        try container.encode(paused, forKey: .paused)
-        try container.encode(limits, forKey: .limits)
-        try container.encode(notifications, forKey: .notifications)
-        try container.encode(failurePolicy, forKey: .failurePolicy)
-        try container.encode(approval, forKey: .approval)
-        try container.encode(runCount, forKey: .runCount)
-        if let lastRunAt {
-            try container.encode(Int64(lastRunAt.timeIntervalSince1970), forKey: .lastRunAt)
-        } else {
-            try container.encodeNil(forKey: .lastRunAt)
-        }
-        if let lastOutcome {
-            try container.encode(lastOutcome, forKey: .lastOutcome)
-        } else {
-            try container.encodeNil(forKey: .lastOutcome)
-        }
-        try container.encodeIfPresent(lastMessage, forKey: .lastMessage)
-        if let lastMissedAt {
-            try container.encode(Int64(lastMissedAt.timeIntervalSince1970), forKey: .lastMissedAt)
-        } else {
-            try container.encodeNil(forKey: .lastMissedAt)
-        }
-        try container.encode(missedCount, forKey: .missedCount)
-        try container.encodeIfPresent(lastWorkerID, forKey: .lastWorkerID)
-        if let nextRunAt {
-            try container.encode(Int64(nextRunAt.timeIntervalSince1970), forKey: .nextRunAt)
-        } else {
-            try container.encodeNil(forKey: .nextRunAt)
-        }
-        try container.encode(Int64(createdAt.timeIntervalSince1970), forKey: .createdAt)
-        try container.encode(Int64(updatedAt.timeIntervalSince1970), forKey: .updatedAt)
-        var extraContainer = encoder.container(keyedBy: DynamicCodingKey.self)
-        for (key, value) in extra {
-            if let codingKey = DynamicCodingKey(stringValue: key) {
-                try extraContainer.encode(value, forKey: codingKey)
-            }
-        }
-    }
-}
-
-public struct AssistantTaskDue: Codable, Hashable, Sendable, Identifiable {
-    public var taskID: UUID
-    public var taskName: String
-    public var occurrence: Date
-    public var nextRunAt: Date
-    public var runCount: Int
-
-    public var id: UUID { taskID }
-
-    public init(taskID: UUID, taskName: String, occurrence: Date, nextRunAt: Date, runCount: Int) {
-        self.taskID = taskID
-        self.taskName = taskName
-        self.occurrence = occurrence
-        self.nextRunAt = nextRunAt
-        self.runCount = runCount
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case taskID
-        case taskName
-        case occurrence
-        case nextRunAt
-        case runCount
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        taskID = try container.decode(UUID.self, forKey: .taskID)
-        taskName = (try? container.decode(String.self, forKey: .taskName)) ?? ""
-        let occurrenceSeconds = try container.decode(Int64.self, forKey: .occurrence)
-        occurrence = Date(timeIntervalSince1970: TimeInterval(occurrenceSeconds))
-        let nextSeconds = try container.decode(Int64.self, forKey: .nextRunAt)
-        nextRunAt = Date(timeIntervalSince1970: TimeInterval(nextSeconds))
-        runCount = (try? container.decode(Int.self, forKey: .runCount)) ?? 0
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(taskID, forKey: .taskID)
-        try container.encode(taskName, forKey: .taskName)
-        try container.encode(Int64(occurrence.timeIntervalSince1970), forKey: .occurrence)
-        try container.encode(Int64(nextRunAt.timeIntervalSince1970), forKey: .nextRunAt)
-        try container.encode(runCount, forKey: .runCount)
-    }
-}
-
-public struct AssistantTaskRunNowResult: Hashable, Sendable {
-    public var task: AssistantTask
-    public var workerID: UUID
-
-    public init(task: AssistantTask, workerID: UUID) {
-        self.task = task
-        self.workerID = workerID
     }
 }
 
@@ -844,6 +410,8 @@ public struct AssistantTaskDraft: Hashable, Sendable {
     public var workspaceID: UUID?
     public var inputRows: [AssistantTaskInputRow]
     public var schedule: AssistantTaskSchedule
+    public var scheduleKind: AssistantTaskScheduleKind
+    public var preservedSchedule: AssistantTaskSchedule?
     public var trigger: AssistantTaskTriggerKind
     public var enabled: Bool
     public var paused: Bool
@@ -863,7 +431,7 @@ public struct AssistantTaskDraft: Hashable, Sendable {
         assistantID: UUID? = nil,
         workspaceID: UUID? = nil,
         inputRows: [AssistantTaskInputRow] = [],
-        schedule: AssistantTaskSchedule = AssistantTaskSchedule(kind: .daily),
+        schedule: AssistantTaskSchedule = AssistantTaskSchedule(),
         trigger: AssistantTaskTriggerKind = .timer,
         enabled: Bool = true,
         paused: Bool = false,
@@ -883,6 +451,8 @@ public struct AssistantTaskDraft: Hashable, Sendable {
         self.workspaceID = workspaceID
         self.inputRows = inputRows
         self.schedule = schedule
+        self.scheduleKind = schedule.kindEnum
+        self.preservedSchedule = nil
         self.trigger = trigger
         self.enabled = enabled
         self.paused = paused
@@ -919,7 +489,7 @@ public struct AssistantTaskDraft: Hashable, Sendable {
             if !seenKeys.insert(key).inserted {
                 issues.append(.duplicateInputKey(key: key))
             }
-            if row.isJSON, AssistantTaskJSONValue(jsonText: row.value) == nil {
+            if row.isJSON, JSONValue(jsonText: row.value) == nil {
                 issues.append(.invalidJSONInput(key: key))
             }
         }
@@ -940,41 +510,45 @@ public struct AssistantTaskDraft: Hashable, Sendable {
         return issues
     }
 
-    public func makeTask(id: UUID, existing: AssistantTask?, now: Date) -> AssistantTask? {
+    public func makeTask(id: UUID, existing: AssistantTaskRecord?, now: Date) -> AssistantTaskRecord? {
         guard let assistantID, let workspaceID else { return nil }
-        var inputs: [String: AssistantTaskInputValue] = [:]
+        var inputs: [String: JSONValue] = [:]
         for row in inputRows {
             let key = row.key.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty else { return nil }
             if row.isJSON {
-                guard let value = AssistantTaskJSONValue(jsonText: row.value) else { return nil }
-                inputs[key] = .json(value)
+                guard let value = JSONValue(jsonText: row.value) else { return nil }
+                inputs[key] = value
             } else {
                 inputs[key] = .string(row.value)
             }
         }
-        return AssistantTask(
+        var schedule = preservedSchedule ?? self.schedule
+        if preservedSchedule == nil {
+            schedule.kind = scheduleKind.rawValue
+        }
+        return AssistantTaskRecord(
             id: id,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             assistantID: assistantID,
             workspaceID: workspaceID,
-            inputs: inputs,
+            inputs: .object(inputs),
             schedule: schedule,
-            trigger: trigger,
+            trigger: trigger.rawValue,
             enabled: enabled,
             paused: paused,
-            limits: AssistantTaskLimits(maxRuns: maxRuns, maxConcurrent: maxConcurrent),
+            limits: AssistantTaskExecutionLimits(maxRuns: maxRuns, maxConcurrent: maxConcurrent),
             notifications: AssistantTaskNotificationPrefs(
                 onSuccess: notifyOnSuccess,
                 onFailure: notifyOnFailure,
                 onMissed: notifyOnMissed
             ),
             failurePolicy: AssistantTaskFailurePolicy(
-                behavior: failureBehavior,
+                behavior: failureBehavior.rawValue,
                 maxRetries: maxRetries,
                 backoffSeconds: backoffSeconds
             ),
-            approval: AssistantTaskApproval(
+            approval: AssistantTaskApprovalRequirements(
                 required: approvalRequired,
                 actions: approvalActions.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             ),
@@ -986,23 +560,21 @@ public struct AssistantTaskDraft: Hashable, Sendable {
             missedCount: existing?.missedCount ?? 0,
             lastWorkerID: existing?.lastWorkerID,
             nextRunAt: existing?.nextRunAt,
-            createdAt: existing?.createdAt ?? now,
-            updatedAt: now,
+            createdAt: existing?.createdAt ?? Int64(now.timeIntervalSince1970),
+            updatedAt: Int64(now.timeIntervalSince1970),
             extra: existing?.extra ?? [:]
         )
     }
 }
 
 public protocol AssistantTaskManaging: Sendable {
-    func listTasks() async throws -> [AssistantTask]
-    func saveTask(_ task: AssistantTask) async throws -> AssistantTask
-    func deleteTask(id: UUID) async throws
-    func setTaskEnabled(id: UUID, enabled: Bool) async throws -> AssistantTask
-    func setTaskPaused(id: UUID, paused: Bool) async throws -> AssistantTask
-    func runTaskNow(id: UUID) async throws -> AssistantTaskRunNowResult
-    func dueTasks(now: Date) async throws -> [AssistantTaskDue]
-    func markTaskMissed(id: UUID, reason: String) async throws -> AssistantTask
-    func recoverMissedTasks(now: Date) async throws -> [UUID]
+    func listTasks() async throws -> AssistantTaskList
+    func saveTask(_ task: AssistantTaskRecord, baseline: String) async throws -> AssistantTaskRecord
+    func deleteTask(id: UUID, baseline: String) async throws
+    func setTaskEnabled(_ task: AssistantTaskRecord, enabled: Bool, baseline: String) async throws -> AssistantTaskRecord
+    func setTaskPaused(_ task: AssistantTaskRecord, paused: Bool, baseline: String) async throws -> AssistantTaskRecord
+    func runTaskNow(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome
+    func recoverMissedTasks() async throws -> [UUID]
 }
 
 public enum AssistantTasksFilter: String, CaseIterable, Sendable {
@@ -1071,14 +643,14 @@ public final class AssistantTasksViewModel {
     public var projects: [RemoteProject]
     public var now: () -> Date
 
-    public var tasks: [AssistantTask] = []
+    public var tasks: [AssistantTaskRecord] = []
+    public var baseline: String = ""
     public var filter: AssistantTasksFilter = .all
     public var searchText: String = ""
     public var selectedTaskID: UUID?
     public var isLoading: Bool = false
     public var lastError: String?
-    public var lastRunNowWorkerID: UUID?
-    public var dueTasksList: [AssistantTaskDue] = []
+    public var lastRunNowWorkerID: String?
 
     public init(
         manager: any AssistantTaskManaging,
@@ -1092,12 +664,12 @@ public final class AssistantTasksViewModel {
         self.now = now
     }
 
-    public var selectedTask: AssistantTask? {
+    public var selectedTask: AssistantTaskRecord? {
         guard let selectedTaskID else { return nil }
         return tasks.first { $0.id == selectedTaskID }
     }
 
-    public var filteredTasks: [AssistantTask] {
+    public var filteredTasks: [AssistantTaskRecord] {
         let nowDate = now()
         var result = tasks
         switch filter {
@@ -1109,13 +681,13 @@ public final class AssistantTasksViewModel {
             result = result.filter(\.paused)
         case .upcoming:
             result = result.filter { task in
-                guard task.isActive, let next = task.nextRunAt else { return false }
+                guard task.isActive, let next = task.nextRunAtDate else { return false }
                 return next > nowDate
             }
         case .recent:
-            result = result.filter { $0.lastRunAt != nil }
+            result = result.filter { $0.lastRunAtDate != nil }
         case .failed:
-            result = result.filter { $0.lastOutcome == .failed }
+            result = result.filter { $0.lastOutcome == "failed" }
         }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !query.isEmpty {
@@ -1127,9 +699,9 @@ public final class AssistantTasksViewModel {
         }
         switch filter {
         case .recent:
-            return result.sorted { ($0.lastRunAt ?? .distantPast) > ($1.lastRunAt ?? .distantPast) }
+            return result.sorted { ($0.lastRunAtDate ?? .distantPast) > ($1.lastRunAtDate ?? .distantPast) }
         case .upcoming:
-            return result.sorted { ($0.nextRunAt ?? .distantFuture) < ($1.nextRunAt ?? .distantFuture) }
+            return result.sorted { ($0.nextRunAtDate ?? .distantFuture) < ($1.nextRunAtDate ?? .distantFuture) }
         default:
             return result.sorted { ($0.name, $0.id.uuidString) < ($1.name, $1.id.uuidString) }
         }
@@ -1142,32 +714,32 @@ public final class AssistantTasksViewModel {
         counts[.active] = tasks.filter(\.isActive).count
         counts[.paused] = tasks.filter(\.paused).count
         counts[.upcoming] = tasks.filter { task in
-            guard task.isActive, let next = task.nextRunAt else { return false }
+            guard task.isActive, let next = task.nextRunAtDate else { return false }
             return next > nowDate
         }.count
-        counts[.recent] = tasks.filter { $0.lastRunAt != nil }.count
-        counts[.failed] = tasks.filter { $0.lastOutcome == .failed }.count
+        counts[.recent] = tasks.filter { $0.lastRunAtDate != nil }.count
+        counts[.failed] = tasks.filter { $0.lastOutcome == "failed" }.count
         return counts
     }
 
-    public func assistantDefinition(for task: AssistantTask) -> AssistantDefinition? {
+    public func assistantDefinition(for task: AssistantTaskRecord) -> AssistantDefinition? {
         catalog.definition(forPersistenceID: task.assistantID)
     }
 
-    public func assistantName(for task: AssistantTask) -> String {
+    public func assistantName(for task: AssistantTaskRecord) -> String {
         assistantDefinition(for: task)?.name ?? "Unknown assistant"
     }
 
-    public func workspaceName(for task: AssistantTask) -> String {
+    public func workspaceName(for task: AssistantTaskRecord) -> String {
         projects.first { $0.id == task.workspaceID }?.name ?? "Unknown workspace"
     }
 
-    public func upcomingRuns(for task: AssistantTask, count: Int = 5) -> [Date] {
+    public func upcomingRuns(for task: AssistantTaskRecord, count: Int = 5) -> [Date] {
         let runs = task.schedule.upcomingRuns(after: now(), count: count)
         if !runs.isEmpty {
             return runs
         }
-        if let next = task.nextRunAt, next > now() {
+        if let next = task.nextRunAtDate, next > now() {
             return [next]
         }
         return []
@@ -1176,17 +748,15 @@ public final class AssistantTasksViewModel {
     public func refresh() async {
         isLoading = true
         defer { isLoading = false }
-        do {
-            tasks = try await manager.listTasks()
-            lastError = nil
-        } catch {
-            lastError = error.localizedDescription
-        }
+        await reload()
     }
 
-    public func refreshDue() async {
+    private func reload() async {
         do {
-            dueTasksList = try await manager.dueTasks(now: now())
+            let listed = try await manager.listTasks()
+            tasks = listed.tasks
+            baseline = listed.baseline
+            lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
@@ -1194,9 +764,8 @@ public final class AssistantTasksViewModel {
 
     public func recoverMissed() async -> [UUID] {
         do {
-            let missed = try await manager.recoverMissedTasks(now: now())
-            await refresh()
-            lastError = nil
+            let missed = try await manager.recoverMissedTasks()
+            await reload()
             return missed
         } catch {
             lastError = error.localizedDescription
@@ -1214,19 +783,19 @@ public final class AssistantTasksViewModel {
         )
     }
 
-    public func draftForTask(_ task: AssistantTask) -> AssistantTaskDraft {
-        let rows = task.inputs
+    public func draftForTask(_ task: AssistantTaskRecord) -> AssistantTaskDraft {
+        let rows = (task.inputs.objectValue ?? [:])
             .sorted { $0.key < $1.key }
             .map { key, value in
-                AssistantTaskInputRow(key: key, value: value.displayText, isJSON: value.isJSON)
+                AssistantTaskInputRow(key: key, value: value.displayText, isJSON: !value.isPlainString)
             }
-        return AssistantTaskDraft(
+        var draft = AssistantTaskDraft(
             name: task.name,
             assistantID: task.assistantID,
             workspaceID: task.workspaceID,
             inputRows: rows,
             schedule: task.schedule,
-            trigger: task.trigger,
+            trigger: task.triggerKind,
             enabled: task.enabled,
             paused: task.paused,
             maxRuns: task.limits.maxRuns,
@@ -1234,12 +803,16 @@ public final class AssistantTasksViewModel {
             notifyOnSuccess: task.notifications.onSuccess,
             notifyOnFailure: task.notifications.onFailure,
             notifyOnMissed: task.notifications.onMissed,
-            failureBehavior: task.failurePolicy.behavior,
+            failureBehavior: task.failurePolicy.failureBehaviorEnum,
             maxRetries: task.failurePolicy.maxRetries,
             backoffSeconds: task.failurePolicy.backoffSeconds,
             approvalRequired: task.approval.required,
             approvalActions: task.approval.actions
         )
+        if task.schedule.kindEnum == .unknown {
+            draft.preservedSchedule = task.schedule
+        }
+        return draft
     }
 
     @discardableResult
@@ -1256,14 +829,9 @@ public final class AssistantTasksViewModel {
             return false
         }
         do {
-            let saved = try await manager.saveTask(task)
-            if let index = tasks.firstIndex(where: { $0.id == saved.id }) {
-                tasks[index] = saved
-            } else {
-                tasks.append(saved)
-            }
+            let saved = try await manager.saveTask(task, baseline: baseline)
+            await reload()
             selectedTaskID = saved.id
-            lastError = nil
             return true
         } catch {
             lastError = error.localizedDescription
@@ -1272,14 +840,13 @@ public final class AssistantTasksViewModel {
     }
 
     @discardableResult
-    public func delete(_ task: AssistantTask) async -> Bool {
+    public func delete(_ task: AssistantTaskRecord) async -> Bool {
         do {
-            try await manager.deleteTask(id: task.id)
-            tasks.removeAll { $0.id == task.id }
+            try await manager.deleteTask(id: task.id, baseline: baseline)
+            await reload()
             if selectedTaskID == task.id {
                 selectedTaskID = nil
             }
-            lastError = nil
             return true
         } catch {
             lastError = error.localizedDescription
@@ -1288,11 +855,10 @@ public final class AssistantTasksViewModel {
     }
 
     @discardableResult
-    public func setEnabled(_ task: AssistantTask, enabled: Bool) async -> Bool {
+    public func setEnabled(_ task: AssistantTaskRecord, enabled: Bool) async -> Bool {
         do {
-            let updated = try await manager.setTaskEnabled(id: task.id, enabled: enabled)
-            replace(updated)
-            lastError = nil
+            _ = try await manager.setTaskEnabled(task, enabled: enabled, baseline: baseline)
+            await reload()
             return true
         } catch {
             lastError = error.localizedDescription
@@ -1301,11 +867,10 @@ public final class AssistantTasksViewModel {
     }
 
     @discardableResult
-    public func setPaused(_ task: AssistantTask, paused: Bool) async -> Bool {
+    public func setPaused(_ task: AssistantTaskRecord, paused: Bool) async -> Bool {
         do {
-            let updated = try await manager.setTaskPaused(id: task.id, paused: paused)
-            replace(updated)
-            lastError = nil
+            _ = try await manager.setTaskPaused(task, paused: paused, baseline: baseline)
+            await reload()
             return true
         } catch {
             lastError = error.localizedDescription
@@ -1314,35 +879,15 @@ public final class AssistantTasksViewModel {
     }
 
     @discardableResult
-    public func runNow(_ task: AssistantTask) async -> Bool {
+    public func runNow(_ task: AssistantTaskRecord) async -> Bool {
         do {
-            let result = try await manager.runTaskNow(id: task.id)
+            let result = try await manager.runTaskNow(task)
             lastRunNowWorkerID = result.workerID
-            replace(result.task)
-            lastError = nil
+            await reload()
             return true
         } catch {
             lastError = error.localizedDescription
             return false
-        }
-    }
-
-    @discardableResult
-    public func markMissed(_ task: AssistantTask, reason: String) async -> Bool {
-        do {
-            let updated = try await manager.markTaskMissed(id: task.id, reason: reason)
-            replace(updated)
-            lastError = nil
-            return true
-        } catch {
-            lastError = error.localizedDescription
-            return false
-        }
-    }
-
-    private func replace(_ task: AssistantTask) {
-        if let index = tasks.firstIndex(where: { $0.id == task.id }) {
-            tasks[index] = task
         }
     }
 }

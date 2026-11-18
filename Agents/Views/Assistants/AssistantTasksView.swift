@@ -6,7 +6,7 @@ public struct AssistantTasksView: View {
     @State private var editorDraft: AssistantTaskDraft?
     @State private var editingTaskID: UUID?
     @State private var showingDeleteConfirmation: Bool = false
-    @State private var taskPendingDelete: AssistantTask?
+    @State private var taskPendingDelete: AssistantTaskRecord?
 
     public init(viewModel: AssistantTasksViewModel, initialDraft: AssistantTaskDraft? = nil) {
         self.viewModel = viewModel
@@ -220,7 +220,7 @@ public struct AssistantTasksView: View {
                 Image(systemName: "timer")
                     .font(.system(size: 28))
                     .foregroundStyle(AppTheme.tertiaryLabel)
-                Text("Select an automated task to see its schedule, runs, and history.")
+                Text("Select an automated task to see its schedule, runs, and last run.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(AppTheme.secondaryLabel)
                     .multilineTextAlignment(.center)

@@ -12,16 +12,17 @@ struct AssistantTasksViewModelTests {
     }
 
     private final class ScriptedAssistantTaskManager: AssistantTaskManaging, @unchecked Sendable {
-        var tasks: [AssistantTask] = []
+        var tasks: [AssistantTaskRecord] = []
+        var baseline: String = "baseline-1"
         var failNext: (any Error)?
-        var saved: [AssistantTask] = []
+        var saved: [AssistantTaskRecord] = []
+        var savedBaselines: [String] = []
         var deleted: [UUID] = []
-        var enabledChanges: [(UUID, Bool)] = []
-        var pausedChanges: [(UUID, Bool)] = []
+        var deletedBaselines: [String] = []
+        var enabledChanges: [(UUID, Bool, String)] = []
+        var pausedChanges: [(UUID, Bool, String)] = []
         var runNowIDs: [UUID] = []
-        var runNowWorkerID: UUID = UUID()
-        var due: [AssistantTaskDue] = []
-        var markedMissed: [(UUID, String)] = []
+        var runNowWorkerID: String = "worker-1"
         var recoverResult: [UUID] = []
 
         private func maybeThrow() throws {
@@ -31,14 +32,15 @@ struct AssistantTasksViewModelTests {
             }
         }
 
-        func listTasks() async throws -> [AssistantTask] {
+        func listTasks() async throws -> AssistantTaskList {
             try maybeThrow()
-            return tasks
+            return AssistantTaskList(tasks: tasks, baseline: baseline, origin: "test")
         }
 
-        func saveTask(_ task: AssistantTask) async throws -> AssistantTask {
+        func saveTask(_ task: AssistantTaskRecord, baseline: String) async throws -> AssistantTaskRecord {
             try maybeThrow()
             saved.append(task)
+            savedBaselines.append(baseline)
             if let index = tasks.firstIndex(where: { $0.id == task.id }) {
                 tasks[index] = task
             } else {
@@ -47,63 +49,47 @@ struct AssistantTasksViewModelTests {
             return task
         }
 
-        func deleteTask(id: UUID) async throws {
+        func deleteTask(id: UUID, baseline: String) async throws {
             try maybeThrow()
             deleted.append(id)
+            deletedBaselines.append(baseline)
             tasks.removeAll { $0.id == id }
         }
 
-        func setTaskEnabled(id: UUID, enabled: Bool) async throws -> AssistantTask {
+        func setTaskEnabled(_ task: AssistantTaskRecord, enabled: Bool, baseline: String) async throws -> AssistantTaskRecord {
             try maybeThrow()
-            enabledChanges.append((id, enabled))
-            guard let index = tasks.firstIndex(where: { $0.id == id }) else {
+            enabledChanges.append((task.id, enabled, baseline))
+            guard let index = tasks.firstIndex(where: { $0.id == task.id }) else {
                 throw ScriptedTaskError(message: "Task not found")
             }
             tasks[index].enabled = enabled
             return tasks[index]
         }
 
-        func setTaskPaused(id: UUID, paused: Bool) async throws -> AssistantTask {
+        func setTaskPaused(_ task: AssistantTaskRecord, paused: Bool, baseline: String) async throws -> AssistantTaskRecord {
             try maybeThrow()
-            pausedChanges.append((id, paused))
-            guard let index = tasks.firstIndex(where: { $0.id == id }) else {
+            pausedChanges.append((task.id, paused, baseline))
+            guard let index = tasks.firstIndex(where: { $0.id == task.id }) else {
                 throw ScriptedTaskError(message: "Task not found")
             }
             tasks[index].paused = paused
             return tasks[index]
         }
 
-        func runTaskNow(id: UUID) async throws -> AssistantTaskRunNowResult {
+        func runTaskNow(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome {
             try maybeThrow()
-            runNowIDs.append(id)
-            guard let index = tasks.firstIndex(where: { $0.id == id }) else {
+            runNowIDs.append(task.id)
+            guard let index = tasks.firstIndex(where: { $0.id == task.id }) else {
                 throw ScriptedTaskError(message: "Task not found")
             }
             tasks[index].runCount += 1
-            tasks[index].lastRunAt = Date()
+            tasks[index].lastRunAt = Int64(Date().timeIntervalSince1970)
             tasks[index].lastOutcome = nil
             tasks[index].lastWorkerID = runNowWorkerID
-            return AssistantTaskRunNowResult(task: tasks[index], workerID: runNowWorkerID)
+            return AssistantTaskRunOutcome(task: tasks[index], workerID: runNowWorkerID, parentThreadID: UUID())
         }
 
-        func dueTasks(now: Date) async throws -> [AssistantTaskDue] {
-            try maybeThrow()
-            return due
-        }
-
-        func markTaskMissed(id: UUID, reason: String) async throws -> AssistantTask {
-            try maybeThrow()
-            markedMissed.append((id, reason))
-            guard let index = tasks.firstIndex(where: { $0.id == id }) else {
-                throw ScriptedTaskError(message: "Task not found")
-            }
-            tasks[index].lastOutcome = .missed
-            tasks[index].lastMessage = reason
-            tasks[index].missedCount += 1
-            return tasks[index]
-        }
-
-        func recoverMissedTasks(now: Date) async throws -> [UUID] {
+        func recoverMissedTasks() async throws -> [UUID] {
             try maybeThrow()
             return recoverResult
         }
@@ -123,6 +109,10 @@ struct AssistantTasksViewModelTests {
         components.hour = hour
         components.minute = minute
         return calendar.date(from: components)!
+    }
+
+    private static func isoString(_ date: Date) -> String {
+        ISO8601DateFormatter().string(from: date)
     }
 
     private static func makeDefinition() -> AssistantDefinition {
@@ -146,9 +136,9 @@ struct AssistantTasksViewModelTests {
         cron: String? = nil
     ) -> AssistantTaskSchedule {
         AssistantTaskSchedule(
-            kind: kind,
+            kind: kind.rawValue,
             timeZoneID: timeZoneID,
-            date: date,
+            date: .string(isoString(date)),
             hour: hour,
             minute: minute,
             weekday: weekday,
@@ -171,26 +161,32 @@ struct AssistantTasksViewModelTests {
         lastRunAt: Date? = nil,
         lastOutcome: AssistantTaskOutcome? = nil,
         lastMessage: String? = nil,
+        lastWorkerID: String? = nil,
         missedCount: Int = 0,
         nextRunAt: Date? = nil,
-        inputs: [String: AssistantTaskInputValue] = [:]
-    ) -> AssistantTask {
-        AssistantTask(
+        inputs: [String: JSONValue] = [:],
+        extra: [String: JSONValue] = [:]
+    ) -> AssistantTaskRecord {
+        AssistantTaskRecord(
             id: id,
             name: name,
             assistantID: assistantID,
             workspaceID: workspaceID,
-            inputs: inputs,
+            inputs: .object(inputs),
             schedule: schedule,
-            trigger: trigger,
+            trigger: trigger.rawValue,
             enabled: enabled,
             paused: paused,
             runCount: runCount,
-            lastRunAt: lastRunAt,
-            lastOutcome: lastOutcome,
+            lastRunAt: lastRunAt.map { Int64($0.timeIntervalSince1970) },
+            lastOutcome: lastOutcome?.rawValue,
             lastMessage: lastMessage,
             missedCount: missedCount,
-            nextRunAt: nextRunAt
+            lastWorkerID: lastWorkerID,
+            nextRunAt: nextRunAt.map { Int64($0.timeIntervalSince1970) },
+            createdAt: Int64(utcDate(2026, 11, 18).timeIntervalSince1970),
+            updatedAt: Int64(utcDate(2026, 11, 18).timeIntervalSince1970),
+            extra: extra
         )
     }
 
@@ -515,6 +511,37 @@ struct AssistantTasksViewModelTests {
         #expect(viewModel.tasks.map(\.name) == ["Existing"])
     }
 
+    @Test("Saving surfaces a stale baseline instead of silently overwriting")
+    @MainActor
+    func saveDraftSurfacesStaleBaseline() async {
+        let manager = ScriptedAssistantTaskManager()
+        manager.tasks = [makeTask(name: "Existing")]
+        manager.failNext = AssistantTaskError.staleBaseline
+        let viewModel = makeViewModel(manager: manager)
+        await viewModel.refresh()
+        let saved = await viewModel.saveDraft(makeDraft(), editingTaskID: nil)
+        #expect(!saved)
+        #expect(viewModel.lastError?.contains("changed; reload before saving") == true)
+        #expect(viewModel.tasks.map(\.name) == ["Existing"])
+    }
+
+    @Test("Save, delete, and enable pass the current baseline through")
+    @MainActor
+    func mutationsPassCurrentBaseline() async {
+        let manager = ScriptedAssistantTaskManager()
+        let task = makeTask()
+        manager.tasks = [task]
+        let viewModel = makeViewModel(manager: manager)
+        await viewModel.refresh()
+        #expect(viewModel.baseline == "baseline-1")
+        #expect(await viewModel.saveDraft(makeDraft(), editingTaskID: task.id))
+        #expect(manager.savedBaselines == ["baseline-1"])
+        #expect(await viewModel.setEnabled(task, enabled: false))
+        #expect(manager.enabledChanges.map { $0.2 } == ["baseline-1"])
+        #expect(await viewModel.delete(task))
+        #expect(manager.deletedBaselines == ["baseline-1"])
+    }
+
     @Test("Enable and disable call through to the manager")
     @MainActor
     func setEnabledCallsManager() async {
@@ -583,8 +610,9 @@ struct AssistantTasksViewModelTests {
         #expect(await viewModel.runNow(task))
         #expect(manager.runNowIDs == [task.id])
         #expect(viewModel.lastRunNowWorkerID == manager.runNowWorkerID)
+        #expect(viewModel.lastRunNowWorkerID == "worker-1")
         #expect(viewModel.tasks[0].runCount == 3)
-        #expect(viewModel.tasks[0].hasRunningWorker)
+        #expect(viewModel.tasks[0].hasUnconfirmedRun)
     }
 
     @Test("Run now surfaces the manager error")
@@ -614,40 +642,6 @@ struct AssistantTasksViewModelTests {
         #expect(viewModel.tasks.map(\.name) == ["Overdue"])
     }
 
-    @Test("Due tasks come from the manager")
-    @MainActor
-    func dueTasksComeFromManager() async {
-        let manager = ScriptedAssistantTaskManager()
-        let task = makeTask()
-        manager.due = [
-            AssistantTaskDue(
-                taskID: task.id,
-                taskName: task.name,
-                occurrence: utcDate(2026, 11, 18, 9),
-                nextRunAt: utcDate(2026, 11, 18, 9),
-                runCount: 0
-            )
-        ]
-        let viewModel = makeViewModel(manager: manager)
-        await viewModel.refreshDue()
-        #expect(viewModel.dueTasksList.map(\.taskID) == [task.id])
-        #expect(viewModel.dueTasksList[0].taskName == "Nightly review")
-    }
-
-    @Test("Marking a run missed records the outcome through the manager")
-    @MainActor
-    func markMissedCallsManager() async {
-        let manager = ScriptedAssistantTaskManager()
-        let task = makeTask()
-        manager.tasks = [task]
-        let viewModel = makeViewModel(manager: manager)
-        await viewModel.refresh()
-        #expect(await viewModel.markMissed(task, reason: "Host was asleep."))
-        #expect(manager.markedMissed.map { $0.1 } == ["Host was asleep."])
-        #expect(viewModel.tasks[0].lastOutcome == .missed)
-        #expect(viewModel.tasks[0].missedCount == 1)
-    }
-
     @Test("Refresh surfaces a list failure")
     @MainActor
     func refreshSurfacesListFailure() async {
@@ -664,19 +658,19 @@ struct AssistantTasksViewModelTests {
     func taskJSONRoundTrip() throws {
         let task = makeTask(
             inputs: [
-                "branch": .string("main"),
-                "count": .json(.number(3)),
-                "flags": .json(.object(["strict": .bool(true)])),
+                "branch": "main",
+                "count": 3,
+                "flags": ["strict": true],
             ]
         )
         var withExtra = task
-        withExtra.extra = ["futureField": .object(["keep": .bool(true)])]
+        withExtra.extra = ["futureField": ["keep": true]]
         let data = try JSONEncoder().encode(withExtra)
-        let decoded = try JSONDecoder().decode(AssistantTask.self, from: data)
+        let decoded = try JSONDecoder().decode(AssistantTaskRecord.self, from: data)
         #expect(decoded.inputs == withExtra.inputs)
         #expect(decoded.extra == withExtra.extra)
-        #expect(decoded.schedule.kind == .daily)
-        #expect(decoded.trigger == .timer)
+        #expect(decoded.schedule.kind == "daily")
+        #expect(decoded.trigger == "timer")
     }
 
     @Test("Task JSON decodes the Rust envelope with epoch timestamps and an ISO schedule date")
@@ -716,15 +710,80 @@ struct AssistantTasksViewModelTests {
             "updatedAt": 1000000
         }
         """
-        let decoded = try JSONDecoder().decode(AssistantTask.self, from: Data(json.utf8))
+        let decoded = try JSONDecoder().decode(AssistantTaskRecord.self, from: Data(json.utf8))
         #expect(decoded.name == "Nightly review")
         #expect(decoded.inputs["branch"] == .string("main"))
-        #expect(decoded.schedule.kind == .daily)
+        #expect(decoded.schedule.kind == "daily")
         #expect(decoded.schedule.timeZoneID == "America/New_York")
+        #expect(decoded.schedule.onceDate == ISO8601DateFormatter().date(from: "2026-11-18T09:00:00Z"))
         #expect(decoded.runCount == 2)
-        #expect(decoded.lastOutcome == .completed)
+        #expect(decoded.lastOutcome == "completed")
+        #expect(decoded.lastOutcomeEnum == .completed)
+        #expect(decoded.lastRunAtDate == Date(timeIntervalSince1970: 1794513600))
         #expect(decoded.missedCount == 1)
-        #expect(decoded.nextRunAt == Date(timeIntervalSince1970: 1794600000))
+        #expect(decoded.lastWorkerID == nil)
+        #expect(decoded.nextRunAtDate == Date(timeIntervalSince1970: 1794600000))
+    }
+
+    @Test("A numeric schedule date decodes as a unix epoch timestamp")
+    @MainActor
+    func numericScheduleDateDecodesAsUnixEpoch() throws {
+        let json = """
+        {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "name": "One-off review",
+            "assistantId": "00000000-0000-4000-8000-000000000002",
+            "workspaceId": "00000000-0000-4000-8000-000000000003",
+            "schedule": {
+                "kind": "once",
+                "timeZoneID": "UTC",
+                "date": 1794513600,
+                "hour": 9,
+                "minute": 0,
+                "weekday": 4
+            },
+            "trigger": "timer",
+            "enabled": true,
+            "paused": false,
+            "runCount": 0,
+            "missedCount": 0,
+            "createdAt": 1000000,
+            "updatedAt": 1000000
+        }
+        """
+        let decoded = try JSONDecoder().decode(AssistantTaskRecord.self, from: Data(json.utf8))
+        #expect(decoded.schedule.kindEnum == .once)
+        #expect(decoded.schedule.onceDate == Date(timeIntervalSince1970: 1794513600))
+        #expect(decoded.schedule.onceDate != Date(timeIntervalSinceReferenceDate: 1794513600))
+    }
+
+    @Test("Editing a draft preserves an unknown schedule and its payload")
+    @MainActor
+    func unknownScheduleSurvivesEditSave() async {
+        let customSchedule = AssistantTaskSchedule(
+            kind: "customKind",
+            timeZoneID: "UTC",
+            date: .null,
+            hour: 9,
+            minute: 0,
+            weekday: 1,
+            extra: ["customField": "keep-me"]
+        )
+        let task = makeTask(schedule: customSchedule, extra: ["futureField": "keep"])
+        let manager = ScriptedAssistantTaskManager()
+        manager.tasks = [task]
+        let viewModel = makeViewModel(manager: manager)
+        await viewModel.refresh()
+        var draft = viewModel.draftForTask(task)
+        #expect(draft.scheduleKind == .unknown)
+        #expect(draft.preservedSchedule != nil)
+        draft.name = "Renamed"
+        #expect(await viewModel.saveDraft(draft, editingTaskID: task.id))
+        let saved = manager.saved[0]
+        #expect(saved.name == "Renamed")
+        #expect(saved.schedule.kind == "customKind")
+        #expect(saved.schedule.extra["customField"] == .string("keep-me"))
+        #expect(saved.extra["futureField"] == .string("keep"))
     }
 
     @Test("Editing a draft preserves run bookkeeping")
@@ -735,7 +794,7 @@ struct AssistantTasksViewModelTests {
         let draft = viewModel.draftForTask(task)
         let rebuilt = draft.makeTask(id: task.id, existing: task, now: utcDate(2026, 11, 18, 12))
         #expect(rebuilt?.runCount == 5)
-        #expect(rebuilt?.lastOutcome == .failed)
+        #expect(rebuilt?.lastOutcome == "failed")
         #expect(rebuilt?.lastMessage == "Worker crashed")
         #expect(rebuilt?.missedCount == 2)
         #expect(rebuilt?.createdAt == task.createdAt)

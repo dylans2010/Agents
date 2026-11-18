@@ -1,19 +1,19 @@
 import SwiftUI
 
 public struct AssistantTaskDetailView: View {
-    public let task: AssistantTask
+    public let task: AssistantTaskRecord
     public let viewModel: AssistantTasksViewModel
-    public let onEdit: (AssistantTask) -> Void
-    public let onDelete: (AssistantTask) -> Void
+    public let onEdit: (AssistantTaskRecord) -> Void
+    public let onDelete: (AssistantTaskRecord) -> Void
 
     @State private var isBusy: Bool = false
     @State private var showingDeleteConfirmation: Bool = false
 
     public init(
-        task: AssistantTask,
+        task: AssistantTaskRecord,
         viewModel: AssistantTasksViewModel,
-        onEdit: @escaping (AssistantTask) -> Void,
-        onDelete: @escaping (AssistantTask) -> Void
+        onEdit: @escaping (AssistantTaskRecord) -> Void,
+        onDelete: @escaping (AssistantTaskRecord) -> Void
     ) {
         self.task = task
         self.viewModel = viewModel
@@ -22,13 +22,7 @@ public struct AssistantTaskDetailView: View {
     }
 
     private var statusLabel: String {
-        if !task.enabled {
-            return "Disabled"
-        }
-        if task.paused {
-            return "Paused"
-        }
-        return "Active"
+        task.statusLabel
     }
 
     private var upcomingRuns: [Date] {
@@ -54,12 +48,12 @@ public struct AssistantTaskDetailView: View {
                     Text(viewModel.workspaceName(for: task))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
-                if !task.inputs.isEmpty {
+                if let inputs = task.inputs.objectValue, !inputs.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Inputs")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(AppTheme.secondaryLabel)
-                        ForEach(task.inputs.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
+                        ForEach(inputs.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
                             HStack(spacing: 6) {
                                 Text(key)
                                     .font(AppTheme.codeFont(size: 12))
@@ -85,14 +79,14 @@ public struct AssistantTaskDetailView: View {
                         .font(AppTheme.codeFont(size: 12))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
-                if let nextRun = task.nextRunAt, task.isActive {
+                if let nextRun = task.nextRunAtDate, task.isActive {
                     LabeledContent("Next Run") {
                         Text(AssistantTaskDateFormatting.dateTime(nextRun, timeZoneID: task.schedule.timeZoneID))
                             .foregroundStyle(AppTheme.primaryLabel)
                     }
                 }
                 if upcomingRuns.isEmpty {
-                    if task.schedule.kind == .cron {
+                    if task.schedule.kindEnum == .cron {
                         Text("Cron runs are listed from the stored next run; the next occurrences are computed by the task manager.")
                             .font(.system(size: 12))
                             .foregroundStyle(AppTheme.secondaryLabel)
@@ -120,39 +114,39 @@ public struct AssistantTaskDetailView: View {
                 }
             }
 
-            if task.hasRunningWorker {
-                Section("Running") {
+            if task.hasUnconfirmedRun {
+                Section("Unconfirmed Run") {
                     if let workerID = task.lastWorkerID {
                         LabeledContent("Worker") {
-                            Text(workerID.uuidString)
+                            Text(workerID)
                                 .font(AppTheme.codeFont(size: 12))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                         }
                     }
-                    if let started = task.lastRunAt {
+                    if let started = task.lastRunAtDate {
                         LabeledContent("Started") {
                             Text(AssistantTaskDateFormatting.dateTime(started, timeZoneID: task.schedule.timeZoneID))
                                 .foregroundStyle(AppTheme.primaryLabel)
                         }
                     }
-                    Text("This run has not reported an outcome yet.")
+                    Text("This run has not reported an outcome yet, so it is not known whether it is still running.")
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
             }
 
-            Section("History") {
+            Section("Last Run") {
                 LabeledContent("Runs") {
                     Text("\(task.runCount)")
                         .foregroundStyle(AppTheme.primaryLabel)
                 }
-                if let lastRun = task.lastRunAt {
+                if let lastRun = task.lastRunAtDate {
                     LabeledContent("Last Run") {
                         Text(AssistantTaskDateFormatting.dateTime(lastRun, timeZoneID: task.schedule.timeZoneID))
                             .foregroundStyle(AppTheme.primaryLabel)
                     }
                 }
-                if let outcome = task.lastOutcome {
+                if let outcome = task.lastOutcomeEnum {
                     LabeledContent("Last Outcome") {
                         Text(outcome.displayName)
                             .foregroundStyle(outcome == .failed ? AppTheme.danger : AppTheme.primaryLabel)
@@ -161,13 +155,13 @@ public struct AssistantTaskDetailView: View {
                 if let message = task.lastMessage, !message.isEmpty {
                     Text(message)
                         .font(.system(size: 12))
-                        .foregroundStyle(task.lastOutcome == .failed ? AppTheme.danger : AppTheme.secondaryLabel)
+                        .foregroundStyle(task.lastOutcome == "failed" ? AppTheme.danger : AppTheme.secondaryLabel)
                 }
                 LabeledContent("Missed Runs") {
                     Text("\(task.missedCount)")
                         .foregroundStyle(task.missedCount > 0 ? AppTheme.warning : AppTheme.primaryLabel)
                 }
-                if let lastMissed = task.lastMissedAt {
+                if let lastMissed = task.lastMissedAtDate {
                     LabeledContent("Last Missed") {
                         Text(AssistantTaskDateFormatting.dateTime(lastMissed, timeZoneID: task.schedule.timeZoneID))
                             .foregroundStyle(AppTheme.secondaryLabel)
@@ -177,10 +171,10 @@ public struct AssistantTaskDetailView: View {
 
             Section("Trigger") {
                 LabeledContent("Kind") {
-                    Text(task.trigger.displayName)
+                    Text(task.triggerKind.displayName)
                         .foregroundStyle(AppTheme.primaryLabel)
                 }
-                if let reason = task.trigger.unavailableReason {
+                if let reason = task.triggerKind.unavailableReason {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(AppTheme.warning)
@@ -228,7 +222,7 @@ public struct AssistantTaskDetailView: View {
 
             Section("Failure Behavior") {
                 LabeledContent("Behavior") {
-                    Text(task.failurePolicy.behavior.displayName)
+                    Text(task.failurePolicy.failureBehaviorEnum.displayName)
                         .foregroundStyle(AppTheme.primaryLabel)
                 }
                 LabeledContent("Maximum Retries") {
@@ -327,7 +321,6 @@ public struct AssistantTaskEditorView: View {
     public let onDone: () -> Void
 
     @State private var draft: AssistantTaskDraft
-    @State private var hadUnknownSchedule: Bool
     @State private var isSaving: Bool = false
 
     public init(
@@ -339,13 +332,26 @@ public struct AssistantTaskEditorView: View {
         self.viewModel = viewModel
         self.editingTaskID = editingTaskID
         self.onDone = onDone
-        var normalized = draft
-        let unknown = normalized.schedule.kind == .unknown
-        if unknown {
-            normalized.schedule.kind = .daily
-        }
-        self._draft = State(initialValue: normalized)
-        self._hadUnknownSchedule = State(initialValue: unknown)
+        self._draft = State(initialValue: draft)
+    }
+
+    private var scheduleKindBinding: Binding<AssistantTaskScheduleKind> {
+        Binding(
+            get: { draft.scheduleKind },
+            set: { kind in
+                draft.scheduleKind = kind
+                draft.preservedSchedule = nil
+            }
+        )
+    }
+
+    private var onceDateBinding: Binding<Date> {
+        Binding(
+            get: { draft.schedule.onceDate ?? Date() },
+            set: { date in
+                draft.schedule.date = .string(ISO8601DateFormatter().string(from: date))
+            }
+        )
     }
 
     private var scheduledTime: Binding<Date> {
@@ -468,62 +474,64 @@ public struct AssistantTaskEditorView: View {
                 }
 
                 Section("Schedule") {
-                    if hadUnknownSchedule {
+                    if draft.preservedSchedule != nil {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(AppTheme.warning)
-                            Text("The existing custom schedule cannot be edited here. Choose a replacement below.")
+                            Text("The existing custom schedule is kept unchanged. Choose a replacement below to edit the schedule.")
                                 .font(.system(size: 12))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                         }
                     }
-                    Picker("Frequency", selection: $draft.schedule.kind) {
+                    Picker("Frequency", selection: scheduleKindBinding) {
                         ForEach(AssistantTaskScheduleKind.allCases.filter { $0 != .unknown }, id: \.self) { kind in
                             Text(kind.displayName).tag(kind)
                         }
                     }
                     .pickerStyle(.segmented)
 
-                    if draft.schedule.kind == .once {
-                        DatePicker("Run Date", selection: $draft.schedule.date, displayedComponents: [.date])
-                    }
-                    if draft.schedule.kind == .weekly {
-                        Picker("Day of Week", selection: $draft.schedule.weekday) {
-                            let symbols = Calendar.current.weekdaySymbols
-                            ForEach(1...7, id: \.self) { day in
-                                Text(symbols[day - 1]).tag(day)
+                    if draft.preservedSchedule == nil {
+                        if draft.scheduleKind == .once {
+                            DatePicker("Run Date", selection: onceDateBinding, displayedComponents: [.date])
+                        }
+                        if draft.scheduleKind == .weekly {
+                            Picker("Day of Week", selection: $draft.schedule.weekday) {
+                                let symbols = Calendar.current.weekdaySymbols
+                                ForEach(1...7, id: \.self) { day in
+                                    Text(symbols[day - 1]).tag(day)
+                                }
                             }
                         }
-                    }
-                    if draft.schedule.kind == .days {
-                        VStack(alignment: .leading, spacing: 4) {
-                            let symbols = Calendar.current.weekdaySymbols
-                            ForEach(1...7, id: \.self) { day in
-                                Toggle(symbols[day - 1], isOn: weekdayBinding(day))
+                        if draft.scheduleKind == .days {
+                            VStack(alignment: .leading, spacing: 4) {
+                                let symbols = Calendar.current.weekdaySymbols
+                                ForEach(1...7, id: \.self) { day in
+                                    Toggle(symbols[day - 1], isOn: weekdayBinding(day))
+                                }
                             }
                         }
-                    }
-                    if draft.schedule.kind == .interval {
-                        Stepper("Every \(draft.schedule.intervalMinutes ?? 60) minutes", value: Binding(
-                            get: { draft.schedule.intervalMinutes ?? 60 },
-                            set: { draft.schedule.intervalMinutes = $0 }
-                        ), in: 5...44640, step: 5)
-                    }
-                    if draft.schedule.kind == .cron {
-                        TextField("Cron expression", text: Binding(
-                            get: { draft.schedule.cron ?? "" },
-                            set: { draft.schedule.cron = $0 }
-                        ))
-                        .font(AppTheme.codeFont(size: 12))
-                    }
+                        if draft.scheduleKind == .interval {
+                            Stepper("Every \(draft.schedule.intervalMinutes ?? 60) minutes", value: Binding(
+                                get: { draft.schedule.intervalMinutes ?? 60 },
+                                set: { draft.schedule.intervalMinutes = $0 }
+                            ), in: 5...44640, step: 5)
+                        }
+                        if draft.scheduleKind == .cron {
+                            TextField("Cron expression", text: Binding(
+                                get: { draft.schedule.cron ?? "" },
+                                set: { draft.schedule.cron = $0 }
+                            ))
+                            .font(AppTheme.codeFont(size: 12))
+                        }
 
-                    DatePicker("Run Time", selection: scheduledTime, displayedComponents: [.hourAndMinute])
+                        DatePicker("Run Time", selection: scheduledTime, displayedComponents: [.hourAndMinute])
 
-                    TextField("Time Zone (IANA)", text: $draft.schedule.timeZoneID)
-                        .font(AppTheme.codeFont(size: 12))
-                    Text(draft.schedule.summary)
-                        .font(.system(size: 12))
-                        .foregroundStyle(AppTheme.secondaryLabel)
+                        TextField("Time Zone (IANA)", text: $draft.schedule.timeZoneID)
+                            .font(AppTheme.codeFont(size: 12))
+                        Text(draft.schedule.summary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                    }
                 }
 
                 Section("Trigger") {
@@ -641,10 +649,10 @@ public struct AssistantTaskEditorView: View {
     private func save() async {
         isSaving = true
         defer { isSaving = false }
-        if draft.schedule.kind == .once {
+        if draft.scheduleKind == .once, let day = draft.schedule.onceDate {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = draft.schedule.timeZone
-            let dayStart = calendar.startOfDay(for: draft.schedule.date)
+            let dayStart = calendar.startOfDay(for: day)
             var matching = DateComponents()
             matching.hour = draft.schedule.hour
             matching.minute = draft.schedule.minute
@@ -654,8 +662,8 @@ public struct AssistantTaskEditorView: View {
                 matchingPolicy: .nextTime,
                 repeatedTimePolicy: .first,
                 direction: .forward
-            ), calendar.isDate(merged, inSameDayAs: draft.schedule.date) {
-                draft.schedule.date = merged
+            ), calendar.isDate(merged, inSameDayAs: day) {
+                draft.schedule.date = .string(ISO8601DateFormatter().string(from: merged))
             }
         }
         if await viewModel.saveDraft(draft, editingTaskID: editingTaskID) {
