@@ -1473,16 +1473,24 @@ nobody over-claims it:
   parent's toolset, only when the fallback is valid) — and records
   the `assistantId` on the child thread and the worker record, so
   `workers.list` can filter by assistant.
-- **`permissionProfile` is stored, not enforced.** The four
+- **`permissionProfile` is enforced, not merely stored.** The four
   profiles (`read-only`, `workspace-modify`, `terminal`,
-  `approval-required`) are declared on the record and asserted by
-  the catalog tests to match the preset's tool list, but nothing in
-  the engine reads them. A `read-only` assistant is restricted only
-  by its `allowedTools` list; a `workspace-modify` assistant is
-  granted nothing by its profile. Profile enforcement (program
-  label E1) is **not built**. Do not describe a preset as
-  "read-only enforced" — say "read-only by its tool list", and note
-  the list is checked per category by hand-written mutating-tool
+  `approval-required`) are declared on the record, asserted by the
+  catalog tests to match the preset's tool list, and enforced by the
+  unified gate in `profile_gate.rs` (deny sets per profile, checked
+  against the tool registry), by the MCP server's deny-before-dispatch
+  on every `tools/call` (the server reads the thread's stored profile
+  alongside `allowedTools`), and by the send-time gates. A `read-only`
+  preset is therefore genuinely read-only at call time, not only by
+  its tool list. The known gap, unchanged: provider-native tools
+  cannot be disabled at the ACP/CLI level — the provider processes
+  (Claude CLI, Codex app-server, OpenCode server, ACP servers)
+  advertise and execute their own tools, and there is no tool
+  allowlist parameter in the `session/new`, Codex `thread/start`, or
+  OpenCode session-create calls this adapter makes (see "What is NOT
+  enforced yet" below). Do not describe a preset as enforced for its
+  native tools — say the profile is enforced for system tools, and
+  note the list is checked per category by hand-written mutating-tool
   sets in the `*PresetsTests.swift` files, not by a registry-wide
   sweep (see `docs/ASSISTANTS.md`, "The read-only guarantee").
 - **Validation rejections that do exist:** a non-empty

@@ -129,7 +129,7 @@ public struct GeneralSettingsPane: View {
         } header: {
             Text("Agent Tools")
         } footer: {
-            Text("Applies to new conversations. Existing conversations keep the toolset they were created with. System Tools delivers the Agents system prompt to Codex and Claude; other providers report an error instead of silently dropping it.")
+            Text("Applies to new conversations. Existing conversations keep the toolset they were created with. System Tools delivers the Agents system prompt to Codex and Claude. OpenCode and Lithos report an error instead of silently dropping it. Cursor, Grok Build, Antigravity, and registered ACP agents get no injected prompt; they run only if their CLI fetches the MCP prompt, which this app cannot verify.")
         }
     }
 

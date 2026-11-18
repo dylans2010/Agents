@@ -205,7 +205,7 @@ public struct AntigravitySettingsPane: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
-                    Text(probe.ok ? "ACP Server Verified" : "Verification Needs Attention")
+                    Text(probe.ok ? "Runtime Files Present" : "Verification Needs Attention")
                         .font(.system(size: 12.5, weight: .semibold))
                     if let version = probe.version, !version.isEmpty {
                         Text("v\(version)")
@@ -224,6 +224,11 @@ public struct AntigravitySettingsPane: View {
                         .font(.system(size: 11.5))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
+
+                Text("This check confirms only that the server binary, the companion helper, runtime approval, and a stored Gemini API key account are present. It does not contact Gemini, so authentication is verified only when a turn's authenticate call succeeds.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let exec = probe.executablePath, !exec.isEmpty {
                     Text(exec)
