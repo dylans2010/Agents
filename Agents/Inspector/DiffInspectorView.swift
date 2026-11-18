@@ -35,7 +35,7 @@ struct DiffInspectorView: View {
             } else {
                 VSplitView {
                     changedFilesListPane
-                        .frame(minHeight: 110, idealHeight: 175, maxHeight: 280)
+                        .frame(minHeight: 110, idealHeight: 175, maxHeight: 420)
 
                     unifiedDiffViewport
                         .frame(minHeight: 180, maxHeight: .infinity)
@@ -544,7 +544,7 @@ struct DiffInspectorView: View {
             }
         }
         .padding(18)
-        .frame(minWidth: 340, idealWidth: 400, maxWidth: 460)
+        .frame(minWidth: 340, idealWidth: 520, maxWidth: 640)
     }
 
     private func firstTargetLine(in file: RemoteDiff.File) -> Int? {
@@ -1067,8 +1067,8 @@ private struct UnifiedDiffLineRow: View {
 
     private var textColor: Color {
         switch line.kind {
-        case .addition: AppTheme.primaryLabel
-        case .deletion: AppTheme.primaryLabel
+        case .addition: AppTheme.diffAdditionText
+        case .deletion: AppTheme.diffDeletionText
         case .hunk: AppTheme.info
         case .note: AppTheme.tertiaryLabel
         case .context: AppTheme.primaryLabel.opacity(0.9)

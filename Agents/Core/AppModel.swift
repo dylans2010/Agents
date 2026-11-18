@@ -137,7 +137,7 @@ public final class AppModel {
         self.terminalVisible = defaults.object(forKey: Self.terminalVisibleKey) as? Bool ?? false
         let savedScale = defaults.double(forKey: Self.fontScaleKey)
         self.fontScale = savedScale > 0 ? min(1.5, max(0.8, savedScale)) : 1.0
-        self.usesSerifReplies = defaults.object(forKey: Self.usesSerifKey) as? Bool ?? true
+        self.usesSerifReplies = defaults.object(forKey: Self.usesSerifKey) as? Bool ?? false
         self.appearancePreference = AppearancePreference(
             rawValue: defaults.string(forKey: Self.appearanceKey) ?? ""
         ) ?? .system

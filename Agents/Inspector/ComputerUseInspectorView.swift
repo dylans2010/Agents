@@ -123,7 +123,7 @@ struct ComputerUseInspectorView: View {
                 .accessibilityLabel("Arguments, JSON object, without threadId")
             if let errorText {
                 Text(errorText)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AppTheme.danger)
                     .font(.callout)
             }
             Button("Run") {
@@ -155,7 +155,7 @@ struct ComputerUseInspectorView: View {
                         .font(.callout.bold())
                     if let error = record.error {
                         Text(error)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(AppTheme.danger)
                             .font(.callout)
                     } else if let result = record.result {
                         Text(ComputerUseController.prettyJSON(result))
@@ -163,7 +163,7 @@ struct ComputerUseInspectorView: View {
                             .textSelection(.enabled)
                     } else if record.timedOut {
                         Text("Timed out waiting for the engine.")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(AppTheme.danger)
                             .font(.callout)
                     } else {
                         Text("No result yet.")
@@ -264,7 +264,7 @@ struct ComputerUseInspectorView: View {
                             .font(.callout.bold())
                         if let error = record.error {
                             Text(error)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(AppTheme.danger)
                                 .font(.callout)
                         } else if record.result != nil {
                             Text("Completed.")

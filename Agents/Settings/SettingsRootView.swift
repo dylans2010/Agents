@@ -31,17 +31,17 @@ public struct SettingsRootView: View {
         List(selection: $appModel.selectedSettingsTab) {
             Section("Workspace") {
                 sidebarRow(for: .general, tint: .gray)
-                sidebarRow(for: .antigravity, tint: .blue)
+                sidebarRow(for: .antigravity, tint: AppTheme.info)
                 sidebarRow(for: .providers, tint: .indigo)
-                sidebarRow(for: .models, tint: .purple)
-                sidebarRow(for: .instructions, tint: .orange)
+                sidebarRow(for: .models, tint: AppTheme.merged)
+                sidebarRow(for: .instructions, tint: AppTheme.warning)
                 sidebarRow(for: .memory, tint: .teal)
                 sidebarRow(for: .computerUse, tint: .brown)
             }
 
             Section("Telemetry & System") {
-                sidebarRow(for: .usage, tint: .green)
-                sidebarRow(for: .voice, tint: .pink)
+                sidebarRow(for: .usage, tint: AppTheme.success)
+                sidebarRow(for: .voice, tint: AppTheme.favoriteHeart)
                 sidebarRow(for: .remote, tint: .cyan)
                 sidebarRow(for: .about, tint: .secondary)
             }

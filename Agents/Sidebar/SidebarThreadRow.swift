@@ -41,6 +41,17 @@ public struct SidebarThreadRow: View {
         thread.isRunning || thread.isStarting || (thread.hasBackgroundWork == true)
     }
 
+    private var accessibilityDescription: String {
+        var parts = ["\(displayTitle), \(Self.compactRelativeAge(from: thread.updatedAt)) ago"]
+        if thread.pendingApprovals > 0 {
+            parts.append("\(thread.pendingApprovals) approval\(thread.pendingApprovals == 1 ? "" : "s") waiting")
+        }
+        if isActivelyWorking {
+            parts.append(thread.isStarting ? "starting" : "running")
+        }
+        return parts.joined(separator: ", ")
+    }
+
     private var isSnoozedActive: Bool {
         guard let until = thread.snoozedUntil else { return false }
         return until > Date()
@@ -89,7 +100,7 @@ public struct SidebarThreadRow: View {
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
-        .accessibilityLabel("\(displayTitle), \(Self.compactRelativeAge(from: thread.updatedAt)) ago")
+        .accessibilityLabel(accessibilityDescription)
         .onHover { hovering in
             isHovering = hovering
         }
@@ -114,7 +125,7 @@ public struct SidebarThreadRow: View {
         HStack(spacing: 5) {
             if showsProjectBadge, let projectName, !projectName.isEmpty {
                 Text(projectName)
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(AppTheme.secondaryLabel)
                     .lineLimit(1)
             }
@@ -191,7 +202,7 @@ public struct SidebarThreadRow: View {
             if attentionCount > 0 {
                 Text("\(attentionCount)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.onAccent)
                     .padding(.horizontal, 5.5)
                     .padding(.vertical, 1.5)
                     .background(AppTheme.warning, in: Capsule())

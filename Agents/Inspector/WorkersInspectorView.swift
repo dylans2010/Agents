@@ -423,9 +423,9 @@ struct WorkersInspectorView: View {
         let color: Color
         switch status {
         case "running": color = AppTheme.accent
-        case "completed": color = .green
-        case "failed": color = .red
-        case "cancelled": color = .orange
+        case "completed": color = AppTheme.success
+        case "failed": color = AppTheme.danger
+        case "cancelled": color = AppTheme.warning
         default: color = AppTheme.secondaryLabel
         }
         return Text(status.capitalized)

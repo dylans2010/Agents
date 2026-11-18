@@ -50,6 +50,23 @@ public struct SidebarRootView: View {
         appModel.sidebarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    private var searchDisplayQuery: String {
+        appModel.sidebarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var hasSearchResults: Bool {
+        !filteredBots.isEmpty
+            || !pinnedThreads.isEmpty
+            || !chatThreads.isEmpty
+            || !snoozedThreads.isEmpty
+            || !archivedThreads.isEmpty
+            || regularProjects.contains { project in
+                !threads(for: project).isEmpty
+                    || project.name.lowercased().contains(trimmedQuery)
+                    || project.path.lowercased().contains(trimmedQuery)
+            }
+    }
+
     private var regularProjects: [RemoteProject] {
         appModel.workspace.projects.filter { !$0.isChats }
     }
@@ -136,22 +153,32 @@ public struct SidebarRootView: View {
             }
 
             List(selection: $appModel.selectedThreadID) {
-                botsSection
+                if !trimmedQuery.isEmpty && !hasSearchResults {
+                    ContentUnavailableView {
+                        Label("No results for '\(searchDisplayQuery)'", systemImage: "magnifyingglass")
+                    } actions: {
+                        Button("Clear Search") {
+                            appModel.sidebarSearchQuery = ""
+                        }
+                    }
+                } else {
+                    botsSection
 
-                if !pinnedThreads.isEmpty {
-                    pinnedSection
-                }
+                    if !pinnedThreads.isEmpty {
+                        pinnedSection
+                    }
 
-                projectsSection
+                    projectsSection
 
-                chatsSection
+                    chatsSection
 
-                if !snoozedThreads.isEmpty {
-                    snoozedSection
-                }
+                    if !snoozedThreads.isEmpty {
+                        snoozedSection
+                    }
 
-                if appModel.showArchivedThreads {
-                    archivedSection
+                    if appModel.showArchivedThreads {
+                        archivedSection
+                    }
                 }
             }
             .listStyle(.sidebar)
@@ -810,7 +837,7 @@ private struct SidebarBotRow: View {
             if attentionCount > 0 {
                 Text("\(attentionCount)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.onAccent)
                     .padding(.horizontal, 5.5)
                     .padding(.vertical, 1.5)
                     .background(AppTheme.warning, in: Capsule())
