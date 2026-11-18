@@ -746,7 +746,7 @@ struct PullRequestsInspectorView: View {
                 let list = try await client.fetchPullRequests(
                     RemotePullRequestQuery(projectID: project.id, filter: involvementScope.rawValue)
                 )
-                self.unavailableReason = list.unavailable
+                self.unavailableReason = list.unavailable.flatMap { $0.isEmpty ? nil : ErrorSanitizer.sanitizeText($0) }
                 self.pullRequests = list.items
             } else {
                 let listed = try await fetchPullRequestsByStateViaEngine(
@@ -766,7 +766,7 @@ struct PullRequestsInspectorView: View {
                 selectedPRNumber = pullRequests.first?.number
             }
         } catch {
-            self.unavailableReason = error.localizedDescription
+            self.unavailableReason = ErrorSanitizer.displayMessage(for: error)
             self.pullRequests = []
         }
     }
@@ -948,7 +948,7 @@ struct PullRequestsInspectorView: View {
         let avail = try await pollGitHubOperation(client: client, threadID: threadID, root: canonRoot, initial: availInit)
         if avail["state"]?.stringValue != "ready" {
             let msg = avail["message"]?.stringValue ?? "GitHub pull requests are unavailable for this project."
-            return RemotePullRequestList(items: [], unavailable: msg)
+            return RemotePullRequestList(items: [], unavailable: msg.isEmpty ? msg : ErrorSanitizer.sanitizeText(msg))
         }
         guard let repo = avail["repository"]?.stringValue else {
             return RemotePullRequestList(items: [], unavailable: "GitHub repository not detected.")

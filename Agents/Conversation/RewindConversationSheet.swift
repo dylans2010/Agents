@@ -214,7 +214,7 @@ struct RewindConversationSheet: View {
                 revertsFiles = false
             }
         } catch {
-            loadError = error.localizedDescription
+            loadError = ErrorSanitizer.displayMessage(for: error)
         }
         isLoadingOptions = false
     }

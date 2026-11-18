@@ -1758,8 +1758,14 @@ paths), credentials and key material, internal identifiers (thread UUIDs,
 provider-internal codes), transport details (socket addresses, URLs, ports),
 and internal prompt and asset fragments, then keeps the actionable remainder
 and appends a next step (for example, retrying after a connection failure)
-when the original text names one. Raw Rust error strings are sanitized where
-they cross into Swift in `AgentsFFIBridge` as well as at display time.
+when the original text names one. Inside `AgentsFFIBridge`, only the
+`desktopCall` path sanitizes the Rust error text it throws; `adapterCall`'s
+`remoteFailure(err)` and the `unexpectedResult(expected:…, actual: "\(res)")`
+sites cross into Swift unsanitized, so any call site that displays those
+errors must sanitize them with `ErrorSanitizer.displayMessage(for:)` (or
+`sanitizeText` for a raw engine string) before display. Display-time
+sanitization in `presentError` and the stored `lastError` paths is what
+covers those errors.
 Programmatic error kinds pass through untouched: `AgentsRuntimeError` cases
 and `RemoteError.code` values are preserved exactly, and only the
 human-readable message is sanitized. Diagnostic output uses the same stripping

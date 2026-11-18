@@ -228,7 +228,7 @@ public final class AssistantDashboardViewModel {
         do {
             assistants = try await source.listAssistants().assistants
         } catch {
-            errorText = error.localizedDescription
+            errorText = ErrorSanitizer.displayMessage(for: error)
         }
     }
 
@@ -256,7 +256,7 @@ public final class AssistantDashboardViewModel {
             errorText = nil
         } catch {
             if !Task.isCancelled && !silent {
-                errorText = error.localizedDescription
+                errorText = ErrorSanitizer.displayMessage(for: error)
             }
         }
     }
@@ -353,7 +353,7 @@ public final class AssistantDashboardViewModel {
             errorText = nil
         } catch {
             cancellingIDs.remove(record.id)
-            errorText = error.localizedDescription
+            errorText = ErrorSanitizer.displayMessage(for: error)
         }
     }
 
@@ -378,7 +378,7 @@ public final class AssistantDashboardViewModel {
             }
             errorText = nil
         } catch {
-            errorText = error.localizedDescription
+            errorText = ErrorSanitizer.displayMessage(for: error)
         }
     }
 

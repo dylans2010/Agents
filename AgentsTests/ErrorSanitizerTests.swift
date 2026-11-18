@@ -115,4 +115,24 @@ struct ErrorSanitizerTests {
         let once = ErrorSanitizer.sanitizeText(raw)
         #expect(ErrorSanitizer.sanitizeText(once) == once)
     }
+
+    @Test("A redacted temp path is not re-matched by transport patterns")
+    func transportPlaceholderIsNotRematched() {
+        let clean = ErrorSanitizer.sanitizeText("Cannot connect unix socket /tmp/app.sock")
+        #expect(clean == "Cannot connect unix socket [redacted]")
+        #expect(!clean.contains("directory]"))
+        let transportClean = ErrorSanitizer.sanitizeText("transport: /tmp/work.sock failed")
+        #expect(transportClean == "transport: [redacted] failed")
+        #expect(!transportClean.contains("directory]"))
+    }
+
+    @Test("Uppercase and lowercase long hex tokens are stripped")
+    func stripsUppercaseHexTokens() {
+        let upper = "ABCDEF0123456789ABCDEF0123456789"
+        let lower = "abcdef0123456789abcdef0123456789"
+        let clean = ErrorSanitizer.sanitizeText("Token \(upper) and \(lower) leaked")
+        #expect(!clean.contains(upper))
+        #expect(!clean.contains(lower))
+        #expect(clean.contains("[redacted]"))
+    }
 }

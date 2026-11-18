@@ -446,7 +446,7 @@ struct MediaLightboxSheet: View {
             }
         } catch {
             if fullImage == nil {
-                errorMessage = error.localizedDescription
+                errorMessage = ErrorSanitizer.displayMessage(for: error)
             }
         }
         isLoading = false

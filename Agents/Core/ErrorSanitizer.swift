@@ -48,10 +48,10 @@ public enum ErrorSanitizer {
 
     public static func sanitizeText(_ text: String) -> String {
         var result = text
+        result = redactTransport(in: result)
         result = redactPaths(in: result)
         result = redactCredentials(in: result)
         result = redactIdentifiers(in: result)
-        result = redactTransport(in: result)
         result = redactPromptFragments(in: result)
         result = collapseWhitespace(in: result)
         guard !result.isEmpty else {
@@ -108,7 +108,7 @@ public enum ErrorSanitizer {
     private static func redactIdentifiers(in text: String) -> String {
         var result = text
         result = replacing(result, pattern: #"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"#, with: "[id]")
-        result = replacing(result, pattern: #"\b[0-9a-f]{32,}\b"#, with: "[redacted]")
+        result = replacing(result, pattern: #"\b[0-9a-fA-F]{32,}\b"#, with: "[redacted]")
         result = replacing(result, pattern: #"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){1,}\b"#, with: "[code]")
         return result
     }

@@ -162,7 +162,7 @@ public final class ComputerUseController {
                 let polled = try await runtime.computerUseResult(threadId: threadId, operationId: operationId)
                 if polled["ready"]?.boolValue == true {
                     record.result = polled["result"]
-                    record.error = polled["error"]?.stringValue
+                    record.error = polled["error"]?.stringValue.map(ErrorSanitizer.sanitizeText)
                     finished = true
                     break
                 }
@@ -174,7 +174,7 @@ public final class ComputerUseController {
             }
             record.finishedAt = Date()
         } catch {
-            record.error = error.localizedDescription
+            record.error = ErrorSanitizer.displayMessage(for: error)
             record.finishedAt = Date()
             lastError = error.localizedDescription
         }
