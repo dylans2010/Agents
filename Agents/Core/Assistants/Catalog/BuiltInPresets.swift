@@ -6,6 +6,7 @@ public enum BuiltInPresets {
             CodeMaintenancePresets.all,
             CodeReviewSecurityPresets.all,
             GitWorkflowAutomationPresets.all,
+            SpecializedProductivityPresets.all,
         ]
     }
 
