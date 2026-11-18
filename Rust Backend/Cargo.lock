@@ -1254,6 +1254,7 @@ dependencies = [
  "portable-pty",
  "psl",
  "qrcodegen",
+ "regex",
  "ring",
  "roxmltree 0.21.2",
  "rusqlite",
@@ -1329,6 +1330,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
+ "cc",
  "chrono",
  "coincide-core",
  "libc",

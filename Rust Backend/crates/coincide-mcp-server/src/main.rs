@@ -97,19 +97,28 @@ fn read_frame_line(reader: &mut impl BufRead) -> std::io::Result<FrameRead> {
             drain_to_newline(reader)?;
             return Ok(FrameRead::Oversized);
         }
-        let available = reader.fill_buf()?;
-        if available.is_empty() {
-            if raw.is_empty() {
-                return Ok(FrameRead::Eof);
+        // Copy out of the buffer and drop its borrow before consuming, since
+        // `consume` and `drain_to_newline` need `reader` mutably again.
+        let (take, end, available_len) = {
+            let available = reader.fill_buf()?;
+            if available.is_empty() {
+                if raw.is_empty() {
+                    return Ok(FrameRead::Eof);
+                }
+                return Ok(FrameRead::Line(raw));
             }
-            return Ok(FrameRead::Line(raw));
-        }
-        match available.iter().position(|byte| *byte == b'\n') {
+            let end = available.iter().position(|byte| *byte == b'\n');
+            let room = MAX_FRAME_BYTES + 1 - raw.len();
+            let take = match end {
+                Some(end) => (end + 1).min(room),
+                None => available.len().min(room),
+            };
+            raw.extend_from_slice(&available[..take]);
+            (take, end, available.len())
+        };
+        reader.consume(take);
+        match end {
             Some(end) => {
-                let room = MAX_FRAME_BYTES + 1 - raw.len();
-                let take = (end + 1).min(room);
-                raw.extend_from_slice(&available[..take]);
-                reader.consume(take);
                 if take < end + 1 {
                     drain_to_newline(reader)?;
                     return Ok(FrameRead::Oversized);
@@ -117,11 +126,7 @@ fn read_frame_line(reader: &mut impl BufRead) -> std::io::Result<FrameRead> {
                 return Ok(FrameRead::Line(raw));
             }
             None => {
-                let room = MAX_FRAME_BYTES + 1 - raw.len();
-                let take = available.len().min(room);
-                raw.extend_from_slice(&available[..take]);
-                reader.consume(take);
-                if take < available.len() {
+                if take < available_len {
                     drain_to_newline(reader)?;
                     return Ok(FrameRead::Oversized);
                 }

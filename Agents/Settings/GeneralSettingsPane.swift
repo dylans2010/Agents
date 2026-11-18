@@ -117,7 +117,7 @@ public struct GeneralSettingsPane: View {
     private var agentToolsSection: some View {
         Section {
             Picker("Agent Tools", selection: $appModel.agentToolset) {
-                ForEach(AgentToolset.allCases) { toolset in
+                ForEach(AgentToolset.allCases, id: \.self) { toolset in
                     Text(toolset.title).tag(toolset)
                 }
             }

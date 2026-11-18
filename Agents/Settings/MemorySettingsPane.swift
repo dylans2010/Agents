@@ -195,7 +195,7 @@ public struct MemorySettingsPane: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
-                Text(Date(timeIntervalSince1970: entry.updatedAt), format: .dateTime.date(.abbreviated).time(.shortened))
+                Text(Date(timeIntervalSince1970: entry.updatedAt), format: Date.FormatStyle(date: .abbreviated, time: .shortened))
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
             }

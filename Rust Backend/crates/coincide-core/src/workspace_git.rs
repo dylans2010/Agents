@@ -306,7 +306,7 @@ fn stash_reference(reference: &str) -> Result<String> {
         !digits.is_empty()
             && digits.len() <= 6
             && digits.bytes().all(|b| b.is_ascii_digit()),
-        "Expected a stash reference such as stash@{0}"
+        "Expected a stash reference such as stash@{{0}}"
     );
     let index: usize = digits.parse().context("Invalid stash index")?;
     ensure!(index <= 100_000, "Stash index is too large");

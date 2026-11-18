@@ -81,8 +81,10 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_USER_SCRIPT_SANDBOXING: NO
-        SWIFT_INCLUDE_PATHS: "$(PROJECT_DIR)/Rust Backend/crates/coincide-macos-ffi/include"
-        LIBRARY_SEARCH_PATHS: "$(PROJECT_DIR)/Rust Backend/target/release"
+        # Quoted: `Rust Backend` contains a space and Xcode otherwise splits the path into two -I flags.
+        SWIFT_INCLUDE_PATHS: "\"$(PROJECT_DIR)/Rust Backend/crates/coincide-macos-ffi/include\""
+        # Quoted for the same reason as SWIFT_INCLUDE_PATHS above.
+        LIBRARY_SEARCH_PATHS: "\"$(PROJECT_DIR)/Rust Backend/target/release\""
         OTHER_LDFLAGS: "-lcoincide_macos_ffi -framework Security -framework SystemConfiguration -framework CoreFoundation -framework IOKit -framework ApplicationServices -framework CoreGraphics -framework AppKit -framework Foundation -weak_framework ScreenCaptureKit -lproc -lc++ -liconv -lresolv"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
 
@@ -100,7 +102,8 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         SWIFT_EMIT_LOC_STRINGS: NO
-        SWIFT_INCLUDE_PATHS: "$(PROJECT_DIR)/Rust Backend/crates/coincide-macos-ffi/include"
+        # Quoted: `Rust Backend` contains a space and Xcode otherwise splits the path into two -I flags.
+        SWIFT_INCLUDE_PATHS: "\"$(PROJECT_DIR)/Rust Backend/crates/coincide-macos-ffi/include\""
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Agents.app/Contents/MacOS/Agents"
         BUNDLE_LOADER: "$(TEST_HOST)"
 

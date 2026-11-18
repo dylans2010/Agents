@@ -722,7 +722,8 @@ pub(crate) fn ensure_system_toolset_supported(provider: &str) -> Result<()> {
     ensure!(
         !matches!(provider, "opencode" | "lithos"),
         "System Tools are not supported for provider \"{provider}\": OpenCode and Lithos have no channel for the system prompt or the MCP server. Switch this thread to Provider Tools, or switch its provider to Codex, Claude, Cursor, Grok, Antigravity, or a registered ACP agent."
-    )
+    );
+    Ok(())
 }
 
 pub(crate) struct OwnedChild(Child, #[cfg(windows)] Option<windows_job::Job>);

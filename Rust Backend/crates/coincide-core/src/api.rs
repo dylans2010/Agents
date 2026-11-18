@@ -2052,7 +2052,7 @@ impl Engine {
         let turn_opener = (restore_paused_goal.is_none() && !user_item_id.is_empty())
             .then(|| user_item_id.clone());
         self.insert_running_for_turn(
-            id,
+            id.clone(),
             Running {
                 configuration: provider_configuration::current(),
                 resume_safe: Arc::new(std::sync::atomic::AtomicBool::new(true)),

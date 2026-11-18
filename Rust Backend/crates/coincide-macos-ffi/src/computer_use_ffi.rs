@@ -77,12 +77,15 @@ impl Pump {
                 break;
             }
             self.harvest();
-            if let Ok(mut engine) = self.engine.try_lock() {
-                let plan = self.prepare(&mut engine);
-                drop(engine);
+            // Lock through a cloned handle so the guard does not borrow `self`,
+            // which the prepare/submit/flush steps still need mutably.
+            let engine = Arc::clone(&self.engine);
+            if let Ok(mut guard) = engine.try_lock() {
+                let plan = self.prepare(&mut guard);
+                drop(guard);
                 self.submit(plan);
-                if let Ok(mut engine) = self.engine.try_lock() {
-                    self.flush(&mut engine);
+                if let Ok(mut guard) = engine.try_lock() {
+                    self.flush(&mut guard);
                 }
             }
             thread::sleep(TICK);

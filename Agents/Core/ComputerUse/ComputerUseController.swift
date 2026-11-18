@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import Observation
 
-public struct ComputerUseStatus: Codable, Sendable {
+public nonisolated struct ComputerUseStatus: Codable, Sendable {
     public var enabled: Bool
     public var nativeCompiled: Bool
     public var savedEnabled: Bool

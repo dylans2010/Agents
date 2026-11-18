@@ -94,6 +94,11 @@ public nonisolated enum JSONValue: Codable, Hashable, Sendable {
         if case .object(let obj) = self { return obj[key] }
         return nil
     }
+
+    /// Builds an array value from object dictionaries, the shape most tool results collect.
+    public nonisolated static func array(_ objects: [[String: JSONValue]]) -> JSONValue {
+        .array(objects.map { .object($0) })
+    }
 }
 
 extension JSONValue: ExpressibleByNilLiteral, ExpressibleByBooleanLiteral, ExpressibleByIntegerLiteral,

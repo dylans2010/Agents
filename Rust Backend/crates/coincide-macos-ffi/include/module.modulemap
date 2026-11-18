@@ -1,4 +1,4 @@
-module CoincideMacOSFFI {
+module AgentsMacOSFFI {
     header "coincide_macos_ffi.h"
     export *
 }

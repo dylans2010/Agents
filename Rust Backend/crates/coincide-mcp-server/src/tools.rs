@@ -13629,7 +13629,7 @@ fn g6_call(state: &crate::ServerState, name: &str, args: &Value) -> Result<Value
             for (_, content) in &catalog_files {
                 if let Ok(catalog) = serde_json::from_str::<Value>(content) {
                     for (key, locales) in g6_xcstrings_keys(&catalog) {
-                        all_keys.insert(key);
+                        all_keys.insert(key.clone());
                         for (locale, _) in locales {
                             keys_by_locale.entry(locale).or_default().insert(key.clone());
                         }
@@ -13993,7 +13993,7 @@ fn g6_call(state: &crate::ServerState, name: &str, args: &Value) -> Result<Value
                         if let Ok(catalog) = serde_json::from_str::<Value>(content) {
                             for (key, locales) in g6_xcstrings_keys(&catalog) {
                                 for (locale, value) in locales {
-                                    keys.entry(key).or_default().insert(locale, value);
+                                    keys.entry(key.clone()).or_default().insert(locale, value);
                                 }
                             }
                         }

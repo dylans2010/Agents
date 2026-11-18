@@ -97,7 +97,7 @@ struct ComposerNSTextView: NSViewRepresentable {
         textView.textColor = .labelColor
         textView.insertionPointColor = .controlAccentColor
         textView.placeholderString = placeholder
-        textView.accessibilityLabel = placeholder
+        textView.setAccessibilityLabel(placeholder)
         textView.font = Self.resolvedNSFont(scale: fontScale)
         textView.string = text
 
@@ -125,7 +125,7 @@ struct ComposerNSTextView: NSViewRepresentable {
 
         if textView.placeholderString != placeholder {
             textView.placeholderString = placeholder
-            textView.accessibilityLabel = placeholder
+            textView.setAccessibilityLabel(placeholder)
             textView.needsDisplay = true
         }
 

@@ -4422,7 +4422,7 @@ public nonisolated enum SystemToolRegistry {
             guard toolName != "use_mcp" else {
                 throw SystemToolError.executionFailed(tool: name, message: "use_mcp cannot call itself.")
             }
-            guard definition(named: toolName, for: toolset) != nil else {
+            guard Self.definition(named: toolName, for: toolset) != nil else {
                 throw SystemToolError.unknownTool(toolName)
             }
             let rawArguments = optionalString(arguments, "arguments") ?? "{}"
@@ -4710,7 +4710,7 @@ public nonisolated enum SystemToolRegistry {
             let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
             let rows = Self.parseCSV(document.content)
             guard let headers = rows.first, !headers.isEmpty else {
-                throw SystemToolError.executionFailed(tool: tool, message: "CSV file has no header row.")
+                throw SystemToolError.executionFailed(tool: name, message: "CSV file has no header row.")
             }
             var records: [[String: Any]] = []
             for row in rows.dropFirst() {
@@ -4733,7 +4733,7 @@ public nonisolated enum SystemToolRegistry {
             let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
             let value = try Self.jsonObject(from: document.content, tool: name)
             guard let records = value as? [[String: Any]] else {
-                throw SystemToolError.executionFailed(tool: tool, message: "JSON file must contain an array of objects.")
+                throw SystemToolError.executionFailed(tool: name, message: "JSON file must contain an array of objects.")
             }
             var headers: [String] = []
             for record in records {
@@ -4762,7 +4762,7 @@ public nonisolated enum SystemToolRegistry {
             let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: "plist")
             let formatName = optionalString(arguments, "format") ?? "xml"
             guard formatName == "xml" || formatName == "binary" else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Plist format must be xml or binary.")
+                throw SystemToolError.executionFailed(tool: name, message: "Plist format must be xml or binary.")
             }
             let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
             let object = try Self.jsonObject(from: document.content, tool: name)
@@ -4834,25 +4834,25 @@ public nonisolated enum SystemToolRegistry {
                 return .object(["path": .string(path), "key": .string(key), "found": .bool(found != nil), "value": found.map { Self.plistJSONValue($0) } ?? .null])
             case "set":
                 guard var root = object as? [String: Any] else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Property list root must be a dictionary for key edits.")
+                    throw SystemToolError.executionFailed(tool: name, message: "Property list root must be a dictionary for key edits.")
                 }
                 guard let value = arguments["value"]?.stringValue else {
-                    throw SystemToolError.missingArgument(tool: tool, argument: "value")
+                    throw SystemToolError.missingArgument(tool: name, argument: "value")
                 }
                 Self.plistSet(value, keyPath: key, root: &root)
                 try Self.writePlist(cwd: cwd, path: path, object: root, format: sourceFormat, tool: name)
                 return .object(["path": .string(path), "key": .string(key), "value": .string(value)])
             case "delete":
                 guard var root = object as? [String: Any] else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Property list root must be a dictionary for key edits.")
+                    throw SystemToolError.executionFailed(tool: name, message: "Property list root must be a dictionary for key edits.")
                 }
                 guard Self.plistDelete(keyPath: key, root: &root) else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Property list key was not found: \(key).")
+                    throw SystemToolError.executionFailed(tool: name, message: "Property list key was not found: \(key).")
                 }
                 try Self.writePlist(cwd: cwd, path: path, object: root, format: sourceFormat, tool: name)
                 return .object(["path": .string(path), "key": .string(key), "deleted": .bool(true)])
             default:
-                throw SystemToolError.executionFailed(tool: tool, message: "plist_edit action must be get, set, or delete.")
+                throw SystemToolError.executionFailed(tool: name, message: "plist_edit action must be get, set, or delete.")
             }
         case "plist_editor":
             let cwd = try requiredString(arguments, "cwd", tool: name)
@@ -4869,10 +4869,10 @@ public nonisolated enum SystemToolRegistry {
             case "set":
                 let key = try requiredString(arguments, "key", tool: name)
                 guard var root = object as? [String: Any] else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Property list root must be a dictionary for key edits.")
+                    throw SystemToolError.executionFailed(tool: name, message: "Property list root must be a dictionary for key edits.")
                 }
                 guard let value = arguments["value"]?.stringValue else {
-                    throw SystemToolError.missingArgument(tool: tool, argument: "value")
+                    throw SystemToolError.missingArgument(tool: name, argument: "value")
                 }
                 Self.plistSet(value, keyPath: key, root: &root)
                 try Self.writePlist(cwd: cwd, path: path, object: root, format: sourceFormat, tool: name)
@@ -4880,22 +4880,22 @@ public nonisolated enum SystemToolRegistry {
             case "delete":
                 let key = try requiredString(arguments, "key", tool: name)
                 guard var root = object as? [String: Any] else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Property list root must be a dictionary for key edits.")
+                    throw SystemToolError.executionFailed(tool: name, message: "Property list root must be a dictionary for key edits.")
                 }
                 guard Self.plistDelete(keyPath: key, root: &root) else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Property list key was not found: \(key).")
+                    throw SystemToolError.executionFailed(tool: name, message: "Property list key was not found: \(key).")
                 }
                 try Self.writePlist(cwd: cwd, path: path, object: root, format: sourceFormat, tool: name)
                 return .object(["path": .string(path), "key": .string(key), "deleted": .bool(true)])
             default:
-                throw SystemToolError.executionFailed(tool: tool, message: "plist_editor action must be read, get, set, or delete.")
+                throw SystemToolError.executionFailed(tool: name, message: "plist_editor action must be read, get, set, or delete.")
             }
         case "binary_plist_converter":
             let cwd = try requiredString(arguments, "cwd", tool: name)
             let path = try requiredString(arguments, "path", tool: name)
             let formatName = try requiredString(arguments, "format", tool: name)
             guard formatName == "xml" || formatName == "binary" else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Plist format must be xml or binary.")
+                throw SystemToolError.executionFailed(tool: name, message: "Plist format must be xml or binary.")
             }
             let output = optionalString(arguments, "output") ?? path
             let (object, _) = try Self.readPlist(cwd: cwd, path: path, tool: name)
@@ -4903,7 +4903,7 @@ public nonisolated enum SystemToolRegistry {
             try Self.writePlist(cwd: cwd, path: output, object: object, format: format, tool: name)
             let (_, verifiedFormat) = try Self.readPlist(cwd: cwd, path: output, tool: name)
             guard verifiedFormat == format else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Property list conversion verification failed: the output is not \(formatName).")
+                throw SystemToolError.executionFailed(tool: name, message: "Property list conversion verification failed: the output is not \(formatName).")
             }
             return .object(["path": .string(path), "output": .string(output), "format": .string(formatName), "converted": .bool(true)])
         case "file_metadata":
@@ -4913,7 +4913,7 @@ public nonisolated enum SystemToolRegistry {
             let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: parent, recursive: false)
             let fileName = (path as NSString).lastPathComponent
             guard let entry = entries.first(where: { $0.name == fileName }) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No such file or directory: \(path).")
+                throw SystemToolError.executionFailed(tool: name, message: "No such file or directory: \(path).")
             }
             return .object([
                 "path": .string(path),
@@ -4949,7 +4949,7 @@ public nonisolated enum SystemToolRegistry {
             let path = try requiredString(arguments, "path", tool: name)
             let algorithm = optionalString(arguments, "algorithm") ?? "sha256"
             guard algorithm == "sha256" || algorithm == "md5" else {
-                throw SystemToolError.executionFailed(tool: tool, message: "file_checksum_verifier algorithm must be sha256 or md5.")
+                throw SystemToolError.executionFailed(tool: name, message: "file_checksum_verifier algorithm must be sha256 or md5.")
             }
             let data = try Self.readWorkspaceBytes(cwd: cwd, path: path, tool: name)
             let sha256 = try Self.checksumHex(data: data, algorithm: "sha256", tool: name)
@@ -5025,25 +5025,25 @@ public nonisolated enum SystemToolRegistry {
             let path = try requiredString(arguments, "path", tool: name)
             let mode = optionalString(arguments, "mode") ?? "lint"
             guard mode == "lint" || mode == "format" else {
-                throw SystemToolError.executionFailed(tool: tool, message: "swift_format_lint mode must be lint or format.")
+                throw SystemToolError.executionFailed(tool: name, message: "swift_format_lint mode must be lint or format.")
             }
             try Self.validateRelativePath(path, tool: name)
             let command = mode == "lint" ? "swiftformat --lint " + Self.shellQuoted(path) : "swiftformat " + Self.shellQuoted(path)
             let fullCommand = "cd " + Self.shellQuoted(ExternalEditorService.expandedPath(cwd)) + " && " + command
-            let result = try await runTerminalCommand(tool: tool, threadId: threadId, command: fullCommand, timeoutSeconds: 300, runtime: runtime)
+            let result = try await runTerminalCommand(tool: name, threadId: threadId, command: fullCommand, timeoutSeconds: 300, runtime: runtime)
             if result["timedOut"]?.boolValue == true {
-                throw SystemToolError.operationTimeout(tool: tool)
+                throw SystemToolError.operationTimeout(tool: name)
             }
             let exitCode = result["exitCode"]?.intValue ?? -1
             let cleaned = Self.cleanTerminalOutput(result["output"]?.stringValue ?? "")
             if exitCode == 127 || cleaned.contains("command not found") {
-                throw SystemToolError.executionFailed(tool: tool, message: "swiftformat is not installed; install it to use swift_format_lint.")
+                throw SystemToolError.executionFailed(tool: name, message: "swiftformat is not installed; install it to use swift_format_lint.")
             }
             if mode == "lint" {
                 return .object(["path": .string(path), "mode": .string(mode), "lintPassed": .bool(exitCode == 0), "exitCode": .int(Int64(exitCode)), "output": .string(cleaned)])
             }
             guard exitCode == 0 else {
-                throw SystemToolError.executionFailed(tool: tool, message: "swiftformat failed with exit code \(exitCode): \(cleaned)")
+                throw SystemToolError.executionFailed(tool: name, message: "swiftformat failed with exit code \(exitCode): \(cleaned)")
             }
             return .object(["path": .string(path), "mode": .string(mode), "formatted": .bool(true), "exitCode": .int(Int64(exitCode)), "output": .string(cleaned)])
         case "code_mutation_engine":
@@ -5055,12 +5055,12 @@ public nonisolated enum SystemToolRegistry {
             let symbol = optionalString(arguments, "symbol")
             let target = optionalString(arguments, "target")
             guard symbol != nil || target != nil else {
-                throw SystemToolError.executionFailed(tool: tool, message: "code_mutation_engine requires symbol or target.")
+                throw SystemToolError.executionFailed(tool: name, message: "code_mutation_engine requires symbol or target.")
             }
             let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
             if let target {
                 guard document.content.contains(target) else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Target block was not found in the file.")
+                    throw SystemToolError.executionFailed(tool: name, message: "Target block was not found in the file.")
                 }
                 let updated = document.content.replacingOccurrences(of: target, with: replacement)
                 try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: updated)
@@ -5068,10 +5068,10 @@ public nonisolated enum SystemToolRegistry {
             }
             let lines = document.content.components(separatedBy: "\n")
             guard let start = Self.symbolDeclarationLine(lines, symbol: symbol!) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Symbol was not found in the file: \(symbol!).")
+                throw SystemToolError.executionFailed(tool: name, message: "Symbol was not found in the file: \(symbol!).")
             }
             guard let end = Self.braceBlockEnd(lines, from: start) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Symbol has no brace-balanced body: \(symbol!).")
+                throw SystemToolError.executionFailed(tool: name, message: "Symbol has no brace-balanced body: \(symbol!).")
             }
             var updatedLines = lines
             let replacementLines = replacement.components(separatedBy: "\n")
@@ -5080,7 +5080,7 @@ public nonisolated enum SystemToolRegistry {
                 openLine += 1
             }
             guard openLine <= end else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Symbol has no brace-balanced body: \(symbol!).")
+                throw SystemToolError.executionFailed(tool: name, message: "Symbol has no brace-balanced body: \(symbol!).")
             }
             if openLine == end {
                 updatedLines.replaceSubrange(openLine...openLine, with: replacementLines)
@@ -5099,7 +5099,7 @@ public nonisolated enum SystemToolRegistry {
             let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
             let occurrences = document.content.components(separatedBy: original).count - 1
             guard occurrences > 0 else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Original block was not found in the file.")
+                throw SystemToolError.executionFailed(tool: name, message: "Original block was not found in the file.")
             }
             let patched = document.content.replacingOccurrences(of: original, with: updated)
             try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: patched)
@@ -5112,14 +5112,14 @@ public nonisolated enum SystemToolRegistry {
             }
             let lineNumbers = rawErrors.compactMap(\.intValue)
             guard lineNumbers.count == rawErrors.count else {
-                throw SystemToolError.executionFailed(tool: tool, message: "automated_repair_engine errors must be line numbers.")
+                throw SystemToolError.executionFailed(tool: name, message: "automated_repair_engine errors must be line numbers.")
             }
             let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
             var lines = document.content.components(separatedBy: "\n")
             let sorted = lineNumbers.sorted(by: >)
             for lineNumber in sorted {
                 guard lineNumber >= 1, lineNumber <= lines.count else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "automated_repair_engine line \(lineNumber) is out of range for the file.")
+                    throw SystemToolError.executionFailed(tool: name, message: "automated_repair_engine line \(lineNumber) is out of range for the file.")
                 }
                 lines.insert("// AssistAutoRepair: review required", at: lineNumber - 1)
             }
@@ -5136,7 +5136,7 @@ public nonisolated enum SystemToolRegistry {
             do {
                 regex = try NSRegularExpression(pattern: pattern)
             } catch {
-                throw SystemToolError.executionFailed(tool: tool, message: "Invalid regular expression: \(error.localizedDescription)")
+                throw SystemToolError.executionFailed(tool: name, message: "Invalid regular expression: \(error.localizedDescription)")
             }
             let hits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: pattern, limit: 500)
             var files: [String] = []
@@ -5191,10 +5191,10 @@ public nonisolated enum SystemToolRegistry {
             let destination = try await runtime.readWorkspaceFile(cwd: cwd, path: destinationPath)
             let sourceLines = source.content.components(separatedBy: "\n")
             guard let start = Self.symbolDeclarationLine(sourceLines, symbol: symbol) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Symbol was not found in the source file: \(symbol).")
+                throw SystemToolError.executionFailed(tool: name, message: "Symbol was not found in the source file: \(symbol).")
             }
             guard let end = Self.braceBlockEnd(sourceLines, from: start) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Symbol has no brace-balanced body: \(symbol).")
+                throw SystemToolError.executionFailed(tool: name, message: "Symbol has no brace-balanced body: \(symbol).")
             }
             let block = Array(sourceLines[start...end])
             var remaining = sourceLines
@@ -5215,7 +5215,7 @@ public nonisolated enum SystemToolRegistry {
             let verifiedDestination = try await runtime.readWorkspaceFile(cwd: cwd, path: destinationPath)
             guard Self.symbolDeclarationLine(verifiedSource.content.components(separatedBy: "\n"), symbol: symbol) == nil,
                   Self.symbolDeclarationLine(verifiedDestination.content.components(separatedBy: "\n"), symbol: symbol) != nil else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Symbol move verification failed.")
+                throw SystemToolError.executionFailed(tool: name, message: "Symbol move verification failed.")
             }
             return .object(["sourcePath": .string(sourcePath), "destinationPath": .string(destinationPath), "symbol": .string(symbol), "moved": .bool(true), "lines": .int(Int64(block.count))])
         case "import_cleanup":
@@ -5226,7 +5226,7 @@ public nonisolated enum SystemToolRegistry {
             let lines = document.content.components(separatedBy: "\n")
             let importPattern = "^\\s*import\\s+([A-Za-z_][A-Za-z0-9_]*)"
             guard let regex = try? NSRegularExpression(pattern: importPattern, options: [.anchorsMatchLines]) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Import scan failed.")
+                throw SystemToolError.executionFailed(tool: name, message: "Import scan failed.")
             }
             var removed: [String] = []
             for (lineIndex, line) in lines.enumerated() {
@@ -5251,7 +5251,7 @@ public nonisolated enum SystemToolRegistry {
                 }
             }
             guard !removed.isEmpty else {
-                return .object(["path": .string(path), "removed": .array([]), "count": .int(0)])
+                return .object(["path": .string(path), "removed": .array([JSONValue]()), "count": .int(0)])
             }
             let updated = lines.filter { line in
                 let range = NSRange(line.startIndex..., in: line)
@@ -5303,7 +5303,7 @@ public nonisolated enum SystemToolRegistry {
             try Self.writeWorkspaceBytes(cwd: cwd, path: backupPath, data: data, tool: name)
             let verified = try Self.readWorkspaceBytes(cwd: cwd, path: backupPath, tool: name)
             guard verified.count == data.count else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Backup verification failed: size mismatch.")
+                throw SystemToolError.executionFailed(tool: name, message: "Backup verification failed: size mismatch.")
             }
             return .object(["path": .string(path), "backupPath": .string(backupPath), "byteLen": .int(Int64(data.count))])
         case "session_export":
@@ -5333,7 +5333,7 @@ public nonisolated enum SystemToolRegistry {
             let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
             let headingPattern = "^(#{1,6})\\s+(.+)$"
             guard let regex = try? NSRegularExpression(pattern: headingPattern, options: [.anchorsMatchLines]) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Heading scan failed.")
+                throw SystemToolError.executionFailed(tool: name, message: "Heading scan failed.")
             }
             var toc: [String] = []
             let lines = document.content.components(separatedBy: "\n")
@@ -5351,7 +5351,7 @@ public nonisolated enum SystemToolRegistry {
                 toc.append("\(indent)- [\(text)](#\(Self.tocSlug(text)))")
             }
             guard !toc.isEmpty else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No headings found in the file.")
+                throw SystemToolError.executionFailed(tool: name, message: "No headings found in the file.")
             }
             var updated = lines
             if let open = lines.firstIndex(of: "<!-- TOC -->"), let close = lines.firstIndex(of: "<!-- /TOC -->"), close > open {
@@ -5431,7 +5431,7 @@ public nonisolated enum SystemToolRegistry {
             let fieldsText = try requiredString(arguments, "fields", tool: name)
             let overwrite = optionalBool(arguments, "overwrite") ?? false
             guard format == "json" || format == "swift" else {
-                throw SystemToolError.executionFailed(tool: tool, message: "test_data_factory format must be json or swift.")
+                throw SystemToolError.executionFailed(tool: name, message: "test_data_factory format must be json or swift.")
             }
             if !overwrite {
                 try Self.assertFileAbsent(cwd: cwd, path: path, tool: name)
@@ -5440,12 +5440,12 @@ public nonisolated enum SystemToolRegistry {
             for part in fieldsText.split(separator: ",") {
                 let pieces = part.split(separator: ":", maxSplits: 1)
                 guard pieces.count == 2 else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Fields must be name:Type pairs separated by commas.")
+                    throw SystemToolError.executionFailed(tool: name, message: "Fields must be name:Type pairs separated by commas.")
                 }
                 fields.append((String(pieces[0]).trimmingCharacters(in: .whitespaces), String(pieces[1]).trimmingCharacters(in: .whitespaces)))
             }
             guard !fields.isEmpty else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Fields must not be empty.")
+                throw SystemToolError.executionFailed(tool: name, message: "Fields must not be empty.")
             }
             let base = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
             if format == "swift" {
@@ -5453,7 +5453,7 @@ public nonisolated enum SystemToolRegistry {
                 let validStart = first.map { CharacterSet.letters.contains($0) || $0 == "_" } ?? false
                 let validRest = base.unicodeScalars.dropFirst().allSatisfy { CharacterSet.alphanumerics.contains($0) || $0 == "_" }
                 guard validStart, validRest else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "Fixture file name must be a valid Swift identifier for the swift format.")
+                    throw SystemToolError.executionFailed(tool: name, message: "Fixture file name must be a valid Swift identifier for the swift format.")
                 }
             }
             if format == "json" {
@@ -5544,7 +5544,7 @@ public nonisolated enum SystemToolRegistry {
                 }
                 return .object(["action": .string(action), "deleted": .array(deleted.map { .string($0) }), "count": .int(Int64(deleted.count)), "kept": .int(Int64(kept))])
             default:
-                throw SystemToolError.executionFailed(tool: tool, message: "test_snapshot_manage action must be list or clean.")
+                throw SystemToolError.executionFailed(tool: name, message: "test_snapshot_manage action must be list or clean.")
             }
         case "open_in_finder":
             let cwd = try requiredString(arguments, "cwd", tool: name)
@@ -5552,7 +5552,7 @@ public nonisolated enum SystemToolRegistry {
             let url = try Self.resolveWorkspaceFileURL(cwd: cwd, path: path, tool: name)
             let opened = await MainActor.run { NSWorkspace.shared.open(url) }
             guard opened else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Finder could not open \(path).")
+                throw SystemToolError.executionFailed(tool: name, message: "Finder could not open \(path).")
             }
             return .object(["path": .string(path), "opened": .bool(true)])
         case "reveal_in_finder":
@@ -5597,7 +5597,7 @@ public nonisolated enum SystemToolRegistry {
                 payload = cleaned
             }
             guard let data = Data(base64Encoded: payload, options: [.ignoreUnknownCharacters]), !data.isEmpty else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Base64 string could not be decoded.")
+                throw SystemToolError.executionFailed(tool: name, message: "Base64 string could not be decoded.")
             }
             try Self.writeWorkspaceBytes(cwd: cwd, path: path, data: data, tool: name)
             return .object(["path": .string(path), "byteLen": .int(Int64(data.count))])
@@ -5606,7 +5606,7 @@ public nonisolated enum SystemToolRegistry {
             let cwd = try requiredString(arguments, "cwd", tool: name)
             let path = try requiredString(arguments, "path", tool: name)
             try Self.validateRelativePath(path, tool: name)
-            let output = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "sips -g pixelWidth -g pixelHeight -g format " + Self.shellQuoted(path), timeoutSeconds: 60, runtime: runtime)
+            let output = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "sips -g pixelWidth -g pixelHeight -g format " + Self.shellQuoted(path), timeoutSeconds: 60, runtime: runtime)
             var width: Int?
             var height: Int?
             var format: String?
@@ -5637,7 +5637,7 @@ public nonisolated enum SystemToolRegistry {
             let format = try requiredString(arguments, "format", tool: name)
             let normalized = format.lowercased() == "jpg" ? "jpeg" : format.lowercased()
             guard ["png", "jpeg", "tiff", "bmp", "gif"].contains(normalized) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Image format must be png, jpg, tiff, bmp, or gif.")
+                throw SystemToolError.executionFailed(tool: name, message: "Image format must be png, jpg, tiff, bmp, or gif.")
             }
             let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: format.lowercased())
             try Self.validateRelativePath(path, tool: name)
@@ -5645,12 +5645,12 @@ public nonisolated enum SystemToolRegistry {
             var command = "sips -s format \(normalized) "
             if normalized == "jpeg", let quality = optionalInt(arguments, "quality") {
                 guard quality >= 0, quality <= 100 else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "JPEG quality must be 0 to 100.")
+                    throw SystemToolError.executionFailed(tool: name, message: "JPEG quality must be 0 to 100.")
                 }
                 command += "-s formatOptions \(quality) "
             }
             command += Self.shellQuoted(path) + " --out " + Self.shellQuoted(output)
-            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: command, timeoutSeconds: 120, runtime: runtime)
+            let result = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: command, timeoutSeconds: 120, runtime: runtime)
             return .object(["path": .string(path), "output": .string(output), "format": .string(normalized), "result": .string(result)])
         case "image_generate_thumbnail":
             let threadId = try requiredString(arguments, "threadId", tool: name)
@@ -5658,7 +5658,7 @@ public nonisolated enum SystemToolRegistry {
             let path = try requiredString(arguments, "path", tool: name)
             let maxPixels = optionalInt(arguments, "maxPixels") ?? 256
             guard maxPixels >= 1, maxPixels <= 4096 else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Thumbnail maxPixels must be 1 to 4096.")
+                throw SystemToolError.executionFailed(tool: name, message: "Thumbnail maxPixels must be 1 to 4096.")
             }
             let output: String
             if let given = optionalString(arguments, "output") {
@@ -5670,14 +5670,14 @@ public nonisolated enum SystemToolRegistry {
             }
             try Self.validateRelativePath(path, tool: name)
             try Self.validateRelativePath(output, tool: name)
-            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "sips -Z \(maxPixels) " + Self.shellQuoted(path) + " --out " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
+            let result = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "sips -Z \(maxPixels) " + Self.shellQuoted(path) + " --out " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
             return .object(["path": .string(path), "output": .string(output), "maxPixels": .int(Int64(maxPixels)), "result": .string(result)])
         case "image_extract_metadata":
             let threadId = try requiredString(arguments, "threadId", tool: name)
             let cwd = try requiredString(arguments, "cwd", tool: name)
             let path = try requiredString(arguments, "path", tool: name)
             try Self.validateRelativePath(path, tool: name)
-            let output = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "mdls " + Self.shellQuoted(path), timeoutSeconds: 60, runtime: runtime)
+            let output = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "mdls " + Self.shellQuoted(path), timeoutSeconds: 60, runtime: runtime)
             return .object(["path": .string(path), "metadata": .string(output)])
         case "zip_file":
             let threadId = try requiredString(arguments, "threadId", tool: name)
@@ -5685,11 +5685,11 @@ public nonisolated enum SystemToolRegistry {
             let path = try requiredString(arguments, "path", tool: name)
             let output = try requiredString(arguments, "output", tool: name)
             guard output.hasSuffix(".zip") else {
-                throw SystemToolError.executionFailed(tool: tool, message: "zip_file output must end in .zip.")
+                throw SystemToolError.executionFailed(tool: name, message: "zip_file output must end in .zip.")
             }
             try Self.validateRelativePath(path, tool: name)
             try Self.validateRelativePath(output, tool: name)
-            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "ditto -c -k --sequesterRsrc --keepParent " + Self.shellQuoted(path) + " " + Self.shellQuoted(output), timeoutSeconds: 300, runtime: runtime)
+            let result = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "ditto -c -k --sequesterRsrc --keepParent " + Self.shellQuoted(path) + " " + Self.shellQuoted(output), timeoutSeconds: 300, runtime: runtime)
             return .object(["path": .string(path), "output": .string(output), "result": .string(result)])
         case "unzip_file":
             let threadId = try requiredString(arguments, "threadId", tool: name)
@@ -5698,7 +5698,7 @@ public nonisolated enum SystemToolRegistry {
             let destination = try requiredString(arguments, "destination", tool: name)
             try Self.validateRelativePath(path, tool: name)
             try Self.validateRelativePath(destination, tool: name)
-            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "mkdir -p " + Self.shellQuoted(destination) + " && ditto -x -k " + Self.shellQuoted(path) + " " + Self.shellQuoted(destination), timeoutSeconds: 300, runtime: runtime)
+            let result = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "mkdir -p " + Self.shellQuoted(destination) + " && ditto -x -k " + Self.shellQuoted(path) + " " + Self.shellQuoted(destination), timeoutSeconds: 300, runtime: runtime)
             return .object(["path": .string(path), "destination": .string(destination), "result": .string(result)])
         case "tar_archive_create":
             let threadId = try requiredString(arguments, "threadId", tool: name)
@@ -5707,12 +5707,12 @@ public nonisolated enum SystemToolRegistry {
             let output = try requiredString(arguments, "output", tool: name)
             let compressed = output.hasSuffix(".tar.gz") || output.hasSuffix(".tgz")
             guard output.hasSuffix(".tar") || compressed else {
-                throw SystemToolError.executionFailed(tool: tool, message: "tar_archive_create output must end in .tar, .tar.gz, or .tgz.")
+                throw SystemToolError.executionFailed(tool: name, message: "tar_archive_create output must end in .tar, .tar.gz, or .tgz.")
             }
             try Self.validateRelativePath(path, tool: name)
             try Self.validateRelativePath(output, tool: name)
             let flags = compressed ? "-czf" : "-cf"
-            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "tar \(flags) " + Self.shellQuoted(output) + " " + Self.shellQuoted(path), timeoutSeconds: 300, runtime: runtime)
+            let result = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "tar \(flags) " + Self.shellQuoted(output) + " " + Self.shellQuoted(path), timeoutSeconds: 300, runtime: runtime)
             return .object(["path": .string(path), "output": .string(output), "result": .string(result)])
         case "tar_archive_extract":
             let threadId = try requiredString(arguments, "threadId", tool: name)
@@ -5721,12 +5721,12 @@ public nonisolated enum SystemToolRegistry {
             let destination = try requiredString(arguments, "destination", tool: name)
             let compressed = path.hasSuffix(".tar.gz") || path.hasSuffix(".tgz")
             guard path.hasSuffix(".tar") || compressed else {
-                throw SystemToolError.executionFailed(tool: tool, message: "tar_archive_extract path must end in .tar, .tar.gz, or .tgz.")
+                throw SystemToolError.executionFailed(tool: name, message: "tar_archive_extract path must end in .tar, .tar.gz, or .tgz.")
             }
             try Self.validateRelativePath(path, tool: name)
             try Self.validateRelativePath(destination, tool: name)
             let flags = compressed ? "-xzf" : "-xf"
-            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "mkdir -p " + Self.shellQuoted(destination) + " && tar \(flags) " + Self.shellQuoted(path) + " -C " + Self.shellQuoted(destination), timeoutSeconds: 300, runtime: runtime)
+            let result = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "mkdir -p " + Self.shellQuoted(destination) + " && tar \(flags) " + Self.shellQuoted(path) + " -C " + Self.shellQuoted(destination), timeoutSeconds: 300, runtime: runtime)
             return .object(["path": .string(path), "destination": .string(destination), "result": .string(result)])
         case "gzip_compress_file":
             let threadId = try requiredString(arguments, "threadId", tool: name)
@@ -5735,7 +5735,7 @@ public nonisolated enum SystemToolRegistry {
             let output = optionalString(arguments, "output") ?? path + ".gz"
             try Self.validateRelativePath(path, tool: name)
             try Self.validateRelativePath(output, tool: name)
-            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "gzip -c " + Self.shellQuoted(path) + " > " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
+            let result = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "gzip -c " + Self.shellQuoted(path) + " > " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
             return .object(["path": .string(path), "output": .string(output), "result": .string(result)])
         case "gzip_decompress_file":
             let threadId = try requiredString(arguments, "threadId", tool: name)
@@ -5751,7 +5751,7 @@ public nonisolated enum SystemToolRegistry {
             }
             try Self.validateRelativePath(path, tool: name)
             try Self.validateRelativePath(output, tool: name)
-            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "gzip -dc " + Self.shellQuoted(path) + " > " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
+            let result = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "gzip -dc " + Self.shellQuoted(path) + " > " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
             return .object(["path": .string(path), "output": .string(output), "result": .string(result)])
         case "count_file_lines":
             let cwd = try requiredString(arguments, "cwd", tool: name)
@@ -5973,16 +5973,16 @@ public nonisolated enum SystemToolRegistry {
             if exitCode != 0 {
                 if name == "project_target_list" {
                     return .object([
-                        "targets": .array([]),
+                        "targets": .array([JSONValue]()),
                         "exitCode": .int(Int64(exitCode)),
                         "output": .string(output),
                     ])
                 }
                 return .object([
                     "name": .string(""),
-                    "schemes": .array([]),
-                    "targets": .array([]),
-                    "configurations": .array([]),
+                    "schemes": .array([JSONValue]()),
+                    "targets": .array([JSONValue]()),
+                    "configurations": .array([JSONValue]()),
                     "exitCode": .int(Int64(exitCode)),
                     "output": .string(output),
                 ])
@@ -6117,7 +6117,7 @@ public nonisolated enum SystemToolRegistry {
             if coverageExit != 0 {
                 return .object([
                     "lineCoverage": .null,
-                    "targets": .array([]),
+                    "targets": .array([JSONValue]()),
                     "exitCode": .int(Int64(coverageExit)),
                     "output": .string(coverageOutput),
                 ])
@@ -6233,7 +6233,7 @@ public nonisolated enum SystemToolRegistry {
                 if listExit != 0 {
                     return .object([
                         "action": .string(action),
-                        "schemes": .array([]),
+                        "schemes": .array([JSONValue]()),
                         "exitCode": .int(Int64(listExit)),
                         "output": .string(listOutput),
                     ])
@@ -6319,8 +6319,8 @@ public nonisolated enum SystemToolRegistry {
             try Self.g3ThrowIfMissingCLI(tool: name, cli: "simctl", exitCode: exitCode, output: output)
             if exitCode != 0 {
                 return .object([
-                    "devices": .array([]),
-                    "runtimes": .array([]),
+                    "devices": .array([JSONValue]()),
+                    "runtimes": .array([JSONValue]()),
                     "exitCode": .int(Int64(exitCode)),
                     "output": .string(output),
                 ])
@@ -6433,7 +6433,7 @@ public nonisolated enum SystemToolRegistry {
                 throw SystemToolError.executionFailed(tool: name, message: "provisioning_check profilePath must end in .mobileprovision or .provisionprofile.")
             }
             guard try await Self.g3FileExists(tool: name, threadId: threadId, path: profilePath, runtime: runtime) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(profilePath)")
+                throw SystemToolError.executionFailed(tool: name, message: "No such file: \(profilePath)")
             }
             let checkTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
             let (checkExit, checkOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["security", "cms", "-D", "-i", profilePath], timeoutSeconds: checkTimeout, runtime: runtime)
@@ -6536,7 +6536,7 @@ public nonisolated enum SystemToolRegistry {
             let path = try requiredString(arguments, "path", tool: name)
             try Self.validateRelativePath(path, tool: name)
             guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                throw SystemToolError.executionFailed(tool: name, message: "No such file: \(path)")
             }
             let diagnoseTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
             let (verifyExit, verifyOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["codesign", "--verify", "--verbose", path], timeoutSeconds: diagnoseTimeout, runtime: runtime)
@@ -6573,7 +6573,7 @@ public nonisolated enum SystemToolRegistry {
                 throw SystemToolError.executionFailed(tool: name, message: "xcresult_parser path must end in .xcresult.")
             }
             guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                throw SystemToolError.executionFailed(tool: name, message: "No such file: \(path)")
             }
             let parserTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
             let (parserExit, parserOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "xcresulttool", "get", "--format", "json", "--path", path], timeoutSeconds: parserTimeout, runtime: runtime)
@@ -6582,13 +6582,13 @@ public nonisolated enum SystemToolRegistry {
                 return .object([
                     "path": .string(path),
                     "result": .null,
-                    "topLevelKeys": .array([]),
+                    "topLevelKeys": .array([JSONValue]()),
                     "exitCode": .int(Int64(parserExit)),
                     "output": .string(parserOutput),
                 ])
             }
             let result = try Self.g3JSONValue(parserOutput, tool: name)
-            let keys = (result.objectValue?.keys.sorted() ?? []).map { .string($0) }
+            let keys: [JSONValue] = (result.objectValue?.keys.sorted() ?? []).map { .string($0) }
             return .object([
                 "path": .string(path),
                 "result": result,
@@ -6601,7 +6601,7 @@ public nonisolated enum SystemToolRegistry {
             let path = try requiredString(arguments, "path", tool: name)
             try Self.validateRelativePath(path, tool: name)
             guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                throw SystemToolError.executionFailed(tool: name, message: "No such file: \(path)")
             }
             let analyzerTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
             let (fileExit, fileOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["file", path], timeoutSeconds: analyzerTimeout, runtime: runtime)
@@ -6640,7 +6640,7 @@ public nonisolated enum SystemToolRegistry {
                 throw SystemToolError.executionFailed(tool: name, message: "provisioning_profile_reader profilePath must end in .mobileprovision or .provisionprofile.")
             }
             guard try await Self.g3FileExists(tool: name, threadId: threadId, path: profilePath, runtime: runtime) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(profilePath)")
+                throw SystemToolError.executionFailed(tool: name, message: "No such file: \(profilePath)")
             }
             let readerTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
             let (readerExit, readerOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["security", "cms", "-D", "-i", profilePath], timeoutSeconds: readerTimeout, runtime: runtime)
@@ -6665,7 +6665,7 @@ public nonisolated enum SystemToolRegistry {
                 throw SystemToolError.executionFailed(tool: name, message: "swift_ast_inspector path must end in .swift.")
             }
             guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                throw SystemToolError.executionFailed(tool: name, message: "No such file: \(path)")
             }
             let astTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
             let (astExit, astOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["swiftc", "-dump-ast", path], timeoutSeconds: astTimeout, runtime: runtime)
@@ -6948,7 +6948,7 @@ public nonisolated enum SystemToolRegistry {
             content.sound = .default
             let identifier = "agents-tool-\(UUID().uuidString)"
             let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
-            UNUserNotificationCenter.current().add(request)
+            try await UNUserNotificationCenter.current().add(request)
             return .object([
                 "posted": .bool(true),
                 "identifier": .string(identifier),
@@ -7219,19 +7219,19 @@ public nonisolated enum SystemToolRegistry {
             let cwd = try requiredString(arguments, "cwd", tool: name)
             let path = try requiredString(arguments, "path", tool: name)
             guard (path as NSString).pathExtension.lowercased() == "svg" else {
-                throw SystemToolError.executionFailed(tool: tool, message: "svg_to_png path must end in .svg.")
+                throw SystemToolError.executionFailed(tool: name, message: "svg_to_png path must end in .svg.")
             }
             let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: "png")
             let width = optionalInt(arguments, "width")
             let height = optionalInt(arguments, "height")
             if let width {
                 guard width >= 1, width <= 4096 else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "svg_to_png width must be 1 to 4096.")
+                    throw SystemToolError.executionFailed(tool: name, message: "svg_to_png width must be 1 to 4096.")
                 }
             }
             if let height {
                 guard height >= 1, height <= 4096 else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "svg_to_png height must be 1 to 4096.")
+                    throw SystemToolError.executionFailed(tool: name, message: "svg_to_png height must be 1 to 4096.")
                 }
             }
             try Self.validateRelativePath(path, tool: name)
@@ -7245,7 +7245,7 @@ public nonisolated enum SystemToolRegistry {
                 svgCommand += "-Z \(height) "
             }
             svgCommand += Self.shellQuoted(path) + " --out " + Self.shellQuoted(output)
-            let svgResult = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: svgCommand, timeoutSeconds: 120, runtime: runtime)
+            let svgResult = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: svgCommand, timeoutSeconds: 120, runtime: runtime)
             return .object(["path": .string(path), "output": .string(output), "format": .string("png"), "width": width.map { .int(Int64($0)) } ?? .null, "height": height.map { .int(Int64($0)) } ?? .null, "result": .string(svgResult)])
         case "intel_generate_tests":
             let cwd = try requiredString(arguments, "cwd", tool: name)
@@ -7262,7 +7262,7 @@ public nonisolated enum SystemToolRegistry {
             let suiteValidStart = suiteFirst.map { CharacterSet.letters.contains($0) || $0 == "_" } ?? false
             let suiteValidRest = suiteName.unicodeScalars.dropFirst().allSatisfy { CharacterSet.alphanumerics.contains($0) || $0 == "_" }
             guard suiteValidStart, suiteValidRest else {
-                throw SystemToolError.executionFailed(tool: tool, message: "Test file name must be a valid Swift identifier for test generation.")
+                throw SystemToolError.executionFailed(tool: name, message: "Test file name must be a valid Swift identifier for test generation.")
             }
             var testSources: [String] = []
             if let entries = try? await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: true) {
@@ -7278,7 +7278,7 @@ public nonisolated enum SystemToolRegistry {
                 testSymbols.append(contentsOf: Self.extractSymbols(document.content, path: file))
             }
             guard !testSymbols.isEmpty else {
-                throw SystemToolError.executionFailed(tool: tool, message: "No symbols found in \(path); no test stubs were written.")
+                throw SystemToolError.executionFailed(tool: name, message: "No symbols found in \(path); no test stubs were written.")
             }
             var stubLines: [String] = []
             stubLines.append("import Testing")
@@ -7354,7 +7354,7 @@ public nonisolated enum SystemToolRegistry {
                 let path = try requiredString(arguments, "path", tool: name)
                 try Self.validateRelativePath(path, tool: name)
                 guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                    throw SystemToolError.executionFailed(tool: name, message: "No such file: \(path)")
                 }
                 let (fileExit, fileOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["file", path], timeoutSeconds: analyzeTimeout, runtime: runtime)
                 try Self.g3ThrowIfMissingCLI(tool: name, cli: "file", exitCode: fileExit, output: fileOutput)
@@ -7383,7 +7383,7 @@ public nonisolated enum SystemToolRegistry {
                     "signatureExitCode": .int(Int64(dvExit)),
                 ]
                 if (path as NSString).pathExtension.lowercased() == "plist", let plistCwd = optionalString(arguments, "cwd"),
-                   let plist = try? Self.g6ReadPlist(cwd: plistCwd, path: path, tool: name, runtime: runtime) {
+                   let plist = try? await Self.g6ReadPlist(cwd: plistCwd, path: path, tool: name, runtime: runtime) {
                     artifact["plistKeys"] = .array(plist.keys.sorted().map { .string($0) })
                 }
                 return .object(artifact)
@@ -7391,7 +7391,7 @@ public nonisolated enum SystemToolRegistry {
                 let path = try requiredString(arguments, "path", tool: name)
                 try Self.validateRelativePath(path, tool: name)
                 guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                    throw SystemToolError.executionFailed(tool: name, message: "No such file: \(path)")
                 }
                 let (disassemblyExit, disassemblyOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["otool", "-tV", path], timeoutSeconds: analyzeTimeout, runtime: runtime)
                 try Self.g3ThrowIfMissingCLI(tool: name, cli: "otool", exitCode: disassemblyExit, output: disassemblyOutput)
@@ -7406,7 +7406,7 @@ public nonisolated enum SystemToolRegistry {
                 let path = try requiredString(arguments, "path", tool: name)
                 try Self.validateRelativePath(path, tool: name)
                 guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
-                    throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                    throw SystemToolError.executionFailed(tool: name, message: "No such file: \(path)")
                 }
                 let (schemaExit, schemaOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["sqlite3", path, ".schema"], timeoutSeconds: analyzeTimeout, runtime: runtime)
                 try Self.g3ThrowIfMissingCLI(tool: name, cli: "sqlite3", exitCode: schemaExit, output: schemaOutput)
@@ -8065,7 +8065,7 @@ public nonisolated enum SystemToolRegistry {
                 "count": .int(Int64(migrated.count)),
             ])
         case "symbol_reference_graph":
-            let symbol = try requiredString(arguments, "symbol", tool: name)
+            let symbol = try requiredString(arguments, "symbol", tool: tool)
             let escaped = NSRegularExpression.escapedPattern(for: symbol)
             let declarationHits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: "(func|class|struct|enum|protocol|let|var|typealias|actor)\\s+" + escaped + "\\b", limit: limit)
             let referenceHits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: "\\b" + escaped + "\\b", limit: limit)
@@ -8075,8 +8075,8 @@ public nonisolated enum SystemToolRegistry {
                     return hit.path == path || hit.path.hasPrefix(path + "/")
                 }
             }
-            let definitions = scoped(declarationHits).map { hit in
-                .object([
+            let definitions: [JSONValue] = scoped(declarationHits).map { hit in
+                JSONValue.object([
                     "path": .string(hit.path),
                     "lineNumber": .int(Int64(hit.lineNumber)),
                     "column": .int(Int64(hit.column)),
@@ -8087,10 +8087,10 @@ public nonisolated enum SystemToolRegistry {
                 guard let p = def["path"]?.stringValue, let l = def["lineNumber"]?.intValue else { return nil }
                 return p + ":\(l)"
             })
-            let references = scoped(referenceHits).filter { hit in
+            let references: [JSONValue] = scoped(referenceHits).filter { hit in
                 !definitionKeys.contains(hit.path + ":\(hit.lineNumber)")
             }.map { hit in
-                .object([
+                JSONValue.object([
                     "path": .string(hit.path),
                     "lineNumber": .int(Int64(hit.lineNumber)),
                     "column": .int(Int64(hit.column)),
@@ -8317,9 +8317,9 @@ public nonisolated enum SystemToolRegistry {
                 "catalogCount": .int(Int64(out.count)),
             ])
         case "asset_image_add":
-            let imageName = try requiredString(arguments, "imageName", tool: name)
-            let source = try requiredString(arguments, "source", tool: name)
-            try Self.validateRelativePath(source, tool: name)
+            let imageName = try requiredString(arguments, "imageName", tool: tool)
+            let source = try requiredString(arguments, "source", tool: tool)
+            try Self.validateRelativePath(source, tool: tool)
             guard !imageName.isEmpty, !imageName.contains("/"), !imageName.contains("\\") else {
                 throw SystemToolError.executionFailed(tool: tool, message: "asset_image_add imageName must be a single name without a path separator.")
             }
@@ -8335,7 +8335,7 @@ public nonisolated enum SystemToolRegistry {
             guard let data = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
                 throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the image set Contents.json.")
             }
-            try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: name)
+            try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: tool)
             let verify = try await runtime.readWorkspaceFile(cwd: cwd, path: setPath + "/Contents.json")
             return .object([
                 "tool": .string(tool),
@@ -8514,7 +8514,7 @@ public nonisolated enum SystemToolRegistry {
                     "action": .string(action),
                     "exists": .bool(false),
                     "keyCount": .int(0),
-                    "locales": .array([]),
+                    "locales": .array([JSONValue]()),
                 ])
             }
             if action == "set_development_region" {
@@ -8643,7 +8643,7 @@ public nonisolated enum SystemToolRegistry {
                 guard let data = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
                     throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the image set Contents.json.")
                 }
-                try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: name)
+                try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: tool)
                 return .object([
                     "tool": .string(tool),
                     "action": .string(action),
@@ -8662,7 +8662,7 @@ public nonisolated enum SystemToolRegistry {
                 guard let data = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
                     throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the color set Contents.json.")
                 }
-                try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: name)
+                try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: tool)
                 return .object([
                     "tool": .string(tool),
                     "action": .string(action),
@@ -8797,7 +8797,7 @@ public nonisolated enum SystemToolRegistry {
                 throw SystemToolError.executionFailed(tool: tool, message: "entitlements_manager action must be list, add, or remove.")
             }
         case "colorset_builder":
-            let colorName = try requiredString(arguments, "name", tool: name)
+            let colorName = try requiredString(arguments, "name", tool: tool)
             let lightHex = try requiredString(arguments, "lightHex", tool: tool)
             let darkHex = optionalString(arguments, "darkHex") ?? lightHex
             guard !colorName.contains("/"), !colorName.isEmpty else {
@@ -8815,7 +8815,7 @@ public nonisolated enum SystemToolRegistry {
             guard let data = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
                 throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the color set Contents.json.")
             }
-            try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: name)
+            try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: tool)
             let verify = try await runtime.readWorkspaceFile(cwd: cwd, path: setPath + "/Contents.json")
             let lightRed = Int(lightHex.dropFirst().prefix(2), radix: 16) ?? 0
             let expectedRed = String(format: "%.3f", Double(lightRed) / 255.0)
@@ -8983,8 +8983,8 @@ public nonisolated enum SystemToolRegistry {
                 slot.bytes += file.sizeBytes ?? 0
                 byLanguage[language] = slot
             }
-            let largest = files.sorted { ($0.sizeBytes ?? 0) > ($1.sizeBytes ?? 0) }.prefix(10).map { file in
-                .object(["path": .string(file.path), "bytes": .int(file.sizeBytes ?? 0)])
+            let largest: [JSONValue] = files.sorted { ($0.sizeBytes ?? 0) > ($1.sizeBytes ?? 0) }.prefix(10).map { file in
+                JSONValue.object(["path": .string(file.path), "bytes": .int(file.sizeBytes ?? 0)])
             }
             let names = Set(files.map { $0.name.lowercased() })
             return .object([
@@ -9025,11 +9025,13 @@ public nonisolated enum SystemToolRegistry {
             let hours = min(max(optionalInt(arguments, "hours") ?? 24, 1), 24 * 365)
             let cutoff = Date().timeIntervalSince1970 - Double(hours) * 3600
             let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
-            let changed = entries.filter { !$0.isDirectory && ($0.modifiedAt ?? 0) >= cutoff }
+            let changed: [JSONValue] = entries.filter { (entry: WorkspaceFileEntry) in
+                !entry.isDirectory && (entry.modifiedAt ?? 0) >= cutoff
+            }
                 .sorted { ($0.modifiedAt ?? 0) > ($1.modifiedAt ?? 0) }
                 .prefix(limit)
                 .map { entry in
-                    .object([
+                    JSONValue.object([
                         "path": .string(entry.path),
                         "modifiedAt": .double(entry.modifiedAt ?? 0),
                         "sizeBytes": .int(entry.sizeBytes ?? 0),
@@ -9110,15 +9112,16 @@ public nonisolated enum SystemToolRegistry {
             let days = min(max(optionalInt(arguments, "days") ?? 180, 1), 3650)
             let cutoff = Date().timeIntervalSince1970 - Double(days) * 86400
             let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
-            let stale = entries.filter { entry in
+            let sourceExtensions: Set<String> = ["swift", "m", "mm", "h", "c", "cpp", "ts", "tsx", "js", "jsx", "py", "rs", "kt", "java"]
+            let stale: [JSONValue] = entries.filter { entry in
                 guard !entry.isDirectory, let modified = entry.modifiedAt else { return false }
                 let ext = (entry.path as NSString).pathExtension.lowercased()
-                return modified < cutoff && ["swift", "m", "mm", "h", "c", "cpp", "ts", "tsx", "js", "jsx", "py", "rs", "kt", "java"].contains(ext)
+                return modified < cutoff && sourceExtensions.contains(ext)
             }
             .sorted { ($0.modifiedAt ?? 0) < ($1.modifiedAt ?? 0) }
             .prefix(limit)
             .map { entry in
-                .object([
+                JSONValue.object([
                     "path": .string(entry.path),
                     "modifiedAt": .double(entry.modifiedAt ?? 0),
                     "sizeBytes": .int(entry.sizeBytes ?? 0),
@@ -9198,8 +9201,8 @@ public nonisolated enum SystemToolRegistry {
             ])
         case "executable_files_scan":
             let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
-            let executables = entries.filter { !$0.isDirectory && $0.isExecutable == true }.map { entry in
-                .object([
+            let executables: [JSONValue] = entries.filter { !$0.isDirectory && $0.isExecutable == true }.map { entry in
+                JSONValue.object([
                     "path": .string(entry.path),
                     "sizeBytes": .int(entry.sizeBytes ?? 0),
                 ])
@@ -9220,8 +9223,8 @@ public nonisolated enum SystemToolRegistry {
                 totals[top, default: 0] += entry.sizeBytes ?? 0
                 fileCounts[top, default: 0] += 1
             }
-            let sorted = totals.keys.sorted { (totals[$0] ?? 0) > (totals[$1] ?? 0) }.prefix(limit).map { dir in
-                .object([
+            let sorted: [JSONValue] = totals.keys.sorted { (totals[$0] ?? 0) > (totals[$1] ?? 0) }.prefix(limit).map { dir in
+                JSONValue.object([
                     "directory": .string(dir),
                     "bytes": .int(totals[dir] ?? 0),
                     "files": .int(Int64(fileCounts[dir] ?? 0)),
@@ -9235,14 +9238,14 @@ public nonisolated enum SystemToolRegistry {
         case "image_asset_size_report":
             let maxBytes = Int64(min(max(optionalInt(arguments, "maxKilobytes") ?? 500, 1), 100000)) * 1024
             let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
-            let oversized = entries.filter { entry in
+            let oversized: [JSONValue] = entries.filter { entry in
                 guard !entry.isDirectory, entry.path.contains(".xcassets/") else { return false }
                 let ext = (entry.path as NSString).pathExtension.lowercased()
                 return ["png", "jpg", "jpeg", "heic", "webp", "gif", "pdf"].contains(ext) && (entry.sizeBytes ?? 0) > maxBytes
             }
             .sorted { ($0.sizeBytes ?? 0) > ($1.sizeBytes ?? 0) }
             .map { entry in
-                .object([
+                JSONValue.object([
                     "path": .string(entry.path),
                     "sizeBytes": .int(entry.sizeBytes ?? 0),
                 ])
@@ -9271,7 +9274,7 @@ public nonisolated enum SystemToolRegistry {
                 let entries = try await Self.g6Entries(cwd: cwd, path: modelPath, runtime: runtime)
                 for entry in entries where entry.path.hasSuffix(".xcdatamodel/contents") || entry.path.hasSuffix("contents") {
                     guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: entry.path) else { continue }
-                    models.append(Self.g6CoreDataModel(tool: tool, path: entry.path, content: document.content))
+                    models.append(Self.g6CoreDataModel(tool: tool, path: entry.path, content: document.content).objectValue ?? [:])
                 }
             }
             return .object([
@@ -9522,9 +9525,9 @@ public nonisolated enum SystemToolRegistry {
             return .object([
                 "tool": .string(tool),
                 "path": .string(path),
-                "resources": .array([]),
-                "missing": .array([]),
-                "duplicates": .array([]),
+                "resources": .array([JSONValue]()),
+                "missing": .array([JSONValue]()),
+                "duplicates": .array([JSONValue]()),
                 "note": .string("No PBXResourcesBuildPhase section found."),
             ])
         }
@@ -10037,7 +10040,12 @@ public nonisolated enum SystemToolRegistry {
                 "content": .string(output),
             ])
         case "get_tree":
-            let treeRef = ref ?? (try await Self.g6GitHubDefaultBranch(tool: tool, threadId: threadId, repository: repository, timeoutSeconds: timeoutSeconds, runtime: runtime))
+            let treeRef: String
+            if let ref {
+                treeRef = ref
+            } else {
+                treeRef = try await Self.g6GitHubDefaultBranch(tool: tool, threadId: threadId, repository: repository, timeoutSeconds: timeoutSeconds, runtime: runtime)
+            }
             let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["gh", "api", "repos/" + repository + "/git/trees/" + treeRef + "?recursive=1"], timeoutSeconds: timeoutSeconds, runtime: runtime)
             try Self.g3ThrowIfMissingCLI(tool: tool, cli: "gh", exitCode: exitCode, output: output)
             guard exitCode == 0 else {
@@ -10055,7 +10063,7 @@ public nonisolated enum SystemToolRegistry {
         case "search_code":
             let query = try requiredString(arguments, "query", tool: tool)
             try Self.g3Token(query, field: "query", tool: tool)
-            guard query.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || "_.:+- ".contains($0) }) else {
+            guard query.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || "_.:+- ".unicodeScalars.contains($0) }) else {
                 throw SystemToolError.executionFailed(tool: tool, message: "search_code query must use only letters, digits, space, underscore, dot, colon, plus, or dash.")
             }
             let encoded = query.replacingOccurrences(of: " ", with: "+")
@@ -10073,7 +10081,12 @@ public nonisolated enum SystemToolRegistry {
                 "items": .array(Array(items.prefix(20))),
             ])
         case "fetch_repository":
-            let treeRef = ref ?? (try await Self.g6GitHubDefaultBranch(tool: tool, threadId: threadId, repository: repository, timeoutSeconds: timeoutSeconds, runtime: runtime))
+            let treeRef: String
+            if let ref {
+                treeRef = ref
+            } else {
+                treeRef = try await Self.g6GitHubDefaultBranch(tool: tool, threadId: threadId, repository: repository, timeoutSeconds: timeoutSeconds, runtime: runtime)
+            }
             let root = try await Self.resolveThreadRoot(threadId: threadId, tool: tool, runtime: runtime)
             let safeRef = treeRef.replacingOccurrences(of: "/", with: "-")
             let fileName = (repository.split(separator: "/").last.map(String.init) ?? "repo") + "-" + safeRef + ".tar.gz"
@@ -10757,20 +10770,22 @@ public nonisolated enum SystemToolRegistry {
             ])
         }
         fileJSON.sort { ($0["lines"]?.intValue ?? 0) > ($1["lines"]?.intValue ?? 0) }
-        return .object([
+        let totals: [String: JSONValue] = [
+            "lines": .int(Int64(totalLines)),
+            "codeLines": .int(Int64(totalCode)),
+            "commentLines": .int(Int64(totalComment)),
+            "blankLines": .int(Int64(totalBlank)),
+            "functions": .int(Int64(totalFunctions)),
+            "types": .int(Int64(totalTypes)),
+            "complexityEstimate": .int(Int64(totalComplexity)),
+        ]
+        var result: [String: JSONValue] = [
             "tool": .string(tool),
             "filesChecked": .int(Int64(files.count)),
-            "totals": .object([
-                "lines": .int(Int64(totalLines)),
-                "codeLines": .int(Int64(totalCode)),
-                "commentLines": .int(Int64(totalComment)),
-                "blankLines": .int(Int64(totalBlank)),
-                "functions": .int(Int64(totalFunctions)),
-                "types": .int(Int64(totalTypes)),
-                "complexityEstimate": .int(Int64(totalComplexity)),
-            ]),
-            "files": .array(fileJSON),
-        ])
+            "totals": .object(totals),
+        ]
+        result["files"] = .array(fileJSON)
+        return .object(result)
     }
 
     static func parseG5CommentDensity(tool: String, files: [(path: String, content: String)], limit: Int) -> JSONValue {
