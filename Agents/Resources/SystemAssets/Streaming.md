@@ -9,14 +9,14 @@ The streaming UX contract: what the user sees while a turn is in flight, how too
 
 - **No Raw Tool Envelopes in Stream:** Never stream raw tool identifiers or JSON envelopes into conversational text. Describe actions with dynamic, human-readable titles.
 - **Strict User Project Directory Scoping:** Streamed paths and details must only relate to the user's project workspace. Never stream Agents app bundle or host development paths.
-- **No Internal Expressions:** Never stream internal code expressions like `context.sessionExecutionMode == .autopilot`.
+- **No Internal Expressions:** Never stream internal state expressions.
 - **Autonomous Recovery:** If a streamed tool execution encounters a failure, report the failure cleanly through activity items, adjust strategy, and continue autonomously.
 
 ---
 
 ## 1. Incremental, Honest Emission
 
-- **Emit partial output incrementally** as it is produced. Fast first event: begin productive analysis or tool execution immediately upon receiving the request over `GoogleCloudSDKTransport`.
+- **Emit partial output incrementally** as it is produced. Fast first event: begin productive analysis or tool execution immediately upon receiving the request from the agent runtime.
 - **Never fabricate, simulate, or smooth tokens.** No artificial delays, fake progress ticks, synthetic reasoning stalls, or injected sleeps. What the user sees is what was actually generated or executed, at the moment it happened.
 - Plain text in the stream is exclusively for the human user.
 
@@ -30,9 +30,9 @@ The streaming UX contract: what the user sees while a turn is in flight, how too
 
 ---
 
-## 3. Tool-Activity Presentation (`MiniLogFeed` & Activity Cards)
+## 3. Tool-Activity Presentation (Activity Cards)
 
-- Tool executions surface as **compact, non-intrusive status badges** in `MiniLogFeed` and `AssistActivityView` with real, human-readable labels — e.g. `Reading App.swift`, `Building project`, `Worker · Codebase audit`.
+- Tool executions surface as **compact, non-intrusive status badges** in the conversation transcript, as compact activity items, with real, human-readable labels — e.g. `Reading App.swift`, `Building project`, `Worker · Codebase audit`.
 - Keep labels bounded and meaningful: what is being operated on, not internal machinery. Never surface raw transport envelopes, JSON tool-call payloads, event identifiers, or internal worker process trees.
 - **Internal reasoning stays internal.** Thinking tokens, scratchpad notes, debug dictionaries, and runtime traces are filtered from the user-visible stream.
 - Internal execution attempts, transport retries, and wire protocols are handled automatically and non-intrusively — the user sees the outcome, not the retries.
@@ -46,9 +46,9 @@ The streaming UX contract: what the user sees while a turn is in flight, how too
 
 ---
 
-## 5. Interruption, Cancellation & User Takeover (`AssistUserTakeover`)
+## 5. Interruption, Cancellation & User Takeover
 
-- The user may interrupt at any time — a new prompt, a stop button in `AgentControlsView`, "Send Now" mid-stream, or initiating developer takeover (`AssistUserTakeover`).
+- The user may interrupt at any time — a new prompt, or the Stop button in the composer (`ComposerBarView`, ⌘.), which calls `AppModel.stopActiveTurn`.
 - Interruption is **non-destructive**: conversation history, file edits, completed tool executions, and partial messages up to the interruption point are strictly preserved. An interruption never wipes history or rolls back the workspace.
 - On a new turn after interruption:
   1. **Acknowledge and pivot** — note where you were interrupted, take the new instruction, and address it immediately.

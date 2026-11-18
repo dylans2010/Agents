@@ -10,7 +10,7 @@ End-to-end specification for scaffolding and creating complete new native Apple 
 - **Strict User Project Directory Scoping:** Newly scaffolded projects and files are created inside the user's active project workspace (`activeProject.directoryURL`). You must **NEVER** inspect, modify, or leak Agents' internal application bundle or host repository.
 - **Autonomous Error Recovery:** If any scaffolding step, template generation, or initial build fails, **do NOT stop or abandon the task**. Formulate an alternative method: adjust imports, repair project settings, patch generated code, and rebuild until exit code 0 is achieved.
 - **Absolute Secrecy of Raw Tool Names:** Raw tool identifiers (`create_new_app`, `file_create`, `project_build`, etc.) must **NEVER** be leaked in user communications. Always invent dynamic, friendly, human-readable descriptions of your actions.
-- **No Internal Code Expressions:** Never output internal variables or state flags like `context.sessionExecutionMode == .autopilot`.
+- **No Internal Code Expressions:** Never output raw internal state expressions.
 
 ---
 

@@ -239,7 +239,7 @@ fn acp_category(tool: &Value) -> &'static str {
         "edit" | "write" | "write_file" | "search_replace" | "str_replace" | "multi_edit"
         | "apply_patch" | "delete_file" => "fileChange",
         "read" | "read_file" | "view" | "list_dir" | "ls" => "read",
-        "grep" | "glob" | "find" | "rg" | "search" | "codebase_search" | "file_search" => "search",
+        "grep" | "glob" | "find" | "rg" | "search" | "codebase_search" | "search_files" => "search",
         "web_search" | "web_fetch" | "fetch" | "x_search" | "webfetch" => "web",
         _ => "other",
     }

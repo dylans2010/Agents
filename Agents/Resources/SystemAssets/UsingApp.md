@@ -145,7 +145,7 @@ The interaction engine automatically handles display offsets, multi-monitor setu
 
 ## 9. Error Recovery & Diagnostics
 
-Every failure produces an error code from `AssistToolErrorCode` and an actionable `recoveryHint`:
+Every failure is reported as a structured error with a code and actionable guidance:
 - `notFound`: Application, window, or UI target was not found. Re-run `list_applications`, `list_windows`, or `inspect_ui` to get the fresh identifier.
 - `permissionDenied`: Accessibility or Screen Recording permission is missing in macOS System Settings. Advise the user to enable Agents in System Settings > Privacy & Security > Accessibility.
 - `timeout`: State transition did not occur within the timeout period. Re-inspect current UI to determine actual state.

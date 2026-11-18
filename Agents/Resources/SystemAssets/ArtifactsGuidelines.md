@@ -7,7 +7,7 @@ A well-written artifact is a **document**, not a chat transcript. It must stand 
 
 ## The native artifact store
 
-Assist owns a native, observable artifact store (`AssistArtifactStore`):
+Assist owns a native, observable artifact store (the `create_artifact` / `list_artifacts` / `read_artifact` / `delete_artifact` tools in `SystemToolRegistry`):
 
 - **Location:** `<workspaceRoot>/.assist_temp/artifacts/<snake_case_name>.md`. The `.assist_temp/` directory is git-ignored, so artifacts never pollute the repository.
 - **Naming:** `create_artifact` normalizes names to `snake_case` + `.md` (`Repository Analysis` → `repository_analysis.md`). Unsafe names (paths, `..`, special characters) are rejected.
@@ -349,7 +349,7 @@ Never promise the user interactive behavior inside an artifact.
 
 ## Display titles vs filenames
 
-The Artifacts UI (`AssistArtifactsView`) shows **human-readable display titles** derived from filenames (`repository_analysis.md` → "Repository Analysis"). Filenames are never the primary UI title. When you mention an artifact in chat, use its display title, not the raw filename.
+The Artifacts UI shows **human-readable display titles** derived from filenames (`repository_analysis.md` → "Repository Analysis"). Filenames are never the primary UI title. When you mention an artifact in chat, use its display title, not the raw filename.
 
 ## Plan and Autopilot integration
 
