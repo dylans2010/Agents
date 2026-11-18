@@ -18,8 +18,16 @@ SystemIndex makes the whole instruction corpus *accessible*; the context budget 
 
 When the budget is constrained, preserve in this order and record what was omitted:
 
-1. **Mandatory safeguards** — `Safeguards.md` is never dropped. If safeguards cannot be supplied, the request fails closed with a descriptive error.
-2. **Essential baseline** — `Identity.md`.
+1. **Mandatory safeguards** — the condensed safeguards baseline is always
+   present: the concise baseline carries the safety rules in condensed
+   form and is appended before anything else, regardless of budget. Whole
+   `Safeguards.md` is never forced into a prompt; its detail is retrieved
+   as ranked sections only when relevant. If the index is unavailable, the
+   request proceeds with the minimal baseline alone (the load error is
+   recorded on the prompt); it does not fail closed.
+2. **Essential baseline** — identity, in the same condensed baseline, not
+   the whole `Identity.md` document. `Identity.md` detail is retrieved as
+   ranked sections like any other document.
 3. **Most relevant task-specific sections** — by SystemIndex ranking.
 4. **Their declared dependencies** — resolved transitively, deduplicated.
 5. **Lower-relevance sections** — omitted first.
@@ -31,7 +39,7 @@ Reserve capacity for conversation context, tool schemas and tool results, and th
 ## 2. Ranking Before Selection
 
 - Rank all candidate chunks (lexical signals: title/filename/heading matches, keyword and phrase overlap, section relevance, source priority, declared dependencies, task category, execution stage, already-retrieved state).
-- Deduplicate overlapping chunks and repeated instructions before counting budget. A rule stated in two documents is supplied once, from the most specific document.
+- Deduplicate exact-duplicate sections before counting budget: the builder drops a section whose normalized text (case- and diacritic-insensitive, whitespace-collapsed) exactly matches text already supplied, first occurrence wins. Paraphrase restatements are not caught — a rule restated in different words in two documents is supplied twice. (Measured at the last check: `Safeguards.md` and `Identity.md` share 0 exact normalized-section matches and only one shared 12-word shingle.)
 - Prefer complete small sections over fragments of large ones; never split a rule from its conditions or safeguards to save space.
 
 ---
@@ -64,10 +72,10 @@ When session conversation history exceeds configured token thresholds (`Compacti
 - Request-scoped retrieval metadata records which sections were selected, their relevance scores, and their estimated token cost.
 - If budget pressure omits anything significant, record the omission.
 - Never claim the model received instructions that were excluded.
-- Never silently drop a safety or authorization requirement because of a context limit.
+- Omissions are recorded, not silent: any retrieved section that does not fit is recorded in `omittedDocumentIDs`, so a dropped safety or authorization requirement is visible in the prompt metadata rather than silently gone. The condensed baseline itself is never dropped — it is appended before budget selection.
 
 ---
 
 ## 6. Baseline Sizing Guidance
 
-`Identity.md` and `Safeguards.md` are deliberately kept small enough to be baseline on every request. Task-dependent documents stay focused so that a typical retrieval — baseline plus two to four ranked sections with dependencies — fits comfortably alongside conversation and tools. If a document grows too large to retrieve usefully, split it along its logical boundaries rather than letting the budget silently truncate it.
+The baseline is the concise prompt the builder always attaches — identity and safeguards in condensed form, small enough to leave the majority of the budget for retrieval. `Identity.md` and `Safeguards.md` themselves are not baseline: they are retrieved as ranked sections when relevant, so they do not need to stay small enough to be baseline on every request. Task-dependent documents stay focused so that a typical retrieval — baseline plus two to four ranked sections with dependencies — fits comfortably alongside conversation and tools. If a document grows too large to retrieve usefully, split it along its logical boundaries rather than letting the budget silently truncate it.

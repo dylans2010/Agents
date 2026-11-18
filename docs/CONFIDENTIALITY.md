@@ -99,3 +99,35 @@ detected when they match registered asset or prompt text, and patterns only
 cover the credential, path, and identifier shapes listed above. It is a
 defense-in-depth layer, not perfect prevention. Anything the gate misses
 still needs the model-side refusal behavior and the approval flow to hold.
+
+Display-title genericization is heuristic, not exact:
+`AssistantToolActivity.isRawToolIdentifier` treats any single
+whitespace-free token with a lowercase letter followed by an uppercase
+letter after the first character (among other raw-identifier shapes) as a
+raw identifier, so a genuine human single-token title with that shape — a
+brand-style token such as `iOS`, `macOS`, `GitHub`, `OpenAI`, or `McDonald`
+— would be replaced by the generic "Tool activity" label. No current title
+source (provider display title, approved command, human tool name)
+produces such a token, so this is a known limitation, not an observed
+leak; revisit only if a real human title of that shape is observed.
+
+A residual raw channel sits outside the gate: the remote error envelope
+serializes the whole `RemoteError`, code and message together
+(`remote_protocol.rs:676-678`, `failure()`), and `dispatch_adapter_call`
+returns that envelope for every adapter handler
+(`adapter_bridge.rs:35-46`), so a handler failure carries its message to
+the phone unredacted. In `handle_pull_requests` an availability failure is
+mapped to an unavailable list, but a failure of the list call itself
+propagates with `?` instead of becoming unavailable, and
+`PullRequestViews:72` renders `RemoteError.message` raw. This channel is
+pre-existing; a future slice could sanitize at `dispatch_adapter_call`.
+No fix is made here.
+
+The Swift and Rust error sanitizers are not byte-identical. Rust
+(`remote_text.rs`, `sanitize_display_text`) collapses whitespace before
+applying its patterns (and again after), while Swift
+(`ErrorSanitizer.sanitizeText`) applies its redactions first and collapses
+whitespace last — the safe direction, since collapsing first can only make
+patterns match more, not less. Rust also omits Swift's
+`appendActionableHint`, so Rust-sanitized messages carry no "Check your
+connection…" style hint.

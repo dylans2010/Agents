@@ -78,6 +78,15 @@ authentication. Authentication is verified only when a turn's
 probe below reports `authenticated` for the same approved runtime and
 the same key account.
 
+The header "Ready" pill is not verification either: it shows when a
+server binary is present (approved, effective, or discovered), the
+runtime is approved, and a key account with a stored key exists — all
+pre-probe (`AntigravitySettingsPane.swift:74-87`, `readiness`). It is
+deliberately not gated on probe state, so a "Ready" pill with no probe
+run means the files and the key are in place and nothing more. Gating
+the pill on probe state would be a UI change, not a documentation fix,
+and is not made here.
+
 Settings › Antigravity shows the probe in a separate "Connection
 Verification" section: the "Verify Connection" button runs the probe
 (handshake only by default, or `authenticate` with the selected Gemini
@@ -150,7 +159,12 @@ and a truncated detail string:
   `errorCode` field; `detail` carries only the server's error
   message, truncated to 500 characters, and is fixed text with no
   code when the server did not offer `gemini-api-key` or asked for
-  interactive sign-in.
+  interactive sign-in. One sub-case differs: when the server's error
+  message contains `SUBSCRIPTION_REQUIRED`, `detail` is the fixed text
+  `Antigravity server reports SUBSCRIPTION_REQUIRED for this account`
+  — the server's message is not carried — while `errorCode` is still
+  recorded from the error frame. So this sub-case has both fixed-text
+  detail and an error code, unlike the other fixed-text sub-cases.
 - `unreachable`: the runtime could not be launched, exited before
   answering, answered with invalid frames, or did not answer within
   60 seconds. The detail says which.
