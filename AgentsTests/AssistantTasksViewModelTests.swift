@@ -24,6 +24,8 @@ struct AssistantTasksViewModelTests {
         var runNowIDs: [UUID] = []
         var runNowWorkerID: String = "worker-1"
         var recoverResult: [UUID] = []
+        var missedRunsResult: [AssistantTaskMissedRun] = []
+        var now: Date = AssistantTasksViewModelTests.utcDate(2026, 11, 18, 12)
 
         private func maybeThrow() throws {
             if let error = failNext {
@@ -56,7 +58,7 @@ struct AssistantTasksViewModelTests {
             tasks.removeAll { $0.id == id }
         }
 
-        func setTaskEnabled(_ task: AssistantTaskRecord, enabled: Bool, baseline: String) async throws -> AssistantTaskRecord {
+        func setEnabled(_ task: AssistantTaskRecord, enabled: Bool, baseline: String) async throws -> AssistantTaskRecord {
             try maybeThrow()
             enabledChanges.append((task.id, enabled, baseline))
             guard let index = tasks.firstIndex(where: { $0.id == task.id }) else {
@@ -66,7 +68,7 @@ struct AssistantTasksViewModelTests {
             return tasks[index]
         }
 
-        func setTaskPaused(_ task: AssistantTaskRecord, paused: Bool, baseline: String) async throws -> AssistantTaskRecord {
+        func setPaused(_ task: AssistantTaskRecord, paused: Bool, baseline: String) async throws -> AssistantTaskRecord {
             try maybeThrow()
             pausedChanges.append((task.id, paused, baseline))
             guard let index = tasks.firstIndex(where: { $0.id == task.id }) else {
@@ -76,22 +78,27 @@ struct AssistantTasksViewModelTests {
             return tasks[index]
         }
 
-        func runTaskNow(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome {
+        func runNow(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome {
             try maybeThrow()
             runNowIDs.append(task.id)
             guard let index = tasks.firstIndex(where: { $0.id == task.id }) else {
                 throw ScriptedTaskError(message: "Task not found")
             }
             tasks[index].runCount += 1
-            tasks[index].lastRunAt = Int64(Date().timeIntervalSince1970)
+            tasks[index].lastRunAt = Int64(now.timeIntervalSince1970)
             tasks[index].lastOutcome = nil
             tasks[index].lastWorkerID = runNowWorkerID
             return AssistantTaskRunOutcome(task: tasks[index], workerID: runNowWorkerID, parentThreadID: UUID())
         }
 
-        func recoverMissedTasks() async throws -> [UUID] {
+        func recover() async throws -> [UUID] {
             try maybeThrow()
             return recoverResult
+        }
+
+        func missedRuns() async throws -> [AssistantTaskMissedRun] {
+            try maybeThrow()
+            return missedRunsResult
         }
     }
 
@@ -201,6 +208,7 @@ struct AssistantTasksViewModelTests {
             RemoteProject(id: workspaceID, name: "SwiftCode", path: "/tmp/SwiftCode"),
             RemoteProject(id: otherWorkspaceID, name: "Notes", path: "/tmp/Notes"),
         ]
+        manager.now = now
         return AssistantTasksViewModel(manager: manager, catalog: catalog, projects: projects, now: { now })
     }
 
@@ -612,6 +620,7 @@ struct AssistantTasksViewModelTests {
         #expect(viewModel.lastRunNowWorkerID == manager.runNowWorkerID)
         #expect(viewModel.lastRunNowWorkerID == "worker-1")
         #expect(viewModel.tasks[0].runCount == 3)
+        #expect(viewModel.tasks[0].lastRunAtDate == utcDate(2026, 11, 18, 12))
         #expect(viewModel.tasks[0].hasUnconfirmedRun)
     }
 
@@ -640,6 +649,23 @@ struct AssistantTasksViewModelTests {
         let missed = await viewModel.recoverMissed()
         #expect(missed == [missedID])
         #expect(viewModel.tasks.map(\.name) == ["Overdue"])
+    }
+
+    @Test("Missed runs pass through the manager's scripted value")
+    @MainActor
+    func missedRunsPassThroughManager() async throws {
+        let manager = ScriptedAssistantTaskManager()
+        let task = makeTask(lastOutcome: .missed, lastMessage: "Skipped", missedCount: 2)
+        manager.missedRunsResult = [
+            AssistantTaskMissedRun(task: task, reason: "Skipped", missedAt: utcDate(2026, 11, 18, 9), missedCount: 2)
+        ]
+        let viewModel = makeViewModel(manager: manager)
+        let runs = try await viewModel.missedRuns()
+        #expect(runs.count == 1)
+        #expect(runs[0].task.id == task.id)
+        #expect(runs[0].reason == "Skipped")
+        #expect(runs[0].missedAt == utcDate(2026, 11, 18, 9))
+        #expect(runs[0].missedCount == 2)
     }
 
     @Test("Refresh surfaces a list failure")

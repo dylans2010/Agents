@@ -571,10 +571,11 @@ public protocol AssistantTaskManaging: Sendable {
     func listTasks() async throws -> AssistantTaskList
     func saveTask(_ task: AssistantTaskRecord, baseline: String) async throws -> AssistantTaskRecord
     func deleteTask(id: UUID, baseline: String) async throws
-    func setTaskEnabled(_ task: AssistantTaskRecord, enabled: Bool, baseline: String) async throws -> AssistantTaskRecord
-    func setTaskPaused(_ task: AssistantTaskRecord, paused: Bool, baseline: String) async throws -> AssistantTaskRecord
-    func runTaskNow(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome
-    func recoverMissedTasks() async throws -> [UUID]
+    func setEnabled(_ task: AssistantTaskRecord, enabled: Bool, baseline: String) async throws -> AssistantTaskRecord
+    func setPaused(_ task: AssistantTaskRecord, paused: Bool, baseline: String) async throws -> AssistantTaskRecord
+    func runNow(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome
+    func recover() async throws -> [UUID]
+    func missedRuns() async throws -> [AssistantTaskMissedRun]
 }
 
 public enum AssistantTasksFilter: String, CaseIterable, Sendable {
@@ -764,13 +765,17 @@ public final class AssistantTasksViewModel {
 
     public func recoverMissed() async -> [UUID] {
         do {
-            let missed = try await manager.recoverMissedTasks()
+            let missed = try await manager.recover()
             await reload()
             return missed
         } catch {
             lastError = error.localizedDescription
             return []
         }
+    }
+
+    public func missedRuns() async throws -> [AssistantTaskMissedRun] {
+        try await manager.missedRuns()
     }
 
     public func draftForNewTask(
@@ -857,7 +862,7 @@ public final class AssistantTasksViewModel {
     @discardableResult
     public func setEnabled(_ task: AssistantTaskRecord, enabled: Bool) async -> Bool {
         do {
-            _ = try await manager.setTaskEnabled(task, enabled: enabled, baseline: baseline)
+            _ = try await manager.setEnabled(task, enabled: enabled, baseline: baseline)
             await reload()
             return true
         } catch {
@@ -869,7 +874,7 @@ public final class AssistantTasksViewModel {
     @discardableResult
     public func setPaused(_ task: AssistantTaskRecord, paused: Bool) async -> Bool {
         do {
-            _ = try await manager.setTaskPaused(task, paused: paused, baseline: baseline)
+            _ = try await manager.setPaused(task, paused: paused, baseline: baseline)
             await reload()
             return true
         } catch {
@@ -881,7 +886,7 @@ public final class AssistantTasksViewModel {
     @discardableResult
     public func runNow(_ task: AssistantTaskRecord) async -> Bool {
         do {
-            let result = try await manager.runTaskNow(task)
+            let result = try await manager.runNow(task)
             lastRunNowWorkerID = result.workerID
             await reload()
             return true
