@@ -1,5 +1,7 @@
 # Windows port: parity and acceptance
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the Windows port (native C++/WinRT + WinUI 3) as it stood before the reconstruction on 2026-11-17 (commit ca0e6d3d), which removed the Windows app from this repo. It is not the current state: there is no Windows port in this repo, and nothing here describes a current or in-progress effort. The dated sections below are preserved as written.
+
 Target: standalone, native C++/WinRT + WinUI 3 Windows desktop application. A Mac connection must not be needed to
 run agents. This is a full feature-port request, not permission to replace features with a remote-only client or a web shell.
 Baseline: the Mac application at `b54ad87`, including the thread-switch and image-click fixes in #229 and #230.
@@ -28,7 +30,7 @@ with real recognition and remaining voice parity still unverified. These decisio
 
 The app code and UI driver passed the linked exact-revision CI snapshot and the physical hosted/crash scenarios above. Initial-marker/missing-host-generation owner recovery, real-service acceptance and the remaining parity work remain open. Further features will use focused follow-up PRs rather than extending this foundation PR.
 
-The full Windows port is **in progress**, not complete or released. The pushed frozen Windows candidate passed
+The full Windows port was **removed** from this repo in the 2026-11-17 reconstruction and is not complete or released. The pushed frozen Windows candidate passed
 **3,378 automated checks across 64 suites** on the physical laptop. Native acceptance also passed **19 panels / 499
 checks** and **18 full-app flows**. The updated screenshot fixture separately passes all 43 browser checks with both
 physical and real 8.3 TEMP spellings; these repeated checks are not added to the totals.

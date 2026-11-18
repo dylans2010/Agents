@@ -1,5 +1,7 @@
 # Rust replacement monitoring checklist
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-07.** This document records the GPUI desktop ("Agents Rust") replacement monitoring checklist as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 Updated 2026-11-07. Shared UI/UX parity is required on macOS, Windows, and Linux;
 fonts, styling, window chrome, and primary modifiers may follow each platform.
 The running Swift app and actual user data remain authoritative. No installation,

@@ -1133,7 +1133,7 @@ What is enforced for real in this slice:
 
 ## What is still NOT implemented (honest list)
 
-The 300-ID catalog in `AvailableTools.md` is a specification, not a
+The 299-ID catalog in `AvailableTools.md` is a specification, not a
 registry. After slice 18, 332 tools are real. These catalog tools are NOT
 implemented, and why:
 
