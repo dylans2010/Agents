@@ -254,6 +254,7 @@ struct RunClock {
     opener: Option<String>,
     connected: bool,
     work: crate::active_work::Work,
+    dropped_events_seen: u64,
 }
 pub struct Engine {
     appshots_owner: Uuid,
@@ -2468,6 +2469,7 @@ impl Engine {
                 opener,
                 connected: false,
                 work: crate::active_work::Work::default(),
+                dropped_events_seen: 0,
             },
         );
         self.runs.insert(id, run);
@@ -3351,6 +3353,20 @@ impl Engine {
                     }
                 }
             };
+            let dropped = self.runs[&id].session.dropped_events();
+            if let Some(clock) = self.run_clocks.get_mut(&id)
+                && dropped > clock.dropped_events_seen
+            {
+                let newly = dropped - clock.dropped_events_seen;
+                clock.dropped_events_seen = dropped;
+                let notice = if newly == 1 {
+                    "1 agent update arrived faster than it could be shown and was skipped."
+                        .to_string()
+                } else {
+                    format!("{newly} agent updates arrived faster than they could be shown and were skipped.")
+                };
+                append(&mut v, "notice", &notice, None);
+            }
             let mut events = std::mem::take(&mut self.runs.get_mut(&id).unwrap().events);
             let mut finished = false;
             let mut failure = None;
@@ -4558,6 +4574,62 @@ mod tests {
         assert_eq!(edit["items"].as_array().unwrap().len(), 2);
         assert_ne!(edit["id"], source["id"]);
         assert_eq!(engine.store.thread(id.as_str().unwrap()).unwrap(), source);
+    }
+    #[test]
+    fn poll_surfaces_shed_session_events_as_a_transcript_notice() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::fixture(Store::open(&dir.path().join("dropped.sqlite")).unwrap());
+        let thread = engine.store.new_thread("").unwrap();
+        let id = text(&thread, "id");
+        let session = Session::fixture_worker(|_, events| {
+            for id in 0..2 * agent::MAX_SESSION_EVENTS {
+                let _ = events.send(Event::Frame(json!({"id": id})));
+            }
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while session.dropped_events() < agent::MAX_SESSION_EVENTS as u64 {
+            assert!(Instant::now() < deadline, "relay did not shed the flood");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        engine.insert_running(
+            id.clone(),
+            Running {
+                configuration: None,
+                resume_safe: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+                usage_context: None,
+                session,
+                provider: "codex".to_string(),
+                transcript_start: 0,
+                pending: HashMap::new(),
+                schedule_claim: None,
+                queue_claim: None,
+                cancelled: false,
+                events: VecDeque::new(),
+                persistence_error: None,
+            },
+        );
+        engine.poll();
+        let saved = engine.store.thread(&id).unwrap();
+        let notice = saved["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| {
+                item["kind"] == "notice"
+                    && item["text"]
+                        .as_str()
+                        .unwrap_or("")
+                        .contains("agent update")
+            })
+            .expect("dropped events were not surfaced as a notice");
+        assert!(
+            notice["text"]
+                .as_str()
+                .unwrap()
+                .contains(&agent::MAX_SESSION_EVENTS.to_string()),
+            "notice did not state the shed count: {}",
+            notice["text"]
+        );
     }
 }
 

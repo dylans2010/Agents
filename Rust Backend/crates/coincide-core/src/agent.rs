@@ -620,24 +620,27 @@ impl Session {
         let (bounded_tx, events) = mpsc::sync_channel(MAX_SESSION_EVENTS);
         let dropped_event_count = Arc::new(AtomicU64::new(0));
         let relay_dropped = dropped_event_count.clone();
-        thread::spawn(move || {
-            for event in inbound {
-                let terminal = matches!(event, Event::Finished | Event::Failed(_));
-                match bounded_tx.try_send(event) {
-                    Ok(()) => {}
-                    Err(mpsc::TrySendError::Full(event)) => {
-                        if terminal {
-                            if bounded_tx.send(event).is_err() {
-                                break;
+        thread::Builder::new()
+            .name("coincide-session-event-relay".into())
+            .spawn(move || {
+                for event in inbound {
+                    let terminal = matches!(event, Event::Finished | Event::Failed(_));
+                    match bounded_tx.try_send(event) {
+                        Ok(()) => {}
+                        Err(mpsc::TrySendError::Full(event)) => {
+                            if terminal {
+                                if bounded_tx.send(event).is_err() {
+                                    break;
+                                }
+                            } else {
+                                relay_dropped.fetch_add(1, Ordering::Relaxed);
                             }
-                        } else {
-                            relay_dropped.fetch_add(1, Ordering::Relaxed);
                         }
+                        Err(mpsc::TrySendError::Disconnected(_)) => break,
                     }
-                    Err(mpsc::TrySendError::Disconnected(_)) => break,
                 }
-            }
-        });
+            })
+            .expect("session event relay thread failed to start");
         let (control, commands) = mpsc::channel();
         let worker = thread::spawn(move || {
             work(commands, &events_tx);
