@@ -589,6 +589,7 @@ public final class AppModel {
         return SystemPromptCacheKey(
             threadID: thread.id,
             assistantID: thread.assistantId,
+            assistantName: descriptor?.name ?? "",
             assistantRoleText: descriptor?.systemPrompt ?? "",
             assistantExtraAssetFileNames: descriptor?.extraAssetFileNames ?? [],
             provider: thread.selection.provider,
@@ -798,8 +799,8 @@ public final class AppModel {
             )
             await refreshWorkspace()
             selectThread(threadID)
-            if let summary = workspace.threads.first(where: { $0.id == threadID }), let key = systemPromptCacheKey(for: summary) {
-                systemPromptCache.store(composed, for: key)
+            if let summary = workspace.threads.first(where: { $0.id == threadID }) {
+                _ = systemPrompt(for: summary)
             }
             if let ledger = assistantChangeLedger {
                 try? await ledger.beginRun(runId: threadID.uuidString, assistantId: assistant.id.uuidString, permissionProfile: assistant.permissionProfile)

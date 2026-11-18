@@ -3,6 +3,7 @@ import Foundation
 public struct SystemPromptCacheKey: Hashable, Sendable {
     public var threadID: UUID
     public var assistantID: String?
+    public var assistantName: String
     public var assistantRoleText: String
     public var assistantExtraAssetFileNames: [String]
     public var provider: String?
@@ -11,9 +12,10 @@ public struct SystemPromptCacheKey: Hashable, Sendable {
     public var allowedTools: [String]
     public var indexVersion: Int
 
-    public init(threadID: UUID, assistantID: String? = nil, assistantRoleText: String = "", assistantExtraAssetFileNames: [String] = [], provider: String? = nil, model: String? = nil, toolset: String? = nil, allowedTools: [String] = [], indexVersion: Int = 0) {
+    public init(threadID: UUID, assistantID: String? = nil, assistantName: String = "", assistantRoleText: String = "", assistantExtraAssetFileNames: [String] = [], provider: String? = nil, model: String? = nil, toolset: String? = nil, allowedTools: [String] = [], indexVersion: Int = 0) {
         self.threadID = threadID
         self.assistantID = assistantID
+        self.assistantName = assistantName
         self.assistantRoleText = assistantRoleText
         self.assistantExtraAssetFileNames = assistantExtraAssetFileNames
         self.provider = provider

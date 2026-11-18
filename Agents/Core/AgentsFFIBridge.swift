@@ -1546,7 +1546,7 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
     }
 
     public func spawnWorkers(parentThreadId: String, workers: [WorkerSpawnRequest]) async throws -> JSONValue {
-        let needsComposition = workers.contains { $0.systemPrompt == nil }
+        let needsComposition = workers.contains { ($0.systemPrompt ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         var parent: RemoteThreadSummary?
         var assistants: [RemoteAssistant] = []
         if needsComposition {

@@ -51,6 +51,7 @@ struct SubagentPromptTests {
         SystemPromptCacheKey(
             threadID: threadID,
             assistantID: "00000000-0000-4000-8000-000000000001",
+            assistantName: "Reviewer",
             assistantRoleText: "Review the diff for security issues.",
             assistantExtraAssetFileNames: [],
             provider: "claude",
@@ -128,6 +129,9 @@ struct SubagentPromptTests {
         #expect(cache.prompt(for: changed) == nil)
         changed = key
         changed.assistantID = "00000000-0000-4000-8000-000000000099"
+        #expect(cache.prompt(for: changed) == nil)
+        changed = key
+        changed.assistantName = "Renamed Reviewer"
         #expect(cache.prompt(for: changed) == nil)
         changed = key
         changed.toolset = "provider"
