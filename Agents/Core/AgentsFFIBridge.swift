@@ -37,6 +37,7 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         label: "com.apoorvdarshan.coincide.runtime.ffi",
         qos: .userInitiated
     )
+    private static let ffiQueueKey = DispatchSpecificKey<Void>()
     private let stateLock = NSLock()
     private nonisolated(unsafe) var runtimePtr: OpaquePointer?
     private nonisolated(unsafe) var lastUndoDeleteID: String?
@@ -59,6 +60,7 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
     // MARK: - Lifecycle
 
     public init(dataDir: String? = nil, appVersion: String) throws {
+        ffiQueue.setSpecific(key: Self.ffiQueueKey, value: ())
         var outError: UnsafeMutablePointer<CChar>? = nil
         let opened: OpaquePointer? = appVersion.withCString { cVersion in
             if let dataDir, !dataDir.isEmpty {
@@ -101,8 +103,12 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
     public func closeSynchronously() {
         let hasPtr = stateLock.withLock { runtimePtr != nil }
         guard hasPtr else { return }
-        ffiQueue.sync {
+        if DispatchQueue.getSpecific(key: Self.ffiQueueKey) != nil {
             performCloseOnQueue()
+        } else {
+            ffiQueue.sync {
+                performCloseOnQueue()
+            }
         }
     }
 
