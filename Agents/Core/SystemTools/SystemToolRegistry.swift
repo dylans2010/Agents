@@ -1,4 +1,6 @@
+import AppKit
 import CoincideRemoteKit
+import CryptoKit
 import Foundation
 
 public nonisolated struct SystemToolParameter: Codable, Hashable, Sendable {
@@ -760,7 +762,9 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "y", type: "number", required: true, description: "Frame y in screen points."),
                 SystemToolParameter(name: "width", type: "number", required: true, description: "Frame width in screen points."),
                 SystemToolParameter(name: "height", type: "number", required: true, description: "Frame height in screen points."),
-                SystemToolDefinition(
+            ]
+        ),
+        SystemToolDefinition(
             name: "file_read",
             description: "Read a file in the thread working directory.",
             action: "workspace.read_file",
@@ -1233,7 +1237,676 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Single file path to check; defaults to the whole workspace."),
             ]
         ),
-    ]
+        SystemToolDefinition(
+            name: "create_artifact",
+            description: "Create or update a Markdown artifact in .assist_temp/artifacts, or append to it. The artifact name stays inside that directory.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "name", type: "string", required: true, description: "Artifact name, a plain file name without any path separator."),
+                SystemToolParameter(name: "content", type: "string", required: true, description: "Markdown content to write."),
+                SystemToolParameter(name: "kind", type: "string", required: false, description: "artifact or execution_plan. Defaults to artifact."),
+                SystemToolParameter(name: "append", type: "boolean", required: false, description: "Append to the existing artifact instead of replacing it. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "list_artifacts",
+            description: "List Markdown artifacts in .assist_temp/artifacts, newest first.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "read_artifact",
+            description: "Read one Markdown artifact from .assist_temp/artifacts. Content over 60000 characters is truncated and marked.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "name", type: "string", required: true, description: "Artifact name, a plain file name without any path separator."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "delete_artifact",
+            description: "Permanently delete one Markdown artifact from .assist_temp/artifacts. Requires confirm=true. agent_notes.md is protected and cannot be deleted.",
+            action: "workspace.delete_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "name", type: "string", required: true, description: "Artifact name, a plain file name without any path separator."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Deleting an artifact is permanent."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "format_json_file",
+            description: "Validate a JSON file and rewrite it pretty-printed with sorted keys.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "csv_to_json",
+            description: "Parse a tabular CSV file and write its records as a JSON array of objects.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a .json extension."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "json_to_csv",
+            description: "Convert a JSON array of objects into RFC 4180 CSV and write it to a file.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a .csv extension."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "plist_to_json",
+            description: "Convert an Apple property list file into a formatted JSON file.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a .json extension."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "json_to_plist",
+            description: "Convert a JSON file into an Apple property list file, XML or binary.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a .plist extension."),
+                SystemToolParameter(name: "format", type: "string", required: false, description: "xml or binary. Defaults to xml."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "json_validate",
+            description: "Validate JSON syntax in a file. Writes back pretty-printed with sorted keys only when write is true.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "write", type: "boolean", required: false, description: "Write the formatted JSON back to the file. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "json_validator_tool",
+            description: "Validate JSON syntax and report structural errors without writing anything.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "yaml_validate",
+            description: "Heuristically validate YAML: tabs, unbalanced brackets and quotes, duplicate top-level keys. Writes a normalized copy only when write is true and validation passes.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "write", type: "boolean", required: false, description: "Write the normalized YAML back to the file. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "yaml_parser_tool",
+            description: "Validate YAML and convert its mapping, list, and scalar subset into a structured JSON representation. No anchors, aliases, or block scalars.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "plist_edit",
+            description: "Get, set, or delete one key in a property list file, with an atomic write and a verify re-read. Keys may use dot paths for nested dictionaries.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "get, set, or delete."),
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Property list key, optionally a dot path."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "String value for set."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "plist_editor",
+            description: "Inspect, read, set, or delete keys in an Apple property list file, XML or binary.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "action", type: "string", required: false, description: "read, get, set, or delete. Defaults to read."),
+                SystemToolParameter(name: "key", type: "string", required: false, description: "Property list key, optionally a dot path."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "String value for set."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "binary_plist_converter",
+            description: "Convert a property list file between binary and XML representations.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a converted extension."),
+                SystemToolParameter(name: "format", type: "string", required: true, description: "Target representation: xml or binary."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_metadata",
+            description: "Read size, modification time, symlink target, and executable bit for one file or directory, from the real directory read.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_hash_verify",
+            description: "Hash a file and compare it to an expected hash. A mismatch returns match false, not an error.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "expectedHash", type: "string", required: true, description: "Expected lowercase hex digest."),
+                SystemToolParameter(name: "algorithm", type: "string", required: false, description: "sha256, sha512, sha1, or md5. Defaults to sha256."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "generate_file_checksum",
+            description: "Compute the SHA-256, SHA-512, SHA-1, and MD5 checksums of a file.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_checksum_verifier",
+            description: "Compute the SHA-256 and MD5 checksums of a file, optionally verifying one expected hash.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "expectedHash", type: "string", required: false, description: "Expected lowercase hex digest to verify."),
+                SystemToolParameter(name: "algorithm", type: "string", required: false, description: "sha256 or md5. Defaults to sha256."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_compare_diff",
+            description: "Compare two files line by line and produce a unified diff with added and removed line counts.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "otherPath", type: "string", required: true, description: "Second file path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_head_preview",
+            description: "Read the first N lines of a file without dumping the whole file.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "lines", type: "integer", required: false, description: "Lines to return, 1 to 5000. Defaults to 20."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_generate",
+            description: "Scaffold a file from a built-in template: swift_struct, swift_class, swiftui_view, or test. Refuses to overwrite an existing file.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "template", type: "string", required: true, description: "swift_struct, swift_class, swiftui_view, or test."),
+                SystemToolParameter(name: "module", type: "string", required: false, description: "Module name used by the test template. Defaults to the project directory name."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_format",
+            description: "Normalize a text file or directory: trailing whitespace, blank-line collapse, tab expansion, trailing newline. This is basic normalization, not a real formatter.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory relative to the working directory. Defaults to the working directory itself."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "swift_format_lint",
+            description: "Check or format Swift files with the swiftformat CLI when it is installed. If swiftformat is absent the tool reports that honestly instead of pretending.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "mode", type: "string", required: false, description: "lint or format. Defaults to lint."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_mutation_engine",
+            description: "Replace the brace-balanced body of a named symbol, or an exact target block, in one file. Matching is textual and the output is never syntax-checked.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "replacement", type: "string", required: true, description: "Replacement text for the symbol body or target block."),
+                SystemToolParameter(name: "symbol", type: "string", required: false, description: "Symbol name whose brace-balanced body is replaced."),
+                SystemToolParameter(name: "target", type: "string", required: false, description: "Exact block of text to replace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "patch_application_engine",
+            description: "Replace a verbatim original block with updated text in a file, replacing every occurrence.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "original", type: "string", required: true, description: "Verbatim block to replace."),
+                SystemToolParameter(name: "updated", type: "string", required: true, description: "Replacement text."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "automated_repair_engine",
+            description: "Annotation only: insert an AssistAutoRepair review-required annotation above the named lines. It does not fix anything and does not rebuild.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "errors", type: "array", required: true, description: "Line numbers, 1-based, to annotate."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "regex_replace_in_files",
+            description: "Search with a regular expression and replace every match across the matching files.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "pattern", type: "string", required: true, description: "Regular expression to search for."),
+                SystemToolParameter(name: "replacement", type: "string", required: true, description: "Replacement text."),
+                SystemToolParameter(name: "query", type: "string", required: false, description: "Optional substring filter over file paths."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "symbol_rename_project",
+            description: "Rename a symbol across Swift files with whole-word matching.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "oldName", type: "string", required: true, description: "Existing symbol name."),
+                SystemToolParameter(name: "newName", type: "string", required: true, description: "New symbol name."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to search, relative to the working directory. Defaults to the working directory itself."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "symbol_move_file",
+            description: "Move a brace-balanced symbol block from a source file to a destination file, verified with a restore on failure.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "sourcePath", type: "string", required: true, description: "Source file path relative to the working directory."),
+                SystemToolParameter(name: "destinationPath", type: "string", required: true, description: "Destination file path relative to the working directory."),
+                SystemToolParameter(name: "symbol", type: "string", required: true, description: "Symbol name whose block is moved."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "import_cleanup",
+            description: "Remove unused import lines from a Swift file. Protected modules are never removed.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "batch_rename_files",
+            description: "Rename files matching a substring in a directory. With dryRun true it only reports the planned renames.",
+            action: "workspace.move_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "directory", type: "string", required: false, description: "Directory to rename inside. Defaults to the working directory itself."),
+                SystemToolParameter(name: "pattern", type: "string", required: true, description: "Substring to match in file names."),
+                SystemToolParameter(name: "replacement", type: "string", required: true, description: "Replacement substring."),
+                SystemToolParameter(name: "dryRun", type: "boolean", required: false, description: "Report planned renames without moving anything. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_backup",
+            description: "Copy a file to .assist_temp/backups with a timestamped .bak name and verify the size.",
+            action: "workspace.copy_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "session_export",
+            description: "Write a Markdown session export with title, timestamp, session id, workspace, and notes. Never reads conversation history.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "title", type: "string", required: true, description: "Export title."),
+                SystemToolParameter(name: "sessionId", type: "string", required: false, description: "Session id to record. Defaults to a new id."),
+                SystemToolParameter(name: "notes", type: "string", required: false, description: "Notes to include in the export."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Output path. Defaults to a timestamped file under .assist_temp."),
+                SystemToolParameter(name: "overwrite", type: "boolean", required: false, description: "Allow overwriting an existing export file. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "markdown_toc_generate",
+            description: "Generate a table of contents from a Markdown file headings and insert or update it between TOC markers.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "readme_generate",
+            description: "Generate a README skeleton from a real inspection of the repository contents. Refuses to overwrite without overwrite true.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Output path. Defaults to README.md."),
+                SystemToolParameter(name: "overwrite", type: "boolean", required: false, description: "Allow overwriting an existing README. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "docs_generate",
+            description: "Generate Markdown API docs from the public declarations in Swift sources. Refuses to overwrite without overwrite true.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Source file or directory. Defaults to the working directory itself."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path. Defaults to API.md."),
+                SystemToolParameter(name: "overwrite", type: "boolean", required: false, description: "Allow overwriting an existing docs file. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "test_data_factory",
+            description: "Write a JSON or Swift test fixture from a field list such as id:Int,name:String. Refuses to overwrite without overwrite true.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "format", type: "string", required: true, description: "json or swift."),
+                SystemToolParameter(name: "fields", type: "string", required: true, description: "Comma-separated field list, each name:Type."),
+                SystemToolParameter(name: "overwrite", type: "boolean", required: false, description: "Allow overwriting an existing fixture. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "ui_test_scaffold",
+            description: "Write an XCTest UI test scaffold for an app. Refuses to overwrite without overwrite true.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "appName", type: "string", required: false, description: "App name under test. Defaults to the project directory name."),
+                SystemToolParameter(name: "overwrite", type: "boolean", required: false, description: "Allow overwriting an existing test file. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "test_snapshot_manage",
+            description: "List snapshot references under __Snapshots__, or clean unreferenced snapshots with confirm true. Unreferenced detection is heuristic.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "action", type: "string", required: false, description: "list or clean. Defaults to list."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Snapshots directory. Defaults to __Snapshots__."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Must be true to clean snapshots."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "open_in_finder",
+            description: "Open a file or directory in macOS Finder.",
+            action: "system.open_in_finder",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "reveal_in_finder",
+            description: "Reveal and highlight a file or directory in macOS Finder.",
+            action: "system.reveal_in_finder",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "image_encode_base64",
+            description: "Read an image file and return its Base64 encoding, optionally as a data URI.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "dataURI", type: "boolean", required: false, description: "Return a data URI instead of bare Base64. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "image_decode_base64",
+            description: "Decode a Base64 string into an image file on disk.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "base64", type: "string", required: true, description: "Base64-encoded image bytes."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "image_get_dimensions",
+            description: "Read image width, height, and format with the sips CLI and return its real output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "image_convert_format",
+            description: "Convert an image between PNG, JPEG, TIFF, BMP, and GIF with the sips CLI and return its real output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "format", type: "string", required: true, description: "png, jpg, tiff, bmp, or gif."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with the new extension."),
+                SystemToolParameter(name: "quality", type: "integer", required: false, description: "JPEG quality, 0 to 100."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "image_generate_thumbnail",
+            description: "Generate a scaled thumbnail preserving aspect ratio with the sips CLI and return its real output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a -thumb suffix."),
+                SystemToolParameter(name: "maxPixels", type: "integer", required: false, description: "Maximum thumbnail pixel size. Defaults to 256."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "image_extract_metadata",
+            description: "Extract embedded EXIF, TIFF, GPS, and camera metadata with the mdls CLI and return its real output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "zip_file",
+            description: "Compress a file or directory into a .zip archive with the system ditto CLI and return its real output and exit code.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: true, description: "Archive path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "unzip_file",
+            description: "Extract a .zip archive into a target directory with the system ditto CLI and return its real output and exit code.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "destination", type: "string", required: true, description: "Target directory relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "tar_archive_create",
+            description: "Create a .tar or .tar.gz archive from a directory or file with the tar CLI and return its real output and exit code.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: true, description: "Archive path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "tar_archive_extract",
+            description: "Extract a .tar or .tar.gz archive into a destination directory with the tar CLI and return its real output and exit code.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "destination", type: "string", required: true, description: "Destination directory relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "gzip_compress_file",
+            description: "Compress a single file to a .gz file with the system gzip CLI and return its real output and exit code.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a .gz extension."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "gzip_decompress_file",
+            description: "Decompress a .gz file into a destination file with the system gzip CLI and return its real output and exit code.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path without the .gz extension."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "count_file_lines",
+            description: "Count total, code, comment, and blank lines across workspace files or directories.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory. Defaults to the working directory itself."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "extract_code_symbols",
+            description: "Extract class, struct, enum, protocol, actor, func, and extension declarations from source code.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Source file or directory. Defaults to the working directory itself."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "find_duplicate_files",
+            description: "Find byte-identical duplicate files by SHA-256 content hashing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to search. Defaults to the working directory itself."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "env_capture_logs",
+            description: "Capture a memory snapshot and return its metadata: timestamp, message, and id. It does not read log contents.",
+            action: "memory.snapshot",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
+                SystemToolParameter(name: "query", type: "string", required: false, description: "Keyword substring filter over keys and values."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum entries to capture."),
+            ]
         ),
     ]
 
@@ -2050,6 +2723,1198 @@ public nonisolated enum SystemToolRegistry {
                 }
             }
             return .object(["issues": .array(issues.map { .object($0) }), "count": .int(Int64(issues.count))])
+        case "create_artifact":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let artifactName = try requiredString(arguments, "name", tool: name)
+            let content = try requiredString(arguments, "content", tool: name)
+            let kind = optionalString(arguments, "kind") ?? "artifact"
+            guard kind == "artifact" || kind == "execution_plan" else {
+                throw SystemToolError.executionFailed(tool: name, message: "Artifact kind must be artifact or execution_plan.")
+            }
+            let artifactPath = try Self.artifactRelativePath(name: artifactName, tool: name)
+            let append = optionalBool(arguments, "append") ?? false
+            if append {
+                var existing = (try? await runtime.readWorkspaceFile(cwd: cwd, path: artifactPath))?.content ?? ""
+                if !existing.isEmpty, !existing.hasSuffix("\n") {
+                    existing += "\n"
+                }
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: artifactPath, content: existing + content)
+            } else {
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: artifactPath, content: content)
+            }
+            return .object(["name": .string(artifactName), "path": .string(artifactPath), "kind": .string(kind), "appended": .bool(append)])
+        case "list_artifacts":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let entries = (try? await runtime.readWorkspaceDirectory(cwd: cwd, path: ".assist_temp/artifacts", recursive: false)) ?? []
+            let artifacts = entries.filter { $0.name.hasSuffix(".md") }.sorted { ($0.modifiedAt ?? 0) > ($1.modifiedAt ?? 0) }
+            return .array(artifacts.map { entry in
+                .object([
+                    "name": .string(entry.name),
+                    "path": .string(entry.path),
+                    "sizeBytes": entry.sizeBytes.map { .int($0) } ?? .null,
+                    "modifiedAt": entry.modifiedAt.map { .double($0) } ?? .null,
+                ])
+            })
+        case "read_artifact":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let artifactName = try requiredString(arguments, "name", tool: name)
+            let artifactPath = try Self.artifactRelativePath(name: artifactName, tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: artifactPath)
+            let truncated = document.content.count > 60000
+            let content = truncated ? String(document.content.prefix(60000)) + "\n... (truncated)" : document.content
+            return .object(["name": .string(artifactName), "path": .string(artifactPath), "content": .string(content), "truncated": .bool(truncated), "totalCharacters": .int(Int64(document.content.count))])
+        case "delete_artifact":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let artifactName = try requiredString(arguments, "name", tool: name)
+            try Self.requireConfirm(arguments, tool: name, message: "Deleting an artifact is permanent; pass confirm=true.")
+            guard artifactName != "agent_notes.md" else {
+                throw SystemToolError.executionFailed(tool: name, message: "agent_notes.md is protected and cannot be deleted.")
+            }
+            let artifactPath = try Self.artifactRelativePath(name: artifactName, tool: name)
+            try await runtime.deleteWorkspaceFile(cwd: cwd, path: artifactPath)
+            return .object(["name": .string(artifactName), "path": .string(artifactPath), "deleted": .bool(true)])
+        case "format_json_file":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let value = try Self.jsonObject(from: document.content, tool: name)
+            let formatted = try Self.prettyJSONText(value)
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: formatted + "\n")
+            return .object(["path": .string(path), "valid": .bool(true)])
+        case "csv_to_json":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: "json")
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let rows = Self.parseCSV(document.content)
+            guard let headers = rows.first, !headers.isEmpty else {
+                throw SystemToolError.executionFailed(tool: tool, message: "CSV file has no header row.")
+            }
+            var records: [[String: Any]] = []
+            for row in rows.dropFirst() {
+                if row.allSatisfy({ $0.isEmpty }) {
+                    continue
+                }
+                var record: [String: Any] = [:]
+                for (index, header) in headers.enumerated() {
+                    record[header] = index < row.count ? row[index] : ""
+                }
+                records.append(record)
+            }
+            let json = try Self.prettyJSONText(records)
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: output, content: json + "\n")
+            return .object(["path": .string(path), "output": .string(output), "rows": .int(Int64(records.count))])
+        case "json_to_csv":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: "csv")
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let value = try Self.jsonObject(from: document.content, tool: name)
+            guard let records = value as? [[String: Any]] else {
+                throw SystemToolError.executionFailed(tool: tool, message: "JSON file must contain an array of objects.")
+            }
+            var headers: [String] = []
+            for record in records {
+                for key in record.keys where !headers.contains(key) {
+                    headers.append(key)
+                }
+            }
+            headers.sort()
+            var lines: [String] = [headers.map { Self.csvField($0) }.joined(separator: ",")]
+            for record in records {
+                lines.append(headers.map { Self.csvField(Self.jsonScalarText(record[$0] ?? NSNull())) }.joined(separator: ","))
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: output, content: lines.joined(separator: "\n") + "\n")
+            return .object(["path": .string(path), "output": .string(output), "rows": .int(Int64(records.count))])
+        case "plist_to_json":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: "json")
+            let (object, _) = try Self.readPlist(cwd: cwd, path: path, tool: name)
+            let json = try Self.prettyJSONText(Self.plistJSONValue(object))
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: output, content: json + "\n")
+            return .object(["path": .string(path), "output": .string(output)])
+        case "json_to_plist":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: "plist")
+            let formatName = optionalString(arguments, "format") ?? "xml"
+            guard formatName == "xml" || formatName == "binary" else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Plist format must be xml or binary.")
+            }
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let object = try Self.jsonObject(from: document.content, tool: name)
+            let format: PropertyListSerialization.PropertyListFormat = formatName == "binary" ? .binary : .xml
+            try Self.writePlist(cwd: cwd, path: output, object: object, format: format, tool: name)
+            return .object(["path": .string(path), "output": .string(output), "format": .string(formatName)])
+        case "json_validate":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let value: Any
+            do {
+                value = try Self.jsonObject(from: document.content, tool: name)
+            } catch let error as SystemToolError {
+                return .object(["path": .string(path), "valid": .bool(false), "error": .string(error.localizedDescription), "wrote": .bool(false)])
+            }
+            let write = optionalBool(arguments, "write") ?? false
+            if write {
+                let formatted = try Self.prettyJSONText(value)
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: formatted + "\n")
+            }
+            return .object(["path": .string(path), "valid": .bool(true), "wrote": .bool(write)])
+        case "json_validator_tool":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            do {
+                let value = try Self.jsonObject(from: document.content, tool: name)
+                let formatted = try Self.prettyJSONText(value)
+                return .object(["path": .string(path), "valid": .bool(true), "formatted": .string(formatted)])
+            } catch let error as SystemToolError {
+                return .object(["path": .string(path), "valid": .bool(false), "error": .string(error.localizedDescription)])
+            }
+        case "yaml_validate":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let issues = Self.yamlIssues(document.content)
+            let write = optionalBool(arguments, "write") ?? false
+            var wrote = false
+            if write, issues.isEmpty {
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: Self.yamlNormalized(document.content))
+                wrote = true
+            }
+            return .object(["path": .string(path), "valid": .bool(issues.isEmpty), "issues": .array(issues.map { .string($0) }), "wrote": .bool(wrote)])
+        case "yaml_parser_tool":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let issues = Self.yamlIssues(document.content)
+            guard issues.isEmpty else {
+                return .object(["path": .string(path), "valid": .bool(false), "issues": .array(issues.map { .string($0) })])
+            }
+            do {
+                let value = try Self.yamlParse(document.content, tool: name)
+                return .object(["path": .string(path), "valid": .bool(true), "value": value])
+            } catch let error as SystemToolError {
+                return .object(["path": .string(path), "valid": .bool(false), "error": .string(error.localizedDescription)])
+            }
+        case "plist_edit":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let action = try requiredString(arguments, "action", tool: name)
+            let key = try requiredString(arguments, "key", tool: name)
+            let (object, sourceFormat) = try Self.readPlist(cwd: cwd, path: path, tool: name)
+            switch action {
+            case "get":
+                let found = Self.plistValue(at: key, in: object)
+                return .object(["path": .string(path), "key": .string(key), "found": .bool(found != nil), "value": found.map { Self.plistJSONValue($0) } ?? .null])
+            case "set":
+                guard var root = object as? [String: Any] else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Property list root must be a dictionary for key edits.")
+                }
+                guard let value = arguments["value"]?.stringValue else {
+                    throw SystemToolError.missingArgument(tool: tool, argument: "value")
+                }
+                Self.plistSet(value, keyPath: key, root: &root)
+                try Self.writePlist(cwd: cwd, path: path, object: root, format: sourceFormat, tool: name)
+                return .object(["path": .string(path), "key": .string(key), "value": .string(value)])
+            case "delete":
+                guard var root = object as? [String: Any] else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Property list root must be a dictionary for key edits.")
+                }
+                guard Self.plistDelete(keyPath: key, root: &root) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Property list key was not found: \(key).")
+                }
+                try Self.writePlist(cwd: cwd, path: path, object: root, format: sourceFormat, tool: name)
+                return .object(["path": .string(path), "key": .string(key), "deleted": .bool(true)])
+            default:
+                throw SystemToolError.executionFailed(tool: tool, message: "plist_edit action must be get, set, or delete.")
+            }
+        case "plist_editor":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let action = optionalString(arguments, "action") ?? "read"
+            let (object, sourceFormat) = try Self.readPlist(cwd: cwd, path: path, tool: name)
+            switch action {
+            case "read":
+                return .object(["path": .string(path), "value": Self.plistJSONValue(object)])
+            case "get":
+                let key = try requiredString(arguments, "key", tool: name)
+                let found = Self.plistValue(at: key, in: object)
+                return .object(["path": .string(path), "key": .string(key), "found": .bool(found != nil), "value": found.map { Self.plistJSONValue($0) } ?? .null])
+            case "set":
+                let key = try requiredString(arguments, "key", tool: name)
+                guard var root = object as? [String: Any] else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Property list root must be a dictionary for key edits.")
+                }
+                guard let value = arguments["value"]?.stringValue else {
+                    throw SystemToolError.missingArgument(tool: tool, argument: "value")
+                }
+                Self.plistSet(value, keyPath: key, root: &root)
+                try Self.writePlist(cwd: cwd, path: path, object: root, format: sourceFormat, tool: name)
+                return .object(["path": .string(path), "key": .string(key), "value": .string(value)])
+            case "delete":
+                let key = try requiredString(arguments, "key", tool: name)
+                guard var root = object as? [String: Any] else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Property list root must be a dictionary for key edits.")
+                }
+                guard Self.plistDelete(keyPath: key, root: &root) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Property list key was not found: \(key).")
+                }
+                try Self.writePlist(cwd: cwd, path: path, object: root, format: sourceFormat, tool: name)
+                return .object(["path": .string(path), "key": .string(key), "deleted": .bool(true)])
+            default:
+                throw SystemToolError.executionFailed(tool: tool, message: "plist_editor action must be read, get, set, or delete.")
+            }
+        case "binary_plist_converter":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let formatName = try requiredString(arguments, "format", tool: name)
+            guard formatName == "xml" || formatName == "binary" else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Plist format must be xml or binary.")
+            }
+            let output = optionalString(arguments, "output") ?? path
+            let (object, _) = try Self.readPlist(cwd: cwd, path: path, tool: name)
+            let format: PropertyListSerialization.PropertyListFormat = formatName == "binary" ? .binary : .xml
+            try Self.writePlist(cwd: cwd, path: output, object: object, format: format, tool: name)
+            let (_, verifiedFormat) = try Self.readPlist(cwd: cwd, path: output, tool: name)
+            guard verifiedFormat == format else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Property list conversion verification failed: the output is not \(formatName).")
+            }
+            return .object(["path": .string(path), "output": .string(output), "format": .string(formatName), "converted": .bool(true)])
+        case "file_metadata":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let parent = (path as NSString).deletingLastPathComponent
+            let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: parent, recursive: false)
+            let fileName = (path as NSString).lastPathComponent
+            guard let entry = entries.first(where: { $0.name == fileName }) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No such file or directory: \(path).")
+            }
+            return .object([
+                "path": .string(path),
+                "name": .string(entry.name),
+                "isDirectory": .bool(entry.isDirectory),
+                "sizeBytes": entry.sizeBytes.map { .int($0) } ?? .null,
+                "modifiedAt": entry.modifiedAt.map { .double($0) } ?? .null,
+                "isSymlink": entry.isSymlink.map { .bool($0) } ?? .null,
+                "symlinkTarget": entry.symlinkTarget.map { .string($0) } ?? .null,
+                "isExecutable": entry.isExecutable.map { .bool($0) } ?? .null,
+            ])
+        case "file_hash_verify":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let expectedHash = try requiredString(arguments, "expectedHash", tool: name)
+            let algorithm = optionalString(arguments, "algorithm") ?? "sha256"
+            let data = try Self.readWorkspaceBytes(cwd: cwd, path: path, tool: name)
+            let hash = try Self.checksumHex(data: data, algorithm: algorithm, tool: name)
+            return .object(["path": .string(path), "algorithm": .string(algorithm), "hash": .string(hash), "expectedHash": .string(expectedHash.lowercased()), "match": .bool(hash == expectedHash.lowercased())])
+        case "generate_file_checksum":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let data = try Self.readWorkspaceBytes(cwd: cwd, path: path, tool: name)
+            return .object([
+                "path": .string(path),
+                "sha256": .string(try Self.checksumHex(data: data, algorithm: "sha256", tool: name)),
+                "sha512": .string(try Self.checksumHex(data: data, algorithm: "sha512", tool: name)),
+                "sha1": .string(try Self.checksumHex(data: data, algorithm: "sha1", tool: name)),
+                "md5": .string(try Self.checksumHex(data: data, algorithm: "md5", tool: name)),
+            ])
+        case "file_checksum_verifier":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let algorithm = optionalString(arguments, "algorithm") ?? "sha256"
+            guard algorithm == "sha256" || algorithm == "md5" else {
+                throw SystemToolError.executionFailed(tool: tool, message: "file_checksum_verifier algorithm must be sha256 or md5.")
+            }
+            let data = try Self.readWorkspaceBytes(cwd: cwd, path: path, tool: name)
+            let sha256 = try Self.checksumHex(data: data, algorithm: "sha256", tool: name)
+            let md5 = try Self.checksumHex(data: data, algorithm: "md5", tool: name)
+            let verified: JSONValue
+            if let expectedHash = optionalString(arguments, "expectedHash") {
+                let actual = algorithm == "md5" ? md5 : sha256
+                verified = .bool(actual == expectedHash.lowercased())
+            } else {
+                verified = .null
+            }
+            return .object(["path": .string(path), "sha256": .string(sha256), "md5": .string(md5), "algorithm": .string(algorithm), "verified": verified])
+        case "file_compare_diff":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let otherPath = try requiredString(arguments, "otherPath", tool: name)
+            let first = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let second = try await runtime.readWorkspaceFile(cwd: cwd, path: otherPath)
+            let result = Self.unifiedDiff(oldText: first.content, newText: second.content, oldPath: path, newPath: otherPath)
+            return .object(["path": .string(path), "otherPath": .string(otherPath), "identical": .bool(first.content == second.content), "added": .int(Int64(result.added)), "removed": .int(Int64(result.removed)), "diff": .string(result.diff)])
+        case "file_head_preview":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let lines = min(max(optionalInt(arguments, "lines") ?? 20, 1), 5000)
+            let value = try await runtime.desktopCall(action: "workspace.read_file", params: ["cwd": .string(ExternalEditorService.expandedPath(cwd)), "path": .string(path), "lineOffset": .int(0), "lineLimit": .int(Int64(lines))], as: JSONValue.self)
+            return .object([
+                "path": .string(path),
+                "content": value["content"]?.stringValue.map { .string($0) } ?? .null,
+                "lineOffset": .int(0),
+                "totalLines": value["totalLines"]?.intValue.map { .int(Int64($0)) } ?? .null,
+                "truncated": value["truncated"]?.boolValue.map { .bool($0) } ?? .null,
+            ])
+        case "code_generate":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let template = try requiredString(arguments, "template", tool: name)
+            let module = optionalString(arguments, "module") ?? URL(fileURLWithPath: ExternalEditorService.expandedPath(cwd)).lastPathComponent
+            try Self.assertFileAbsent(cwd: cwd, path: path, tool: name)
+            let fileName = (path as NSString).lastPathComponent
+            let content = try Self.codeTemplate(template, module: module, fileName: fileName, tool: name)
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: content)
+            return .object(["path": .string(path), "template": .string(template)])
+        case "code_format":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? ""
+            let extensions: Set<String> = ["swift", "c", "h", "m", "mm", "js", "ts", "tsx", "jsx", "py"]
+            var formatted: [String] = []
+            var skipped = 0
+            var targets: [String] = []
+            if path.isEmpty {
+                let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: "", recursive: true)
+                targets = entries.filter { !$0.isDirectory && extensions.contains((($0.path as NSString).pathExtension).lowercased()) }.map { $0.path }
+            } else if let entries = try? await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: true) {
+                targets = entries.filter { !$0.isDirectory && extensions.contains((($0.path as NSString).pathExtension).lowercased()) }.map { $0.path }
+            } else {
+                targets = [path]
+            }
+            for target in targets {
+                guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: target) else {
+                    skipped += 1
+                    continue
+                }
+                let normalized = Self.normalizedText(document.content)
+                if normalized != document.content {
+                    try await runtime.writeWorkspaceFile(cwd: cwd, path: target, content: normalized)
+                    formatted.append(target)
+                }
+            }
+            return .object(["path": .string(path), "formattedFiles": .array(formatted.map { .string($0) }), "formatted": .int(Int64(formatted.count)), "skipped": .int(Int64(skipped))])
+        case "swift_format_lint":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let mode = optionalString(arguments, "mode") ?? "lint"
+            guard mode == "lint" || mode == "format" else {
+                throw SystemToolError.executionFailed(tool: tool, message: "swift_format_lint mode must be lint or format.")
+            }
+            try Self.validateRelativePath(path, tool: name)
+            let command = mode == "lint" ? "swiftformat --lint " + Self.shellQuoted(path) : "swiftformat " + Self.shellQuoted(path)
+            let fullCommand = "cd " + Self.shellQuoted(ExternalEditorService.expandedPath(cwd)) + " && " + command
+            let result = try await runTerminalCommand(tool: tool, threadId: threadId, command: fullCommand, timeoutSeconds: 300, runtime: runtime)
+            if result["timedOut"]?.boolValue == true {
+                throw SystemToolError.operationTimeout(tool: tool)
+            }
+            let exitCode = result["exitCode"]?.intValue ?? -1
+            let cleaned = Self.cleanTerminalOutput(result["output"]?.stringValue ?? "")
+            if exitCode == 127 || cleaned.contains("command not found") {
+                throw SystemToolError.executionFailed(tool: tool, message: "swiftformat is not installed; install it to use swift_format_lint.")
+            }
+            if mode == "lint" {
+                return .object(["path": .string(path), "mode": .string(mode), "lintPassed": .bool(exitCode == 0), "exitCode": .int(Int64(exitCode)), "output": .string(cleaned)])
+            }
+            guard exitCode == 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "swiftformat failed with exit code \(exitCode): \(cleaned)")
+            }
+            return .object(["path": .string(path), "mode": .string(mode), "formatted": .bool(true), "exitCode": .int(Int64(exitCode)), "output": .string(cleaned)])
+        case "code_mutation_engine":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            guard let replacement = arguments["replacement"]?.stringValue else {
+                throw SystemToolError.missingArgument(tool: name, argument: "replacement")
+            }
+            let symbol = optionalString(arguments, "symbol")
+            let target = optionalString(arguments, "target")
+            guard symbol != nil || target != nil else {
+                throw SystemToolError.executionFailed(tool: tool, message: "code_mutation_engine requires symbol or target.")
+            }
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            if let target {
+                guard document.content.contains(target) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Target block was not found in the file.")
+                }
+                let updated = document.content.replacingOccurrences(of: target, with: replacement)
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: updated)
+                return .object(["path": .string(path), "mutated": .bool(true)])
+            }
+            let lines = document.content.components(separatedBy: "\n")
+            guard let start = Self.symbolDeclarationLine(lines, symbol: symbol!) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Symbol was not found in the file: \(symbol!).")
+            }
+            guard let end = Self.braceBlockEnd(lines, from: start) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Symbol has no brace-balanced body: \(symbol!).")
+            }
+            var updatedLines = lines
+            let replacementLines = replacement.components(separatedBy: "\n")
+            var openLine = start
+            while openLine <= end, !updatedLines[openLine].contains("{") {
+                openLine += 1
+            }
+            guard openLine <= end else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Symbol has no brace-balanced body: \(symbol!).")
+            }
+            if openLine == end {
+                updatedLines.replaceSubrange(openLine...openLine, with: replacementLines)
+            } else {
+                updatedLines.replaceSubrange((openLine + 1)..<end, with: replacementLines)
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: updatedLines.joined(separator: "\n"))
+            return .object(["path": .string(path), "symbol": .string(symbol!), "mutated": .bool(true)])
+        case "patch_application_engine":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let original = try requiredString(arguments, "original", tool: name)
+            guard let updated = arguments["updated"]?.stringValue else {
+                throw SystemToolError.missingArgument(tool: name, argument: "updated")
+            }
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let occurrences = document.content.components(separatedBy: original).count - 1
+            guard occurrences > 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Original block was not found in the file.")
+            }
+            let patched = document.content.replacingOccurrences(of: original, with: updated)
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: patched)
+            return .object(["path": .string(path), "patched": .bool(true), "occurrences": .int(Int64(occurrences))])
+        case "automated_repair_engine":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            guard let rawErrors = arguments["errors"]?.arrayValue, !rawErrors.isEmpty else {
+                throw SystemToolError.missingArgument(tool: name, argument: "errors")
+            }
+            let lineNumbers = rawErrors.compactMap(\.intValue)
+            guard lineNumbers.count == rawErrors.count else {
+                throw SystemToolError.executionFailed(tool: tool, message: "automated_repair_engine errors must be line numbers.")
+            }
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            var lines = document.content.components(separatedBy: "\n")
+            let sorted = lineNumbers.sorted(by: >)
+            for lineNumber in sorted {
+                guard lineNumber >= 1, lineNumber <= lines.count else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "automated_repair_engine line \(lineNumber) is out of range for the file.")
+                }
+                lines.insert("// AssistAutoRepair: review required", at: lineNumber - 1)
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: lines.joined(separator: "\n"))
+            return .object(["path": .string(path), "annotated": .int(Int64(lineNumbers.count)), "lines": .array(lineNumbers.map { .int(Int64($0)) })])
+        case "regex_replace_in_files":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let pattern = try requiredString(arguments, "pattern", tool: name)
+            guard let replacement = arguments["replacement"]?.stringValue else {
+                throw SystemToolError.missingArgument(tool: name, argument: "replacement")
+            }
+            let query = optionalString(arguments, "query")
+            let regex: NSRegularExpression
+            do {
+                regex = try NSRegularExpression(pattern: pattern)
+            } catch {
+                throw SystemToolError.executionFailed(tool: tool, message: "Invalid regular expression: \(error.localizedDescription)")
+            }
+            let hits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: pattern, limit: 500)
+            var files: [String] = []
+            for hit in hits where !files.contains(hit.path) {
+                if let query, !hit.path.contains(query) {
+                    continue
+                }
+                files.append(hit.path)
+            }
+            var changed: [String] = []
+            var total = 0
+            for file in files {
+                let document = try await runtime.readWorkspaceFile(cwd: cwd, path: file)
+                let range = NSRange(document.content.startIndex..., in: document.content)
+                let count = regex.numberOfMatches(in: document.content, range: range)
+                guard count > 0 else {
+                    continue
+                }
+                let updated = regex.stringByReplacingMatches(in: document.content, range: range, withTemplate: replacement)
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: file, content: updated)
+                changed.append(file)
+                total += count
+            }
+            return .object(["filesChanged": .array(changed.map { .string($0) }), "changed": .int(Int64(changed.count)), "replacements": .int(Int64(total))])
+        case "symbol_rename_project":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let oldName = try requiredString(arguments, "oldName", tool: name)
+            let newName = try requiredString(arguments, "newName", tool: name)
+            let directory = optionalString(arguments, "path") ?? ""
+            let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: directory, recursive: true)
+            var changed: [String] = []
+            var total = 0
+            for entry in entries where !entry.isDirectory && (entry.path as NSString).pathExtension == "swift" {
+                guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: entry.path) else {
+                    continue
+                }
+                let (updated, count) = Self.wholeWordReplace(document.content, old: oldName, new: newName)
+                guard count > 0 else {
+                    continue
+                }
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: entry.path, content: updated)
+                changed.append(entry.path)
+                total += count
+            }
+            return .object(["oldName": .string(oldName), "newName": .string(newName), "filesChanged": .array(changed.map { .string($0) }), "changed": .int(Int64(changed.count)), "replacements": .int(Int64(total))])
+        case "symbol_move_file":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let sourcePath = try requiredString(arguments, "sourcePath", tool: name)
+            let destinationPath = try requiredString(arguments, "destinationPath", tool: name)
+            let symbol = try requiredString(arguments, "symbol", tool: name)
+            let source = try await runtime.readWorkspaceFile(cwd: cwd, path: sourcePath)
+            let destination = try await runtime.readWorkspaceFile(cwd: cwd, path: destinationPath)
+            let sourceLines = source.content.components(separatedBy: "\n")
+            guard let start = Self.symbolDeclarationLine(sourceLines, symbol: symbol) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Symbol was not found in the source file: \(symbol).")
+            }
+            guard let end = Self.braceBlockEnd(sourceLines, from: start) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Symbol has no brace-balanced body: \(symbol).")
+            }
+            let block = Array(sourceLines[start...end])
+            var remaining = sourceLines
+            remaining.removeSubrange(start...end)
+            var destinationContent = destination.content
+            if !destinationContent.isEmpty, !destinationContent.hasSuffix("\n") {
+                destinationContent += "\n"
+            }
+            destinationContent += block.joined(separator: "\n") + "\n"
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: sourcePath, content: remaining.joined(separator: "\n"))
+            do {
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: destinationPath, content: destinationContent)
+            } catch {
+                try? await runtime.writeWorkspaceFile(cwd: cwd, path: sourcePath, content: source.content)
+                throw error
+            }
+            let verifiedSource = try await runtime.readWorkspaceFile(cwd: cwd, path: sourcePath)
+            let verifiedDestination = try await runtime.readWorkspaceFile(cwd: cwd, path: destinationPath)
+            guard Self.symbolDeclarationLine(verifiedSource.content.components(separatedBy: "\n"), symbol: symbol) == nil,
+                  Self.symbolDeclarationLine(verifiedDestination.content.components(separatedBy: "\n"), symbol: symbol) != nil else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Symbol move verification failed.")
+            }
+            return .object(["sourcePath": .string(sourcePath), "destinationPath": .string(destinationPath), "symbol": .string(symbol), "moved": .bool(true), "lines": .int(Int64(block.count))])
+        case "import_cleanup":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let protected: Set<String> = ["Foundation", "SwiftUI", "AppKit", "UIKit", "Combine", "CoreData", "CryptoKit", "Security", "XCTest", "SwiftData", "Observation", "WebKit", "UniformTypeIdentifiers", "Dispatch", "Network", "os", "SystemConfiguration", "CoreGraphics", "QuartzCore", "StoreKit", "AuthenticationServices"]
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let lines = document.content.components(separatedBy: "\n")
+            let importPattern = "^\\s*import\\s+([A-Za-z_][A-Za-z0-9_]*)"
+            guard let regex = try? NSRegularExpression(pattern: importPattern, options: [.anchorsMatchLines]) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Import scan failed.")
+            }
+            var removed: [String] = []
+            for (lineIndex, line) in lines.enumerated() {
+                let range = NSRange(line.startIndex..., in: line)
+                guard let match = regex.firstMatch(in: line, range: range),
+                      let moduleRange = Range(match.range(at: 1), in: line) else {
+                    continue
+                }
+                let module = String(line[moduleRange])
+                if protected.contains(module) {
+                    continue
+                }
+                var body = ""
+                for (otherIndex, other) in lines.enumerated() where otherIndex != lineIndex {
+                    body += other + "\n"
+                }
+                let wordPattern = "\\b" + NSRegularExpression.escapedPattern(for: module) + "\\b"
+                let wordRegex = try? NSRegularExpression(pattern: wordPattern)
+                let wordRange = NSRange(body.startIndex..., in: body)
+                if wordRegex?.firstMatch(in: body, range: wordRange) == nil {
+                    removed.append(module)
+                }
+            }
+            guard !removed.isEmpty else {
+                return .object(["path": .string(path), "removed": .array([]), "count": .int(0)])
+            }
+            let updated = lines.filter { line in
+                let range = NSRange(line.startIndex..., in: line)
+                guard let match = regex.firstMatch(in: line, range: range),
+                      let moduleRange = Range(match.range(at: 1), in: line) else {
+                    return true
+                }
+                return !removed.contains(String(line[moduleRange]))
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: updated.joined(separator: "\n"))
+            return .object(["path": .string(path), "removed": .array(removed.map { .string($0) }), "count": .int(Int64(removed.count))])
+        case "batch_rename_files":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let directory = optionalString(arguments, "directory") ?? ""
+            let pattern = try requiredString(arguments, "pattern", tool: name)
+            guard let replacement = arguments["replacement"]?.stringValue else {
+                throw SystemToolError.missingArgument(tool: name, argument: "replacement")
+            }
+            let dryRun = optionalBool(arguments, "dryRun") ?? false
+            let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: directory, recursive: false)
+            var planned: [(from: String, to: String)] = []
+            for entry in entries where !entry.isDirectory && entry.name.contains(pattern) {
+                let newName = entry.name.replacingOccurrences(of: pattern, with: replacement)
+                guard newName != entry.name, !newName.isEmpty, !newName.contains("/") else {
+                    continue
+                }
+                let from = directory.isEmpty ? entry.name : directory + "/" + entry.name
+                let to = directory.isEmpty ? newName : directory + "/" + newName
+                planned.append((from, to))
+            }
+            if dryRun {
+                return .object(["dryRun": .bool(true), "renames": .array(planned.map { .object(["from": .string($0.from), "to": .string($0.to)]) }), "count": .int(Int64(planned.count))])
+            }
+            var renamed: [(from: String, to: String)] = []
+            for plan in planned {
+                try await runtime.moveWorkspaceFile(cwd: cwd, path: plan.from, destination: plan.to)
+                renamed.append(plan)
+            }
+            return .object(["dryRun": .bool(false), "renames": .array(renamed.map { .object(["from": .string($0.from), "to": .string($0.to)]) }), "count": .int(Int64(renamed.count))])
+        case "file_backup":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let data = try Self.readWorkspaceBytes(cwd: cwd, path: path, tool: name)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+            let stamp = formatter.string(from: Date())
+            let base = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
+            let backupPath = ".assist_temp/backups/" + base + "." + stamp + ".bak"
+            try Self.writeWorkspaceBytes(cwd: cwd, path: backupPath, data: data, tool: name)
+            let verified = try Self.readWorkspaceBytes(cwd: cwd, path: backupPath, tool: name)
+            guard verified.count == data.count else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Backup verification failed: size mismatch.")
+            }
+            return .object(["path": .string(path), "backupPath": .string(backupPath), "byteLen": .int(Int64(data.count))])
+        case "session_export":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let title = try requiredString(arguments, "title", tool: name)
+            let sessionId = optionalString(arguments, "sessionId") ?? UUID().uuidString
+            let notes = optionalString(arguments, "notes") ?? ""
+            let path = optionalString(arguments, "path") ?? ".assist_temp/session-export-\(sessionId).md"
+            let overwrite = optionalBool(arguments, "overwrite") ?? false
+            if !overwrite {
+                try Self.assertFileAbsent(cwd: cwd, path: path, tool: name)
+            }
+            let formatter = ISO8601DateFormatter()
+            let stamp = formatter.string(from: Date())
+            var lines = ["# \(title)", "", "- Session: \(sessionId)", "- Exported: \(stamp)", "- Workspace: \(cwd)", ""]
+            if !notes.isEmpty {
+                lines.append("## Notes")
+                lines.append("")
+                lines.append(notes)
+                lines.append("")
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: lines.joined(separator: "\n"))
+            return .object(["path": .string(path), "sessionId": .string(sessionId)])
+        case "markdown_toc_generate":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let headingPattern = "^(#{1,6})\\s+(.+)$"
+            guard let regex = try? NSRegularExpression(pattern: headingPattern, options: [.anchorsMatchLines]) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Heading scan failed.")
+            }
+            var toc: [String] = []
+            let lines = document.content.components(separatedBy: "\n")
+            for line in lines {
+                let range = NSRange(line.startIndex..., in: line)
+                guard let match = regex.firstMatch(in: line, range: range),
+                      match.numberOfRanges == 3,
+                      let hashesRange = Range(match.range(at: 1), in: line),
+                      let textRange = Range(match.range(at: 2), in: line) else {
+                    continue
+                }
+                let level = line[hashesRange].count
+                let text = String(line[textRange]).trimmingCharacters(in: .whitespaces)
+                let indent = String(repeating: "  ", count: max(0, level - 1))
+                toc.append("\(indent)- [\(text)](#\(Self.tocSlug(text)))")
+            }
+            guard !toc.isEmpty else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No headings found in the file.")
+            }
+            var updated = lines
+            if let open = lines.firstIndex(of: "<!-- TOC -->"), let close = lines.firstIndex(of: "<!-- /TOC -->"), close > open {
+                updated.replaceSubrange((open + 1)..<close, with: toc)
+            } else if let firstHeading = lines.firstIndex(where: { $0.hasPrefix("# ") }) {
+                updated.insert(contentsOf: ["", "<!-- TOC -->"] + toc + ["<!-- /TOC -->"], at: firstHeading + 1)
+            } else {
+                updated.insert(contentsOf: ["<!-- TOC -->"] + toc + ["<!-- /TOC -->", ""], at: 0)
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: updated.joined(separator: "\n"))
+            return .object(["path": .string(path), "entries": .int(Int64(toc.count))])
+        case "readme_generate":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? "README.md"
+            let overwrite = optionalBool(arguments, "overwrite") ?? false
+            if !overwrite {
+                try Self.assertFileAbsent(cwd: cwd, path: path, tool: name)
+            }
+            let project = URL(fileURLWithPath: ExternalEditorService.expandedPath(cwd)).lastPathComponent
+            let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: "", recursive: false)
+            var lines = ["# \(project)", "", "Generated README skeleton from the repository contents.", "", "## Contents", ""]
+            for entry in entries.sorted(by: { $0.path < $1.path }) {
+                lines.append("- \(entry.isDirectory ? entry.name + "/" : entry.name)")
+            }
+            lines.append("")
+            lines.append("## Getting Started")
+            lines.append("")
+            lines.append("Open this project and follow the project build instructions.")
+            lines.append("")
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: lines.joined(separator: "\n"))
+            return .object(["path": .string(path), "entries": .int(Int64(entries.count))])
+        case "docs_generate":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let source = optionalString(arguments, "path") ?? ""
+            let output = optionalString(arguments, "output") ?? "API.md"
+            let overwrite = optionalBool(arguments, "overwrite") ?? false
+            if !overwrite {
+                try Self.assertFileAbsent(cwd: cwd, path: output, tool: name)
+            }
+            var sources: [String] = []
+            if source.isEmpty {
+                let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: "", recursive: true)
+                sources = entries.filter { !$0.isDirectory && ($0.path as NSString).pathExtension == "swift" }.map { $0.path }
+            } else if let entries = try? await runtime.readWorkspaceDirectory(cwd: cwd, path: source, recursive: true) {
+                sources = entries.filter { !$0.isDirectory && ($0.path as NSString).pathExtension == "swift" }.map { $0.path }
+            } else {
+                sources = [source]
+            }
+            var lines = ["# API Documentation", ""]
+            var total = 0
+            for file in sources.sorted() {
+                guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: file) else {
+                    continue
+                }
+                let symbols = Self.extractSymbols(document.content, path: file)
+                total += symbols.count
+                lines.append("## \(file)")
+                lines.append("")
+                if symbols.isEmpty {
+                    lines.append("No public declarations found.")
+                } else {
+                    for symbol in symbols {
+                        let kind = symbol["kind"]?.stringValue ?? ""
+                        let symbolName = symbol["name"]?.stringValue ?? ""
+                        let lineNumber = symbol["line"]?.intValue ?? 0
+                        lines.append("- `\(kind) \(symbolName)` (line \(lineNumber))")
+                    }
+                }
+                lines.append("")
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: output, content: lines.joined(separator: "\n"))
+            return .object(["output": .string(output), "files": .int(Int64(sources.count)), "symbols": .int(Int64(total))])
+        case "test_data_factory":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let format = try requiredString(arguments, "format", tool: name)
+            let fieldsText = try requiredString(arguments, "fields", tool: name)
+            let overwrite = optionalBool(arguments, "overwrite") ?? false
+            guard format == "json" || format == "swift" else {
+                throw SystemToolError.executionFailed(tool: tool, message: "test_data_factory format must be json or swift.")
+            }
+            if !overwrite {
+                try Self.assertFileAbsent(cwd: cwd, path: path, tool: name)
+            }
+            var fields: [(name: String, type: String)] = []
+            for part in fieldsText.split(separator: ",") {
+                let pieces = part.split(separator: ":", maxSplits: 1)
+                guard pieces.count == 2 else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Fields must be name:Type pairs separated by commas.")
+                }
+                fields.append((String(pieces[0]).trimmingCharacters(in: .whitespaces), String(pieces[1]).trimmingCharacters(in: .whitespaces)))
+            }
+            guard !fields.isEmpty else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Fields must not be empty.")
+            }
+            let base = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
+            if format == "swift" {
+                let first = base.unicodeScalars.first
+                let validStart = first.map { CharacterSet.letters.contains($0) || $0 == "_" } ?? false
+                let validRest = base.unicodeScalars.dropFirst().allSatisfy { CharacterSet.alphanumerics.contains($0) || $0 == "_" }
+                guard validStart, validRest else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Fixture file name must be a valid Swift identifier for the swift format.")
+                }
+            }
+            if format == "json" {
+                var record: [String: Any] = [:]
+                for field in fields {
+                    switch field.type {
+                    case "Int":
+                        record[field.name] = 1
+                    case "Double", "Float":
+                        record[field.name] = 1.5
+                    case "Bool":
+                        record[field.name] = true
+                    default:
+                        record[field.name] = "Example"
+                    }
+                }
+                let json = try Self.prettyJSONText(record)
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: json + "\n")
+            } else {
+                let structName = base
+                var lines = ["import Foundation", "", "public struct \(structName) {"]
+                for field in fields {
+                    lines.append("    public var \(field.name): \(field.type)")
+                }
+                lines.append("")
+                var initParams: [String] = []
+                var initBody: [String] = []
+                for field in fields {
+                    let sample: String
+                    switch field.type {
+                    case "Int":
+                        sample = "1"
+                    case "Double", "Float":
+                        sample = "1.5"
+                    case "Bool":
+                        sample = "true"
+                    default:
+                        sample = "\"Example\""
+                    }
+                    initParams.append("\(field.name): \(field.type) = \(sample)")
+                    initBody.append("        self.\(field.name) = \(field.name)")
+                }
+                lines.append("    public init(\(initParams.joined(separator: ", "))) {")
+                lines.append(contentsOf: initBody)
+                lines.append("    }")
+                lines.append("")
+                lines.append("    public static let sample = \(structName)()")
+                lines.append("}")
+                lines.append("")
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: lines.joined(separator: "\n"))
+            }
+            return .object(["path": .string(path), "format": .string(format), "fields": .int(Int64(fields.count))])
+        case "ui_test_scaffold":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let appName = optionalString(arguments, "appName") ?? URL(fileURLWithPath: ExternalEditorService.expandedPath(cwd)).lastPathComponent
+            let overwrite = optionalBool(arguments, "overwrite") ?? false
+            if !overwrite {
+                try Self.assertFileAbsent(cwd: cwd, path: path, tool: name)
+            }
+            let className = appName.filter { $0.isLetter || $0.isNumber }
+            let content = "import XCTest\n\nfinal class \(className)UITests: XCTestCase {\n    func testAppLaunches() {\n        let app = XCUIApplication()\n        app.launch()\n        XCTAssertTrue(app.state == .runningForeground)\n    }\n}\n"
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: content)
+            return .object(["path": .string(path), "appName": .string(appName)])
+        case "test_snapshot_manage":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let action = optionalString(arguments, "action") ?? "list"
+            let directory = optionalString(arguments, "path") ?? "__Snapshots__"
+            switch action {
+            case "list":
+                let entries = (try? await runtime.readWorkspaceDirectory(cwd: cwd, path: directory, recursive: true)) ?? []
+                return .object(["action": .string(action), "refs": .array(entries.filter { !$0.isDirectory }.map { .string($0.path) }), "count": .int(Int64(entries.filter { !$0.isDirectory }.count))])
+            case "clean":
+                try Self.requireConfirm(arguments, tool: name, message: "Cleaning snapshots deletes files; pass confirm=true.")
+                let entries = (try? await runtime.readWorkspaceDirectory(cwd: cwd, path: directory, recursive: true)) ?? []
+                var deleted: [String] = []
+                var kept = 0
+                for entry in entries where !entry.isDirectory {
+                    let base = (entry.name as NSString).deletingPathExtension
+                    let hits = (try? await runtime.searchWorkspace(cwd: cwd, query: base, limit: 5)) ?? []
+                    let referenced = hits.contains { ($0.path as NSString).pathExtension == "swift" }
+                    if referenced {
+                        kept += 1
+                    } else {
+                        try await runtime.deleteWorkspaceFile(cwd: cwd, path: entry.path)
+                        deleted.append(entry.path)
+                    }
+                }
+                return .object(["action": .string(action), "deleted": .array(deleted.map { .string($0) }), "count": .int(Int64(deleted.count)), "kept": .int(Int64(kept))])
+            default:
+                throw SystemToolError.executionFailed(tool: tool, message: "test_snapshot_manage action must be list or clean.")
+            }
+        case "open_in_finder":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let url = try Self.resolveWorkspaceFileURL(cwd: cwd, path: path, tool: name)
+            let opened = await MainActor.run { NSWorkspace.shared.open(url) }
+            guard opened else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Finder could not open \(path).")
+            }
+            return .object(["path": .string(path), "opened": .bool(true)])
+        case "reveal_in_finder":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let url = try Self.resolveWorkspaceFileURL(cwd: cwd, path: path, tool: name)
+            await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            return .object(["path": .string(path), "revealed": .bool(true)])
+        case "image_encode_base64":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let dataURI = optionalBool(arguments, "dataURI") ?? false
+            let data = try Self.readWorkspaceBytes(cwd: cwd, path: path, tool: name)
+            let encoded = data.base64EncodedString()
+            if dataURI {
+                let ext = ((path as NSString).pathExtension).lowercased()
+                let mime: String
+                switch ext {
+                case "png":
+                    mime = "image/png"
+                case "jpg", "jpeg":
+                    mime = "image/jpeg"
+                case "gif":
+                    mime = "image/gif"
+                case "tiff", "tif":
+                    mime = "image/tiff"
+                default:
+                    mime = "application/octet-stream"
+                }
+                return .object(["path": .string(path), "base64": .string("data:\(mime);base64,\(encoded)"), "byteLen": .int(Int64(data.count))])
+            }
+            return .object(["path": .string(path), "base64": .string(encoded), "byteLen": .int(Int64(data.count))])
+        case "image_decode_base64":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let encoded = try requiredString(arguments, "base64", tool: name)
+            let cleaned = encoded.trimmingCharacters(in: .whitespacesAndNewlines)
+            let payload: String
+            if let comma = cleaned.firstIndex(of: ",") {
+                payload = String(cleaned[cleaned.index(after: comma)...])
+            } else {
+                payload = cleaned
+            }
+            guard let data = Data(base64Encoded: payload, options: [.ignoreUnknownCharacters]), !data.isEmpty else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Base64 string could not be decoded.")
+            }
+            try Self.writeWorkspaceBytes(cwd: cwd, path: path, data: data, tool: name)
+            return .object(["path": .string(path), "byteLen": .int(Int64(data.count))])
+        case "image_get_dimensions":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            try Self.validateRelativePath(path, tool: name)
+            let output = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "sips -g pixelWidth -g pixelHeight -g format " + Self.shellQuoted(path), timeoutSeconds: 60, runtime: runtime)
+            var width: Int?
+            var height: Int?
+            var format: String?
+            for line in output.components(separatedBy: "\n") {
+                let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+                guard parts.count == 2 else {
+                    continue
+                }
+                if parts[0] == "pixelWidth" {
+                    width = Int(parts[1])
+                } else if parts[0] == "pixelHeight" {
+                    height = Int(parts[1])
+                } else if parts[0] == "format" {
+                    format = parts[1]
+                }
+            }
+            return .object([
+                "path": .string(path),
+                "width": width.map { .int(Int64($0)) } ?? .null,
+                "height": height.map { .int(Int64($0)) } ?? .null,
+                "format": format.map { .string($0) } ?? .null,
+                "output": .string(output),
+            ])
+        case "image_convert_format":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let format = try requiredString(arguments, "format", tool: name)
+            let normalized = format.lowercased() == "jpg" ? "jpeg" : format.lowercased()
+            guard ["png", "jpeg", "tiff", "bmp", "gif"].contains(normalized) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Image format must be png, jpg, tiff, bmp, or gif.")
+            }
+            let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: format.lowercased())
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(output, tool: name)
+            var command = "sips -s format \(normalized) "
+            if normalized == "jpeg", let quality = optionalInt(arguments, "quality") {
+                guard quality >= 0, quality <= 100 else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "JPEG quality must be 0 to 100.")
+                }
+                command += "-s formatOptions \(quality) "
+            }
+            command += Self.shellQuoted(path) + " --out " + Self.shellQuoted(output)
+            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: command, timeoutSeconds: 120, runtime: runtime)
+            return .object(["path": .string(path), "output": .string(output), "format": .string(normalized), "result": .string(result)])
+        case "image_generate_thumbnail":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let maxPixels = optionalInt(arguments, "maxPixels") ?? 256
+            guard maxPixels >= 1, maxPixels <= 4096 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Thumbnail maxPixels must be 1 to 4096.")
+            }
+            let output: String
+            if let given = optionalString(arguments, "output") {
+                output = given
+            } else {
+                let stem = (path as NSString).deletingPathExtension
+                let ext = (path as NSString).pathExtension
+                output = ext.isEmpty ? stem + "-thumb" : stem + "-thumb." + ext
+            }
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(output, tool: name)
+            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "sips -Z \(maxPixels) " + Self.shellQuoted(path) + " --out " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
+            return .object(["path": .string(path), "output": .string(output), "maxPixels": .int(Int64(maxPixels)), "result": .string(result)])
+        case "image_extract_metadata":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            try Self.validateRelativePath(path, tool: name)
+            let output = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "mdls " + Self.shellQuoted(path), timeoutSeconds: 60, runtime: runtime)
+            return .object(["path": .string(path), "metadata": .string(output)])
+        case "zip_file":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let output = try requiredString(arguments, "output", tool: name)
+            guard output.hasSuffix(".zip") else {
+                throw SystemToolError.executionFailed(tool: tool, message: "zip_file output must end in .zip.")
+            }
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(output, tool: name)
+            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "ditto -c -k --sequesterRsrc --keepParent " + Self.shellQuoted(path) + " " + Self.shellQuoted(output), timeoutSeconds: 300, runtime: runtime)
+            return .object(["path": .string(path), "output": .string(output), "result": .string(result)])
+        case "unzip_file":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let destination = try requiredString(arguments, "destination", tool: name)
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(destination, tool: name)
+            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "mkdir -p " + Self.shellQuoted(destination) + " && ditto -x -k " + Self.shellQuoted(path) + " " + Self.shellQuoted(destination), timeoutSeconds: 300, runtime: runtime)
+            return .object(["path": .string(path), "destination": .string(destination), "result": .string(result)])
+        case "tar_archive_create":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let output = try requiredString(arguments, "output", tool: name)
+            let compressed = output.hasSuffix(".tar.gz") || output.hasSuffix(".tgz")
+            guard output.hasSuffix(".tar") || compressed else {
+                throw SystemToolError.executionFailed(tool: tool, message: "tar_archive_create output must end in .tar, .tar.gz, or .tgz.")
+            }
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(output, tool: name)
+            let flags = compressed ? "-czf" : "-cf"
+            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "tar \(flags) " + Self.shellQuoted(output) + " " + Self.shellQuoted(path), timeoutSeconds: 300, runtime: runtime)
+            return .object(["path": .string(path), "output": .string(output), "result": .string(result)])
+        case "tar_archive_extract":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let destination = try requiredString(arguments, "destination", tool: name)
+            let compressed = path.hasSuffix(".tar.gz") || path.hasSuffix(".tgz")
+            guard path.hasSuffix(".tar") || compressed else {
+                throw SystemToolError.executionFailed(tool: tool, message: "tar_archive_extract path must end in .tar, .tar.gz, or .tgz.")
+            }
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(destination, tool: name)
+            let flags = compressed ? "-xzf" : "-xf"
+            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "mkdir -p " + Self.shellQuoted(destination) + " && tar \(flags) " + Self.shellQuoted(path) + " -C " + Self.shellQuoted(destination), timeoutSeconds: 300, runtime: runtime)
+            return .object(["path": .string(path), "destination": .string(destination), "result": .string(result)])
+        case "gzip_compress_file":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let output = optionalString(arguments, "output") ?? path + ".gz"
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(output, tool: name)
+            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "gzip -c " + Self.shellQuoted(path) + " > " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
+            return .object(["path": .string(path), "output": .string(output), "result": .string(result)])
+        case "gzip_decompress_file":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let output: String
+            if let given = optionalString(arguments, "output") {
+                output = given
+            } else if path.hasSuffix(".gz") {
+                output = String(path.dropLast(3))
+            } else {
+                output = path + ".decompressed"
+            }
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(output, tool: name)
+            let result = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: "gzip -dc " + Self.shellQuoted(path) + " > " + Self.shellQuoted(output), timeoutSeconds: 120, runtime: runtime)
+            return .object(["path": .string(path), "output": .string(output), "result": .string(result)])
+        case "count_file_lines":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? ""
+            var targets: [String] = []
+            if path.isEmpty {
+                let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: "", recursive: true)
+                targets = entries.filter { !$0.isDirectory }.map { $0.path }
+            } else if let entries = try? await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: true) {
+                targets = entries.filter { !$0.isDirectory }.map { $0.path }
+            } else {
+                targets = [path]
+            }
+            var total = 0
+            var code = 0
+            var comment = 0
+            var blank = 0
+            var files = 0
+            for target in targets {
+                guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: target) else {
+                    continue
+                }
+                let counts = Self.lineCounts(document.content)
+                total += counts.total
+                code += counts.code
+                comment += counts.comment
+                blank += counts.blank
+                files += 1
+            }
+            return .object(["path": .string(path), "files": .int(Int64(files)), "total": .int(Int64(total)), "code": .int(Int64(code)), "comment": .int(Int64(comment)), "blank": .int(Int64(blank))])
+        case "extract_code_symbols":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? ""
+            var sources: [String] = []
+            if path.isEmpty {
+                let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: "", recursive: true)
+                sources = entries.filter { !$0.isDirectory && ($0.path as NSString).pathExtension == "swift" }.map { $0.path }
+            } else if let entries = try? await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: true) {
+                sources = entries.filter { !$0.isDirectory && ($0.path as NSString).pathExtension == "swift" }.map { $0.path }
+            } else {
+                sources = [path]
+            }
+            var symbols: [[String: JSONValue]] = []
+            var files = 0
+            for file in sources.sorted() {
+                guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: file) else {
+                    continue
+                }
+                symbols.append(contentsOf: Self.extractSymbols(document.content, path: file))
+                files += 1
+            }
+            return .object(["path": .string(path), "files": .int(Int64(files)), "symbols": .array(symbols.map { .object($0) }), "count": .int(Int64(symbols.count))])
+        case "find_duplicate_files":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? ""
+            let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: true)
+            var byHash: [String: [String]] = [:]
+            var byteLens: [String: Int] = [:]
+            var skipped = 0
+            for entry in entries where !entry.isDirectory {
+                guard let data = try? Self.readWorkspaceBytes(cwd: cwd, path: entry.path, tool: name) else {
+                    skipped += 1
+                    continue
+                }
+                guard let hash = try? Self.checksumHex(data: data, algorithm: "sha256", tool: name) else {
+                    skipped += 1
+                    continue
+                }
+                byHash[hash, default: []].append(entry.path)
+                byteLens[hash] = data.count
+            }
+            var groups: [[String: JSONValue]] = []
+            for hash in byHash.keys.sorted() {
+                guard let files = byHash[hash], files.count > 1 else {
+                    continue
+                }
+                groups.append([
+                    "hash": .string(hash),
+                    "files": .array(files.sorted().map { .string($0) }),
+                    "byteLen": .int(Int64(byteLens[hash] ?? 0)),
+                ])
+            }
+            return .object(["path": .string(path), "groups": .array(groups.map { .object($0) }), "count": .int(Int64(groups.count)), "skipped": .int(Int64(skipped))])
+        case "env_capture_logs":
+            return try await runtime.memorySnapshot(scope: optionalString(arguments, "scope"), query: optionalString(arguments, "query"), limit: optionalInt(arguments, "limit") ?? 50)
         default:
             throw SystemToolError.unknownTool(name)
         }
@@ -2486,5 +4351,819 @@ public nonisolated enum SystemToolRegistry {
 
     private static func optionalStringArray(_ arguments: [String: JSONValue], _ name: String) -> [String]? {
         arguments[name]?.arrayValue?.compactMap(\.stringValue)
+    }
+
+    private static func validateRelativePath(_ path: String, tool: String) throws {
+        guard !path.isEmpty, !path.hasPrefix("/") else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Path must be relative to the working directory.")
+        }
+        let parts = path.split(separator: "/")
+        guard !parts.isEmpty, parts.allSatisfy({ $0 != "." && $0 != ".." }) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Path must not contain . or .. components.")
+        }
+    }
+
+    private static func resolveWorkspaceFileURL(cwd: String, path: String, tool: String) throws -> URL {
+        try validateRelativePath(path, tool: tool)
+        let base = URL(fileURLWithPath: ExternalEditorService.expandedPath(cwd)).resolvingSymlinksInPath()
+        let target = base.appendingPathComponent(path).resolvingSymlinksInPath()
+        guard target.path == base.path || target.path.hasPrefix(base.path + "/") else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Path escapes the working directory.")
+        }
+        return target
+    }
+
+    private static func readWorkspaceBytes(cwd: String, path: String, tool: String) throws -> Data {
+        let url = try resolveWorkspaceFileURL(cwd: cwd, path: path, tool: tool)
+        guard let data = try? Data(contentsOf: url) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "File does not exist or cannot be read.")
+        }
+        guard data.count <= 3 * 1024 * 1024 else {
+            throw SystemToolError.executionFailed(tool: tool, message: "File exceeds 3 MiB.")
+        }
+        return data
+    }
+
+    private static func writeWorkspaceBytes(cwd: String, path: String, data: Data, tool: String) throws {
+        let url = try resolveWorkspaceFileURL(cwd: cwd, path: path, tool: tool)
+        let parent = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        try data.write(to: url, options: [.atomic])
+    }
+
+    private static func checksumHex(data: Data, algorithm: String, tool: String) throws -> String {
+        switch algorithm {
+        case "sha256":
+            return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        case "sha512":
+            return SHA512.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        case "sha1":
+            return Insecure.SHA1.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        case "md5":
+            return Insecure.MD5.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        default:
+            throw SystemToolError.executionFailed(tool: tool, message: "Checksum algorithm must be sha256, sha512, sha1, or md5.")
+        }
+    }
+
+    private static func artifactRelativePath(name: String, tool: String) throws -> String {
+        guard !name.isEmpty, !name.contains("/"), !name.contains("\\"), name != ".", name != ".." else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Artifact name must be a plain file name without any path separator.")
+        }
+        let fileName = name.hasSuffix(".md") ? name : name + ".md"
+        return ".assist_temp/artifacts/" + fileName
+    }
+
+    private static func jsonObject(from text: String, tool: String) throws -> Any {
+        guard let data = text.data(using: .utf8) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "File is not valid UTF-8 text.")
+        }
+        do {
+            return try JSONSerialization.jsonObject(with: data, options: [.allowFragments])
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "Invalid JSON: \(error.localizedDescription)")
+        }
+    }
+
+    private static func prettyJSONText(_ value: Any) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    private static func replacingExtension(_ path: String, with ext: String) -> String {
+        (path as NSString).deletingPathExtension + "." + ext
+    }
+
+    private static func parseCSV(_ text: String) -> [[String]] {
+        var rows: [[String]] = []
+        var row: [String] = []
+        var field = ""
+        var inQuotes = false
+        var index = text.startIndex
+        while index < text.endIndex {
+            let char = text[index]
+            if inQuotes {
+                if char == "\"" {
+                    let next = text.index(after: index)
+                    if next < text.endIndex, text[next] == "\"" {
+                        field.append("\"")
+                        index = text.index(after: next)
+                        continue
+                    }
+                    inQuotes = false
+                } else {
+                    field.append(char)
+                }
+            } else if char == "\"", field.isEmpty {
+                inQuotes = true
+            } else if char == "," {
+                row.append(field)
+                field = ""
+            } else if char == "\n" || char == "\r" {
+                if char == "\r" {
+                    let next = text.index(after: index)
+                    if next < text.endIndex, text[next] == "\n" {
+                        index = next
+                    }
+                }
+                row.append(field)
+                field = ""
+                rows.append(row)
+                row = []
+            } else {
+                field.append(char)
+            }
+            index = text.index(after: index)
+        }
+        if !field.isEmpty || !row.isEmpty {
+            row.append(field)
+            rows.append(row)
+        }
+        return rows
+    }
+
+    private static func csvField(_ value: String) -> String {
+        if value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r") {
+            return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        }
+        return value
+    }
+
+    private static func jsonScalarText(_ value: Any) -> String {
+        switch value {
+        case let string as String:
+            return string
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return number.boolValue ? "true" : "false"
+            }
+            return number.stringValue
+        case is NSNull:
+            return ""
+        case let array as [Any]:
+            return (try? prettyJSONText(array)) ?? String(describing: array)
+        case let dict as [String: Any]:
+            return (try? prettyJSONText(dict)) ?? String(describing: dict)
+        default:
+            return String(describing: value)
+        }
+    }
+
+    private static func yamlIssues(_ text: String) -> [String] {
+        var issues: [String] = []
+        var topKeys: [String: Int] = [:]
+        let lines = text.components(separatedBy: "\n")
+        for (index, rawLine) in lines.enumerated() {
+            let lineNumber = index + 1
+            if rawLine.contains("\t") {
+                issues.append("Line \(lineNumber): tab character; YAML forbids tabs for indentation.")
+            }
+            let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") {
+                continue
+            }
+            var inSingle = false
+            var inDouble = false
+            var squares = 0
+            var braces = 0
+            var scan = rawLine.startIndex
+            while scan < rawLine.endIndex {
+                let char = rawLine[scan]
+                if char == "'" && !inDouble {
+                    inSingle.toggle()
+                } else if char == "\"" && !inSingle {
+                    inDouble.toggle()
+                } else if !inSingle && !inDouble {
+                    if char == "[" {
+                        squares += 1
+                    } else if char == "]" {
+                        squares -= 1
+                    } else if char == "{" {
+                        braces += 1
+                    } else if char == "}" {
+                        braces -= 1
+                    } else if char == "#" {
+                        let previous = scan == rawLine.startIndex ? " " : rawLine[rawLine.index(before: scan)]
+                        if previous == " " || previous == "\t" {
+                            break
+                        }
+                    }
+                }
+                scan = rawLine.index(after: scan)
+            }
+            if inSingle || inDouble {
+                issues.append("Line \(lineNumber): unbalanced quote.")
+            }
+            if squares != 0 {
+                issues.append("Line \(lineNumber): unbalanced square bracket.")
+            }
+            if braces != 0 {
+                issues.append("Line \(lineNumber): unbalanced brace.")
+            }
+            if !rawLine.hasPrefix(" ") && !rawLine.hasPrefix("\t") {
+                if let colon = yamlKeyColon(trimmed) {
+                    let key = String(trimmed[..<colon]).trimmingCharacters(in: .whitespaces)
+                    if !key.isEmpty, !key.contains(" ") {
+                        if let first = topKeys[key] {
+                            issues.append("Line \(lineNumber): duplicate top-level key \(key), first seen on line \(first).")
+                        } else {
+                            topKeys[key] = lineNumber
+                        }
+                    }
+                }
+            }
+        }
+        return issues
+    }
+
+    private static func yamlNormalized(_ text: String) -> String {
+        text.components(separatedBy: "\n").map { line in
+            var out = line
+            while out.hasPrefix("\t") {
+                out = "  " + String(out.dropFirst())
+            }
+            return out.replacingOccurrences(of: "[ \\t]+$", with: "", options: .regularExpression)
+        }.joined(separator: "\n")
+    }
+
+    private static func yamlKeyColon(_ text: String) -> String.Index? {
+        var inSingle = false
+        var inDouble = false
+        var index = text.startIndex
+        while index < text.endIndex {
+            let char = text[index]
+            if char == "'" && !inDouble {
+                inSingle.toggle()
+            } else if char == "\"" && !inSingle {
+                inDouble.toggle()
+            } else if char == ":", !inSingle, !inDouble {
+                let next = text.index(after: index)
+                if next == text.endIndex || text[next] == " " {
+                    return index
+                }
+            }
+            index = text.index(after: index)
+        }
+        return nil
+    }
+
+    private static func yamlScalar(_ text: String) -> JSONValue {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty || trimmed == "~" || trimmed.lowercased() == "null" {
+            return .null
+        }
+        if trimmed.lowercased() == "true" {
+            return .bool(true)
+        }
+        if trimmed.lowercased() == "false" {
+            return .bool(false)
+        }
+        if let int = Int(trimmed) {
+            return .int(Int64(int))
+        }
+        if let double = Double(trimmed) {
+            return .double(double)
+        }
+        var value = trimmed
+        if value.count >= 2,
+           (value.hasPrefix("\"") && value.hasSuffix("\"")) || (value.hasPrefix("'") && value.hasSuffix("'")) {
+            value = String(value.dropFirst().dropLast())
+        }
+        return .string(value)
+    }
+
+    private static func yamlParse(_ text: String, tool: String) throws -> JSONValue {
+        var lines: [(indent: Int, text: String)] = []
+        for raw in text.components(separatedBy: "\n") {
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") {
+                continue
+            }
+            var indent = 0
+            for char in raw {
+                if char == " " {
+                    indent += 1
+                } else {
+                    break
+                }
+            }
+            lines.append((indent, String(raw.dropFirst(indent))))
+        }
+        var index = 0
+        let value = try yamlParseBlock(lines, &index, 0, tool)
+        guard index == lines.count else {
+            throw SystemToolError.executionFailed(tool: tool, message: "YAML has content outside the parsed structure; only mappings, lists, and scalars are supported.")
+        }
+        return value
+    }
+
+    private static func yamlParseBlock(_ lines: [(indent: Int, text: String)], _ index: inout Int, _ indent: Int, _ tool: String) throws -> JSONValue {
+        guard index < lines.count else {
+            return .null
+        }
+        let line = lines[index]
+        guard line.indent == indent else {
+            return .null
+        }
+        if line.text == "-" || line.text.hasPrefix("- ") {
+            return try yamlParseList(lines, &index, indent, tool)
+        }
+        if yamlKeyColon(line.text) != nil {
+            return try yamlParseMap(lines, &index, indent, tool)
+        }
+        index += 1
+        return yamlScalar(line.text)
+    }
+
+    private static func yamlParseMap(_ lines: [(indent: Int, text: String)], _ index: inout Int, _ indent: Int, _ tool: String) throws -> JSONValue {
+        var object: [String: JSONValue] = [:]
+        while index < lines.count {
+            let line = lines[index]
+            guard line.indent == indent else {
+                break
+            }
+            if line.text == "-" || line.text.hasPrefix("- ") {
+                break
+            }
+            guard let colon = yamlKeyColon(line.text) else {
+                break
+            }
+            let key = String(line.text[..<colon]).trimmingCharacters(in: .whitespaces)
+            guard !key.isEmpty else {
+                throw SystemToolError.executionFailed(tool: tool, message: "YAML mapping key is empty.")
+            }
+            let rest = String(line.text[line.text.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+            index += 1
+            if !rest.isEmpty {
+                object[key] = yamlScalar(rest)
+            } else if index < lines.count, lines[index].indent > indent {
+                object[key] = try yamlParseBlock(lines, &index, lines[index].indent, tool)
+            } else {
+                object[key] = .null
+            }
+        }
+        return .object(object)
+    }
+
+    private static func yamlParseList(_ lines: [(indent: Int, text: String)], _ index: inout Int, _ indent: Int, _ tool: String) throws -> JSONValue {
+        var items: [JSONValue] = []
+        while index < lines.count {
+            let line = lines[index]
+            guard line.indent == indent else {
+                break
+            }
+            guard line.text == "-" || line.text.hasPrefix("- ") else {
+                break
+            }
+            let rest = line.text == "-" ? "" : String(line.text.dropFirst(2))
+            if rest.isEmpty {
+                index += 1
+                if index < lines.count, lines[index].indent > indent {
+                    items.append(try yamlParseBlock(lines, &index, lines[index].indent, tool))
+                } else {
+                    items.append(.null)
+                }
+            } else if yamlKeyColon(rest) != nil {
+                var object: [String: JSONValue] = [:]
+                guard let colon = yamlKeyColon(rest) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "YAML list item has no key.")
+                }
+                let key = String(rest[..<colon]).trimmingCharacters(in: .whitespaces)
+                let valueText = String(rest[rest.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+                index += 1
+                if !valueText.isEmpty {
+                    object[key] = yamlScalar(valueText)
+                } else if index < lines.count, lines[index].indent > indent {
+                    object[key] = try yamlParseBlock(lines, &index, lines[index].indent, tool)
+                } else {
+                    object[key] = .null
+                }
+                while index < lines.count, lines[index].indent == indent + 2, yamlKeyColon(lines[index].text) != nil {
+                    let follow = lines[index]
+                    guard let followColon = yamlKeyColon(follow.text) else {
+                        break
+                    }
+                    let followKey = String(follow.text[..<followColon]).trimmingCharacters(in: .whitespaces)
+                    let followRest = String(follow.text[follow.text.index(after: followColon)...]).trimmingCharacters(in: .whitespaces)
+                    index += 1
+                    if !followRest.isEmpty {
+                        object[followKey] = yamlScalar(followRest)
+                    } else if index < lines.count, lines[index].indent > indent + 2 {
+                        object[followKey] = try yamlParseBlock(lines, &index, lines[index].indent, tool)
+                    } else {
+                        object[followKey] = .null
+                    }
+                }
+                items.append(.object(object))
+            } else {
+                items.append(yamlScalar(rest))
+                index += 1
+            }
+        }
+        return .array(items)
+    }
+
+    private static func plistJSONValue(_ value: Any) -> JSONValue {
+        switch value {
+        case let dict as [String: Any]:
+            return .object(Dictionary(uniqueKeysWithValues: dict.map { ($0.key, plistJSONValue($0.value)) }))
+        case let array as [Any]:
+            return .array(array.map { plistJSONValue($0) })
+        case let string as String:
+            return .string(string)
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return .bool(number.boolValue)
+            }
+            let double = number.doubleValue
+            if double == double.rounded(), abs(double) < 9.0e15 {
+                return .int(Int64(double))
+            }
+            return .double(double)
+        case let data as Data:
+            return .string(data.base64EncodedString())
+        case let date as Date:
+            return .string(ISO8601DateFormatter().string(from: date))
+        default:
+            return .string(String(describing: value))
+        }
+    }
+
+    private static func readPlist(cwd: String, path: String, tool: String) throws -> (Any, PropertyListSerialization.PropertyListFormat) {
+        let data = try readWorkspaceBytes(cwd: cwd, path: path, tool: tool)
+        var format = PropertyListSerialization.PropertyListFormat.xml
+        do {
+            let object = try PropertyListSerialization.propertyList(from: data, options: [], format: &format)
+            return (object, format)
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "Invalid property list: \(error.localizedDescription)")
+        }
+    }
+
+    private static func writePlist(cwd: String, path: String, object: Any, format: PropertyListSerialization.PropertyListFormat, tool: String) throws {
+        let data: Data
+        do {
+            data = try PropertyListSerialization.data(fromPropertyList: object, format: format, options: 0)
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "Cannot serialize property list: \(error.localizedDescription)")
+        }
+        try writeWorkspaceBytes(cwd: cwd, path: path, data: data, tool: tool)
+        let (verified, _) = try readPlist(cwd: cwd, path: path, tool: tool)
+        let matches: Bool
+        if let lhs = object as? NSObject, let rhs = verified as? NSObject {
+            matches = lhs.isEqual(rhs)
+        } else {
+            matches = String(describing: verified) == String(describing: object)
+        }
+        guard matches else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Property list verification failed: the file changed after writing.")
+        }
+    }
+
+    private static func plistValue(at keyPath: String, in object: Any) -> Any? {
+        var current: Any? = object
+        for part in keyPath.split(separator: ".") {
+            guard let dict = current as? [String: Any] else {
+                return nil
+            }
+            current = dict[String(part)]
+        }
+        return current
+    }
+
+    private static func plistSet(_ value: Any, keyPath: String, root: inout [String: Any]) {
+        var parts = keyPath.split(separator: ".").map(String.init)
+        guard let first = parts.first else {
+            return
+        }
+        if parts.count == 1 {
+            root[first] = value
+            return
+        }
+        var child = (root[first] as? [String: Any]) ?? [:]
+        parts.removeFirst()
+        plistSet(value, keyPath: parts.joined(separator: "."), root: &child)
+        root[first] = child
+    }
+
+    private static func plistDelete(keyPath: String, root: inout [String: Any]) -> Bool {
+        var parts = keyPath.split(separator: ".").map(String.init)
+        guard let first = parts.first else {
+            return false
+        }
+        if parts.count == 1 {
+            return root.removeValue(forKey: first) != nil
+        }
+        guard var child = root[first] as? [String: Any] else {
+            return false
+        }
+        parts.removeFirst()
+        let removed = plistDelete(keyPath: parts.joined(separator: "."), root: &child)
+        root[first] = child
+        return removed
+    }
+
+    private static func unifiedDiff(oldText: String, newText: String, oldPath: String, newPath: String) -> (diff: String, added: Int, removed: Int) {
+        let oldLines = oldText.components(separatedBy: "\n")
+        let newLines = newText.components(separatedBy: "\n")
+        let n = oldLines.count
+        let m = newLines.count
+        var table = Array(repeating: Array(repeating: 0, count: m + 1), count: n + 1)
+        for i in (0..<n).reversed() {
+            for j in (0..<m).reversed() {
+                if oldLines[i] == newLines[j] {
+                    table[i][j] = table[i + 1][j + 1] + 1
+                } else {
+                    table[i][j] = max(table[i + 1][j], table[i][j + 1])
+                }
+            }
+        }
+        var ops: [(Character, String)] = []
+        var i = 0
+        var j = 0
+        while i < n, j < m {
+            if oldLines[i] == newLines[j] {
+                ops.append((" ", oldLines[i]))
+                i += 1
+                j += 1
+            } else if table[i + 1][j] >= table[i][j + 1] {
+                ops.append(("-", oldLines[i]))
+                i += 1
+            } else {
+                ops.append(("+", newLines[j]))
+                j += 1
+            }
+        }
+        while i < n {
+            ops.append(("-", oldLines[i]))
+            i += 1
+        }
+        while j < m {
+            ops.append(("+", newLines[j]))
+            j += 1
+        }
+        var added = 0
+        var removed = 0
+        for op in ops {
+            if op.0 == "+" {
+                added += 1
+            } else if op.0 == "-" {
+                removed += 1
+            }
+        }
+        let changeIndices = ops.indices.filter { ops[$0].0 != " " }
+        var groups: [[Int]] = []
+        for idx in changeIndices {
+            if let last = groups.last, let lastIdx = last.last, idx - lastIdx <= 7 {
+                groups[groups.count - 1].append(idx)
+            } else {
+                groups.append([idx])
+            }
+        }
+        var out: [String] = ["--- \(oldPath)", "+++ \(newPath)"]
+        for group in groups {
+            let start = max(0, group.first! - 3)
+            let end = min(ops.count, group.last! + 4)
+            var oldStart = 1
+            var newStart = 1
+            for k in 0..<start {
+                if ops[k].0 != "+" {
+                    oldStart += 1
+                }
+                if ops[k].0 != "-" {
+                    newStart += 1
+                }
+            }
+            var oldCount = 0
+            var newCount = 0
+            for k in start..<end {
+                if ops[k].0 != "+" {
+                    oldCount += 1
+                }
+                if ops[k].0 != "-" {
+                    newCount += 1
+                }
+            }
+            let oldRange = oldCount == 1 ? "\(oldStart)" : "\(oldStart),\(oldCount)"
+            let newRange = newCount == 1 ? "\(newStart)" : "\(newStart),\(newCount)"
+            out.append("@@ -\(oldRange) +\(newRange) @@")
+            for k in start..<end {
+                out.append("\(ops[k].0)\(ops[k].1)")
+            }
+        }
+        return (out.joined(separator: "\n"), added, removed)
+    }
+
+    private static func lineCounts(_ content: String) -> (total: Int, code: Int, comment: Int, blank: Int) {
+        if content.isEmpty {
+            return (0, 0, 0, 0)
+        }
+        var lines = content.components(separatedBy: "\n")
+        if content.hasSuffix("\n") {
+            lines.removeLast()
+        }
+        var total = 0
+        var code = 0
+        var comment = 0
+        var blank = 0
+        var inBlock = false
+        for rawLine in lines {
+            total += 1
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty {
+                blank += 1
+                continue
+            }
+            if inBlock {
+                comment += 1
+                if line.contains("*/") {
+                    inBlock = false
+                }
+                continue
+            }
+            if line.hasPrefix("//") || line.hasPrefix("#") || line.hasPrefix("*") {
+                comment += 1
+                continue
+            }
+            if line.hasPrefix("/*") {
+                comment += 1
+                if !line.dropFirst(2).contains("*/") {
+                    inBlock = true
+                }
+                continue
+            }
+            code += 1
+        }
+        return (total, code, comment, blank)
+    }
+
+    private static func extractSymbols(_ content: String, path: String) -> [[String: JSONValue]] {
+        var symbols: [[String: JSONValue]] = []
+        let pattern = "^\\s*(?:(?:public|private|fileprivate|internal|open)\\s+)*(?:final\\s+|override\\s+|static\\s+|class\\s+)*(class|struct|enum|protocol|actor|extension|func)\\s+([A-Za-z_][A-Za-z0-9_]*)"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else {
+            return []
+        }
+        let lines = content.components(separatedBy: "\n")
+        for (index, line) in lines.enumerated() {
+            let range = NSRange(line.startIndex..., in: line)
+            guard let match = regex.firstMatch(in: line, range: range),
+                  match.numberOfRanges == 3,
+                  let kindRange = Range(match.range(at: 1), in: line),
+                  let nameRange = Range(match.range(at: 2), in: line) else {
+                continue
+            }
+            symbols.append([
+                "path": .string(path),
+                "kind": .string(String(line[kindRange])),
+                "name": .string(String(line[nameRange])),
+                "line": .int(Int64(index + 1)),
+            ])
+        }
+        return symbols
+    }
+
+    private static func wholeWordReplace(_ content: String, old: String, new: String) -> (String, Int) {
+        let pattern = "\\b" + NSRegularExpression.escapedPattern(for: old) + "\\b"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return (content, 0)
+        }
+        let range = NSRange(content.startIndex..., in: content)
+        let count = regex.numberOfMatches(in: content, range: range)
+        let replaced = regex.stringByReplacingMatches(in: content, range: range, withTemplate: NSRegularExpression.escapedTemplate(for: new))
+        return (replaced, count)
+    }
+
+    private static func symbolDeclarationLine(_ lines: [String], symbol: String) -> Int? {
+        let pattern = "^\\s*(?:(?:public|private|fileprivate|internal|open)\\s+)*(?:final\\s+|override\\s+|static\\s+|class\\s+)*(?:class|struct|enum|protocol|actor|extension|func)\\s+" + NSRegularExpression.escapedPattern(for: symbol) + "\\b"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else {
+            return nil
+        }
+        for (index, line) in lines.enumerated() {
+            let range = NSRange(line.startIndex..., in: line)
+            if regex.firstMatch(in: line, range: range) != nil {
+                return index
+            }
+        }
+        return nil
+    }
+
+    private static func braceBlockEnd(_ lines: [String], from start: Int) -> Int? {
+        var depth = 0
+        var sawOpen = false
+        var index = start
+        while index < lines.count {
+            for char in lines[index] {
+                if char == "{" {
+                    depth += 1
+                    sawOpen = true
+                }
+                if char == "}" {
+                    depth -= 1
+                }
+            }
+            if sawOpen, depth == 0 {
+                return index
+            }
+            if depth < 0 {
+                return nil
+            }
+            index += 1
+        }
+        return nil
+    }
+
+    private static func shellQuoted(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private static func cleanTerminalOutput(_ output: String) -> String {
+        output.components(separatedBy: "\n").filter { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return !trimmed.contains("__AGENTS_TOOL_DONE__:") && !trimmed.hasPrefix("cd ")
+        }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func runShellCommand(tool: String, threadId: String, cwd: String, command: String, timeoutSeconds: Int, runtime: AgentsRuntimeClient) async throws -> String {
+        let fullCommand = "cd " + shellQuoted(ExternalEditorService.expandedPath(cwd)) + " && " + command
+        let result = try await runTerminalCommand(tool: tool, threadId: threadId, command: fullCommand, timeoutSeconds: timeoutSeconds, runtime: runtime)
+        if result["timedOut"]?.boolValue == true {
+            throw SystemToolError.operationTimeout(tool: tool)
+        }
+        let exitCode = result["exitCode"]?.intValue ?? -1
+        let cleaned = cleanTerminalOutput(result["output"]?.stringValue ?? "")
+        guard exitCode == 0 else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Command failed with exit code \(exitCode): \(cleaned)")
+        }
+        return cleaned
+    }
+
+    private static func normalizedText(_ content: String) -> String {
+        let lines = content.components(separatedBy: "\n").map { line in
+            line.replacingOccurrences(of: "\t", with: "    ").replacingOccurrences(of: "[ \\t]+$", with: "", options: .regularExpression)
+        }
+        var out: [String] = []
+        var blanks = 0
+        for line in lines {
+            if line.isEmpty {
+                blanks += 1
+                if blanks <= 2 {
+                    out.append(line)
+                }
+            } else {
+                blanks = 0
+                out.append(line)
+            }
+        }
+        var text = out.joined(separator: "\n")
+        if !text.isEmpty, !text.hasSuffix("\n") {
+            text += "\n"
+        }
+        return text
+    }
+
+    private static func codeTemplate(_ template: String, module: String, fileName: String, tool: String) throws -> String {
+        let base = (fileName as NSString).deletingPathExtension
+        let first = base.unicodeScalars.first
+        let validStart = first.map { CharacterSet.letters.contains($0) || $0 == "_" } ?? false
+        let validRest = base.unicodeScalars.dropFirst().allSatisfy { CharacterSet.alphanumerics.contains($0) || $0 == "_" }
+        guard validStart, validRest else {
+            throw SystemToolError.executionFailed(tool: tool, message: "File name must be a valid Swift identifier for code generation.")
+        }
+        switch template {
+        case "swift_struct":
+            return "import Foundation\n\npublic struct \(base) {\n    public init() {}\n}\n"
+        case "swift_class":
+            return "import Foundation\n\npublic final class \(base) {\n    public init() {}\n}\n"
+        case "swiftui_view":
+            return "import SwiftUI\n\npublic struct \(base): View {\n    public var body: some View {\n        Text(\"\(base)\")\n    }\n}\n"
+        case "test":
+            return "import Testing\n@testable import \(module)\n\n@Suite(\"\(base)\")\nstruct \(base) {\n    @Test(\"Placeholder\")\n    func placeholder() {\n        #expect(Bool(false), \"Replace this failing scaffold with a real assertion.\")\n    }\n}\n"
+        default:
+            throw SystemToolError.executionFailed(tool: tool, message: "Unknown code template \(template); use swift_struct, swift_class, swiftui_view, or test.")
+        }
+    }
+
+    private static func tocSlug(_ text: String) -> String {
+        var kept = ""
+        for char in text.lowercased() {
+            if char.isLetter || char.isNumber || char == " " || char == "-" {
+                kept.append(char)
+            }
+        }
+        let spaced = kept.replacingOccurrences(of: " ", with: "-")
+        var slug = ""
+        var previousDash = false
+        for char in spaced {
+            if char == "-" {
+                if !previousDash {
+                    slug.append(char)
+                }
+                previousDash = true
+            } else {
+                slug.append(char)
+                previousDash = false
+            }
+        }
+        return slug.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 }

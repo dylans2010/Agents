@@ -1317,6 +1317,10 @@ public nonisolated struct WorkspaceFileEntry: Codable, Hashable, Sendable, Ident
     public var isDirectory: Bool
     public var sizeBytes: Int64?
     public var gitStatus: String?
+    public var modifiedAt: Double?
+    public var isSymlink: Bool?
+    public var symlinkTarget: String?
+    public var isExecutable: Bool?
 
     public var id: String { path }
 
@@ -1325,13 +1329,21 @@ public nonisolated struct WorkspaceFileEntry: Codable, Hashable, Sendable, Ident
         name: String? = nil,
         isDirectory: Bool = false,
         sizeBytes: Int64? = nil,
-        gitStatus: String? = nil
+        gitStatus: String? = nil,
+        modifiedAt: Double? = nil,
+        isSymlink: Bool? = nil,
+        symlinkTarget: String? = nil,
+        isExecutable: Bool? = nil
     ) {
         self.path = path
         self.name = name ?? (path as NSString).lastPathComponent
         self.isDirectory = isDirectory
         self.sizeBytes = sizeBytes
         self.gitStatus = gitStatus
+        self.modifiedAt = modifiedAt
+        self.isSymlink = isSymlink
+        self.symlinkTarget = symlinkTarget
+        self.isExecutable = isExecutable
     }
 
     public init(from decoder: Decoder) throws {
@@ -1345,6 +1357,10 @@ public nonisolated struct WorkspaceFileEntry: Codable, Hashable, Sendable, Ident
             self.isDirectory = isDir
             self.sizeBytes = nil
             self.gitStatus = nil
+            self.modifiedAt = nil
+            self.isSymlink = nil
+            self.symlinkTarget = nil
+            self.isExecutable = nil
             return
         }
         let c = try decoder.container(keyedBy: AnyCodingKey.self)
@@ -1354,6 +1370,10 @@ public nonisolated struct WorkspaceFileEntry: Codable, Hashable, Sendable, Ident
         self.isDirectory = c.bool("isDirectory", "isDir", "directory") ?? (c.string("kind", "type") == "directory")
         self.sizeBytes = c.int64("sizeBytes", "byteLen", "size")
         self.gitStatus = c.string("gitStatus", "status")
+        self.modifiedAt = c.double("modifiedAt", "mtime", "modified")
+        self.isSymlink = c.bool("isSymlink", "symlink")
+        self.symlinkTarget = c.string("symlinkTarget", "linkTarget")
+        self.isExecutable = c.bool("isExecutable", "executable")
     }
 }
 

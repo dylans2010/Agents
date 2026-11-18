@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 coincide-core = { path = "../coincide-core" }
+regex = "1"
 serde.workspace = true
 serde_json.workspace = true
 

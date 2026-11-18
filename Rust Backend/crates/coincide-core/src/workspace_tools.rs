@@ -12,6 +12,17 @@ use std::os::unix::fs::OpenOptionsExt;
 
 const MAX_FILE_WRITE_BYTES: usize = 3 * 1024 * 1024;
 
+#[cfg(unix)]
+fn is_executable(meta: &fs::Metadata) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    meta.permissions().mode() & 0o111 != 0
+}
+
+#[cfg(not(unix))]
+fn is_executable(_meta: &fs::Metadata) -> bool {
+    false
+}
+
 pub fn files(params: &Value) -> Result<Value> {
     let cwd = PathBuf::from(req_str(params, &["cwd", "path"], "cwd")?);
     ensure!(cwd.is_dir(), "Workspace directory does not exist");
@@ -371,10 +382,31 @@ pub fn read_dir(params: &Value) -> Result<Value> {
                 continue;
             };
             let is_dir = kind.is_dir();
+            let meta = fs::symlink_metadata(&path).ok();
+            let size = meta.as_ref().map(|m| m.len());
+            let modified = meta
+                .as_ref()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs_f64());
+            let is_symlink = kind.is_symlink();
+            let target = if is_symlink {
+                fs::read_link(&path)
+                    .ok()
+                    .map(|p| p.to_string_lossy().into_owned())
+            } else {
+                None
+            };
+            let executable = meta.as_ref().map(is_executable).unwrap_or(false);
             entries.push(json!({
                 "path": rel_str.replace('\\', "/"),
                 "name": name,
                 "isDirectory": is_dir,
+                "sizeBytes": size,
+                "modifiedAt": modified,
+                "isSymlink": is_symlink,
+                "symlinkTarget": target,
+                "isExecutable": executable,
             }));
             if recursive && is_dir && depth < 16 {
                 queue.push_back((path, depth + 1));

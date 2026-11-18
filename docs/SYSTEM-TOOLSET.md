@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 107 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 166 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -51,9 +51,9 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
 
-## The 107-tool registry
+## The 166-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 107 tools, 51 distinct actions: several tools share one action (`computer_use.request` x21, `terminal.create` x5, `workspace.write_file` x5, `workspace.edit_file` x4, `workspace.read_dir` x4, `workspace.search_regex` x3, `git.log` x3, `git.actions.run` x2, `workspace.read_file` x2, `workspace.move_file` x2, `git.diff.range` x2, `git.diff` x2, `git.branches.list` x2, `git.checkpoints.restore` x2, `workers.spawn` x2, `memory.store` x2, plus the remaining single-tool file aliases).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 166 tools, 53 distinct actions: several tools share one action (`workspace.write_file` x32, `computer_use.request` x21, `terminal.create` x16, `workspace.read_file` x15, `workspace.read_dir` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `workspace.search_regex` x3, `workspace.files` x2, `workspace.search` x2, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.store` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, plus 30 single-tool actions).
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -164,6 +164,65 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `project_restore` | `git.checkpoints.restore` | engine | Engine `git.checkpoints.restore` via the workspace API; `reset --hard` + `clean -fdx`; requires `confirm=true` |
 | `safe_undo` | `git.checkpoints.restore` | engine | Swift composition: list snapshots, restore the second-newest; requires `confirm=true` and at least two snapshots |
 | `safe_validate_changes` | `workspace.search_regex` | desktop | Swift-only scan: merge markers + missing trailing newline via `workspace.search_regex` / `workspace.read_file` |
+| `create_artifact` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `list_artifacts` | `workspace.read_dir` | desktop | FFI `workspace.read_dir` arm -> `coincide_core::workspace_tools::read_dir`, with metadata fields |
+| `read_artifact` | `workspace.read_file` | desktop | Swift composition over the FFI `workspace.read_file` arm |
+| `delete_artifact` | `workspace.delete_file` | desktop | FFI `workspace.delete_file` arm -> `coincide_core::workspace_tools::delete_file` |
+| `format_json_file` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `csv_to_json` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `json_to_csv` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `plist_to_json` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `json_to_plist` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `json_validate` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `json_validator_tool` | `workspace.read_file` | desktop | Swift composition over the FFI `workspace.read_file` arm |
+| `yaml_validate` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `yaml_parser_tool` | `workspace.read_file` | desktop | Swift composition over the FFI `workspace.read_file` arm |
+| `plist_edit` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `plist_editor` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `binary_plist_converter` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `file_metadata` | `workspace.read_dir` | desktop | FFI `workspace.read_dir` arm -> `coincide_core::workspace_tools::read_dir`, with metadata fields |
+| `file_hash_verify` | `workspace.read_file` | desktop | In-process FileManager bytes + CryptoKit (SHA-256/SHA-512/SHA-1/MD5) |
+| `generate_file_checksum` | `workspace.read_file` | desktop | In-process FileManager bytes + CryptoKit (SHA-256/SHA-512/SHA-1/MD5) |
+| `file_checksum_verifier` | `workspace.read_file` | desktop | In-process FileManager bytes + CryptoKit (SHA-256/SHA-512/SHA-1/MD5) |
+| `file_compare_diff` | `workspace.read_file` | desktop | Swift composition over the FFI `workspace.read_file` arm |
+| `file_head_preview` | `workspace.read_file` | desktop | Swift composition over the FFI `workspace.read_file` arm |
+| `code_generate` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `code_format` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `swift_format_lint` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `code_mutation_engine` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `patch_application_engine` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `automated_repair_engine` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `regex_replace_in_files` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `symbol_rename_project` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `symbol_move_file` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `import_cleanup` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `batch_rename_files` | `workspace.move_file` | desktop | FFI `workspace.move_file` arm -> `coincide_core::workspace_tools::move_file` |
+| `file_backup` | `workspace.copy_file` | desktop | Swift FileManager byte copy (read + write), verified by size |
+| `session_export` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `markdown_toc_generate` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `readme_generate` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `docs_generate` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `test_data_factory` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `ui_test_scaffold` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `test_snapshot_manage` | `workspace.read_dir` | desktop | FFI `workspace.read_dir` arm for list; clean adds text search + FFI `workspace.delete_file`, keeps snapshots referenced by a `.swift` file |
+| `open_in_finder` | `system.open_in_finder` | desktop | In-process `NSWorkspace.shared.open`, same API family as `ExternalEditorService` |
+| `reveal_in_finder` | `system.reveal_in_finder` | desktop | In-process `NSWorkspace.shared.activateFileViewerSelecting`, same call as `ExternalEditorService` |
+| `image_encode_base64` | `workspace.read_file` | desktop | In-process FileManager bytes + `Data` base64 |
+| `image_decode_base64` | `workspace.write_file` | desktop | In-process `Data` base64 + FileManager bytes |
+| `image_get_dimensions` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `image_convert_format` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `image_generate_thumbnail` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `image_extract_metadata` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `zip_file` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `unzip_file` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `tar_archive_create` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `tar_archive_extract` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `gzip_compress_file` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `gzip_decompress_file` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `count_file_lines` | `workspace.read_file` | desktop | Swift composition over the FFI `workspace.read_file` arm |
+| `extract_code_symbols` | `workspace.read_file` | desktop | Swift composition over the FFI `workspace.read_file` arm |
+| `find_duplicate_files` | `workspace.read_file` | desktop | FFI `workspace.read_dir` arm + FileManager bytes + CryptoKit SHA-256, grouped by hash |
+| `env_capture_logs` | `memory.snapshot` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::snapshot_context` |
 
 ### Slice 10: Git completion, snapshots, and aliases
 
@@ -191,6 +250,98 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
   next to Diff, behind the same confirmation pattern as turn-checkpoint
   restore.
 
+### Slice 11: G4 file ops, transforms & artifacts
+
+59 new tools, taking the registry from 107 to 166 tools and 51 to 53
+distinct actions (the two new actions are `system.open_in_finder` and
+`system.reveal_in_finder`). `file_append` was already registered in slice
+10, so the G4 family counts 60 distinct names with 59 new registrations.
+No G4 tool was left unimplemented.
+
+- `read_dir` metadata extension: `coincide-core` `workspace_tools::read_dir`
+  entries now carry `sizeBytes`, `modifiedAt` (seconds since epoch, float),
+  `isSymlink`, `symlinkTarget` (null unless a symlink), and `isExecutable`
+  (Unix permission bit `0o111`, false elsewhere). Swift
+  `WorkspaceFileEntry` gained the same five fields, decoded through the
+  existing `AnyCodingKey` helpers. `file_metadata` lists the parent
+  directory and picks the entry; `list_artifacts` sorts newest-first by
+  `modifiedAt`.
+- Artifacts convention: `.assist_temp/artifacts/<name>.md`, over the real
+  write/read/list/delete primitives. The name must be a plain file name
+  (no `/`, `\`, `.`, or `..`); `.md` is appended when missing.
+  `delete_artifact` requires `confirm=true`; `agent_notes.md` is protected
+  from deletion. `read_artifact` caps content at 60,000 characters and
+  marks truncation. `file_backup` uses the same convention under
+  `.assist_temp/backups/<base>.<yyyy-MM-dd-HHmmss>.bak`.
+- Binary file IO: the Rust `workspace.read_file` arm refuses binary content
+  (NUL check) and requires UTF-8, so checksums, base64, backups, and
+  duplicate detection read bytes directly with FileManager under a
+  symlink-resolved containment check (mirroring `resolveThreadRoot` /
+  `assertFileAbsent`), capped at 3 MiB.
+- Checksums: Swift computes SHA-256 / SHA-512 / SHA-1 / MD5 in-process with
+  CryptoKit over those bytes. The Rust MCP arms shell out to `shasum` /
+  `md5` through the session terminal, matching the catalog's own wording;
+  `remote_crypto.rs` exists but is not declared in
+  `coincide-core/src/lib.rs`, so `sha256_hex` is unavailable to the server.
+- `file_compare_diff` is a real LCS-based unified diff with hunks (3 lines
+  of context) in Swift, not `workspace_diff::changed_ranges` (that helper
+  returns a single optional character range and gives up on files over
+  2000 characters). The Rust arm runs the real `diff -u` CLI, treating
+  exit 1 as "different" rather than an error.
+- YAML is a heuristic validator plus a subset parser in both Swift and
+  Rust: mappings, nested mappings, lists (including `- key: value` items),
+  and scalars. It is NOT a full YAML parser — no anchors, aliases, flow
+  style, or block scalars — and the tool descriptions say so. The validator
+  flags tabs, unbalanced brackets/quotes, and duplicate top-level keys.
+- Plists: Swift uses `PropertyListSerialization` in-process (XML and
+  binary); edits preserve the source format and verify with a re-read. The
+  Rust arms shell out to `plutil` (`-convert`, `-extract`, `-replace` with
+  `-insert` fallback, `-remove`, `-lint`) through the session terminal, so
+  they need a mounted thread.
+- CLI-backed tools (`sips`, `mdls`, `ditto`, `tar`, `gzip`, `plutil`,
+  `swiftformat`) run through the real terminal RPC and return real output
+  plus exit code. A missing CLI is a real error, never a fake result:
+  `swift_format_lint` reports "swiftformat is not installed" on exit 127
+  or "command not found", and returns `lintPassed` instead of throwing on a
+  nonzero lint exit.
+- `code_format` is text normalization only (tabs to 4 spaces, trailing
+  whitespace, blank-line collapse to at most 2, trailing newline) — not a
+  real formatter. `code_generate` writes template files (`swift_struct`,
+  `swift_class`, `swiftui_view`, `test`, the last a failing `#expect`
+  scaffold per the catalog) and refuses to overwrite; it does NOT register
+  the file in `project.pbxproj`, because no such primitive exists — the
+  catalog's pbxproj claim is not implemented.
+- `automated_repair_engine` is annotation-only: it inserts
+  `// AssistAutoRepair: review required` above the named lines and does not
+  fix or rebuild anything. `import_cleanup` and `test_snapshot_manage`
+  clean are heuristics: an import is removed only when its module name
+  appears nowhere else as a whole word (a protected set of system modules
+  is never removed), and a snapshot is deleted only when its base name
+  (one extension stripped) is not referenced in any `.swift` file.
+- `env_capture_logs` is a thin alias of `mem_context_snapshot`
+  (`memory.snapshot`); it returns snapshot metadata only, never log
+  contents — the name overstates what it does.
+- Swift-vs-Rust mechanism split: Swift runs JSON/plist/YAML/checksum/diff
+  in-process (JSONSerialization, PropertyListSerialization, CryptoKit,
+  LCS); the Rust MCP arms use the equivalent CLIs (`plutil`, `shasum`,
+  `md5`, `diff -u`) or hand-rolled helpers (base64, YAML subset parser)
+  through the session terminal, and use the `regex` crate for
+  `regex_replace_in_files`. Both sides are covered by the same cross-check
+  test, updated to 166.
+- Finder tools: Swift uses `NSWorkspace.shared.open` /
+  `activateFileViewerSelecting` on the main actor; the Rust arms use the
+  macOS `open` / `open -R` CLI through the session terminal.
+- Pre-existing repair found by the cross-check: since slice 5,
+  `set_window_frame` in the Swift registry was missing its closing `]` and
+  `),`, so every definition after it nested inside its `parameters` array
+  (a type error) and the array end carried a compensating extra `),` +
+  `]` pair. The Rust cross-check test parses the Swift source by
+  definition, so it failed on that tool too (9 params parsed vs 7 real).
+  This slice restores the two missing lines after the `height` parameter
+  and removes the compensating pair at the end of the array; the registry
+  now counts 166 definitions, 166 closers, 166 parameter-array closes,
+  and the cross-check passes exactly.
+
 ## The MCP server
 
 `Rust Backend/crates/coincide-mcp-server/` is a standalone stdio binary
@@ -209,7 +360,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 107-tool registry, with the same names, descriptions,
+- `tools/list` — the real 166-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -530,7 +681,7 @@ What is enforced for real in this slice:
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 10, 107 tools are real. These catalog tools are NOT
+registry. After slice 11, 166 tools are real. These catalog tools are NOT
 implemented, and why:
 
 - Memory (`manage_memory`, `conversation_context_manager`):
