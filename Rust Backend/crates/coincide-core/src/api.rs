@@ -4584,7 +4584,7 @@ mod tests {
         let session = Session::fixture_worker(|_, events| {
             for id in 0..2 * agent::MAX_SESSION_EVENTS {
                 let frame = if id == 0 {
-                    json!({"id": id, "method": "item/started"})
+                    json!({"id": id, "method": "item/started", "params": {"item": {"type": "agentMessage", "id": "survivor", "text": ""}}})
                 } else {
                     json!({"id": id})
                 };
