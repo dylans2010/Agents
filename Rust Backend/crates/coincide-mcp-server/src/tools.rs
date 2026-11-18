@@ -35,7 +35,7 @@ const P_THREAD_ID: ToolParam = ToolParam {
     name: "threadId",
     kind: "string",
     required: true,
-    description: "Owning thread ID.",
+    description: "Owning thread ID, pinned to the session thread when bound.",
 };
 const P_LIMIT: ToolParam = ToolParam {
     name: "limit",
@@ -117,7 +117,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
             name: "threadId",
             kind: "string",
             required: false,
-            description: "Owning thread ID.",
+            description: "Owning thread ID, pinned to the session thread when bound.",
         }],
     },
     ToolDef {
@@ -397,7 +397,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID; the terminal starts in the thread working directory.",
+                description: "Owning thread ID, pinned to the session thread when bound; the terminal starts in the thread working directory.",
             },
             ToolParam {
                 name: "command",
@@ -423,7 +423,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID; the terminal starts in the thread working directory.",
+                description: "Owning thread ID, pinned to the session thread when bound; the terminal starts in the thread working directory.",
             },
             ToolParam {
                 name: "command",
@@ -699,7 +699,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "parentThreadId",
                 kind: "string",
                 required: true,
-                description: "Parent thread ID that owns the workers.",
+                description: "Parent thread ID that owns the workers, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "workers",
@@ -1885,7 +1885,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "command",
@@ -1911,7 +1911,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "command",
@@ -1937,7 +1937,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "limit",
@@ -1963,7 +1963,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "from",
@@ -1989,7 +1989,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "path",
@@ -2015,7 +2015,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "action",
@@ -2105,7 +2105,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "include_screenshot",
@@ -2125,7 +2125,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "parentThreadId",
                 kind: "string",
                 required: true,
-                description: "Parent thread ID that owns the workers.",
+                description: "Parent thread ID that owns the workers, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "workers",
@@ -2145,7 +2145,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "action",
@@ -2195,7 +2195,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "path",
@@ -2227,7 +2227,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "action",
@@ -2265,7 +2265,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "sha",
@@ -2297,7 +2297,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "action",
@@ -2347,7 +2347,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "from",
@@ -2411,7 +2411,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "label",
@@ -2431,7 +2431,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
         ],
     },
@@ -2445,7 +2445,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "checkpointId",
@@ -2471,7 +2471,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "confirm",
@@ -3622,7 +3622,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "scheme",
@@ -3660,7 +3660,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "scheme",
@@ -3698,7 +3698,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "kind",
@@ -3736,7 +3736,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "kind",
@@ -3768,7 +3768,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "timeoutSeconds",
@@ -3788,7 +3788,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "timeoutSeconds",
@@ -3808,7 +3808,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "timeoutSeconds",
@@ -3828,7 +3828,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "scheme",
@@ -3866,7 +3866,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "scheme",
@@ -3904,7 +3904,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "scheme",
@@ -3948,7 +3948,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "testIdentifier",
@@ -3986,7 +3986,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "xcresultPath",
@@ -4012,7 +4012,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "xcresultPath",
@@ -4044,7 +4044,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "benchmark",
@@ -4076,7 +4076,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "scheme",
@@ -4108,7 +4108,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "action",
@@ -4140,7 +4140,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "key",
@@ -4178,7 +4178,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "scheme",
@@ -4204,7 +4204,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "timeoutSeconds",
@@ -4224,7 +4224,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "device",
@@ -4250,7 +4250,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "action",
@@ -4288,7 +4288,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "timeoutSeconds",
@@ -4308,7 +4308,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "profilePath",
@@ -4334,7 +4334,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "action",
@@ -4366,7 +4366,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "package",
@@ -4392,7 +4392,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "path",
@@ -4418,7 +4418,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "timeoutSeconds",
@@ -4438,7 +4438,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "path",
@@ -4464,7 +4464,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "path",
@@ -4490,7 +4490,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "timeoutSeconds",
@@ -4510,7 +4510,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "profilePath",
@@ -4536,7 +4536,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "path",
@@ -4562,7 +4562,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "path",
@@ -4594,7 +4594,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "scope",
@@ -5785,7 +5785,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "cwd",
@@ -5837,7 +5837,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "cwd",
@@ -5869,7 +5869,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "cwd",
@@ -6235,7 +6235,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: false,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
         ],
     },
@@ -6287,7 +6287,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "cwd",
@@ -6381,7 +6381,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: false,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
         ],
     },
@@ -6419,7 +6419,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: false,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
         ],
     },
@@ -6433,7 +6433,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "cwd",
@@ -6847,7 +6847,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: false,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
         ],
     },
@@ -6861,7 +6861,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "cwd",
@@ -6893,7 +6893,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "cwd",
@@ -6957,7 +6957,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: false,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
         ],
     },
@@ -6983,7 +6983,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: false,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
         ],
     },
@@ -6997,7 +6997,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "operation",
@@ -7121,7 +7121,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "requestId",
@@ -7161,7 +7161,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "cwd",
@@ -7245,7 +7245,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
             ToolParam {
                 name: "query",
@@ -7277,7 +7277,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
             ToolParam {
                 name: "url",
@@ -7297,7 +7297,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
             ToolParam {
                 name: "url",
@@ -7323,7 +7323,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "operation",
@@ -7385,7 +7385,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID.",
+                description: "Owning thread ID, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "action",
@@ -7537,7 +7537,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: false,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
         ],
     },
@@ -7638,7 +7638,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: true,
-                description: "Owning thread ID. Only used by the MCP server path.",
+                description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path.",
             },
             ToolParam {
                 name: "query",

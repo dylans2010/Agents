@@ -113,7 +113,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID, pinned to the session thread when bound."),
             ]
         ),
         SystemToolDefinition(
@@ -141,7 +141,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.status",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
             ]
         ),
         SystemToolDefinition(
@@ -150,7 +150,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.diff",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Single file path to diff."),
                 SystemToolParameter(name: "staged", type: "boolean", required: false, description: "Diff staged changes instead of the worktree."),
             ]
@@ -161,7 +161,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.log",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum commits to return, 1–200. Defaults to 50."),
                 SystemToolParameter(name: "skip", type: "integer", required: false, description: "Commits to skip for pagination. Defaults to 0."),
             ]
@@ -172,7 +172,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.show",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "sha", type: "string", required: true, description: "Full 40- or 64-character commit SHA."),
             ]
         ),
@@ -182,7 +182,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.diff.range",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "from", type: "string", required: true, description: "Base reference, such as a branch name or commit SHA."),
                 SystemToolParameter(name: "to", type: "string", required: true, description: "Reference to compare against the base, such as a branch name or commit SHA."),
             ]
@@ -193,7 +193,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.diff.branch",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
             ]
         ),
         SystemToolDefinition(
@@ -301,7 +301,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID; the terminal starts in the thread working directory."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound; the terminal starts in the thread working directory."),
                 SystemToolParameter(name: "command", type: "string", required: true, description: "Build command to run, for example xcodebuild -scheme MyApp build."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command. Defaults to 600."),
             ]
@@ -312,7 +312,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID; the terminal starts in the thread working directory."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound; the terminal starts in the thread working directory."),
                 SystemToolParameter(name: "command", type: "string", required: true, description: "Test command to run, for example xcodebuild test -scheme MyApp or cargo test."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command. Defaults to 600."),
             ]
@@ -323,7 +323,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.actions.run",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "message", type: "string", required: true, description: "Commit message."),
                 SystemToolParameter(name: "paths", type: "array", required: false, description: "Paths to commit; defaults to all changes."),
             ]
@@ -334,7 +334,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.actions.run",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
             ]
         ),
         SystemToolDefinition(
@@ -343,7 +343,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.actions.pull",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
             ]
         ),
         SystemToolDefinition(
@@ -352,7 +352,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.branches.list",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scope", type: "string", required: false, description: "project lists the project checkout branches instead of the thread worktree."),
             ]
         ),
@@ -362,7 +362,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.branches.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "name", type: "string", required: true, description: "New branch name."),
             ]
         ),
@@ -372,7 +372,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.branches.checkout",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "name", type: "string", required: true, description: "Branch name to check out."),
             ]
         ),
@@ -457,7 +457,7 @@ public nonisolated enum SystemToolRegistry {
             action: "workers.spawn",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the workers."),
+                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the workers, pinned to the session thread when bound."),
                 SystemToolParameter(name: "workers", type: "array", required: true, description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles."),
             ]
         ),
@@ -534,7 +534,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
             ]
         ),
         SystemToolDefinition(
@@ -543,7 +543,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "pid", type: "integer", required: false, description: "Process ID of the running app."),
             ]
         ),
@@ -553,7 +553,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "pid", type: "integer", required: true, description: "Process ID of the running app."),
                 SystemToolParameter(name: "window_id", type: "integer", required: true, description: "Window ID from list_windows or get_desktop_state."),
                 SystemToolParameter(name: "max_elements", type: "integer", required: false, description: "Maximum accessible elements to return, at most 128."),
@@ -566,7 +566,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "include_screenshot", type: "boolean", required: false, description: "Save a screenshot as a private PNG file and return its path."),
             ]
         ),
@@ -576,7 +576,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "pid", type: "integer", required: true, description: "Process ID of the running app."),
                 SystemToolParameter(name: "window_id", type: "integer", required: true, description: "Window ID from list_windows or get_desktop_state."),
                 SystemToolParameter(name: "text", type: "string", required: true, description: "Text to find in element titles or values."),
@@ -588,7 +588,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "observation", type: "string", required: true, description: "Observation ID from a fresh get_window_state screenshot."),
                 SystemToolParameter(name: "x", type: "number", required: true, description: "Region x in window points."),
                 SystemToolParameter(name: "y", type: "number", required: true, description: "Region y in window points."),
@@ -602,7 +602,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
             ]
         ),
@@ -612,7 +612,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "element_token", type: "string", required: false, description: "Element token from a fresh get_window_state observation."),
                 SystemToolParameter(name: "observation", type: "string", required: false, description: "Observation ID from a fresh get_window_state screenshot."),
                 SystemToolParameter(name: "x", type: "number", required: false, description: "Point x in window points."),
@@ -625,7 +625,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "element_token", type: "string", required: false, description: "Element token from a fresh get_window_state observation."),
                 SystemToolParameter(name: "observation", type: "string", required: false, description: "Observation ID from a fresh get_window_state screenshot."),
                 SystemToolParameter(name: "x", type: "number", required: false, description: "Point x in window points."),
@@ -638,7 +638,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
                 SystemToolParameter(name: "text", type: "string", required: true, description: "Text to set."),
             ]
@@ -649,7 +649,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
                 SystemToolParameter(name: "text", type: "string", required: true, description: "Text to type."),
             ]
@@ -660,7 +660,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
                 SystemToolParameter(name: "key", type: "string", required: true, description: "Key to press: enter, escape, tab, backspace, left, right, up, or down."),
             ]
@@ -671,7 +671,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
                 SystemToolParameter(name: "keys", type: "array", required: true, description: "Modifiers then one key, for example cmd shift t."),
             ]
@@ -682,7 +682,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "element_token", type: "string", required: false, description: "Element token from a fresh get_window_state observation."),
                 SystemToolParameter(name: "observation", type: "string", required: false, description: "Observation ID from a fresh get_window_state screenshot."),
                 SystemToolParameter(name: "x", type: "number", required: false, description: "Point x in window points."),
@@ -697,7 +697,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "observation", type: "string", required: true, description: "Observation ID from a fresh get_window_state screenshot."),
                 SystemToolParameter(name: "from_x", type: "number", required: true, description: "Start x in window points."),
                 SystemToolParameter(name: "from_y", type: "number", required: true, description: "Start y in window points."),
@@ -711,7 +711,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "observation", type: "string", required: true, description: "Observation ID from a fresh get_window_state screenshot."),
                 SystemToolParameter(name: "x", type: "number", required: true, description: "Point x in window points."),
                 SystemToolParameter(name: "y", type: "number", required: true, description: "Point y in window points."),
@@ -723,7 +723,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "observation", type: "string", required: true, description: "Observation ID from a fresh get_window_state screenshot."),
                 SystemToolParameter(name: "x", type: "number", required: true, description: "Point x in window points."),
                 SystemToolParameter(name: "y", type: "number", required: true, description: "Point y in window points."),
@@ -735,7 +735,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "pid", type: "integer", required: true, description: "Process ID of the running app."),
                 SystemToolParameter(name: "path", type: "array", required: true, description: "Menu path, for example File New Window."),
             ]
@@ -746,7 +746,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "bundle_id", type: "string", required: true, description: "App bundle ID, for example com.apple.TextEdit."),
             ]
         ),
@@ -756,7 +756,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "pid", type: "integer", required: true, description: "Process ID of the running app."),
                 SystemToolParameter(name: "window_id", type: "integer", required: true, description: "Window ID from list_windows or get_desktop_state."),
                 SystemToolParameter(name: "x", type: "number", required: true, description: "Frame x in screen points."),
@@ -993,7 +993,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "command", type: "string", required: true, description: "Shell command to run."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command. Defaults to 600."),
             ]
@@ -1004,7 +1004,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "command", type: "string", required: true, description: "Shell command to run."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command. Defaults to 600."),
             ]
@@ -1015,7 +1015,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.log",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum commits to return, 1–200. Defaults to 50."),
                 SystemToolParameter(name: "skip", type: "integer", required: false, description: "Commits to skip for pagination. Defaults to 0."),
             ]
@@ -1026,7 +1026,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.diff.range",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "from", type: "string", required: true, description: "Base reference, such as a branch name or commit SHA."),
                 SystemToolParameter(name: "to", type: "string", required: true, description: "Reference to compare against the base, such as a branch name or commit SHA."),
             ]
@@ -1037,7 +1037,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.diff",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Single file path to diff."),
                 SystemToolParameter(name: "staged", type: "boolean", required: false, description: "Diff staged changes instead of the worktree."),
             ]
@@ -1048,7 +1048,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.branches.list",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "action", type: "string", required: false, description: "list, create, checkout, or delete. Defaults to list."),
                 SystemToolParameter(name: "name", type: "string", required: false, description: "Branch name for create, checkout, or delete."),
                 SystemToolParameter(name: "force", type: "boolean", required: false, description: "Delete with -D instead of -d, dropping unmerged work. Defaults to false."),
@@ -1083,7 +1083,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "include_screenshot", type: "boolean", required: false, description: "Save a screenshot as a private PNG file and return its path. Defaults to true."),
             ]
         ),
@@ -1093,7 +1093,7 @@ public nonisolated enum SystemToolRegistry {
             action: "workers.spawn",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the workers."),
+                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the workers, pinned to the session thread when bound."),
                 SystemToolParameter(name: "workers", type: "array", required: true, description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles."),
             ]
         ),
@@ -1103,7 +1103,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.stash",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "action", type: "string", required: true, description: "push, pop, list, show, or drop."),
                 SystemToolParameter(name: "message", type: "string", required: false, description: "Message for stash push."),
                 SystemToolParameter(name: "includeUntracked", type: "boolean", required: false, description: "Include untracked files in a stash push. Defaults to false."),
@@ -1118,7 +1118,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.blame",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "File path relative to the working directory."),
                 SystemToolParameter(name: "start", type: "integer", required: false, description: "First line of the range, 1-based. Requires end."),
                 SystemToolParameter(name: "end", type: "integer", required: false, description: "Last line of the range, inclusive. Requires start."),
@@ -1130,7 +1130,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.bisect",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "action", type: "string", required: true, description: "start, good, bad, skip, reset, or log."),
                 SystemToolParameter(name: "reference", type: "string", required: false, description: "Reference to mark good, bad, or skip. Defaults to HEAD."),
                 SystemToolParameter(name: "good", type: "string", required: false, description: "Known-good reference for start."),
@@ -1143,7 +1143,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.cherry_pick",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "sha", type: "string", required: true, description: "Full 40- or 64-character commit SHA."),
                 SystemToolParameter(name: "noCommit", type: "boolean", required: false, description: "Stage the cherry-pick without committing. Defaults to false."),
                 SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Cherry-pick changes the working tree."),
@@ -1155,7 +1155,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.rollback",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "action", type: "string", required: true, description: "status, commit, branch, diff, or rollback."),
                 SystemToolParameter(name: "message", type: "string", required: false, description: "Commit message."),
                 SystemToolParameter(name: "name", type: "string", required: false, description: "Branch name for the branch action."),
@@ -1170,7 +1170,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.log",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "from", type: "string", required: false, description: "Base reference. Defaults to the branch base."),
                 SystemToolParameter(name: "to", type: "string", required: false, description: "Reference to compare. Defaults to the branch head."),
                 SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum commits to list. Defaults to 20."),
@@ -1194,7 +1194,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.checkpoints.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "label", type: "string", required: false, description: "Snapshot label, stored in the checkpoint commit message."),
             ]
         ),
@@ -1204,7 +1204,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.checkpoints.list",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
             ]
         ),
         SystemToolDefinition(
@@ -1213,7 +1213,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.checkpoints.restore",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "checkpointId", type: "string", required: true, description: "Snapshot id from project_snapshot or project_changelog."),
                 SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Restore discards uncommitted and untracked changes."),
             ]
@@ -1224,7 +1224,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.checkpoints.restore",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Undo discards uncommitted and untracked changes."),
             ]
         ),
@@ -1510,7 +1510,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "mode", type: "string", required: false, description: "lint or format. Defaults to lint."),
@@ -1753,7 +1753,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
             ]
@@ -1764,7 +1764,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "format", type: "string", required: true, description: "png, jpg, tiff, bmp, or gif."),
@@ -1778,7 +1778,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a -thumb suffix."),
@@ -1791,7 +1791,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
             ]
@@ -1802,7 +1802,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "output", type: "string", required: true, description: "Archive path relative to the working directory."),
@@ -1814,7 +1814,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "destination", type: "string", required: true, description: "Target directory relative to the working directory."),
@@ -1826,7 +1826,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "output", type: "string", required: true, description: "Archive path relative to the working directory."),
@@ -1838,7 +1838,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "destination", type: "string", required: true, description: "Destination directory relative to the working directory."),
@@ -1850,7 +1850,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a .gz extension."),
@@ -1862,7 +1862,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
                 SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path without the .gz extension."),
@@ -1915,7 +1915,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to build."),
                 SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
                 SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
@@ -1928,7 +1928,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to test."),
                 SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
                 SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
@@ -1941,7 +1941,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "kind", type: "string", required: false, description: "xcodebuild or swiftpm. Defaults to xcodebuild."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to build."),
                 SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
@@ -1954,7 +1954,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "kind", type: "string", required: false, description: "swiftpm or xcode. Defaults to swiftpm."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme for xcode dependency resolution."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
@@ -1966,7 +1966,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
         ),
@@ -1976,7 +1976,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
         ),
@@ -1986,7 +1986,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
         ),
@@ -1996,7 +1996,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to read settings for."),
                 SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
                 SystemToolParameter(name: "target", type: "string", required: false, description: "Target to read settings for."),
@@ -2009,7 +2009,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to clean."),
                 SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
                 SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Cleaning removes build products."),
@@ -2022,7 +2022,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scheme", type: "string", required: true, description: "Scheme to archive."),
                 SystemToolParameter(name: "archivePath", type: "string", required: true, description: "Archive path relative to the thread working directory."),
                 SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
@@ -2036,7 +2036,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "testIdentifier", type: "string", required: true, description: "Test identifier for -only-testing, such as Target/Class/testMethod."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to test."),
                 SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
@@ -2049,7 +2049,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "xcresultPath", type: "string", required: true, description: "Path to the xcresult bundle, relative to the thread working directory."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2060,7 +2060,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "xcresultPath", type: "string", required: true, description: "Path to the xcresult bundle, relative to the thread working directory."),
                 SystemToolParameter(name: "format", type: "string", required: false, description: "json or text. Defaults to text."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
@@ -2072,7 +2072,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "benchmark", type: "string", required: true, description: "Allow-listed benchmark: xcodebuild-build, xcodebuild-test, swift-build, swift-test, or xcodebuild-clean-build."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme for xcodebuild benchmarks."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
@@ -2084,7 +2084,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scheme", type: "string", required: true, description: "Scheme to document."),
                 SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
@@ -2096,7 +2096,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "action", type: "string", required: true, description: "list or validate."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to validate."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
@@ -2108,7 +2108,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "key", type: "string", required: true, description: "Build setting name, such as PRODUCT_BUNDLE_IDENTIFIER."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to read settings for."),
                 SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
@@ -2121,7 +2121,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to find destinations for."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2132,7 +2132,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
         ),
@@ -2142,7 +2142,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "device", type: "string", required: true, description: "Simulator UDID or name."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2153,7 +2153,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "action", type: "string", required: true, description: "boot, shutdown, erase, openurl, or status."),
                 SystemToolParameter(name: "device", type: "string", required: true, description: "Simulator UDID or name."),
                 SystemToolParameter(name: "url", type: "string", required: false, description: "URL to open for openurl."),
@@ -2166,7 +2166,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
         ),
@@ -2176,7 +2176,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "profilePath", type: "string", required: true, description: "Path to the provisioning profile, relative to the thread working directory."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2187,7 +2187,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "action", type: "string", required: true, description: "describe, resolve, clean, or reset."),
                 SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Must be true for reset."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
@@ -2199,7 +2199,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "package", type: "string", required: false, description: "Package name to update; updates all packages when omitted."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2210,7 +2210,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path to the file to diagnose, relative to the thread working directory."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2221,7 +2221,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
         ),
@@ -2231,7 +2231,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path to the xcresult bundle, relative to the thread working directory."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2242,7 +2242,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path to the binary, relative to the thread working directory."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2253,7 +2253,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
         ),
@@ -2263,7 +2263,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "profilePath", type: "string", required: true, description: "Path to the provisioning profile, relative to the thread working directory."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2274,7 +2274,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "Path to the Swift source file, relative to the thread working directory."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
             ]
@@ -2285,7 +2285,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to report, relative to the thread working directory. Defaults to build."),
                 SystemToolParameter(name: "top", type: "integer", required: false, description: "Largest files to return, 1-100. Defaults to 20."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
@@ -2297,7 +2297,7 @@ public nonisolated enum SystemToolRegistry {
             action: "git.review.diff",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "scope", type: "string", required: false, description: "uncommitted or branch. Defaults to uncommitted."),
                 SystemToolParameter(name: "ignoreWhitespace", type: "boolean", required: false, description: "Ignore whitespace changes in the diff."),
             ]
@@ -3068,7 +3068,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Package directory relative to the working directory. Defaults to the workspace root."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
@@ -3090,7 +3090,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Package directory relative to the working directory. Defaults to the workspace root."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
@@ -3102,7 +3102,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Package directory relative to the working directory. Defaults to the workspace root."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
@@ -3223,7 +3223,7 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the .entitlements file. Defaults to the first one found."),
                 SystemToolParameter(name: "key", type: "string", required: false, description: "Entitlement key for add and remove."),
                 SystemToolParameter(name: "value", type: "string", required: false, description: "Value for add: true, false, or a string."),
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
             ]
         ),
         SystemToolDefinition(
@@ -3245,7 +3245,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "source", type: "string", required: true, description: "Source artwork file, relative to the working directory."),
                 SystemToolParameter(name: "output", type: "string", required: true, description: "Destination .appiconset directory, relative to the working directory."),
@@ -3274,7 +3274,7 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the plist. Defaults to the first Info.plist found."),
                 SystemToolParameter(name: "key", type: "string", required: false, description: "Plist key for get, set, and delete."),
                 SystemToolParameter(name: "value", type: "string", required: false, description: "Value for set: true, false, a number, or a string."),
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
             ]
         ),
         SystemToolDefinition(
@@ -3287,7 +3287,7 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "action", type: "string", required: true, description: "Action: list, enable, or disable."),
                 SystemToolParameter(name: "capability", type: "string", required: false, description: "Capability name for enable and disable, for example app-sandbox or network-client."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the .entitlements file. Defaults to the first one found."),
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
             ]
         ),
         SystemToolDefinition(
@@ -3296,7 +3296,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to project.pbxproj. Defaults to the first project.pbxproj found."),
                 SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to query with xcodebuild -showBuildSettings. Defaults to pbxproj text parsing only."),
@@ -3485,7 +3485,7 @@ public nonisolated enum SystemToolRegistry {
             action: "system.info",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
             ]
         ),
         SystemToolDefinition(
@@ -3494,7 +3494,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: false, description: "Absolute working directory for the terminal. Defaults to the thread working directory."),
                 SystemToolParameter(name: "filter", type: "string", required: false, description: "Substring filter for process names."),
                 SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum processes to return."),
@@ -3506,7 +3506,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Path to measure, relative to the working directory. Defaults to the workspace root."),
                 SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
@@ -3530,7 +3530,7 @@ public nonisolated enum SystemToolRegistry {
             parameters: [
                 SystemToolParameter(name: "action", type: "string", required: true, description: "Action: read, write, or clear."),
                 SystemToolParameter(name: "text", type: "string", required: false, description: "Text for write."),
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
             ]
         ),
         SystemToolDefinition(
@@ -3541,7 +3541,7 @@ public nonisolated enum SystemToolRegistry {
             parameters: [
                 SystemToolParameter(name: "title", type: "string", required: true, description: "Notification title."),
                 SystemToolParameter(name: "body", type: "string", required: false, description: "Notification body."),
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
             ]
         ),
         SystemToolDefinition(
@@ -3550,7 +3550,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "operation", type: "string", required: true, description: "Operation: system_info, dev_environment, process_list, network_interfaces, listening_sockets, connectivity, disk_info, system_log, service_status, config_read, or user_defaults_write."),
                 SystemToolParameter(name: "cwd", type: "string", required: false, description: "Absolute working directory for disk_info. Defaults to the thread working directory."),
                 SystemToolParameter(name: "filter", type: "string", required: false, description: "Name filter for process_list."),
@@ -3584,7 +3584,7 @@ public nonisolated enum SystemToolRegistry {
             action: "agent.pending",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "requestId", type: "string", required: false, description: "Pending request ID to answer. Omit to list pending questions."),
                 SystemToolParameter(name: "answers", type: "array", required: false, description: "Answers for requestId, each with questionId and an answers array of strings."),
             ]
@@ -3604,7 +3604,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
             ]
         ),
@@ -3638,7 +3638,7 @@ public nonisolated enum SystemToolRegistry {
             action: "web.fetch",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
                 SystemToolParameter(name: "query", type: "string", required: false, description: "Documentation search query."),
                 SystemToolParameter(name: "url", type: "string", required: false, description: "Documentation URL on developer.apple.com."),
                 SystemToolParameter(name: "framework", type: "string", required: false, description: "Framework name to open its documentation landing page."),
@@ -3650,7 +3650,7 @@ public nonisolated enum SystemToolRegistry {
             action: "web.fetch",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
                 SystemToolParameter(name: "url", type: "string", required: true, description: "HTTPS JSON API URL."),
             ]
         ),
@@ -3660,7 +3660,7 @@ public nonisolated enum SystemToolRegistry {
             action: "web.fetch",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
                 SystemToolParameter(name: "url", type: "string", required: true, description: "HTTPS URL to fetch."),
                 SystemToolParameter(name: "maxChars", type: "integer", required: false, description: "Maximum characters to return. Defaults to 8000."),
             ]
@@ -3671,7 +3671,7 @@ public nonisolated enum SystemToolRegistry {
             action: "github.repo",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "operation", type: "string", required: true, description: "Operation: repository_info, list_files, get_file, get_directory, get_tree, search_code, or fetch_repository."),
                 SystemToolParameter(name: "owner", type: "string", required: false, description: "Repository owner."),
                 SystemToolParameter(name: "repo", type: "string", required: false, description: "Repository name."),
@@ -3688,7 +3688,7 @@ public nonisolated enum SystemToolRegistry {
             action: "computer_use.request",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "action", type: "string", required: true, description: "Action to perform, for example list_applications, launch, click, type_text, or verify."),
                 SystemToolParameter(name: "app_identifier", type: "string", required: false, description: "Bundle ID for launch."),
                 SystemToolParameter(name: "app_name", type: "string", required: false, description: "Application name for inspect_application."),
@@ -3720,7 +3720,7 @@ public nonisolated enum SystemToolRegistry {
             parameters: [
                 SystemToolParameter(name: "path", type: "string", required: false, description: "DerivedData directory to inspect. Defaults to ~/Library/Developer/Xcode/DerivedData."),
                 SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum directories to return."),
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
             ]
         ),
         SystemToolDefinition(
@@ -3739,7 +3739,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
                 SystemToolParameter(name: "path", type: "string", required: true, description: "SVG file path relative to the working directory."),
                 SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a .png extension."),
@@ -3766,7 +3766,7 @@ public nonisolated enum SystemToolRegistry {
             action: "web.fetch",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
                 SystemToolParameter(name: "query", type: "string", required: true, description: "Search query."),
                 SystemToolParameter(name: "maxResults", type: "integer", required: false, description: "Maximum results to return, 1 to 25. Defaults to 10."),
             ]
@@ -3777,7 +3777,7 @@ public nonisolated enum SystemToolRegistry {
             action: "terminal.create",
             channel: .engine,
             parameters: [
-                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "File to inspect, relative to the working directory. Required for artifact, disassembly, and sqlite_schema."),
                 SystemToolParameter(name: "inspection", type: "string", required: true, description: "Inspection: artifact, disassembly, demangle, or sqlite_schema."),
                 SystemToolParameter(name: "symbol", type: "string", required: false, description: "Mangled Swift symbol name for the demangle inspection."),

@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–95)
+### Hardening wave (Slices 69–104)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–95 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–104 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -848,6 +848,34 @@ no entries in this file either and are not backfilled here. Full record:
   1 regression test added
   (`draft_patch_accepts_a_case_variant_thread_id`). Statically verified
   only; Slice 96 confirmed the remote tree.
+- **Slice 99** — Computer-use engine audit: `with_session_defaults` now
+  overwrites a model-supplied `threadId` with the session thread id when
+  bound (was fill-if-absent); dead `Extended::tool()` and
+  `Bridge::threads()` removed; 1 test added
+  (`session_thread_identity_wins_over_model_supplied_thread_id`).
+- **Slice 100** — MCP worker identity pin: `default_parent_thread` now
+  overwrites a model-supplied `parentThreadId` when bound; `list_workers`
+  and `intel_breakdown_task` newly routed through it (spawn/plan/
+  execution-plan and `start_subagent` already were); 1 test added. The
+  worker paragraph in this file now states the pin.
+- **Slice 101** — Swift-side parent identity pin:
+  `SystemToolRegistry.execute` takes opt-in `sessionThreadId` and
+  overwrites model-supplied `threadId` / `parentThreadId` with it,
+  threaded through the `use_mcp` recursion; 4 tests added in
+  `AgentsTests/WorkersTests.swift`. The worker paragraph in this file now
+  records the Swift mirror pin.
+- **Slice 102** — Read-only verification of the Swift registry: NOT CLEAN
+  — found the pre-existing HIGH type error (three plan cases returned
+  `WorkerPlan` where `execute()` promises `JSONValue`). No commit; fixed
+  in Slice 103.
+- **Slice 103** — Fixed the Slice 102 type error: new `workerPlanJSON`
+  helper wraps the `planTask` / `breakdownTask` / `executionPlan`
+  results; all 275 returns in `execute()` audited. No test added.
+  Re-verified by Slice 104.
+- **Slice 104** — Read-only re-verification of Slice 103: PASS WITH
+  MINORs — corrected the Rust test-attribute total to 3,000 (2,219
+  short-form + 736 fully-qualified + 45 `#[gpui_kit::test]`); noted
+  MAC-GATE.md staleness, fixed in Slice 105. No commit.
 
 ## The MCP server
 

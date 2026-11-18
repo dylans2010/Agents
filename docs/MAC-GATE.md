@@ -91,8 +91,13 @@ This is the exact test command from the `agents-app` job
 (`.github/workflows/ci.yml`). It runs the `AgentsTests` target
 (`project.yml`, scheme `Agents`, test config Debug).
 
-Expected count, measured by grep at time of writing: **105 `@Test`
-functions** in `AgentsTests` (`grep -rn "@Test" AgentsTests`). The
+Expected count, measured by grep at time of writing: **109 `@Test`
+functions** in `AgentsTests` (`grep -rn "@Test(" AgentsTests`). Together
+with the 19 in `CoincideRemoteTests` (Step 4), the Swift Testing total
+is **128** `@Test` functions. The two `@Test(` hits in
+`Agents/Core/SystemTools` are string literals inside a stub/scaffold
+generator (`SystemToolRegistry.swift`, the stub and placeholder
+generators), not real tests, and are excluded from the 128. The
 registry test asserts the tool count directly
 (`AgentsTests/ToolsetTests.swift`, `#expect(tools.count == 332)`).
 
@@ -116,7 +121,7 @@ The scheme is `CoincideRemote` and its test targets are
 writing: **19 `@Test` functions** in `CoincideRemoteTests` and **0 `@Test`
 in `CoincideRemoteUITests`** — the UI tests are XCTest-style
 (`@MainActor`, no `@Test`), so a zero there is expected, not a missing
-suite. CI additionally checks that both bundles actually ran tests from
+suite; the UI target holds 8 XCTest `func test…` methods. CI additionally checks that both bundles actually ran tests from
 the result bundle; a passing `xcodebuild` with an empty bundle is a
 failure, not a pass.
 
@@ -132,34 +137,40 @@ Workspace members, read from `Rust Backend/Cargo.toml`:
 - `crates/coincide-mcp-server`
 
 Measured test-attribute counts, excluding `vendor/`, counted by grep at
-time of writing. Two spellings count: the short form `#[test]` and the
+time of writing. Three spellings count: the short form `#[test]`, the
 fully-qualified `#[::core::prelude::v1::test]` (used by the UI-test
 modules in `coincide-desktop`, which import it with
-`use ::core::prelude::v1::test;`). Raw short-form grep finds 2,218
+`use ::core::prelude::v1::test;`), and `#[gpui_kit::test]` (used by
+headless UI tests in `coincide-desktop`). Raw short-form grep finds 2,220
 matching lines, but one is prose inside a comment —
 `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`, a `//` comment
 reading "The glob brings GPUI's test attribute, which expands to
 #[test] again." — not a real attribute, so the short-form total is
-2,217. Fully-qualified grep finds 736 real attributes, all in
+2,219. Fully-qualified grep finds 736 real attributes, all in
 `coincide-desktop`; the 7 other lines matching that string are the
-`use ::core::prelude::v1::test;` imports, not attributes. The true
-total is **2,953** test attributes. Reproduce from `Rust Backend` with
+`use ::core::prelude::v1::test;` imports, not attributes. `#[gpui_kit::test]`
+grep finds 45 real attributes, all in `coincide-desktop`. The true
+total is **3,000** test attributes. Do not count the 1,033
+`#[gpui::test]` or 25 `#[crate::test]` lines a repo-wide grep finds:
+every one of them is inside `Rust Backend/vendor/` (the vendored gpui
+sources), which is excluded. Reproduce from `Rust Backend` with
 `find crates -name '*.rs' -not -path '*/vendor/*' -exec grep -H
 '#\[test\]' {} + | wc -l` for the raw short-form count, then subtract
 matching lines whose `#[test]` sits inside a `//` comment (exactly one,
 the line above), and add `find crates -name '*.rs' -not -path
 '*/vendor/*' -exec grep -H '#\[::core::prelude::v1::test\]' {} + |
-wc -l` for the fully-qualified count:
+wc -l` for the fully-qualified count and the same shape with
+`#\[gpui_kit::test\]` for the gpui_kit count:
 
-| Crate | `#[test]` | `#[::core::prelude::v1::test]` | Total |
-| --- | --- | --- | --- |
-| coincide-core | 1,822 | 0 | 1,822 |
-| coincide-desktop | 367 | 736 | 1,103 |
-| coincide-awake-helper | 9 | 0 | 9 |
-| coincide-macos-ffi | 3 | 0 | 3 |
-| coincide-mcp-server | 16 | 0 | 16 |
-| coincide-native-host-tests | 0 | 0 | 0 |
-| **Total** | **2,217** | **736** | **2,953** |
+| Crate | `#[test]` | `#[::core::prelude::v1::test]` | `#[gpui_kit::test]` | Total |
+| --- | --- | --- | --- | --- |
+| coincide-core | 1,822 | 0 | 0 | 1,822 |
+| coincide-desktop | 367 | 736 | 45 | 1,148 |
+| coincide-awake-helper | 9 | 0 | 0 | 9 |
+| coincide-macos-ffi | 3 | 0 | 0 | 3 |
+| coincide-mcp-server | 18 | 0 | 0 | 18 |
+| coincide-native-host-tests | 0 | 0 | 0 | 0 |
+| **Total** | **2,219** | **736** | **45** | **3,000** |
 
 Run the workspace suite from `Rust Backend`:
 
@@ -174,7 +185,7 @@ and CI do not cover the same surface (`.github/workflows/rust.yml`,
     cargo test -p coincide-desktop --locked --features native-notifications,native-microphone,native-computer-use
 
 Coverage gap to know about before interpreting results:
-`coincide-mcp-server` (16 tests) and `coincide-macos-ffi` (3 tests) have
+`coincide-mcp-server` (18 tests) and `coincide-macos-ffi` (3 tests) have
 no `cargo test` coverage in any CI job. Their first CI coverage is the
 `agents-app` job building them via the Xcode pre-build scripts. On the
 gate Mac, also run:
@@ -431,11 +442,12 @@ reason. A step that was not run is unchecked, not passed.
 
 - [ ] Step 1 — `xcodegen generate` clean
 - [ ] Step 2 — Agents app builds (Agents scheme)
-- [ ] Step 3 — Agents Swift tests pass (AgentsTests, 105 `@Test`)
+- [ ] Step 3 — Agents Swift tests pass (AgentsTests, 109 `@Test`)
 - [ ] Step 4 — Coincide Remote tests pass (CoincideRemoteTests, 19
   `@Test`; UI tests ran, not skipped)
-- [ ] Step 5 — Rust tests pass (2,953 test attributes excl. vendor:
-  2,217 `#[test]` + 736 `#[::core::prelude::v1::test]`; incl.
+- [ ] Step 5 — Rust tests pass (3,000 test attributes excl. vendor:
+  2,219 `#[test]` + 736 `#[::core::prelude::v1::test]` + 45
+  `#[gpui_kit::test]`; incl.
   `coincide-mcp-server` and `coincide-macos-ffi`); `cargo fmt --check`
   and clippy clean
 - [ ] Step 6 — CI green on the tested commit (`agents-app`,

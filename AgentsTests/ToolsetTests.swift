@@ -2860,11 +2860,11 @@ struct ToolsetTests {
     @Test("Slice 22: per-tool parameter descriptions are pinned as the cross-check source of truth")
     func sliceTwentyTwoParamDescriptionsPinned() {
         let expected: [(tool: String, param: String, description: String)] = [
-            ("run_build", "threadId", "Owning thread ID; the terminal starts in the thread working directory."),
-            ("run_tests", "threadId", "Owning thread ID; the terminal starts in the thread working directory."),
+            ("run_build", "threadId", "Owning thread ID, pinned to the session thread when bound; the terminal starts in the thread working directory."),
+            ("run_tests", "threadId", "Owning thread ID, pinned to the session thread when bound; the terminal starts in the thread working directory."),
             ("svg_to_png", "path", "SVG file path relative to the working directory."),
             ("intel_generate_tests", "path", "Swift source file or directory relative to the working directory."),
-            ("search_web", "threadId", "Owning thread ID. Only used by the MCP server path."),
+            ("search_web", "threadId", "Owning thread ID, pinned to the session thread when bound. Only used by the MCP server path."),
             ("intel_explain_code", "path", "Source file relative to the working directory."),
         ]
         for (tool, param, description) in expected {

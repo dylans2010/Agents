@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–95
+# Hardening Audit — Slices 71–103
 
 ## Summary
 
@@ -11,13 +11,21 @@ improvements in Slice 85, added 18 regression tests, and closed with three
 symbol sweeps that found 0 confirmed-missing references. Slice 95, appended
 after the wave, audited the thread/document store: 1 further defect fixed, 2
 dead store helpers removed, and 1 regression test added — bringing the
-totals to 19 defects fixed and 19 regression tests. The remaining
+totals to 19 defects fixed and 19 regression tests. Slices 99–101,
+appended after that, pinned session identity over model-supplied thread
+ids on both sides of the registry: 3 further defects fixed, 2 dead
+helpers removed, and 6 regression tests added. Slice 102 verified the
+Swift registry read-only and found 1 pre-existing HIGH type error (fixed
+in Slice 103, no test added), and Slice 104 re-verified Slice 103 with a
+pass-with-minors verdict — bringing the totals to **23 defects fixed and
+25 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
 `245f84a4`, remote `main` `8d8deca9`, same tree); where a slice's own report
 could not be re-checked from the repo (the no-commit sweeps), this record
-says so.
+says so. The Slices 99–103 sections below were verified against local
+`main` `cca948d3`, remote `main` `b45b5690`, same tree `b172259e`.
 
 **Standing disclosure — read first.** Nothing in this wave was compiled,
 executed, or tested in the environment where it was written: there is no
@@ -311,6 +319,143 @@ and stored.
 tree `7dab3229`); fixed lines confirmed present at HEAD. Statically
 verified only — no cargo run here, as for every slice in this record. The
 local pre-push commit is `771e645a` (same tree as remote `5f9644e9`).
+
+## Slice 99 — Computer-use engine audit (remote `6e0c9dff`)
+
+**Audited:** the computer-use engine path — `with_session_defaults` in
+`coincide-mcp-server` (`tools.rs`), `Extended` in `coincide-core`
+(`computer_use.rs`), and `Bridge` (`computer_use_bridge.rs`).
+
+**Defects fixed (1) + dead-code removal (2):**
+
+1. `with_session_defaults` only filled `threadId` when the model had not
+   supplied one, so a model-supplied `threadId` overrode the session
+   thread. It now overwrites unconditionally when the server is bound to
+   a session thread — `tools.rs:7819` (function), `:7829-7830`
+   (overwrite). A server without a session id keeps the supplied value.
+2. Dead code removed: `Extended::tool()` in `computer_use.rs` (18 lines,
+   zero call sites) and `Bridge::threads()` in `computer_use_bridge.rs`
+   (zero call sites outside its own tests; the two test assertions using
+   it were removed with it). Verified: no remaining references at HEAD.
+
+**Tests added (1):**
+`session_thread_identity_wins_over_model_supplied_thread_id` in
+`tools.rs:21335` (tests module) — a bound session wins over a
+model-supplied id and fills an omitted one; an unbound server keeps the
+supplied id.
+
+**Verification:** diff read (`git show 7df7cfb3`, remote `6e0c9dff`, same
+tree `72029b0c`); fixed lines confirmed present at HEAD. Statically
+verified only — no cargo run here, as for every slice in this record. The
+local pre-push commit is `7df7cfb3` (same tree as remote `6e0c9dff`).
+
+## Slice 100 — MCP worker identity pin (remote `b98da65c`)
+
+**Audited:** `parentThreadId` handling in the MCP worker tools
+(`tools.rs` `call()` plus `default_parent_thread`).
+
+**Defects fixed (1):**
+
+1. `default_parent_thread` only filled `parentThreadId` when absent, so a
+   model-supplied `parentThreadId` could steer worker spawn/plan/list/
+   breakdown calls to another thread. It now overwrites unconditionally
+   when the server is bound — `tools.rs:21202` (function). `list_workers`
+   (`:17069`) and `intel_breakdown_task` (`:17081`) are newly routed
+   through it; `use_workers` / `intel_plan_task` / `execution_plan`
+   (`:17065`) and `start_subagent` (`:17419`) already were, so all six
+   `parentThreadId`-bearing tools are now pinned. A server without a
+   session id keeps the supplied value.
+
+**Tests added (1):**
+`session_parent_identity_wins_over_model_supplied_parent_thread_id` in
+`tools.rs:21369` — mirrors the Slice 99 test for `parentThreadId`.
+
+**Docs:** the worker paragraph in `docs/SYSTEM-TOOLSET.md` now states
+spawn/plan/list/breakdown calls always run under the session thread id.
+
+**Verification:** diff read (`git show bc11ecd1`, remote `b98da65c`, same
+tree `42d67439`); fixed lines confirmed present at HEAD. Statically
+verified only. The local pre-push commit is `bc11ecd1` (same tree as
+remote `b98da65c`).
+
+## Slice 101 — Swift-side parent identity pin (remote `e256255f`)
+
+**Audited:** `SystemToolRegistry.execute()` in Swift
+(`Agents/Core/SystemTools/SystemToolRegistry.swift`).
+
+**Defects fixed (1):**
+
+1. `execute()` passed model-supplied `threadId` / `parentThreadId`
+   through untouched, so the Swift mirror did not pin session identity
+   the way the Rust server does since Slices 99–100. `execute()` now
+   takes an opt-in `sessionThreadId: String? = nil` parameter (`:3826`,
+   parameter at `:3831`) and, when non-empty, overwrites both ids in the
+   arguments (`:3834-3836`); the `use_mcp` recursion threads it through
+   (`:4419` case, `:4422` call). Calls without one keep the supplied
+   values.
+
+**Tests added (4):** in `AgentsTests/WorkersTests.swift` —
+`sessionThreadWinsOverModelParent` (`:210`),
+`sessionThreadWinsForBreakdown` (`:246`),
+`sessionThreadWinsThroughUseMcp` (`:275`),
+`sessionThreadWinsOverModelThreadId` (`:294`).
+
+**Docs:** the worker paragraph in `docs/SYSTEM-TOOLSET.md` now records
+the Swift mirror pin alongside the Rust one.
+
+**Verification:** diff read (`git show 856701b6`, remote `e256255f`, same
+tree `4524ec75`); fixed lines confirmed present at HEAD. Statically
+verified only. The local pre-push commit is `856701b6` (same tree as
+remote `e256255f`).
+
+**Open after this slice:** the registry param descriptions still read
+"Parent thread ID that owns the workers." / "Owning thread ID.", wording
+from before the pin. They were corrected to match the pinned behavior in
+a joint Swift/Rust description pass pushed with this record (Slice 105),
+which also updated the pinned expectations in
+`AgentsTests/ToolsetTests.swift`.
+
+## Slice 102 — Swift registry read-only verification (no commit)
+
+**Audited:** `SystemToolRegistry.execute()` return types, read-only; no
+code changed.
+
+**Result: NOT CLEAN — 1 pre-existing HIGH type error found.** Three plan
+cases returned `WorkerPlan` where `execute()` promises `JSONValue`:
+`intel_plan_task` (`:4116`), `intel_breakdown_task` (`:4119`), and
+`execution_plan` (`:4124`), at the pre-fix commit `856701b6`. Counts
+re-measured at the time: Swift `@Test` 128, Rust 2,955 (short-form +
+fully-qualified only; the 45 `#[gpui_kit::test]` attributes were not yet
+counted — corrected to 3,000 by Slice 104).
+
+**Tests added (0); commit (none):** verification only; the defect was
+fixed in Slice 103 (below).
+
+**Verification:** the three bare `WorkerPlan` returns are visible in
+`git show 856701b6:Agents/Core/SystemTools/SystemToolRegistry.swift` and
+in the Slice 103 diff (minus lines).
+
+## Slice 103 — WorkerPlan-to-JSONValue fix (remote `b45b5690`)
+
+**Audited:** the Slice 102 HIGH type error.
+
+**Defects fixed (1):**
+
+1. The three plan cases now wrap their `WorkerPlan` results in the new
+   `workerPlanJSON` helper — `SystemToolRegistry.swift:11582` (helper),
+   used at `:4116` (`intel_plan_task`), `:4119` (`intel_breakdown_task`),
+   and `:4124` (`execution_plan`). All 275 `return` statements in
+   `execute()` were audited (re-counted at HEAD: `execute()` spans
+   `:3826-7518` and holds exactly 275 returns); the three plan cases were
+   the only `WorkerPlan` leaks.
+
+**Tests added (0):** no test added; 1 file, +50/−3.
+
+**Verification:** diff read (`git show cca948d3`, remote `b45b5690`, same
+tree `b172259e`); fixed lines confirmed present at HEAD. Statically
+verified only — no Swift compile here, as for every slice in this record.
+The local pre-push commit is `cca948d3` (same tree as remote `b45b5690`).
+Slice 104 re-verified this slice; see [How to re-verify](#how-to-re-verify).
 ---
 
 ## Documented, not fixed
@@ -390,12 +535,23 @@ limitation of the audited component, or a question owed to Dylan.
   `Agents/Core/SystemTools/SystemToolRegistry.swift`; the canonical
   description is `docs/SYSTEM-TOOLSET.md:57-61`.
 - **MAC-GATE count method.** From `Rust Backend`, excluding `vendor/`:
-  count short-form `#[test]` attributes and fully-qualified
-  `#[::core::prelude::v1::test]` attributes, and sum them. At HEAD the
-  expected total is **2,953** (2,217 + 736). Method and per-crate table:
-  `docs/MAC-GATE.md:143-162`. Known wrinkle documented there: one `//`
+  count short-form `#[test]` attributes, fully-qualified
+  `#[::core::prelude::v1::test]` attributes, and `#[gpui_kit::test]`
+  attributes, and sum them. At HEAD the
+  expected total is **3,000** (2,219 + 736 + 45). Method and per-crate table:
+  `docs/MAC-GATE.md:139-173`. Known wrinkle documented there: one `//`
   comment line in `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`
-  mentions the glob import and must not be counted as an attribute.
+  mentions the glob import and must not be counted as an attribute; and
+  the 1,033 `#[gpui::test]` / 25 `#[crate::test]` lines a repo-wide grep
+  finds are all inside `vendor/` and must not be counted either.
+  **Slice 104 re-verification (no commit):** Slice 104 re-audited Slice
+  103 read-only and passed it with minors — the Rust total correction
+  from 2,955 to 3,000 (the 45 `#[gpui_kit::test]` attributes, all in
+  `coincide-desktop`, had not been counted) and `docs/MAC-GATE.md`
+  staleness (105 Swift `@Test`, 2,953 Rust total) came out of that
+  re-verification; both were fixed in Slice 105, which also corrected the
+  registry param descriptions to the pinned behavior (see the Slice 101
+  section above).
 - **Mac-gate checklist.** `docs/MAC-GATE.md` is the single ordered
   checklist for the Mac gate (Xcode build, Swift tests, Rust tests, live
   provider runs, visual/accessibility checks). Run it top to bottom on
