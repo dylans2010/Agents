@@ -1,8 +1,10 @@
 # Rust / GPUI rewrite
 
-This is a replacement implementation in progress, not a replacement release.
-The running Swift application and its data remain authoritative until cutover.
-The new desktop uses `Agents Rust`, a separate data directory and control socket.
+> **Historical record — pre-reconstruction, frozen at 2026-11-09.** This document records the GPUI desktop ("Agents Rust") effort as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
+This was a replacement implementation in progress, not a replacement release.
+The running Swift application and its data remained authoritative until cutover.
+The new desktop used `Agents Rust`, a separate data directory and control socket.
 Do not point both applications at one mutable data store.
 
 ## Antigravity authentication

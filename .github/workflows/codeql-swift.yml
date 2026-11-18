@@ -1,8 +1,11 @@
-# Static analysis (SAST) of the Swift code (Coincide Remote for iOS) with GitHub CodeQL.
+# Static analysis (SAST) of the Swift code (Coincide Remote for iOS and the
+# Agents macOS app) with GitHub CodeQL.
 #
 # CodeQL's Swift extractor needs a macOS runner and a full xcodebuild under its tracer, so this runs
 # weekly, on release tags (v*) and on demand only: never on pull requests or pushes to main, and it
 # is not a required check. Pull requests get the Actions analysis in codeql.yml.
+# The `analyze` job covers the iOS target; the `analyze-agents` job covers the Agents macOS target
+# on the same cadence.
 
 name: CodeQL (Swift)
 
@@ -59,3 +62,49 @@ jobs:
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: /language:swift
+
+  analyze-agents:
+    name: Analyze (swift, Agents app)
+    # The Agents macOS app builds against the macOS 27 SDK; this image ships Xcode 27 on macOS 27.
+    runs-on: xcode-27
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      # Upload results to code scanning.
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The Agents target's pre-build scripts compile the Rust FFI bridge and
+      # MCP server with cargo, so the toolchain must exist before xcodebuild.
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+
+      - name: Install XcodeGen
+        run: |
+          curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 -o "$RUNNER_TEMP/xcodegen.zip" 'https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip'
+          echo '4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  '"$RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: swift
+          build-mode: manual
+
+      # CodeQL only analyzes what it sees compiled, so this is a clean, unsigned build with no cache.
+      - name: Build for CodeQL
+        run: |
+          xcodebuild -project Agents.xcodeproj -scheme Agents -destination 'platform=macOS' -skipPackagePluginValidation \
+            -derivedDataPath build/CodeQL-Agents build CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:swift-agents

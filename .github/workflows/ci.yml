@@ -23,6 +23,7 @@ jobs:
     outputs:
       rust: ${{ steps.scope.outputs.rust }}
       legacy: ${{ steps.scope.outputs.legacy }}
+      agents: ${{ steps.scope.outputs.agents }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,6 +41,7 @@ jobs:
           if [[ "$REF" == refs/tags/* ]] || [[ "$EVENT" == workflow_dispatch ]]; then
             echo rust=true >> "$GITHUB_OUTPUT"
             echo legacy=true >> "$GITHUB_OUTPUT"
+            echo agents=true >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [[ "$EVENT" == pull_request ]]; then
@@ -52,19 +54,24 @@ jobs:
           git diff --no-renames --name-only -z "$base" HEAD > "$RUNNER_TEMP/changed-files"
           rust=false
           legacy=false
+          agents=false
           count=0
           while IFS= read -r -d '' path; do
             count=$((count + 1))
             case "$path" in
-              Rust Backend/crates/*|Rust Backend/vendor/*|Rust Backend/Cargo.toml|Rust Backend/Cargo.lock|.cargo/*|rust-toolchain*|.github/workflows/ci.yml) rust=true ;;
+              Rust\ Backend/crates/*|Rust\ Backend/vendor/*|Rust\ Backend/Cargo.toml|Rust\ Backend/Cargo.lock|.cargo/*|rust-toolchain*|.github/workflows/ci.yml) rust=true ;;
             esac
             case "$path" in
               Agents/*|AgentsTests/*|project.yml|.github/workflows/ci.yml) legacy=true ;;
+            esac
+            case "$path" in
+              Agents/*|AgentsTests/*|project.yml|Rust\ Backend/crates/coincide-macos-ffi/*|Rust\ Backend/crates/coincide-mcp-server/*|.github/workflows/ci.yml) agents=true ;;
             esac
           done < "$RUNNER_TEMP/changed-files"
           test "$count" -gt 0
           echo "rust=$rust" >> "$GITHUB_OUTPUT"
           echo "legacy=$legacy" >> "$GITHUB_OUTPUT"
+          echo "agents=$agents" >> "$GITHUB_OUTPUT"
 
   rust-core:
     name: Rust core tests
@@ -117,6 +124,53 @@ jobs:
             -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath build/SourcePackages test \
             -collect-test-diagnostics never
 
+  # Build and test the current native macOS Agents app (project.yml / Agents
+  # scheme / AgentsTests). This is the live app; legacy-swift-baseline above
+  # only covers the retired desktop at its frozen ref. The Agents target's
+  # pre-build scripts compile coincide-macos-ffi and coincide-mcp-server with
+  # cargo, so this job installs the Rust toolchain and is the first CI
+  # coverage of those two crates (rust.yml covers coincide-core and
+  # coincide-desktop only).
+  agents-app:
+    name: Agents macOS app build and test
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.agents != 'false' }}
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            Rust Backend/target
+          key: agents-app-${{ runner.os }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml') }}-${{ github.sha }}
+          restore-keys: |
+            agents-app-${{ runner.os }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml') }}-
+            agents-app-${{ runner.os }}-
+      - name: Install XcodeGen
+        run: |
+          curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 -o "$RUNNER_TEMP/xcodegen.zip" 'https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip'
+          echo '4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  '"$RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      - run: xcodegen generate
+      - name: Build the Agents app
+        run: |
+          xcodebuild -project Agents.xcodeproj -scheme Agents -destination 'platform=macOS' -skipPackagePluginValidation \
+            -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath build/SourcePackages build \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+      - name: Run the Agents unit tests
+        run: |
+          xcodebuild -project Agents.xcodeproj -scheme Agents -destination 'platform=macOS' -skipPackagePluginValidation \
+            -derivedDataPath build/DerivedData -clonedSourcePackagesDirPath build/SourcePackages test \
+            -collect-test-diagnostics never \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
   ios-release-tests:
     # The existing iOS release caller invokes this workflow on its ios-v tag.
     if: startsWith(github.ref, 'refs/tags/ios-v')
@@ -126,7 +180,7 @@ jobs:
 
   build-and-test:
     name: Build and test
-    needs: [changes, rust-core, legacy-swift-baseline, ios-release-tests]
+    needs: [changes, rust-core, legacy-swift-baseline, agents-app, ios-release-tests]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -138,9 +192,12 @@ jobs:
           RUST_SCOPE: ${{ needs.changes.outputs.rust }}
           LEGACY_RESULT: ${{ needs.legacy-swift-baseline.result }}
           LEGACY_SCOPE: ${{ needs.changes.outputs.legacy }}
+          AGENTS_RESULT: ${{ needs.agents-app.result }}
+          AGENTS_SCOPE: ${{ needs.changes.outputs.agents }}
           IOS_RESULT: ${{ needs.ios-release-tests.result }}
           REF: ${{ github.ref }}
         run: |
           if [[ "$RUST_SCOPE" == false ]]; then test "$RUST_RESULT" = skipped; else test "$RUST_RESULT" = success; fi
           if [[ "$LEGACY_SCOPE" == false ]]; then test "$LEGACY_RESULT" = skipped; else test "$LEGACY_RESULT" = success; fi
+          if [[ "$AGENTS_SCOPE" == false ]]; then test "$AGENTS_RESULT" = skipped; else test "$AGENTS_RESULT" = success; fi
           if [[ "$REF" == refs/tags/ios-v* ]]; then test "$IOS_RESULT" = success; fi
