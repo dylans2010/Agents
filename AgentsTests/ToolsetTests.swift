@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 200)
+        #expect(tools.count == 265)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -1309,5 +1309,615 @@ struct ToolsetTests {
         let local = try JSONDecoder().decode(RemoteCheckoutAction.self, from: Data("{\"type\":\"useExistingWorktree\",\"path\":\"/tmp/wt\",\"branch\":null}".utf8))
         #expect(local == .useExistingWorktree(path: "/tmp/wt", branch: nil))
     }
+
+
+    @Test("Slice 13 tools register with their real backend actions")
+    func sliceThirteenToolsRegister() {
+        let expected: [(String, String, SystemToolChannel)] = [
+            ("search_symbol", "workspace.search_regex", .desktop),
+            ("dependency_graph", "workspace.search_regex", .desktop),
+            ("source_graph_builder", "workspace.search_regex", .desktop),
+            ("semantic_query_engine", "workspace.search", .desktop),
+            ("code_summary", "workspace.read_file", .desktop),
+            ("code_lint", "workspace.read_file", .desktop),
+            ("complexity_analysis", "workspace.read_file", .desktop),
+            ("autonomous_review_engine", "workspace.search_regex", .desktop),
+            ("runtime_diagnostics_engine", "workspace.read_file", .desktop),
+            ("code_metrics_analyzer", "workspace.read_file", .desktop),
+            ("memory_leak_detector", "workspace.search_regex", .desktop),
+            ("dead_code_eliminator", "workspace.read_file", .desktop),
+            ("dead_code_scan", "workspace.read_file", .desktop),
+            ("duplicate_code_scan", "workspace.read_file", .desktop),
+            ("todo_scan", "workspace.search_regex", .desktop),
+            ("todo_fixme_scanner", "workspace.search_regex", .desktop),
+            ("license_header_check", "workspace.read_file", .desktop),
+            ("api_surface_extract", "workspace.search_regex", .desktop),
+            ("access_level_audit", "workspace.search_regex", .desktop),
+            ("concurrency_audit", "workspace.search_regex", .desktop),
+            ("swift_concurrency_analyzer", "workspace.search_regex", .desktop),
+            ("swift_migration_advisor", "workspace.search_regex", .desktop),
+            ("security_audit_scanner", "workspace.search_regex", .desktop),
+            ("secrets_scan", "workspace.search_regex", .desktop),
+            ("network_security_auditor", "workspace.search_regex", .desktop),
+            ("permissions_audit", "workspace.search_regex", .desktop),
+            ("accessibility_audit", "workspace.search_regex", .desktop),
+            ("accessibility_audit_scanner", "workspace.search_regex", .desktop),
+            ("interface_simulator", "workspace.search_regex", .desktop),
+            ("docstring_generator", "workspace.read_file", .desktop),
+            ("code_snippet_manager", "workspace.write_file", .desktop),
+            ("unused_imports_detector", "workspace.read_file", .desktop),
+            ("force_unwrap_scan", "workspace.search_regex", .desktop),
+            ("string_literal_audit", "workspace.search_regex", .desktop),
+            ("comment_density_report", "workspace.read_file", .desktop),
+            ("function_size_report", "workspace.read_file", .desktop),
+            ("call_hierarchy", "workspace.search_regex", .desktop),
+            ("type_hierarchy", "workspace.search_regex", .desktop),
+            ("protocol_conformance_list", "workspace.search_regex", .desktop),
+            ("import_graph", "workspace.search_regex", .desktop),
+            ("change_impact_estimate", "workspace.search_regex", .desktop),
+            ("conflict_marker_scan", "workspace.search_regex", .desktop),
+            ("build_log_analyze", "workspace.read_file", .desktop),
+            ("crash_log_parse", "workspace.read_file", .desktop),
+            ("deprecation_usage_scan", "workspace.search_regex", .desktop),
+            ("info_plist_audit", "workspace.read_file", .desktop),
+            ("api_endpoint_audit", "workspace.search_regex", .desktop),
+            ("color_usage_audit", "workspace.search_regex", .desktop),
+            ("strings_file_validate", "workspace.read_file", .desktop),
+            ("entitlements_diff", "workspace.read_file", .desktop),
+            ("pbxproj_lint", "workspace.read_file", .desktop),
+            ("xctest_discovery", "workspace.search_regex", .desktop),
+            ("build_settings_diff", "workspace.read_file", .desktop),
+            ("build_phase_scripts_list", "workspace.read_file", .desktop),
+            ("build_configuration_list", "workspace.read_file", .desktop),
+            ("target_dependencies_list", "workspace.read_file", .desktop),
+            ("target_source_list", "workspace.read_file", .desktop),
+            ("workspace_settings_read", "workspace.read_file", .desktop),
+            ("scheme_test_plan_list", "workspace.read_file", .desktop),
+            ("test_log_parse", "workspace.read_file", .desktop),
+            ("test_flaky_detect", "workspace.read_file", .desktop),
+            ("code_comment_extract", "workspace.search_regex", .desktop),
+            ("api_docs_coverage", "workspace.read_file", .desktop),
+            ("markdown_link_check", "workspace.read_file", .desktop),
+            ("docs_index_build", "workspace.files", .desktop),
+        ]
+        #expect(expected.count == 65)
+        for (name, action, channel) in expected {
+            guard let definition = SystemToolRegistry.definition(named: name, for: .system) else {
+                Issue.record("Missing system tool \(name)")
+                continue
+            }
+            #expect(definition.action == action)
+            #expect(definition.channel == channel)
+            #expect(definition.parameters.contains { $0.required })
+            #expect(definition.parameters.first?.name == "cwd")
+            #expect(definition.parameters.first?.required == true)
+        }
+        #expect(SystemToolRegistry.definition(named: "search_symbol", for: .system)?.parameters.map(\.name) == ["cwd", "symbol", "path", "limit"])
+        #expect(SystemToolRegistry.definition(named: "entitlements_diff", for: .system)?.parameters.map(\.name) == ["cwd", "path", "otherPath"])
+        #expect(SystemToolRegistry.definition(named: "code_snippet_manager", for: .system)?.parameters.map(\.name) == ["cwd", "template", "path"])
+        #expect(SystemToolRegistry.definition(named: "runtime_diagnostics_engine", for: .system)?.parameters.map(\.name) == ["cwd", "logPath"])
+        #expect(SystemToolRegistry.definition(named: "dead_code_eliminator", for: .system)?.description.contains("Report-only") == true)
+        #expect(SystemToolRegistry.definition(named: "pbxproj_lint", for: .system)?.description.contains("Never writes") == true)
+    }
+
+    @Test("Slice 13 regex scans round-trip through the real workspace")
+    func sliceThirteenScansRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+        let store = """
+        import Foundation
+        import SwiftUI
+        import FakeyKit
+
+        // TODO: migrate this store
+        public struct Store {
+            public var title: String
+            public func load() {
+                let value = optionalValue!.description
+                let forced = try! loadData()
+                let casted = value as! String
+                let color = Color(red: 1, green: 0, blue: 0)
+                let url = "https://api.example.com/v1/items"
+                Task {
+                    DispatchQueue.main.sync {
+                        print("sync")
+                    }
+                }
+            }
+            private func helper() {
+            }
+            func unusedHelper() {
+            }
+            @available(*, deprecated, message: "Use something else.")
+            func bigFunction() {
+                if true {
+                    if true {
+                        print("nested")
+                    }
+                }
+                print("a")
+                print("b")
+                print("c")
+                print("d")
+                print("e")
+                print("f")
+                print("g")
+            }
+        }
+        """
+        try Self.writeText(store, to: "Sources/Store.swift", in: tempRoot)
+        try Self.writeText("let apiKey = \"AKIAIOSFODNN7EXAMPLE\"\n", to: "Sources/Secrets.swift", in: tempRoot)
+        try Self.writeText("<<<<<<< HEAD\nlet conflicted = 1\n", to: "Sources/Conflict.swift", in: tempRoot)
+        let duplicateBlock = """
+        func duplicated() {
+            print("alpha")
+            print("beta")
+            print("gamma")
+            print("delta")
+            print("epsilon")
+            print("zeta")
+        }
+        """
+        try Self.writeText("import Foundation\n" + duplicateBlock, to: "Sources/DupA.swift", in: tempRoot)
+        try Self.writeText(duplicateBlock, to: "Sources/DupB.swift", in: tempRoot)
+        try Self.writeText("import XCTest\nclass StoreTests: XCTestCase {\n    func testExample() {\n    }\n}\n", to: "Tests/StoreTests.swift", in: tempRoot)
+
+        let todo = try await Self.run("todo_scan", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(todo["matchCount"]?.intValue == 1)
+        #expect(todo["groups"]?.arrayValue?.first?["matches"]?.arrayValue?.first?["path"]?.stringValue == "Sources/Store.swift")
+        let todoFixme = try await Self.run("todo_fixme_scanner", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(todoFixme["matchCount"]?.intValue == 1)
+        let unwraps = try await Self.run("force_unwrap_scan", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(unwraps["matchCount"]?.intValue == 5)
+        #expect(unwraps["groups"]?.arrayValue?.first?["count"]?.intValue == 3)
+        let conflicts = try await Self.run("conflict_marker_scan", arguments: ["cwd": .string(cwd), "path": .string("Sources/Conflict.swift")], client: client)
+        #expect(conflicts["matchCount"]?.intValue == 1)
+        let secrets = try await Self.run("secrets_scan", arguments: ["cwd": .string(cwd), "path": .string("Sources/Secrets.swift")], client: client)
+        #expect(secrets["matchCount"]?.intValue == 1)
+        #expect(secrets["groups"]?.arrayValue?.first?["matches"]?.arrayValue?.first?["lineText"] == nil)
+        #expect(secrets["groups"]?.arrayValue?.first?["label"]?.stringValue == "awsKey")
+        let symbol = try await Self.run("search_symbol", arguments: ["cwd": .string(cwd), "symbol": .string("Store")], client: client)
+        #expect(symbol["matchCount"]?.intValue == 1)
+        #expect(symbol["groups"]?.arrayValue?.map { $0["label"]?.stringValue ?? "" } == ["function", "type", "variable", "typealias"])
+        let hierarchy = try await Self.run("call_hierarchy", arguments: ["cwd": .string(cwd), "function": .string("load")], client: client)
+        #expect(hierarchy["groups"]?.arrayValue?.first?["count"]?.intValue == 1)
+        #expect(hierarchy["groups"]?.arrayValue?.last?["count"]?.intValue == 1)
+        let impact = try await Self.run("change_impact_estimate", arguments: ["cwd": .string(cwd), "symbol": .string("Store")], client: client)
+        #expect(impact["matchCount"]?.intValue == 1)
+        let semantic = try await Self.run("semantic_query_engine", arguments: ["cwd": .string(cwd), "query": .string("migrate")], client: client)
+        #expect(semantic["matchCount"]?.intValue == 1)
+        let graph = try await Self.run("dependency_graph", arguments: ["cwd": .string(cwd), "path": .string("Sources")], client: client)
+        #expect(graph["groups"]?.arrayValue?.first?["files"]?.arrayValue?.count == 2)
+        let imports = try await Self.run("import_graph", arguments: ["cwd": .string(cwd), "module": .string("SwiftUI")], client: client)
+        #expect(imports["groups"]?.arrayValue?.first?["files"]?.arrayValue?.count == 1)
+        let types = try await Self.run("type_hierarchy", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(types["groups"]?.arrayValue?.first?["values"]?.arrayValue?.compactMap { $0.stringValue }.sorted() == ["Store", "StoreTests"])
+        let tests = try await Self.run("xctest_discovery", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(tests["groups"]?.arrayValue?.first?["count"]?.intValue == 1)
+        #expect(tests["groups"]?.arrayValue?.last?["count"]?.intValue == 1)
+        let surface = try await Self.run("api_surface_extract", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(surface["groups"]?.arrayValue?.first?["files"]?.arrayValue?.first?["count"]?.intValue == 3)
+        let access = try await Self.run("access_level_audit", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(access["groups"]?.arrayValue?.first?["count"]?.intValue == 3)
+        #expect(access["groups"]?.arrayValue?[3]["count"]?.intValue == 1)
+        let deprecated = try await Self.run("deprecation_usage_scan", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(deprecated["matchCount"]?.intValue == 1)
+        let colors = try await Self.run("color_usage_audit", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(colors["matchCount"]?.intValue == 1)
+        let endpoints = try await Self.run("api_endpoint_audit", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(endpoints["groups"]?.arrayValue?.first?["hosts"]?.arrayValue?.first?["label"]?.stringValue == "api.example.com")
+        let strings = try await Self.run("string_literal_audit", arguments: ["cwd": .string(cwd), "path": .string("Sources")], client: client)
+        #expect(strings["matchCount"]?.intValue == 3)
+        let comments = try await Self.run("code_comment_extract", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(comments["matchCount"]?.intValue == 0)
+        await client.close()
+    }
+
+    @Test("Slice 13 file parses round-trip through the real workspace")
+    func sliceThirteenFileParsesRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+        let store = """
+        // Copyright 2026 Demo
+        import Foundation
+        import FakeyKit
+
+        public struct Store {
+            public var title: String
+            public func load() {
+                if true {
+                    print("one")
+                }
+            }
+            private func helper() {
+            }
+            func unusedHelper() {
+            }
+            func bigFunction() {
+                if true {
+                    if true {
+                        print("nested")
+                    }
+                }
+                print("a")
+                print("b")
+                print("c")
+                print("d")
+                print("e")
+                print("f")
+                print("g")
+            }
+        }
+        """
+        try Self.writeText(store, to: "Sources/Store.swift", in: tempRoot)
+        let duplicateBlock = """
+        func duplicated() {
+            print("alpha")
+            print("beta")
+            print("gamma")
+            print("delta")
+            print("epsilon")
+            print("zeta")
+        }
+        """
+        try Self.writeText("import Foundation\n" + duplicateBlock, to: "Sources/DupA.swift", in: tempRoot)
+        try Self.writeText(duplicateBlock, to: "Sources/DupB.swift", in: tempRoot)
+        try Self.writeText("import XCTest\nclass StoreTests: XCTestCase {\n    func testExample() {\n    }\n}\n", to: "Tests/StoreTests.swift", in: tempRoot)
+
+        let summary = try await Self.run("code_summary", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(summary["commentLines"]?.intValue == 1)
+        #expect((summary["codeLines"]?.intValue ?? 0) + (summary["commentLines"]?.intValue ?? 0) + (summary["blankLines"]?.intValue ?? 0) == summary["lines"]?.intValue)
+        let complexity = try await Self.run("complexity_analysis", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(complexity["complexityEstimate"]?.intValue == 4)
+        let lint = try await Self.run("code_lint", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(lint["issueCount"]?.intValue == 0)
+        let metrics = try await Self.run("code_metrics_analyzer", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(metrics["filesChecked"]?.intValue == 4)
+        #expect(metrics["totals"]?["functions"]?.intValue == 7)
+        #expect(metrics["totals"]?["types"]?.intValue == 2)
+        let density = try await Self.run("comment_density_report", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(density["files"]?.arrayValue?.count == 4)
+        #expect(density["files"]?.arrayValue?.first?["commentRatio"]?.doubleValue == 0)
+        let sizes = try await Self.run("function_size_report", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(sizes["functions"]?.arrayValue?.first?["name"]?.stringValue == "bigFunction")
+        #expect(sizes["functions"]?.arrayValue?.first?["lines"]?.intValue == 14)
+        let dead = try await Self.run("dead_code_scan", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(dead["candidateCount"]?.intValue == 8)
+        #expect(dead["candidates"]?.arrayValue?.compactMap { $0["name"]?.stringValue }.contains("unusedHelper") == true)
+        let eliminator = try await Self.run("dead_code_eliminator", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(eliminator["candidateCount"]?.intValue == 1)
+        #expect(eliminator["candidates"]?.arrayValue?.first?["name"]?.stringValue == "helper")
+        #expect(eliminator["reportOnly"]?.boolValue == true)
+        let duplicates = try await Self.run("duplicate_code_scan", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(duplicates["blockCount"]?.intValue == 1)
+        #expect(duplicates["blocks"]?.arrayValue?.first?["occurrences"]?.arrayValue?.count == 2)
+        let unused = try await Self.run("unused_imports_detector", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift")], client: client)
+        #expect(unused["unused"]?.arrayValue?.compactMap { $0["module"]?.stringValue } == ["FakeyKit"])
+        let license = try await Self.run("license_header_check", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(license["missingCount"]?.intValue == 3)
+        let coverage = try await Self.run("api_docs_coverage", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(coverage["declarations"]?.intValue == 3)
+        #expect(coverage["documented"]?.intValue == 0)
+        #expect(coverage["coverage"]?.doubleValue == 0)
+        let docs = try await Self.run("docstring_generator", arguments: ["cwd": .string(cwd), "path": .string("Sources/Store.swift"), "symbol": .string("load")], client: client)
+        #expect(docs["declarations"]?.arrayValue?.count == 1)
+        #expect(docs["declarations"]?.arrayValue?.first?["docBlock"]?.stringValue == "/// load")
+        let snippet = try await Self.run("code_snippet_manager", arguments: ["cwd": .string(cwd), "template": .string("actor"), "path": .string("Snippets/Counter.swift")], client: client)
+        #expect(snippet["written"]?.boolValue == true)
+        #expect(try Self.readText("Snippets/Counter.swift", in: tempRoot).contains("actor Counter"))
+
+        try Self.writeText("Compiling App.swift\nApp.swift:10:5: error: cannot find 'x' in scope\nApp.swift:12:1: warning: unused variable\n** BUILD FAILED **\n", to: "build.log", in: tempRoot)
+        let buildLog = try await Self.run("build_log_analyze", arguments: ["cwd": .string(cwd), "path": .string("build.log")], client: client)
+        #expect(buildLog["result"]?.stringValue == "failed")
+        #expect(buildLog["errorCount"]?.intValue == 1)
+        #expect(buildLog["warningCount"]?.intValue == 1)
+        try Self.writeText("Exception Type: EXC_BAD_ACCESS (SIGSEGV)\nTermination Reason: Namespace SIGNAL, Code 11 Segmentation fault\nTriggered by Thread: 0\nThread 0 Crashed:\n0   DemoApp  0x100000000 main + 0\n1   DemoApp  0x100000100 start + 0\nThread 1:\n0   libsystem  0x100000200 work + 0\n", to: "crash.log", in: tempRoot)
+        let crash = try await Self.run("crash_log_parse", arguments: ["cwd": .string(cwd), "path": .string("crash.log")], client: client)
+        #expect(crash["exceptionType"]?.stringValue == "EXC_BAD_ACCESS (SIGSEGV)")
+        #expect(crash["faultingThread"]?.intValue == 0)
+        #expect(crash["blamedFrames"]?.arrayValue?.count == 2)
+        let diagnostics = try await Self.run("runtime_diagnostics_engine", arguments: ["cwd": .string(cwd), "logPath": .string("crash.log")], client: client)
+        #expect(diagnostics["findings"]?.arrayValue?.count == 3)
+        #expect(diagnostics["leads"]?.arrayValue?.count == 3)
+        try Self.writeText("Test Suite 'DemoTests' started\nTest Case '-[DemoTests testExample]' passed (0.001 seconds)\nTest Case '-[DemoTests testBroken]' failed (0.002 seconds)\nTest Suite 'DemoTests' finished\nTests/StoreTests.swift:10: error: DemoTests.testBroken : failed\n", to: "test.log", in: tempRoot)
+        let testLog = try await Self.run("test_log_parse", arguments: ["cwd": .string(cwd), "path": .string("test.log")], client: client)
+        #expect(testLog["passed"]?.intValue == 1)
+        #expect(testLog["failed"]?.intValue == 1)
+        #expect(testLog["failedTests"]?.arrayValue?.first?["stringValue"] == "DemoTests testBroken")
+        #expect(testLog["suites"]?.arrayValue?.first?["passed"]?.intValue == 1)
+        #expect(testLog["errorLines"]?.arrayValue?.count == 1)
+        try Self.writeText("Test Case '-[DemoTests testExample]' passed (0.001 seconds)\nTest Case '-[DemoTests testExample]' failed (0.002 seconds)\n", to: "flaky.log", in: tempRoot)
+        let flaky = try await Self.run("test_flaky_detect", arguments: ["cwd": .string(cwd), "path": .string("flaky.log")], client: client)
+        #expect(flaky["flakyCount"]?.intValue == 1)
+        #expect(flaky["flaky"]?.arrayValue?.first?["name"]?.stringValue == "DemoTests testExample")
+        try Self.writeText("\"hello\" = \"Hello\";\n\"hello\" = \"Hello again\";\n\"empty\" = \"\";\nbad line here\n", to: "Localizable.strings", in: tempRoot)
+        let strings = try await Self.run("strings_file_validate", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(strings["issueCount"]?.intValue == 3)
+        let plist = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+        <dict>
+        \t<key>CFBundleIdentifier</key>
+        \t<string>com.example.Demo</string>
+        \t<key>CFBundleShortVersionString</key>
+        \t<string>1.0</string>
+        \t<key>CFBundleVersion</key>
+        \t<string>1</string>
+        \t<key>CFBundleName</key>
+        \t<string>Demo</string>
+        </dict>
+        </plist>
+        """
+        try Self.writeText(plist, to: "Info.plist", in: tempRoot)
+        let plistAudit = try await Self.run("info_plist_audit", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(plistAudit["filesChecked"]?.intValue == 1)
+        #expect(plistAudit["plists"]?.arrayValue?.first?["issues"]?.arrayValue?.count == 0)
+        try Self.writeText("{\"testTargets\": [{\"target\": {\"name\": \"DemoTests\"}}]}", to: "Demo.xctestplan", in: tempRoot)
+        let plans = try await Self.run("scheme_test_plan_list", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(plans["plans"]?.arrayValue?.first?["testTargets"]?.arrayValue?.first?["stringValue"] == "DemoTests")
+        let settingsPlist = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+        <dict>
+        \t<key>IDEWorkspaceSharedSettings_AutocreateContextsIfNeeded</key>
+        \t<true/>
+        </dict>
+        </plist>
+        """
+        try Self.writeText(settingsPlist, to: "Demo.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings", in: tempRoot)
+        let settings = try await Self.run("workspace_settings_read", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(settings["found"]?.boolValue == true)
+        #expect(settings["settings"]?["IDEWorkspaceSharedSettings_AutocreateContextsIfNeeded"]?.stringValue == "true")
+        try Self.writeText("# Demo\n\n[Guide](Guide.md)\n[Missing](Nope.md)\n", to: "README.md", in: tempRoot)
+        try Self.writeText("# Guide\n", to: "Guide.md", in: tempRoot)
+        let index = try await Self.run("docs_index_build", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(index["files"]?.arrayValue?.count == 2)
+        #expect(index["files"]?.arrayValue?.compactMap { $0["title"]?.stringValue }.sorted() == ["Demo", "Guide"])
+        let links = try await Self.run("markdown_link_check", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(links["links"]?.intValue == 2)
+        #expect(links["brokenCount"]?.intValue == 1)
+        #expect(links["broken"]?.arrayValue?.first?["target"]?.stringValue == "Nope.md")
+        let entitlementsA = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+        <dict>
+        \t<key>application-identifier</key>
+        \t<string>TeamID.com.example.Demo</string>
+        \t<key>get-task-allow</key>
+        \t<true/>
+        \t<key>aps-environment</key>
+        \t<string>development</string>
+        </dict>
+        </plist>
+        """
+        let entitlementsB = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+        <dict>
+        \t<key>application-identifier</key>
+        \t<string>TeamID.com.example.Demo</string>
+        \t<key>get-task-allow</key>
+        \t<false/>
+        \t<key>com.apple.security.application-groups</key>
+        \t<array>
+        \t\t<string>group.com.example.Demo</string>
+        \t</array>
+        </dict>
+        </plist>
+        """
+        try Self.writeText(entitlementsA, to: "A.entitlements", in: tempRoot)
+        try Self.writeText(entitlementsB, to: "B.entitlements", in: tempRoot)
+        let entitlements = try await Self.run("entitlements_diff", arguments: ["cwd": .string(cwd), "path": .string("A.entitlements"), "otherPath": .string("B.entitlements")], client: client)
+        #expect(entitlements["added"]?.arrayValue?.compactMap { $0.stringValue } == ["com.apple.security.application-groups"])
+        #expect(entitlements["removed"]?.arrayValue?.compactMap { $0.stringValue } == ["aps-environment"])
+        #expect(entitlements["changed"]?.arrayValue?.first?["key"]?.stringValue == "get-task-allow")
+        try Self.writeText("PRODUCT_NAME = Demo\nSWIFT_VERSION = 5.0\n", to: "Debug.xcconfig", in: tempRoot)
+        try Self.writeText("PRODUCT_NAME = Demo\nSWIFT_VERSION = 6.0\nOPTIMIZATION = -O\n", to: "Release.xcconfig", in: tempRoot)
+        let xcconfig = try await Self.run("build_settings_diff", arguments: ["cwd": .string(cwd), "path": .string("Debug.xcconfig"), "otherPath": .string("Release.xcconfig")], client: client)
+        #expect(xcconfig["added"]?.arrayValue?.compactMap { $0.stringValue } == ["OPTIMIZATION"])
+        #expect(xcconfig["changed"]?.arrayValue?.first?["key"]?.stringValue == "SWIFT_VERSION")
+        await client.close()
+    }
+
+
+    @Test("Slice 13 pbxproj tools round-trip through the real workspace")
+    func sliceThirteenPbxprojRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+        try Self.writeText("import Foundation\n", to: "App.swift", in: tempRoot)
+        let pbxproj = """
+        // !$*UTF8*$!
+        {
+        \tarchiveVersion = 1;
+        \tobjectVersion = 56;
+        \tobjects = {
+
+        /* Begin PBXBuildFile section */
+        \t\tAAAABBBBCCCCDDDDEEEE0001 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAABBBBCCCCDDDDEEEE0011; };
+        \t\tAAAABBBBCCCCDDDDEEEE0002 /* Missing.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAABBBBCCCCDDDDEEEE0012; };
+        \t\tAAAABBBBCCCCDDDDEEEE0003 /* App.swift in Resources */ = {isa = PBXBuildFile; fileRef = AAAABBBBCCCCDDDDEEEE0011; };
+        \t\tAAAABBBBCCCCDDDDEEEE0004 /* Orphan.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAABBBBCCCCDDDDEEEE00FF; };
+        /* End PBXBuildFile section */
+
+        /* Begin PBXFileReference section */
+        \t\tAAAABBBBCCCCDDDDEEEE0011 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+        \t\tAAAABBBBCCCCDDDDEEEE0012 /* Missing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Missing.swift; sourceTree = "<group>"; };
+        \t\tAAAABBBBCCCCDDDDEEEE0013 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+        /* End PBXFileReference section */
+
+        /* Begin PBXNativeTarget section */
+        \t\tAAAABBBBCCCCDDDDEEEE0021 /* DemoApp */ = {isa = PBXNativeTarget; buildConfigurationList = AAAABBBBCCCCDDDDEEEE0041; buildPhases = (
+        \t\t\tAAAABBBBCCCCDDDDEEEE0031 /* Sources */,
+        \t\t\tAAAABBBBCCCCDDDDEEEE0032 /* Run Script */,
+        \t\t); buildRules = (
+        \t\t); dependencies = (
+        \t\t\tAAAABBBBCCCCDDDDEEEE0029 /* PBXTargetDependency */,
+        \t\t); name = DemoApp; productName = DemoApp; productType = "com.apple.product-type.application"; };
+        \t\tAAAABBBBCCCCDDDDEEEE0022 /* DemoLib */ = {isa = PBXNativeTarget; buildConfigurationList = AAAABBBBCCCCDDDDEEEE0041; buildPhases = (
+        \t\t); buildRules = (
+        \t\t); dependencies = (
+        \t\t); name = DemoLib; productName = DemoLib; productType = "com.apple.product-type.library.static"; };
+        /* End PBXNativeTarget section */
+
+        /* Begin PBXShellScriptBuildPhase section */
+        \t\tAAAABBBBCCCCDDDDEEEE0032 /* Run Script */ = {isa = PBXShellScriptBuildPhase; buildActionMask = 2147483647; files = (
+        \t\t); inputPaths = (
+        \t\t); name = "Run Script"; outputPaths = (
+        \t\t); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "echo hello\\n"; };
+        /* End PBXShellScriptBuildPhase section */
+
+        /* Begin PBXSourcesBuildPhase section */
+        \t\tAAAABBBBCCCCDDDDEEEE0031 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+        \t\t\tAAAABBBBCCCCDDDDEEEE0001 /* App.swift in Sources */,
+        \t\t\tAAAABBBBCCCCDDDDEEEE0002 /* Missing.swift in Sources */,
+        \t\t\tAAAABBBBCCCCDDDDEEEE0004 /* Orphan.swift in Sources */,
+        \t\t); runOnlyForDeploymentPostprocessing = 0; };
+        /* End PBXSourcesBuildPhase section */
+
+        /* Begin PBXTargetDependency section */
+        \t\tAAAABBBBCCCCDDDDEEEE0029 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = AAAABBBBCCCCDDDDEEEE0022 /* DemoLib */; targetProxy = AAAABBBBCCCCDDDDEEEE0028 /* PBXContainerItemProxy */; };
+        /* End PBXTargetDependency section */
+
+        /* Begin XCBuildConfiguration section */
+        \t\tAAAABBBBCCCCDDDDEEEE0051 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+        \t\t\tPRODUCT_NAME = DemoApp;
+        \t\t}; name = Debug; };
+        \t\tAAAABBBBCCCCDDDDEEEE0052 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+        \t\t\tPRODUCT_NAME = DemoApp;
+        \t\t}; name = Release; };
+        /* End XCBuildConfiguration section */
+
+        \t};
+        \trootObject = AAAABBBBCCCCDDDDEEEE0099 /* Project object */;
+        }
+        """
+        try Self.writeText(pbxproj, to: "Demo.xcodeproj/project.pbxproj", in: tempRoot)
+        let lint = try await Self.run("pbxproj_lint", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(lint["fileReferences"]?.intValue == 3)
+        #expect(lint["missingFiles"]?.arrayValue?.compactMap { $0["path"]?.stringValue } == ["Missing.swift"])
+        #expect(lint["duplicatePaths"]?.arrayValue?.compactMap { $0.stringValue } == ["App.swift"])
+        #expect(lint["danglingBuildFiles"]?.arrayValue?.compactMap { $0.stringValue } == ["AAAABBBBCCCCDDDDEEEE0004"])
+        #expect(lint["issueCount"]?.intValue == 3)
+        let scripts = try await Self.run("build_phase_scripts_list", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(scripts["phases"]?.arrayValue?.count == 1)
+        #expect(scripts["phases"]?.arrayValue?.first?["name"]?.stringValue == "Run Script")
+        #expect(scripts["phases"]?.arrayValue?.first?["shellPath"]?.stringValue == "/bin/sh")
+        #expect(scripts["phases"]?.arrayValue?.first?["script"]?.stringValue?.contains("echo hello") == true)
+        let configs = try await Self.run("build_configuration_list", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(configs["configurations"]?.arrayValue?.compactMap { $0.stringValue }.sorted() == ["Debug", "Release"])
+        let deps = try await Self.run("target_dependencies_list", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(deps["targets"]?.arrayValue?.first { $0["name"]?.stringValue == "DemoApp" }?["dependencies"]?.arrayValue?.compactMap { $0.stringValue } == ["DemoLib"])
+        #expect(deps["targets"]?.arrayValue?.first { $0["name"]?.stringValue == "DemoLib" }?["dependencies"]?.arrayValue?.count == 0)
+        let sources = try await Self.run("target_source_list", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(sources["targets"]?.arrayValue?.first?["name"]?.stringValue == "DemoApp")
+        #expect(sources["targets"]?.arrayValue?.first?["sources"]?.arrayValue?.compactMap { $0.stringValue } == ["App.swift", "Missing.swift"])
+        await client.close()
+    }
+
+    @Test("Slice 13 parsers read real scan text shapes")
+    func sliceThirteenParsersParseRealText() {
+        let summary = SystemToolRegistry.parseG5FileSummary(tool: "code_summary", path: "A.swift", content: "import Foundation\n\n// note\nlet x = 1\n")
+        #expect(summary["lines"]?.intValue == 5)
+        #expect(summary["codeLines"]?.intValue == 2)
+        #expect(summary["commentLines"]?.intValue == 1)
+        #expect(summary["blankLines"]?.intValue == 2)
+        let complexity = SystemToolRegistry.parseG5Complexity(tool: "complexity_analysis", path: "A.swift", content: "func f() {\n    if a && b {\n        for i in list {\n        }\n    }\n}\n")
+        #expect(complexity["complexityEstimate"]?.intValue == 4)
+        let diagnostics = SystemToolRegistry.parseG5DiagnosticsLog(tool: "runtime_diagnostics_engine", logPath: "crash.log", content: "fatal error: nil\nEXC_BAD_ACCESS\nThread 0 crashed\n")
+        #expect(diagnostics["findings"]?.arrayValue?.count == 4)
+        let buildLog = SystemToolRegistry.parseG5BuildLog(tool: "build_log_analyze", path: "build.log", content: "ok\n** BUILD SUCCEEDED **\n")
+        #expect(buildLog["result"]?.stringValue == "succeeded")
+        #expect(buildLog["errorCount"]?.intValue == 0)
+        let crash = SystemToolRegistry.parseG5CrashLog(tool: "crash_log_parse", path: "crash.log", content: "Exception Type: EXC_CRASH (SIGABRT)\nTermination Reason: Namespace SIGNAL\nTriggered by Thread: 2\nThread 2 Crashed:\n0   App  0x1 main + 0\n")
+        #expect(crash["exceptionType"]?.stringValue == "EXC_CRASH (SIGABRT)")
+        #expect(crash["faultingThread"]?.intValue == 2)
+        #expect(crash["blamedFrames"]?.arrayValue?.count == 1)
+        let testLog = SystemToolRegistry.parseG5TestLog(tool: "test_log_parse", path: "test.log", content: "Test Suite 'S' started\nTest Case '-[S a]' passed (0.1 seconds)\nTest Case '-[S b]' failed (0.1 seconds)\nTest Suite 'S' finished\n")
+        #expect(testLog["passed"]?.intValue == 1)
+        #expect(testLog["failed"]?.intValue == 1)
+        #expect(testLog["suites"]?.arrayValue?.first?["failed"]?.intValue == 1)
+        let flaky = SystemToolRegistry.parseG5FlakyTests(tool: "test_flaky_detect", path: "test.log", content: "Test Case '-[S a]' passed (0.1 seconds)\nTest Case '-[S a]' failed (0.1 seconds)\nTest Case '-[S b]' passed (0.1 seconds)\n")
+        #expect(flaky["flakyCount"]?.intValue == 1)
+        #expect(flaky["flaky"]?.arrayValue?.first?["name"]?.stringValue == "S a")
+        let plistValues = SystemToolRegistry.parseG5PlistKeyValues("<key>CFBundleIdentifier</key>\n<string>com.example.App</string>\n<key>Flag</key>\n<true/>\n<key>Count</key>\n<integer>3</integer>\n")
+        #expect(plistValues["CFBundleIdentifier"] == "com.example.App")
+        #expect(plistValues["Flag"] == "true")
+        #expect(plistValues["Count"] == "3")
+        let xcconfigValues = SystemToolRegistry.parseG5XcconfigKeyValues("// comment\nPRODUCT_NAME = Demo\nSWIFT_VERSION = 6.0\n")
+        #expect(xcconfigValues["PRODUCT_NAME"] == "Demo")
+        #expect(xcconfigValues["SWIFT_VERSION"] == "6.0")
+        let diff = SystemToolRegistry.parseG5KeyValueDiff(tool: "build_settings_diff", path: "A.xcconfig", otherPath: "B.xcconfig", first: ["A": "1", "B": "2"], second: ["B": "3", "C": "4"])
+        #expect(diff["added"]?.arrayValue?.compactMap { $0.stringValue } == ["C"])
+        #expect(diff["removed"]?.arrayValue?.compactMap { $0.stringValue } == ["A"])
+        #expect(diff["changed"]?.arrayValue?.first?["key"]?.stringValue == "B")
+        let dead = SystemToolRegistry.parseG5DeadCode(tool: "dead_code_scan", files: [("A.swift", "func used() {\n}\nfunc unused() {\n}\nused()\n")], privateOnly: false, limit: 200)
+        #expect(dead["candidateCount"]?.intValue == 1)
+        #expect(dead["candidates"]?.arrayValue?.first?["name"]?.stringValue == "unused")
+        let duplicates = SystemToolRegistry.parseG5DuplicateBlocks(tool: "duplicate_code_scan", files: [("A.swift", "print(\"a\")\nprint(\"b\")\nprint(\"c\")\nprint(\"d\")\nprint(\"e\")\nprint(\"f\")\nprint(\"g\")\n"), ("B.swift", "print(\"a\")\nprint(\"b\")\nprint(\"c\")\nprint(\"d\")\nprint(\"e\")\nprint(\"f\")\nprint(\"h\")\n")], limit: 200)
+        #expect(duplicates["blockCount"]?.intValue == 1)
+        let sizes = SystemToolRegistry.parseG5FunctionSizes(tool: "function_size_report", files: [("A.swift", "func small() {\n}\nfunc big() {\n    print(1)\n    print(2)\n    print(3)\n}\n")], limit: 200)
+        #expect(sizes["functions"]?.arrayValue?.first?["name"]?.stringValue == "big")
+        #expect(sizes["functions"]?.arrayValue?.first?["lines"]?.intValue == 5)
+        let coverage = SystemToolRegistry.parseG5DocCoverage(tool: "api_docs_coverage", files: [("A.swift", "/// Documented.\npublic func a() {\n}\npublic func b() {\n}\n")])
+        #expect(coverage["declarations"]?.intValue == 2)
+        #expect(coverage["documented"]?.intValue == 1)
+        #expect(coverage["coverage"]?.doubleValue == 0.5)
+        let docstring = SystemToolRegistry.parseG5Docstring(tool: "docstring_generator", path: "A.swift", content: "public func greet(name: String, count: Int) -> String {\n    return name\n}\n", symbol: nil)
+        #expect(docstring["declarations"]?.arrayValue?.first?["docBlock"]?.stringValue?.contains("///   - name: ") == true)
+        #expect(docstring["declarations"]?.arrayValue?.first?["docBlock"]?.stringValue?.contains("///   - count: ") == true)
+        #expect(docstring["declarations"]?.arrayValue?.first?["docBlock"]?.stringValue?.contains("/// - Returns: ") == true)
+        let density = SystemToolRegistry.parseG5CommentDensity(tool: "comment_density_report", files: [("A.swift", "// c\nlet x = 1\n"), ("B.swift", "let y = 2\n")], limit: 200)
+        #expect(density["files"]?.arrayValue?.first?["path"]?.stringValue == "B.swift")
+        let metrics = SystemToolRegistry.parseG5Metrics(tool: "code_metrics_analyzer", files: [("A.swift", "struct S {\n    func f() {\n    }\n}\n")])
+        #expect(metrics["totals"]?["functions"]?.intValue == 1)
+        #expect(metrics["totals"]?["types"]?.intValue == 1)
+        let unused = SystemToolRegistry.parseG5UnusedImports(tool: "unused_imports_detector", files: [("A.swift", "import Foundation\nimport FakeyKit\nlet x = 1\n")], limit: 200)
+        #expect(unused["unused"]?.arrayValue?.compactMap { $0["module"]?.stringValue } == ["FakeyKit"])
+        let license = SystemToolRegistry.parseG5LicenseCheck(tool: "license_header_check", files: [("A.swift", "// Copyright 2026\nlet x = 1\n"), ("B.swift", "let y = 2\n")], requiredText: "Copyright")
+        #expect(license["missing"]?.arrayValue?.compactMap { $0.stringValue } == ["B.swift"])
+        #expect(SystemToolRegistry.g5SnippetTemplate("actor")?.contains("actor Counter") == true)
+        #expect(SystemToolRegistry.g5SnippetTemplate("bogus") == nil)
+    }
+
+    @Test("Slice 13 tools refuse missing arguments before any runtime call")
+    func sliceThirteenToolsRefuseMissingArguments() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cases: [(String, [String: JSONValue], String)] = [
+            ("search_symbol", ["cwd": .string(tempRoot.path)], "symbol"),
+            ("call_hierarchy", ["cwd": .string(tempRoot.path)], "function"),
+            ("protocol_conformance_list", ["cwd": .string(tempRoot.path)], "protocol"),
+            ("change_impact_estimate", ["cwd": .string(tempRoot.path)], "symbol"),
+            ("semantic_query_engine", ["cwd": .string(tempRoot.path)], "query"),
+            ("code_summary", ["cwd": .string(tempRoot.path)], "path"),
+            ("complexity_analysis", ["cwd": .string(tempRoot.path)], "path"),
+            ("runtime_diagnostics_engine", ["cwd": .string(tempRoot.path)], "logPath"),
+            ("build_log_analyze", ["cwd": .string(tempRoot.path)], "path"),
+            ("entitlements_diff", ["cwd": .string(tempRoot.path), "path": .string("A.entitlements")], "otherPath"),
+        ]
+        for (tool, arguments, missing) in cases {
+            do {
+                _ = try await Self.run(tool, arguments: arguments, client: client)
+                Issue.record("Expected missingArgument error for \(tool)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: tool, argument: missing))
+            } catch {
+                Issue.record("Unexpected error for \(tool): \(error)")
+            }
+        }
+        do {
+            _ = try await Self.run("code_snippet_manager", arguments: ["cwd": .string(tempRoot.path), "template": .string("bogus")], client: client)
+            Issue.record("Expected executionFailed error for a bogus snippet template")
+        } catch let error as SystemToolError {
+            #expect(error == .executionFailed(tool: "code_snippet_manager", message: "Unknown template. Use observable, asyncstream, actor, or glasscard."))
+        } catch {
+            Issue.record("Unexpected error for code_snippet_manager: \(error)")
+        }
+        await client.close()
+    }
+
 
 }

@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 200 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 265 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -51,9 +51,9 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
 
-## The 200-tool registry
+## The 265-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 200 tools, 54 distinct actions: several tools share one action (`workspace.write_file` x32, `computer_use.request` x21, `terminal.create` x49, `workspace.read_file` x15, `workspace.read_dir` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `workspace.search_regex` x3, `workspace.files` x2, `workspace.search` x2, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.store` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, plus 31 single-tool actions).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 265 tools, 54 distinct actions: several tools share one action (`workspace.write_file` x33, `computer_use.request` x21, `terminal.create` x49, `workspace.read_file` x45, `workspace.read_dir` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `workspace.search_regex` x35, `workspace.files` x3, `workspace.search` x3, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.store` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, plus 31 single-tool actions).
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -257,6 +257,71 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `swift_ast_inspector` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
 | `binary_size_report` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
 | `git_review_diff` | `git.review.diff` | engine | Engine `git.review.diff` -> `coincide_core::workspace_api::workspace_diff::review` |
+| `search_symbol` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `dependency_graph` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `source_graph_builder` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `semantic_query_engine` | `workspace.search` | desktop | Swift literal composition over `searchWorkspace` + Rust `search` arm |
+| `code_summary` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `code_lint` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `complexity_analysis` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `autonomous_review_engine` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `runtime_diagnostics_engine` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `code_metrics_analyzer` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `memory_leak_detector` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `dead_code_eliminator` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `dead_code_scan` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `duplicate_code_scan` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `todo_scan` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `todo_fixme_scanner` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `license_header_check` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `api_surface_extract` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `access_level_audit` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `concurrency_audit` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `swift_concurrency_analyzer` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `swift_migration_advisor` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `security_audit_scanner` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `secrets_scan` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `network_security_auditor` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `permissions_audit` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `accessibility_audit` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `accessibility_audit_scanner` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `interface_simulator` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `docstring_generator` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `code_snippet_manager` | `workspace.write_file` | desktop | Swift template return, optional `writeWorkspaceFile` + Rust `write_text_file` arm |
+| `unused_imports_detector` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `force_unwrap_scan` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `string_literal_audit` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `comment_density_report` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `function_size_report` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `call_hierarchy` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `type_hierarchy` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `protocol_conformance_list` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `import_graph` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `change_impact_estimate` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `conflict_marker_scan` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `build_log_analyze` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `crash_log_parse` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `deprecation_usage_scan` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `info_plist_audit` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `api_endpoint_audit` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `color_usage_audit` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `strings_file_validate` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `entitlements_diff` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `pbxproj_lint` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `xctest_discovery` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `build_settings_diff` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `build_phase_scripts_list` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `build_configuration_list` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `target_dependencies_list` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `target_source_list` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `workspace_settings_read` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `scheme_test_plan_list` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `test_log_parse` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `test_flaky_detect` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `code_comment_extract` | `workspace.search_regex` | desktop | Swift regex composition over `searchWorkspaceRegex` + Rust `search_regex` arm |
+| `api_docs_coverage` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `markdown_link_check` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
+| `docs_index_build` | `workspace.files` | desktop | Swift list-and-read composition over `listWorkspaceFiles` + Rust `read_dir_entries` arm |
 
 ### Slice 10: Git completion, snapshots, and aliases
 
@@ -435,6 +500,91 @@ tools landed; none was left unimplemented.
   integration test asserted 41 tools (stale since the registry passed 41);
   it now asserts 200 with the full name list.
 
+
+### Slice 13: G5 part 1 — code scans + project-structure read-only tools
+
+65 new tools, taking the registry from 200 to 265 tools; distinct actions
+stay at 54, because all 65 reuse existing actions (`workspace.search_regex`
+x32, `workspace.read_file` x30, `workspace.files` x1, `workspace.search`
+x1, `workspace.write_file` x1). All 65 G5 part 1 tools landed; none was
+left unimplemented and none was already registered.
+
+- Count correction: the slice was scoped as 66 tools (49 code scans + 17
+  project-structure tools), but the task's own lists contain 48 code scans
+  + 17 project-structure tools = 65. The registry therefore goes 200 ->
+  265, not 266.
+- Code scans (48): `search_symbol`, `dependency_graph`,
+  `source_graph_builder`, `semantic_query_engine`, `code_summary`,
+  `code_lint`, `complexity_analysis`, `autonomous_review_engine`,
+  `runtime_diagnostics_engine`, `code_metrics_analyzer`,
+  `memory_leak_detector`, `dead_code_eliminator`, `dead_code_scan`,
+  `duplicate_code_scan`, `todo_scan`, `todo_fixme_scanner`,
+  `license_header_check`, `api_surface_extract`, `access_level_audit`,
+  `concurrency_audit`, `swift_concurrency_analyzer`,
+  `swift_migration_advisor`, `security_audit_scanner`, `secrets_scan`,
+  `network_security_auditor`, `permissions_audit`, `accessibility_audit`,
+  `accessibility_audit_scanner`, `interface_simulator`,
+  `docstring_generator`, `code_snippet_manager`,
+  `unused_imports_detector`, `force_unwrap_scan`, `string_literal_audit`,
+  `comment_density_report`, `function_size_report`, `call_hierarchy`,
+  `type_hierarchy`, `protocol_conformance_list`, `import_graph`,
+  `change_impact_estimate`, `conflict_marker_scan`, `build_log_analyze`,
+  `crash_log_parse`, `deprecation_usage_scan`, `info_plist_audit`,
+  `api_endpoint_audit`, `color_usage_audit`.
+- Project-structure read-only tools (17): `strings_file_validate`,
+  `entitlements_diff`, `pbxproj_lint`, `xctest_discovery`,
+  `build_settings_diff`, `build_phase_scripts_list`,
+  `build_configuration_list`, `target_dependencies_list`,
+  `target_source_list`, `workspace_settings_read`,
+  `scheme_test_plan_list`, `test_log_parse`, `test_flaky_detect`,
+  `code_comment_extract`, `api_docs_coverage`, `markdown_link_check`,
+  `docs_index_build`.
+- Heuristic scans: what these tools really are. Every one of the 65 is a
+  regex/substring scan over real workspace content, or a parser over real
+  plist / xcconfig / pbxproj / log text. `semantic_query_engine` is a
+  literal keyword search, not a semantic index. `complexity_analysis`
+  counts branch keywords and returns 1 + that count as an estimate, not a
+  cyclomatic-complexity computation. `dead_code_scan` is a regex-based
+  unused-symbol heuristic: a declaration whose name appears only once in
+  the workspace is a candidate, not a proven dead symbol.
+  `autonomous_review_engine` composes the lint, complexity, secrets, and
+  force-unwrap scans and reports their findings; it does not review code.
+  `runtime_diagnostics_engine` counts crash-log needles (fatal error,
+  EXC_, SIG, Thread) and reports the count; it does not diagnose a live
+  process. No tool description calls a scan semantic analysis, AI review,
+  or deep analysis, and the catalog (`AvailableTools.md`) already
+  describes all 65 honestly, so it needs no change.
+- One generic table-driven engine covers the 33 pure scan tools in both
+  languages (label, pattern, redact, capture; shapes `patterns`, `files`,
+  `host`, `flat`; a `literal` flag; a per-tool sample limit). The other 32
+  tools have dedicated parsers: file-content parsing, two-file diffs,
+  pbxproj parsing, log parsing, and snippet templates. Patterns avoid
+  lookahead, lookbehind, and backreferences, which the Rust `regex` crate
+  and ripgrep do not support; user input (`symbol`, `function`,
+  `protocol`) is regex-escaped before substitution.
+- `dead_code_eliminator` is report-only: it lists private-function
+  candidates with file:line evidence and `reportOnly: true`. It deletes
+  nothing; deletion is a separate, confirmed `edit_file` step.
+  `pbxproj_lint` is read-only regex over pbxproj text; no pbxproj writer
+  exists in this repo, so nothing writes pbxproj.
+- `secrets_scan` and the secret patterns in `security_audit_scanner` are
+  redacted: results carry path, line, and pattern name only, never line
+  text or a matched value.
+- Swift-vs-Rust mechanism split: the Rust MCP arms mirror the Swift
+  engine. Swift uses `NSRegularExpression`; Rust uses the `regex` crate
+  with multiline mode. The pbxproj file-reference pattern needed a Rust
+  raw string with `#` delimiters because the pattern contains literal
+  quotes; the Swift analogue is a plain string. Literal search uses the
+  `query` parameter on both sides. The markdown-link closer check compares
+  captured open/close tag names explicitly instead of a backreference.
+- Tests: six new `@Test` functions in `AgentsTests/ToolsetTests.swift`
+  (registration of all 65 with actions and channels; regex scans against
+  a real temp workspace with known content; file parses against the same
+  fixtures; pbxproj tools against a real fixture pbxproj; pure-parser unit
+  tests; missing-argument refusals). The MCP integration test now asserts
+  265 with the full name list. No build or test run was performed in this
+  environment; the tests are written, not executed.
+
 ## The MCP server
 
 `Rust Backend/crates/coincide-mcp-server/` is a standalone stdio binary
@@ -453,7 +603,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 200-tool registry, with the same names, descriptions,
+- `tools/list` — the real 265-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -774,7 +924,7 @@ What is enforced for real in this slice:
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 12, 200 tools are real. These catalog tools are NOT
+registry. After slice 13, 265 tools are real. These catalog tools are NOT
 implemented, and why:
 
 - Memory (`manage_memory`, `conversation_context_manager`):
@@ -828,13 +978,15 @@ implemented, and why:
   `git.worktrees.useExisting`, but the Swift checkout action enum exposes
   only local/new/previous worktrees, so the Worktrees card is a read-only
   list until that action is wired.
-- Everything else in the catalog (~247 IDs) stays PARTIAL: reachable in
+- Everything else in the catalog (~182 IDs) stays PARTIAL: reachable in
   principle via the real terminal RPC or read/write/search composition, but
-  not tool-shaped, and not claimed as implemented. In particular the
-  heuristic "intelligence" tools (`complexity_analysis`,
-  `autonomous_review_engine`, `semantic_query_engine`, `code_summary`,
-  `code_lint`, `runtime_diagnostics_engine`) are keyword/substring scans
-  by the catalog's own admission, not the analysis their names promise.
+  not tool-shaped, and not claimed as implemented. The heuristic
+  "intelligence" tools (`complexity_analysis`, `autonomous_review_engine`,
+  `semantic_query_engine`, `code_summary`, `code_lint`,
+  `runtime_diagnostics_engine`) are now implemented — as keyword/regex
+  scans, exactly as the catalog describes them; see "Heuristic scans"
+  below. They are not semantic analysis, and their names still overpromise
+  relative to what they do.
 - In Provider Tools mode the registry is empty and executing any system tool
   throws `SystemToolError.toolNotActive` before any runtime call.
 

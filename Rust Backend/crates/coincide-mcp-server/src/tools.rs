@@ -4600,6 +4600,1054 @@ pub static DEFINITIONS: &[ToolDef] = &[
             },
         ],
     },
+    ToolDef {
+        name: "search_symbol",
+        description: "Heuristic declaration search for a symbol across four regex declaration patterns. Regex scan, not semantic analysis.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "symbol",
+                kind: "string",
+                required: true,
+                description: "Symbol name to search for.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "dependency_graph",
+        description: "Regex import scan listing which files import which modules. Nodes conflate file paths and module names.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "source_graph_builder",
+        description: "Regex symbol and import graph over the workspace. Type edges come from declaration regex, not a semantic index.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "semantic_query_engine",
+        description: "Substring concept search over workspace text. Substring matching, not semantic search.",
+        action: "workspace.search",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "query",
+                kind: "string",
+                required: true,
+                description: "Substring to search for.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "code_summary",
+        description: "Line, non-empty-line and comment counts for one file. Does not extract interface declarations.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+        ],
+    },
+    ToolDef {
+        name: "code_lint",
+        description: "Line-length over 120 plus TODO and FIXME scan for one file or the workspace. Regex and line rules, not a style analyzer.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "complexity_analysis",
+        description: "Substring keyword counting for one file. Counts keywords in comments and strings too; not real cyclomatic complexity.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+        ],
+    },
+    ToolDef {
+        name: "autonomous_review_engine",
+        description: "Heuristic keyword scan for force-unwraps and concurrency smells. No retain-cycle check; findings are leads, not diagnoses.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "runtime_diagnostics_engine",
+        description: "Keyword scan of a crash or diagnostics log file for fatal errors, signals and thread mentions. Leads, not diagnoses.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "logPath",
+                kind: "string",
+                required: true,
+                description: "Crash or diagnostics log file, relative to the working directory.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "code_metrics_analyzer",
+        description: "Line counts, comment density, function and type counts, plus a keyword-based complexity estimate per Swift file.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "memory_leak_detector",
+        description: "Heuristic static scan for unowned self captures, strong self captures, non-weak delegates and timer observers.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "dead_code_eliminator",
+        description: "Report-only list of unreferenced private function candidates with file and line evidence. Deletes nothing; deletion is a separate confirmed edit.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "dead_code_scan",
+        description: "Heuristic scan for declarations with zero references elsewhere in the workspace. Overloaded names are excluded.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "duplicate_code_scan",
+        description: "Normalized six-line sliding-window scan for repeated code blocks, reported as file and line pairs.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "todo_scan",
+        description: "Heuristic regex inventory of TODO, FIXME, XXX and HACK markers with file, line and text.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "todo_fixme_scanner",
+        description: "Heuristic regex inventory of TODO, FIXME, HACK and NOTE annotations with file, line and text.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "license_header_check",
+        description: "Lists Swift files whose first 15 lines lack the required header text. Defaults to Copyright.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "requiredText",
+                kind: "string",
+                required: false,
+                description: "Header text that must appear in the first 15 lines. Defaults to Copyright.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "api_surface_extract",
+        description: "Public and open declarations grouped by file, with counts. Regex scan, not a compiler API surface.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "access_level_audit",
+        description: "Declaration counts by access level: public, open, internal, private, fileprivate. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "concurrency_audit",
+        description: "Heuristic scan for main-queue sync, nonisolated unsafe, unstructured tasks, shared mutable statics and sync blocks.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "swift_concurrency_analyzer",
+        description: "Heuristic scan for non-Sendable transfers, unsafe mutable state and actor reentrancy hazards. Regex scan, not a compiler check.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "swift_migration_advisor",
+        description: "Heuristic audit for Swift 6 strict concurrency, mutable globals and actor isolation issues. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "security_audit_scanner",
+        description: "Heuristic scan for hardcoded secrets, plain HTTP URLs and unsafe credentials. Secret matches report file, line and pattern only, never values.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "secrets_scan",
+        description: "Heuristic scan for AWS keys, GitHub tokens, sk keys, credential assignments and private-key blocks. Reports file, line and pattern only, never matched values or line contents.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "network_security_auditor",
+        description: "Heuristic scan of App Transport Security keys, plaintext HTTP URLs and certificate pinning rules. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "permissions_audit",
+        description: "Heuristic scan of Info.plist usage descriptions, entitlements and PrivacyInfo entries, with missing-description checks.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "accessibility_audit",
+        description: "Heuristic scan for Buttons, Images and TextFields and their accessibility labels, hints and values. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "accessibility_audit_scanner",
+        description: "Heuristic scan of SwiftUI and AppKit views for accessibility labels, hints, traits and identifiers. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "interface_simulator",
+        description: "Heuristic audit of SwiftUI view structures, accessibility traits, dynamic type scaling and tap targets. Regex scan, not a running simulator.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "docstring_generator",
+        description: "Generates Apple DocC style markdown doc blocks for Swift declarations found by regex in one file.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+            ToolParam {
+                name: "symbol",
+                kind: "string",
+                required: false,
+                description: "Declaration name; when given, only that declaration is documented.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "code_snippet_manager",
+        description: "Returns a standardized Swift 6 template by name, and writes it to path when given. Templates are fixed starter text, not generated code.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "template",
+                kind: "string",
+                required: true,
+                description: "Template name: observable, asyncstream, actor, or glasscard.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "unused_imports_detector",
+        description: "Heuristic scan for Swift module imports never referenced elsewhere in the same file.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "force_unwrap_scan",
+        description: "Heuristic regex scan for force unwraps, try! and as! across Swift sources.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "string_literal_audit",
+        description: "Heuristic scan for hardcoded user-facing string literals not routed through localization. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "comment_density_report",
+        description: "Comment-to-code ratios per Swift file, least-documented first. Line-based counts, not semantic documentation quality.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "function_size_report",
+        description: "Longest functions by brace-counted line span, highlighting decomposition candidates. Heuristic spans, not a compiler AST.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "call_hierarchy",
+        description: "Definition site, callers and callees for a function name, from regex. Callers are textual call sites, not a compiler call graph.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "function",
+                kind: "string",
+                required: true,
+                description: "Function name to trace.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "type_hierarchy",
+        description: "Class, struct, enum and protocol declarations with inheritance and conformance clauses, from regex.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "protocol_conformance_list",
+        description: "Every type declaring conformance to a protocol, from regex over declaration lines.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "protocol",
+                kind: "string",
+                required: true,
+                description: "Protocol name to list conformances for.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "import_graph",
+        description: "File-level import graph; which files import a given module. Regex scan over import lines.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "module",
+                kind: "string",
+                required: false,
+                description: "Module name; when given, only files importing it are listed.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "change_impact_estimate",
+        description: "Blast-radius estimate: files textually referencing a symbol name. Regex scan, not a dependency graph.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "symbol",
+                kind: "string",
+                required: true,
+                description: "Symbol name to search for.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "conflict_marker_scan",
+        description: "Regex scan for unresolved merge-conflict markers in source files.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "build_log_analyze",
+        description: "Parses a build log file for errors, warnings and the build result. Text parsing, not a build run.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+        ],
+    },
+    ToolDef {
+        name: "crash_log_parse",
+        description: "Parses a crash log file for exception type, termination reason, faulting thread and blamed frames. Text parsing.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+        ],
+    },
+    ToolDef {
+        name: "deprecation_usage_scan",
+        description: "Regex scan for deprecated markers in declarations. Usage sites of a deprecated API need the API name via search_symbol.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "info_plist_audit",
+        description: "Audits Info.plist files for required keys, version-format sanity and duplicate bundle identifiers. Text parsing.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "api_endpoint_audit",
+        description: "Hardcoded http and https URL literals grouped by host. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "color_usage_audit",
+        description: "Heuristic scan for hardcoded colors that should live in the asset catalog. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "strings_file_validate",
+        description: "Validates .strings files for syntax, duplicate keys and empty values. Line-based parsing.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "entitlements_diff",
+        description: "Diffs two .entitlements plists into added, removed and changed keys. Text parsing.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+            ToolParam {
+                name: "otherPath",
+                kind: "string",
+                required: true,
+                description: "Second file to compare against path, relative to the working directory.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "pbxproj_lint",
+        description: "Read-only regex lint over project.pbxproj text: file references pointing at missing files, duplicate paths and dangling build-file refs. Never writes the pbxproj.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "xctest_discovery",
+        description: "Lists XCTestCase subclasses and test methods by regex, without running anything.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "build_settings_diff",
+        description: "Diffs two .xcconfig files key by key. Text parsing.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+            ToolParam {
+                name: "otherPath",
+                kind: "string",
+                required: true,
+                description: "Second file to compare against path, relative to the working directory.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "build_phase_scripts_list",
+        description: "Lists Run Script build phases from project.pbxproj text with truncated script bodies. Read-only.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "build_configuration_list",
+        description: "Lists build configurations per project and target from project.pbxproj text. Read-only.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "target_dependencies_list",
+        description: "Lists target-to-target dependencies from project.pbxproj text. Read-only.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "target_source_list",
+        description: "Lists source files compiled into each target from Compile Sources phases in project.pbxproj text. Read-only.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "workspace_settings_read",
+        description: "Reads Xcode workspace .xcsettings plists as key-value pairs. Text parsing.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "scheme_test_plan_list",
+        description: "Lists .xctestplan files and the test targets each covers. JSON parsing, no test run.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "test_log_parse",
+        description: "Parses a test log for pass and fail outcomes, suite summaries, error lines and the failed list. Text parsing.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+        ],
+    },
+    ToolDef {
+        name: "test_flaky_detect",
+        description: "Parses a test log for tests with both pass and fail outcomes. Text parsing.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+        ],
+    },
+    ToolDef {
+        name: "code_comment_extract",
+        description: "Extracts triple-slash and block doc comments per file, optionally limited to files mentioning a symbol. Regex scan.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+            ToolParam {
+                name: "symbol",
+                kind: "string",
+                required: false,
+                description: "Symbol name; when given, only files mentioning it are included.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "api_docs_coverage",
+        description: "Share of public declarations carrying doc comments, from regex over Swift files.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "markdown_link_check",
+        description: "Validates internal links in Markdown files against the workspace file list. Regex plus file existence, not a link crawler.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            P_LIMIT,
+        ],
+    },
+    ToolDef {
+        name: "docs_index_build",
+        description: "Indexes Markdown files with path, first-heading title and size. Line-based reading.",
+        action: "workspace.files",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+
 ];
 
 pub fn definition(name: &str) -> Option<&'static ToolDef> {
@@ -6445,6 +7493,2055 @@ fn g3_du_sizes(output: &str) -> Vec<(String, i64)> {
     }
     sizes
 }
+
+struct G5PatternSpec {
+    label: &'static str,
+    pattern: &'static str,
+    redact: bool,
+    capture: usize,
+}
+
+struct G5ScanSpec {
+    shape: &'static str,
+    literal: bool,
+    sample_limit: usize,
+    patterns: &'static [G5PatternSpec],
+}
+
+fn g5_scan_spec(name: &str) -> Option<G5ScanSpec> {
+    match name {
+        "search_symbol" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "function", pattern: "func\\s+{symbol}\\b", redact: false, capture: 0 }, G5PatternSpec { label: "type", pattern: "(class|struct|enum|protocol)\\s+{symbol}\\b", redact: false, capture: 0 }, G5PatternSpec { label: "variable", pattern: "(let|var)\\s+{symbol}\\b", redact: false, capture: 0 }, G5PatternSpec { label: "typealias", pattern: "typealias\\s+{symbol}\\b", redact: false, capture: 0 }] }),
+        "dependency_graph" => Some(G5ScanSpec { shape: "files", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "import", pattern: "^import\\s+([A-Za-z0-9_]+)", redact: false, capture: 1 }] }),
+        "source_graph_builder" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "import", pattern: "^import\\s+([A-Za-z0-9_]+)", redact: false, capture: 1 }, G5PatternSpec { label: "type", pattern: "(class|struct|enum|protocol)\\s+([A-Za-z0-9_]+)", redact: false, capture: 2 }] }),
+        "semantic_query_engine" => Some(G5ScanSpec { shape: "flat", literal: true, sample_limit: 0, patterns: &[G5PatternSpec { label: "match", pattern: "{query}", redact: false, capture: 0 }] }),
+        "autonomous_review_engine" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "forceUnwrap", pattern: "[A-Za-z0-9_\\)\\]]![^=!]", redact: false, capture: 0 }, G5PatternSpec { label: "tryBang", pattern: "try!", redact: false, capture: 0 }, G5PatternSpec { label: "asBang", pattern: "as!", redact: false, capture: 0 }, G5PatternSpec { label: "mainSync", pattern: "DispatchQueue\\.main\\.sync", redact: false, capture: 0 }, G5PatternSpec { label: "fatal", pattern: "fatalError|precondition\\(", redact: false, capture: 0 }] }),
+        "memory_leak_detector" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "unownedSelf", pattern: "\\[unowned self\\]", redact: false, capture: 0 }, G5PatternSpec { label: "strongSelf", pattern: "\\[self\\]", redact: false, capture: 0 }, G5PatternSpec { label: "delegateAssign", pattern: "\\.delegate\\s*=", redact: false, capture: 0 }, G5PatternSpec { label: "scheduledTimer", pattern: "Timer\\.scheduledTimer", redact: false, capture: 0 }, G5PatternSpec { label: "observer", pattern: "NotificationCenter\\.default\\.addObserver", redact: false, capture: 0 }] }),
+        "todo_scan" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "todo", pattern: "\\b(TODO|FIXME|XXX|HACK)\\b", redact: false, capture: 0 }] }),
+        "todo_fixme_scanner" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "todo", pattern: "\\b(TODO|FIXME|HACK|NOTE)\\b", redact: false, capture: 0 }] }),
+        "api_surface_extract" => Some(G5ScanSpec { shape: "files", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "declaration", pattern: "\\b(public|open)\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0 }] }),
+        "access_level_audit" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "public", pattern: "\\bpublic\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0 }, G5PatternSpec { label: "open", pattern: "\\bopen\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0 }, G5PatternSpec { label: "internal", pattern: "\\binternal\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0 }, G5PatternSpec { label: "private", pattern: "\\bprivate\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0 }, G5PatternSpec { label: "fileprivate", pattern: "\\bfileprivate\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0 }] }),
+        "concurrency_audit" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "mainSync", pattern: "DispatchQueue\\.main\\.sync", redact: false, capture: 0 }, G5PatternSpec { label: "nonisolatedUnsafe", pattern: "nonisolated\\(unsafe\\)", redact: false, capture: 0 }, G5PatternSpec { label: "task", pattern: "Task\\s*\\{", redact: false, capture: 0 }, G5PatternSpec { label: "sharedMutableStatic", pattern: "static\\s+(let|var)\\s+[A-Za-z0-9_]+\\s*[:=]", redact: false, capture: 0 }, G5PatternSpec { label: "syncBlock", pattern: "\\.sync\\s*\\{", redact: false, capture: 0 }] }),
+        "swift_concurrency_analyzer" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "nonisolated", pattern: "nonisolated", redact: false, capture: 0 }, G5PatternSpec { label: "mainActor", pattern: "@MainActor", redact: false, capture: 0 }, G5PatternSpec { label: "actor", pattern: "\\bactor\\s+[A-Za-z0-9_]+", redact: false, capture: 0 }, G5PatternSpec { label: "sendable", pattern: "Sendable", redact: false, capture: 0 }, G5PatternSpec { label: "detached", pattern: "Task\\.detached", redact: false, capture: 0 }] }),
+        "swift_migration_advisor" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "dispatchQueue", pattern: "DispatchQueue", redact: false, capture: 0 }, G5PatternSpec { label: "lock", pattern: "NSLock|os_unfair_lock", redact: false, capture: 0 }, G5PatternSpec { label: "mutableGlobal", pattern: "static\\s+var\\s+[A-Za-z0-9_]+", redact: false, capture: 0 }, G5PatternSpec { label: "uncheckedSendable", pattern: "@unchecked Sendable", redact: false, capture: 0 }, G5PatternSpec { label: "nonisolatedUnsafe", pattern: "nonisolated\\(unsafe\\)", redact: false, capture: 0 }] }),
+        "security_audit_scanner" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "plainHttp", pattern: "http://[^ \\t\\\"'\\)]+", redact: false, capture: 0 }, G5PatternSpec { label: "apiKey", pattern: "api_key\\s*[:=]", redact: true, capture: 0 }, G5PatternSpec { label: "password", pattern: "password\\s*[:=]", redact: true, capture: 0 }, G5PatternSpec { label: "awsKey", pattern: "AKIA[0-9A-Z]{16}", redact: true, capture: 0 }, G5PatternSpec { label: "bearer", pattern: "Bearer\\s+[A-Za-z0-9\\-_\\.]+", redact: true, capture: 0 }] }),
+        "secrets_scan" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "awsKey", pattern: "AKIA[0-9A-Z]{16}", redact: true, capture: 0 }, G5PatternSpec { label: "githubToken", pattern: "ghp_[A-Za-z0-9]{20,}", redact: true, capture: 0 }, G5PatternSpec { label: "skKey", pattern: "sk-[A-Za-z0-9]{20,}", redact: true, capture: 0 }, G5PatternSpec { label: "apiKey", pattern: "api_key\\s*[:=]", redact: true, capture: 0 }, G5PatternSpec { label: "password", pattern: "password\\s*[:=]", redact: true, capture: 0 }, G5PatternSpec { label: "privateKey", pattern: "BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY", redact: true, capture: 0 }, G5PatternSpec { label: "slackToken", pattern: "xox[baprs]-[A-Za-z0-9\\-]{10,}", redact: true, capture: 0 }] }),
+        "network_security_auditor" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "plainHttp", pattern: "http://[^ \\t\\\"'\\)]+", redact: false, capture: 0 }, G5PatternSpec { label: "ats", pattern: "NSAppTransportSecurity", redact: false, capture: 0 }, G5PatternSpec { label: "arbitraryLoads", pattern: "NSAllowsArbitraryLoads", redact: false, capture: 0 }, G5PatternSpec { label: "localNetworking", pattern: "NSAllowsLocalNetworking", redact: false, capture: 0 }, G5PatternSpec { label: "pinning", pattern: "SecTrust|certificatePinning|pinnedCertificate", redact: false, capture: 0 }] }),
+        "permissions_audit" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "usageDescription", pattern: "UsageDescription", redact: false, capture: 0 }, G5PatternSpec { label: "privacyInfo", pattern: "NSPrivacy", redact: false, capture: 0 }, G5PatternSpec { label: "entitlement", pattern: "com\\.apple\\.security", redact: false, capture: 0 }, G5PatternSpec { label: "sensitiveEntitlement", pattern: "get-task-allow|application-identifier", redact: false, capture: 0 }] }),
+        "accessibility_audit" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "button", pattern: "Button\\(", redact: false, capture: 0 }, G5PatternSpec { label: "image", pattern: "Image\\(", redact: false, capture: 0 }, G5PatternSpec { label: "textField", pattern: "TextField\\(", redact: false, capture: 0 }, G5PatternSpec { label: "label", pattern: "\\.accessibilityLabel\\(", redact: false, capture: 0 }, G5PatternSpec { label: "hint", pattern: "\\.accessibilityHint\\(", redact: false, capture: 0 }, G5PatternSpec { label: "value", pattern: "\\.accessibilityValue\\(", redact: false, capture: 0 }] }),
+        "accessibility_audit_scanner" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "label", pattern: "\\.accessibilityLabel\\(", redact: false, capture: 0 }, G5PatternSpec { label: "hint", pattern: "\\.accessibilityHint\\(", redact: false, capture: 0 }, G5PatternSpec { label: "traits", pattern: "\\.accessibilityAddTraits\\(", redact: false, capture: 0 }, G5PatternSpec { label: "hidden", pattern: "\\.accessibilityHidden\\(", redact: false, capture: 0 }, G5PatternSpec { label: "identifier", pattern: "\\.accessibilityIdentifier\\(", redact: false, capture: 0 }] }),
+        "interface_simulator" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 5, patterns: &[G5PatternSpec { label: "label", pattern: "\\.accessibilityLabel\\(", redact: false, capture: 0 }, G5PatternSpec { label: "dynamicType", pattern: "\\.dynamicTypeSize\\(", redact: false, capture: 0 }, G5PatternSpec { label: "font", pattern: "\\.font\\(", redact: false, capture: 0 }, G5PatternSpec { label: "button", pattern: "Button\\(", redact: false, capture: 0 }, G5PatternSpec { label: "fixedFrame", pattern: "\\.frame\\(width", redact: false, capture: 0 }, G5PatternSpec { label: "color", pattern: "\\.foregroundColor\\(|Color\\(", redact: false, capture: 0 }] }),
+        "force_unwrap_scan" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "forceUnwrap", pattern: "[A-Za-z0-9_\\)\\]]![^=!]", redact: false, capture: 0 }, G5PatternSpec { label: "tryBang", pattern: "try!", redact: false, capture: 0 }, G5PatternSpec { label: "asBang", pattern: "as!", redact: false, capture: 0 }] }),
+        "string_literal_audit" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "stringLiteral", pattern: "\"[^\"]{8,}\"", redact: false, capture: 0 }] }),
+        "call_hierarchy" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "definition", pattern: "(func|init)\\s+{function}\\b", redact: false, capture: 0 }, G5PatternSpec { label: "callSite", pattern: "\\b{function}\\s*\\(", redact: false, capture: 0 }] }),
+        "type_hierarchy" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "type", pattern: "(class|struct|enum|protocol)\\s+([A-Za-z0-9_]+)(\\s*:\\s*[^{]+)?", redact: false, capture: 2 }] }),
+        "protocol_conformance_list" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "conformance", pattern: "(class|struct|enum)\\s+([A-Za-z0-9_]+)\\s*:[^{]*\\b{protocol}\\b", redact: false, capture: 2 }] }),
+        "import_graph" => Some(G5ScanSpec { shape: "files", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "import", pattern: "^import\\s+([A-Za-z0-9_]+)", redact: false, capture: 1 }] }),
+        "change_impact_estimate" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "reference", pattern: "\\b{symbol}\\b", redact: false, capture: 0 }] }),
+        "conflict_marker_scan" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "marker", pattern: "^(<{7}|={7}|>{7}|\\|{7})", redact: false, capture: 0 }] }),
+        "deprecation_usage_scan" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "deprecated", pattern: "\\bdeprecated\\b", redact: false, capture: 0 }] }),
+        "api_endpoint_audit" => Some(G5ScanSpec { shape: "host", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "url", pattern: "https?://([A-Za-z0-9.\\-]+)", redact: false, capture: 1 }] }),
+        "color_usage_audit" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "color", pattern: "Color\\(|UIColor\\(|NSColor\\(|#[0-9A-Fa-f]{6}\\b", redact: false, capture: 0 }] }),
+        "xctest_discovery" => Some(G5ScanSpec { shape: "patterns", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "testClass", pattern: "class\\s+([A-Za-z0-9_]+)\\s*:\\s*XCTestCase", redact: false, capture: 1 }, G5PatternSpec { label: "testMethod", pattern: "func\\s+(test[A-Za-z0-9_]*)\\s*\\(", redact: false, capture: 1 }] }),
+        "code_comment_extract" => Some(G5ScanSpec { shape: "flat", literal: false, sample_limit: 0, patterns: &[G5PatternSpec { label: "comment", pattern: "///|/\\*\\*", redact: false, capture: 0 }] }),
+        _ => None,
+    }
+}
+
+fn g5_regex(pattern: &str) -> Option<regex::Regex> {
+    regex::RegexBuilder::new(pattern)
+        .multi_line(true)
+        .build()
+        .ok()
+}
+
+fn g5_regex_captures(pattern: &str, text: &str) -> Vec<Vec<Option<String>>> {
+    let Some(regex) = g5_regex(pattern) else {
+        return Vec::new();
+    };
+    regex
+        .captures_iter(text)
+        .map(|caps| {
+            (0..caps.len())
+                .map(|index| caps.get(index).map(|m| m.as_str().to_owned()))
+                .collect()
+        })
+        .collect()
+}
+
+fn g5_first_capture(pattern: &str, text: &str, group: usize) -> Option<String> {
+    let matches = g5_regex_captures(pattern, text);
+    let first = matches.first()?;
+    if group >= first.len() {
+        return None;
+    }
+    first[group].clone()
+}
+
+fn g5_escape_regex(value: &str) -> String {
+    regex::escape(value)
+}
+
+fn g5_lines(content: &str) -> Vec<&str> {
+    content.lines().collect()
+}
+
+fn g5_count_substring(text: &str, needle: &str) -> usize {
+    if needle.is_empty() {
+        return 0;
+    }
+    text.matches(needle).count()
+}
+
+fn g5_count_word(text: &str, word: &str) -> usize {
+    let pattern = format!(r"\b{}\b", g5_escape_regex(word));
+    g5_regex_captures(&pattern, text).len()
+}
+
+fn g5_file_counts(content: &str) -> (usize, usize, usize, usize) {
+    let lines = g5_lines(content);
+    let mut code = 0usize;
+    let mut comment = 0usize;
+    let mut blank = 0usize;
+    let mut in_block = false;
+    for line in &lines {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            blank += 1;
+            continue;
+        }
+        if in_block {
+            comment += 1;
+            if trimmed.contains("*/") {
+                in_block = false;
+            }
+            continue;
+        }
+        if trimmed.starts_with("//") || trimmed.starts_with('*') {
+            comment += 1;
+            continue;
+        }
+        if trimmed.starts_with("/*") {
+            comment += 1;
+            if !trimmed.contains("*/") {
+                in_block = true;
+            }
+            continue;
+        }
+        code += 1;
+    }
+    (lines.len(), code, comment, blank)
+}
+
+fn g5_search_regex_hits(cwd: &str, pattern: &str, limit: u64) -> Result<Vec<(String, i64, String)>, CallError> {
+    let value = coincide_core::workspace_tools::search_regex(
+        &json!({"cwd": cwd, "pattern": pattern, "limit": limit}),
+    )
+    .map_err(|error| failed(error.to_string()))?;
+    Ok(g5_hits_from_value(&value))
+}
+
+fn g5_search_hits(cwd: &str, query: &str, limit: u64) -> Result<Vec<(String, i64, String)>, CallError> {
+    let value = coincide_core::workspace_tools::search(
+        &json!({"cwd": cwd, "query": query, "limit": limit}),
+    )
+    .map_err(|error| failed(error.to_string()))?;
+    Ok(g5_hits_from_value(&value))
+}
+
+fn g5_hits_from_value(value: &Value) -> Vec<(String, i64, String)> {
+    let mut hits = Vec::new();
+    for hit in value["matches"].as_array().cloned().unwrap_or_default() {
+        let path = hit["path"].as_str().unwrap_or("").to_owned();
+        let line = hit["line"].as_i64().unwrap_or(1);
+        let text = hit["text"].as_str().unwrap_or("").to_owned();
+        hits.push((path, line, text));
+    }
+    hits
+}
+
+fn g5_scope_hits(
+    hits: Vec<(String, i64, String)>,
+    scope: Option<&str>,
+) -> Vec<(String, i64, String)> {
+    let Some(scope) = scope.filter(|s| !s.is_empty()) else {
+        return hits;
+    };
+    hits.into_iter()
+        .filter(|(path, _, _)| path == scope || path.starts_with(&format!("{scope}/")))
+        .collect()
+}
+
+fn g5_hit_json(path: &str, line: i64, text: &str, redact: bool) -> Value {
+    if redact {
+        json!({"path": path, "lineNumber": line})
+    } else {
+        json!({"path": path, "lineNumber": line, "lineText": text})
+    }
+}
+
+fn g5_capture_values(pattern: &G5PatternSpec, hits: &[(String, i64, String)]) -> Vec<String> {
+    if pattern.capture == 0 {
+        return Vec::new();
+    }
+    let mut values: Vec<String> = Vec::new();
+    for (_, _, text) in hits {
+        if let Some(value) = g5_first_capture(pattern.pattern, text, pattern.capture) {
+            if !values.contains(&value) {
+                values.push(value);
+            }
+        }
+    }
+    values
+}
+
+fn g5_group_json(
+    label: &str,
+    hits: &[(String, i64, String)],
+    values: &[String],
+    redact: bool,
+    sample_limit: usize,
+) -> Value {
+    let mut seen: Vec<(String, i64)> = Vec::new();
+    let mut unique: Vec<(String, i64, String)> = Vec::new();
+    for hit in hits {
+        let key = (hit.0.clone(), hit.1);
+        if !seen.contains(&key) {
+            seen.push(key);
+            unique.push(hit.clone());
+        }
+    }
+    let count = unique.len();
+    let shown: Vec<&(String, i64, String)> = if sample_limit > 0 {
+        unique.iter().take(sample_limit).collect()
+    } else {
+        unique.iter().collect()
+    };
+    json!({
+        "label": label,
+        "count": count,
+        "matches": shown.iter().map(|hit| g5_hit_json(&hit.0, hit.1, &hit.2, redact)).collect::<Vec<_>>(),
+        "values": values,
+    })
+}
+
+fn g5_pattern_group_json(
+    spec: &G5ScanSpec,
+    pattern: &G5PatternSpec,
+    hits: &[(String, i64, String)],
+) -> Value {
+    match spec.shape {
+        "files" => {
+            let mut order: Vec<String> = Vec::new();
+            let mut by_file: Vec<(String, Vec<(String, i64, String)>)> = Vec::new();
+            for hit in hits {
+                if let Some(entry) = by_file.iter_mut().find(|(path, _)| path == &hit.0) {
+                    entry.1.push(hit.clone());
+                } else {
+                    order.push(hit.0.clone());
+                    by_file.push((hit.0.clone(), vec![hit.clone()]));
+                }
+            }
+            let mut groups: Vec<Value> = Vec::new();
+            let mut all_values: Vec<String> = Vec::new();
+            for file in &order {
+                let file_hits = by_file
+                    .iter()
+                    .find(|(path, _)| path == file)
+                    .map(|(_, hits)| hits.clone())
+                    .unwrap_or_default();
+                let values = g5_capture_values(pattern, &file_hits);
+                for value in &values {
+                    if !all_values.contains(value) {
+                        all_values.push(value.clone());
+                    }
+                }
+                groups.push(g5_group_json(file, &file_hits, &values, pattern.redact, spec.sample_limit));
+            }
+            json!({"label": pattern.label, "count": hits.len(), "files": groups, "values": all_values})
+        }
+        "host" => {
+            let mut order: Vec<String> = Vec::new();
+            let mut by_host: Vec<(String, Vec<(String, i64, String)>)> = Vec::new();
+            for hit in hits {
+                let host = g5_capture_values(pattern, std::slice::from_ref(hit))
+                    .first()
+                    .cloned()
+                    .unwrap_or_default();
+                if let Some(entry) = by_host.iter_mut().find(|(name, _)| name == &host) {
+                    entry.1.push(hit.clone());
+                } else {
+                    order.push(host.clone());
+                    by_host.push((host, vec![hit.clone()]));
+                }
+            }
+            let mut groups: Vec<Value> = Vec::new();
+            for host in &order {
+                let host_hits = by_host
+                    .iter()
+                    .find(|(name, _)| name == host)
+                    .map(|(_, hits)| hits.clone())
+                    .unwrap_or_default();
+                groups.push(g5_group_json(host, &host_hits, &[], pattern.redact, spec.sample_limit));
+            }
+            json!({"label": pattern.label, "count": hits.len(), "hosts": groups})
+        }
+        _ => {
+            let values = g5_capture_values(pattern, hits);
+            g5_group_json(pattern.label, hits, &values, pattern.redact, spec.sample_limit)
+        }
+    }
+}
+
+fn g5_run_scan(state: &crate::ServerState, name: &str, args: &Value) -> Result<Value, CallError> {
+    let _ = state;
+    let Some(spec) = g5_scan_spec(name) else {
+        return Err(failed(format!("Unknown G5 scan tool {name}.")));
+    };
+    let cwd = req_str(args, "cwd", name)?;
+    let scope = opt_str(args, "path");
+    let limit = opt_u64(args, "limit").unwrap_or(200).clamp(1, 1000);
+    let mut groups: Vec<Value> = Vec::new();
+    let mut total_matches = 0usize;
+    let mut truncated = false;
+    if spec.literal {
+        let query = req_str(args, "query", name)?;
+        let hits = g5_search_hits(&cwd, &query, limit)?;
+        let scoped = g5_scope_hits(hits, scope.as_deref());
+        total_matches = scoped.len();
+        truncated = scoped.len() as u64 >= limit;
+        groups.push(g5_group_json("matches", &scoped, &[], false, 0));
+    } else {
+        for pattern in spec.patterns {
+            let mut pattern_text = pattern.pattern.to_owned();
+            for key in ["symbol", "function", "protocol"] {
+                if let Some(value) = opt_str(args, key) {
+                    pattern_text = pattern_text.replace(&format!("{{{key}}}"), &g5_escape_regex(&value));
+                }
+            }
+            if pattern_text.contains("{symbol}") {
+                return Err(failed("search_symbol requires symbol.".to_owned()));
+            }
+            if pattern_text.contains("{function}") {
+                return Err(failed("call_hierarchy requires function.".to_owned()));
+            }
+            if pattern_text.contains("{protocol}") {
+                return Err(failed("protocol_conformance_list requires protocol.".to_owned()));
+            }
+            let hits = g5_search_regex_hits(&cwd, &pattern_text, limit)?;
+            let scoped = g5_scope_hits(hits, scope.as_deref());
+            if scoped.len() as u64 >= limit {
+                truncated = true;
+            }
+            total_matches += scoped.len();
+            groups.push(g5_pattern_group_json(&spec, pattern, &scoped));
+        }
+    }
+    if name == "code_comment_extract" {
+        if let Some(symbol) = opt_str(args, "symbol") {
+            let symbol_hits = g5_search_hits(&cwd, &symbol, limit)?;
+            let symbol_files: Vec<String> = symbol_hits.into_iter().map(|(path, _, _)| path).collect();
+            let mut kept_total = 0usize;
+            groups = groups
+                .into_iter()
+                .map(|group| {
+                    let mut group = group;
+                    if let Some(matches) = group["matches"].as_array().cloned() {
+                        let kept: Vec<Value> = matches
+                            .into_iter()
+                            .filter(|hit| {
+                                hit["path"]
+                                    .as_str()
+                                    .map_or(false, |path| symbol_files.iter().any(|f| f == path))
+                            })
+                            .collect();
+                        kept_total += kept.len();
+                        if let Some(object) = group.as_object_mut() {
+                            object.insert("matches".to_owned(), json!(kept.clone()));
+                            object.insert("count".to_owned(), json!(kept.len()));
+                        }
+                    }
+                    group
+                })
+                .collect();
+            total_matches = kept_total;
+        }
+    }
+    if name == "import_graph" {
+        if let Some(module) = opt_str(args, "module") {
+            groups = groups
+                .into_iter()
+                .filter(|group| {
+                    group["values"]
+                        .as_array()
+                        .map_or(false, |values| {
+                            values.iter().any(|value| value.as_str() == Some(module.as_str()))
+                        })
+                })
+                .collect();
+            total_matches = groups
+                .iter()
+                .map(|group| group["count"].as_u64().unwrap_or(0) as usize)
+                .sum();
+        }
+    }
+    Ok(json!({
+        "tool": name,
+        "matchCount": total_matches,
+        "truncated": truncated,
+        "groups": groups,
+    }))
+}
+
+fn g5_list_workspace_files(cwd: &str, query: &str, limit: u64) -> Result<Vec<Value>, CallError> {
+    let value = coincide_core::workspace_tools::files(
+        &json!({"cwd": cwd, "query": query, "limit": limit}),
+    )
+    .map_err(|error| failed(error.to_string()))?;
+    Ok(value["files"].as_array().cloned().unwrap_or_default())
+}
+
+fn g5_scope_entries(entries: Vec<Value>, path: Option<&str>) -> Vec<Value> {
+    let Some(path) = path.filter(|p| !p.is_empty()) else {
+        return entries;
+    };
+    entries
+        .into_iter()
+        .filter(|entry| {
+            let entry_path = entry["path"].as_str().unwrap_or("");
+            entry_path == path || entry_path.starts_with(&format!("{path}/"))
+        })
+        .collect()
+}
+
+fn g5_read_text_files(
+    cwd: &str,
+    path: Option<&str>,
+    extensions: &[&str],
+    limit: usize,
+) -> Result<Vec<(String, String)>, CallError> {
+    let entries = g5_list_workspace_files(cwd, "", 500)?;
+    let scoped = g5_scope_entries(entries, path);
+    let mut files: Vec<(String, String)> = Vec::new();
+    for entry in scoped {
+        if files.len() >= limit {
+            break;
+        }
+        let entry_path = entry["path"].as_str().unwrap_or("").to_owned();
+        if entry["isDirectory"].as_bool() == Some(true) {
+            continue;
+        }
+        if entry_path.starts_with('.') || entry_path.contains("/.") {
+            continue;
+        }
+        if !extensions.iter().any(|ext| entry_path.ends_with(ext)) {
+            continue;
+        }
+        if let Ok(text) = read_text_file_at(cwd, &entry_path) {
+            files.push((entry_path, text));
+        }
+    }
+    Ok(files)
+}
+
+fn g5_resolve_pbxproj(cwd: &str, path: Option<&str>, tool: &str) -> Result<String, CallError> {
+    if let Some(path) = path.filter(|p| !p.is_empty()) {
+        return Ok(path.to_owned());
+    }
+    let entries = g5_list_workspace_files(cwd, "project.pbxproj", 20)?;
+    for entry in entries {
+        if entry["isDirectory"].as_bool() != Some(true) {
+            if let Some(found) = entry["path"].as_str() {
+                return Ok(found.to_owned());
+            }
+        }
+    }
+    Err(failed(format!("{tool} found no project.pbxproj in the workspace.")))
+}
+
+
+fn g5_file_summary(tool: &str, path: &str, content: &str) -> Value {
+    let (lines, code, comment, blank) = g5_file_counts(content);
+    json!({
+        "tool": tool,
+        "path": path,
+        "lines": lines,
+        "codeLines": code,
+        "commentLines": comment,
+        "blankLines": blank,
+    })
+}
+
+fn g5_complexity(tool: &str, path: &str, content: &str) -> Value {
+    let (lines, _, _, _) = g5_file_counts(content);
+    let mut keywords: Vec<Value> = Vec::new();
+    let mut total = 0usize;
+    for keyword in ["if", "for", "while", "guard", "switch", "case", "catch"] {
+        let count = g5_count_word(content, keyword);
+        total += count;
+        keywords.push(json!({"keyword": keyword, "count": count}));
+    }
+    for op in ["&&", "||"] {
+        let count = g5_count_substring(content, op);
+        total += count;
+        keywords.push(json!({"keyword": op, "count": count}));
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "lines": lines,
+        "keywords": keywords,
+        "complexityEstimate": 1 + total,
+    })
+}
+
+fn g5_lint(tool: &str, files: &[(String, String)], limit: usize) -> Value {
+    let mut issues: Vec<Value> = Vec::new();
+    for (path, content) in files {
+        for (index, line) in g5_lines(content).iter().enumerate() {
+            if line.chars().count() > 120 {
+                issues.push(json!({
+                    "path": path,
+                    "lineNumber": index + 1,
+                    "kind": "longLine",
+                    "text": format!("Line is {} characters, over the 120 limit.", line.chars().count()),
+                }));
+            }
+            if line.contains("TODO") || line.contains("FIXME") {
+                issues.push(json!({
+                    "path": path,
+                    "lineNumber": index + 1,
+                    "kind": "todo",
+                    "text": line.trim(),
+                }));
+            }
+            if issues.len() >= limit {
+                break;
+            }
+        }
+        if issues.len() >= limit {
+            break;
+        }
+    }
+    let count = issues.len();
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "issues": issues,
+        "issueCount": count,
+    })
+}
+
+fn g5_diagnostics_log(tool: &str, log_path: &str, content: &str) -> Value {
+    let lines = g5_lines(content);
+    let kinds: [(&str, &str, &str); 5] = [
+        ("fatalError", "fatal error", "A fatal error was logged; inspect the frames near the first fatal line."),
+        ("exception", "EXC_", "An exception code was logged; match it against the exception type in the header."),
+        ("crash", "crash", "A crash mention was logged; check the faulting thread section for blamed frames."),
+        ("signal", "SIG", "A signal was logged; check which thread received it and what it was doing."),
+        ("thread", "Thread ", "Thread mentions were logged; compare the faulting thread against the others."),
+    ];
+    let mut findings: Vec<Value> = Vec::new();
+    let mut leads: Vec<String> = Vec::new();
+    for (kind, needle, lead) in kinds {
+        let mut sample: Vec<String> = Vec::new();
+        let mut count = 0usize;
+        for (index, line) in lines.iter().enumerate() {
+            if line.contains(needle) {
+                count += 1;
+                if sample.len() < 3 {
+                    sample.push(format!("{}: {}", index + 1, line.trim()));
+                }
+            }
+        }
+        if count > 0 {
+            leads.push(lead.to_owned());
+            findings.push(json!({"kind": kind, "count": count, "sampleLines": sample}));
+        }
+    }
+    json!({
+        "tool": tool,
+        "logPath": log_path,
+        "lines": lines.len(),
+        "findings": findings,
+        "leads": leads,
+    })
+}
+
+fn g5_build_log(tool: &str, path: &str, content: &str) -> Value {
+    let lines = g5_lines(content);
+    let mut errors: Vec<Value> = Vec::new();
+    let mut warnings: Vec<Value> = Vec::new();
+    let mut result = "unknown";
+    for (index, line) in lines.iter().enumerate() {
+        if line.contains("BUILD SUCCEEDED") {
+            result = "succeeded";
+        }
+        if line.contains("BUILD FAILED") {
+            result = "failed";
+        }
+        if line.contains("error:") {
+            errors.push(json!({"lineNumber": index + 1, "text": line.trim()}));
+        } else if line.contains("warning:") {
+            warnings.push(json!({"lineNumber": index + 1, "text": line.trim()}));
+        }
+    }
+    if result == "unknown" && !errors.is_empty() {
+        result = "failed";
+    }
+    let error_count = errors.len();
+    let warning_count = warnings.len();
+    json!({
+        "tool": tool,
+        "path": path,
+        "result": result,
+        "errors": errors,
+        "warnings": warnings,
+        "errorCount": error_count,
+        "warningCount": warning_count,
+    })
+}
+
+fn g5_crash_log(tool: &str, path: &str, content: &str) -> Value {
+    let lines = g5_lines(content);
+    let mut exception_type = String::new();
+    let mut termination_reason = String::new();
+    let mut faulting_thread: i64 = -1;
+    let mut crashed_thread: i64 = -1;
+    let mut blamed_frames: Vec<String> = Vec::new();
+    let mut in_crashed_thread = false;
+    for line in &lines {
+        let trimmed = line.trim();
+        if let Some(value) = g5_first_capture(r"^Exception Type:\s*(.+)$", trimmed, 1) {
+            exception_type = value;
+        }
+        if let Some(value) = g5_first_capture(r"^Termination Reason:\s*(.+)$", trimmed, 1) {
+            termination_reason = value;
+        }
+        if let Some(value) = g5_first_capture(r"^Triggered by Thread:\s*(\d+)", trimmed, 1) {
+            if let Ok(number) = value.parse::<i64>() {
+                faulting_thread = number;
+            }
+        }
+        if let Some(value) = g5_first_capture(r"^Thread (\d+) Crashed:", trimmed, 1) {
+            if let Ok(number) = value.parse::<i64>() {
+                crashed_thread = number;
+            }
+            in_crashed_thread = true;
+            continue;
+        }
+        if in_crashed_thread {
+            if trimmed.starts_with("Thread ") {
+                in_crashed_thread = false;
+                continue;
+            }
+            if blamed_frames.len() < 5 && !trimmed.is_empty() {
+                blamed_frames.push(trimmed.to_owned());
+            }
+        }
+    }
+    if faulting_thread < 0 {
+        faulting_thread = crashed_thread;
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "exceptionType": exception_type,
+        "terminationReason": termination_reason,
+        "faultingThread": faulting_thread,
+        "blamedFrames": blamed_frames,
+    })
+}
+
+fn g5_test_log(tool: &str, path: &str, content: &str) -> Value {
+    let lines = g5_lines(content);
+    let mut passed = 0usize;
+    let mut failed = 0usize;
+    let mut failed_tests: Vec<String> = Vec::new();
+    let mut suites: Vec<(String, usize, usize)> = Vec::new();
+    let mut error_lines: Vec<Value> = Vec::new();
+    let mut current_suite = String::new();
+    for (index, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        if let Some(suite) = g5_first_capture(r"Test Suite '([^']+)' started", trimmed, 1) {
+            current_suite = suite.clone();
+            if !suites.iter().any(|(name, _, _)| name == &suite) {
+                suites.push((suite, 0, 0));
+            }
+        } else if g5_first_capture(r"Test Suite '([^']+)' finished", trimmed, 1).is_some() {
+            current_suite = String::new();
+        } else if let Some(name) = g5_first_capture(r"Test Case '-\[([^\]]+)\]' failed", trimmed, 1) {
+            failed += 1;
+            failed_tests.push(name);
+            if !current_suite.is_empty() {
+                if let Some(entry) = suites.iter_mut().find(|(n, _, _)| n == &current_suite) {
+                    entry.2 += 1;
+                }
+            }
+        } else if g5_first_capture(r"Test Case '-\[([^\]]+)\]' passed", trimmed, 1).is_some() {
+            passed += 1;
+            if !current_suite.is_empty() {
+                if let Some(entry) = suites.iter_mut().find(|(n, _, _)| n == &current_suite) {
+                    entry.1 += 1;
+                }
+            }
+        }
+        if trimmed.contains(": error:") {
+            error_lines.push(json!({"lineNumber": index + 1, "text": trimmed}));
+        }
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "passed": passed,
+        "failed": failed,
+        "failedTests": failed_tests,
+        "suites": suites.iter().map(|(name, p, f)| json!({"name": name, "passed": p, "failed": f})).collect::<Vec<_>>(),
+        "errorLines": error_lines,
+    })
+}
+
+fn g5_flaky_tests(tool: &str, path: &str, content: &str) -> Value {
+    let lines = g5_lines(content);
+    let mut outcomes: Vec<(String, usize, usize)> = Vec::new();
+    for line in &lines {
+        let trimmed = line.trim();
+        if let Some(name) = g5_first_capture(r"Test Case '-\[([^\]]+)\]' failed", trimmed, 1) {
+            if let Some(entry) = outcomes.iter_mut().find(|(n, _, _)| n == &name) {
+                entry.2 += 1;
+            } else {
+                outcomes.push((name, 0, 1));
+            }
+        } else if let Some(name) = g5_first_capture(r"Test Case '-\[([^\]]+)\]' passed", trimmed, 1) {
+            if let Some(entry) = outcomes.iter_mut().find(|(n, _, _)| n == &name) {
+                entry.1 += 1;
+            } else {
+                outcomes.push((name, 1, 0));
+            }
+        }
+    }
+    let flaky: Vec<Value> = outcomes
+        .iter()
+        .filter(|(_, p, f)| *p > 0 && *f > 0)
+        .map(|(name, p, f)| json!({"name": name, "passes": p, "failures": f}))
+        .collect();
+    let count = flaky.len();
+    json!({
+        "tool": tool,
+        "path": path,
+        "flaky": flaky,
+        "flakyCount": count,
+    })
+}
+
+fn g5_metrics(tool: &str, files: &[(String, String)]) -> Value {
+    let mut file_rows: Vec<Value> = Vec::new();
+    let mut total_lines = 0usize;
+    let mut total_code = 0usize;
+    let mut total_comment = 0usize;
+    let mut total_blank = 0usize;
+    let mut total_functions = 0usize;
+    let mut total_types = 0usize;
+    let mut total_complexity = 0usize;
+    for (path, content) in files {
+        let (lines, code, comment, blank) = g5_file_counts(content);
+        let functions = g5_regex_captures(
+            r"^\s*(?:(?:public|open|internal|private|fileprivate)\s+)?(?:static\s+)?func\s+[A-Za-z0-9_]+",
+            content,
+        )
+        .len();
+        let types = g5_regex_captures(
+            r"^\s*(?:(?:public|open|internal|private|fileprivate)\s+)?(?:final\s+)?(class|struct|enum|protocol)\s+[A-Za-z0-9_]+",
+            content,
+        )
+        .len();
+        let mut complexity = 1usize;
+        for keyword in ["if", "for", "while", "guard", "switch", "case", "catch"] {
+            complexity += g5_count_word(content, keyword);
+        }
+        complexity += g5_count_substring(content, "&&");
+        complexity += g5_count_substring(content, "||");
+        total_lines += lines;
+        total_code += code;
+        total_comment += comment;
+        total_blank += blank;
+        total_functions += functions;
+        total_types += types;
+        total_complexity += complexity;
+        file_rows.push(json!({
+            "path": path,
+            "lines": lines,
+            "codeLines": code,
+            "commentLines": comment,
+            "blankLines": blank,
+            "functions": functions,
+            "types": types,
+            "complexityEstimate": complexity,
+        }));
+    }
+    file_rows.sort_by(|a, b| {
+        b["lines"]
+            .as_u64()
+            .unwrap_or(0)
+            .cmp(&a["lines"].as_u64().unwrap_or(0))
+    });
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "totals": {
+            "lines": total_lines,
+            "codeLines": total_code,
+            "commentLines": total_comment,
+            "blankLines": total_blank,
+            "functions": total_functions,
+            "types": total_types,
+            "complexityEstimate": total_complexity,
+        },
+        "files": file_rows,
+    })
+}
+
+fn g5_comment_density(tool: &str, files: &[(String, String)], limit: usize) -> Value {
+    let mut rows: Vec<(String, usize, usize, usize, f64)> = Vec::new();
+    for (path, content) in files {
+        let (lines, code, comment, _) = g5_file_counts(content);
+        let documented = code + comment;
+        let ratio = if documented > 0 {
+            comment as f64 / documented as f64
+        } else {
+            0.0
+        };
+        rows.push((path.clone(), lines, code, comment, ratio));
+    }
+    rows.sort_by(|a, b| a.4.partial_cmp(&b.4).unwrap_or(std::cmp::Ordering::Equal));
+    let shown: Vec<Value> = rows
+        .iter()
+        .take(limit)
+        .map(|(path, lines, code, comment, ratio)| {
+            json!({"path": path, "lines": lines, "codeLines": code, "commentLines": comment, "commentRatio": ratio})
+        })
+        .collect();
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "files": shown,
+    })
+}
+
+fn g5_function_sizes(tool: &str, files: &[(String, String)], limit: usize) -> Value {
+    let mut functions: Vec<Value> = Vec::new();
+    for (path, content) in files {
+        let lines = g5_lines(content);
+        let mut index = 0usize;
+        while index < lines.len() {
+            let Some(name) = g5_first_capture(
+                r"^\s*(?:(?:public|open|internal|private|fileprivate)\s+)?(?:static\s+)?func\s+([A-Za-z0-9_]+)",
+                lines[index],
+                1,
+            ) else {
+                index += 1;
+                continue;
+            };
+            let mut depth: i64 = 0;
+            let mut started = false;
+            let mut end = index;
+            let mut cursor = index;
+            while cursor < lines.len() {
+                for ch in lines[cursor].chars() {
+                    if ch == '{' {
+                        depth += 1;
+                        started = true;
+                    }
+                    if ch == '}' {
+                        depth -= 1;
+                    }
+                }
+                if started && depth <= 0 {
+                    end = cursor;
+                    break;
+                }
+                cursor += 1;
+            }
+            if started {
+                functions.push(json!({
+                    "name": name,
+                    "path": path,
+                    "startLine": index + 1,
+                    "endLine": end + 1,
+                    "lines": end - index + 1,
+                }));
+                index = (end + 1).max(index + 1);
+            } else {
+                index += 1;
+            }
+        }
+    }
+    functions.sort_by(|a, b| {
+        b["lines"]
+            .as_u64()
+            .unwrap_or(0)
+            .cmp(&a["lines"].as_u64().unwrap_or(0))
+    });
+    functions.truncate(limit);
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "functions": functions,
+    })
+}
+
+
+fn g5_dead_code(tool: &str, files: &[(String, String)], private_only: bool, limit: usize) -> Value {
+    let mut declarations: Vec<(String, String, String, String, usize)> = Vec::new();
+    let mut declaration_counts: Vec<(String, usize)> = Vec::new();
+    for (path, content) in files {
+        for (index, line) in g5_lines(content).iter().enumerate() {
+            let matches = g5_regex_captures(
+                r"^\s*(private\s+|fileprivate\s+|internal\s+|public\s+|open\s+)?(func|class|struct|enum|protocol|let|var|typealias)\s+([A-Za-z0-9_]+)",
+                line,
+            );
+            let Some(first) = matches.first() else {
+                continue;
+            };
+            let access = first
+                .get(1)
+                .cloned()
+                .flatten()
+                .unwrap_or_default()
+                .trim()
+                .to_owned();
+            let kind = first.get(2).cloned().flatten().unwrap_or_default();
+            let name = first.get(3).cloned().flatten().unwrap_or_default();
+            if name.is_empty() || kind.is_empty() {
+                continue;
+            }
+            declarations.push((name.clone(), kind, access, path.clone(), index + 1));
+            if let Some(entry) = declaration_counts.iter_mut().find(|(n, _)| n == &name) {
+                entry.1 += 1;
+            } else {
+                declaration_counts.push((name, 1));
+            }
+        }
+    }
+    let mut candidates: Vec<Value> = Vec::new();
+    for (name, kind, access, path, line) in &declarations {
+        let declared = declaration_counts
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, c)| *c)
+            .unwrap_or(0);
+        if declared > 1 {
+            continue;
+        }
+        if private_only && !(access == "private" && kind == "func") {
+            continue;
+        }
+        let mut references = 0usize;
+        for (_, content) in files {
+            references += g5_count_word(content, name);
+        }
+        if references <= 1 {
+            candidates.push(json!({
+                "name": name,
+                "kind": kind,
+                "path": path,
+                "lineNumber": line,
+            }));
+        }
+        if candidates.len() >= limit {
+            break;
+        }
+    }
+    let count = candidates.len();
+    let mut result = json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "declarations": declarations.len(),
+        "candidates": candidates,
+        "candidateCount": count,
+    });
+    if private_only {
+        if let Some(object) = result.as_object_mut() {
+            object.insert("reportOnly".to_owned(), json!(true));
+        }
+    }
+    result
+}
+
+fn g5_duplicate_blocks(tool: &str, files: &[(String, String)], limit: usize) -> Value {
+    let window = 6usize;
+    let mut blocks: Vec<(String, Vec<(String, i64)>)> = Vec::new();
+    for (path, content) in files {
+        let raw_lines = g5_lines(content);
+        let mut normalized: Vec<String> = Vec::new();
+        let mut line_numbers: Vec<i64> = Vec::new();
+        for (index, line) in raw_lines.iter().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let collapsed = line.split_whitespace().collect::<Vec<_>>().join(" ");
+            normalized.push(collapsed);
+            line_numbers.push(index as i64 + 1);
+        }
+        if normalized.len() < window {
+            continue;
+        }
+        for start in 0..=(normalized.len() - window) {
+            let key = normalized[start..start + window].join("\n");
+            if let Some(entry) = blocks.iter_mut().find(|(k, _)| k == &key) {
+                entry.1.push((path.clone(), line_numbers[start]));
+            } else {
+                blocks.push((key, vec![(path.clone(), line_numbers[start])]));
+            }
+        }
+    }
+    let mut duplicates: Vec<Value> = Vec::new();
+    for (_, occurrences) in &blocks {
+        let distinct: Vec<String> = occurrences
+            .iter()
+            .map(|(path, line)| format!("{path}:{line}"))
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        if distinct.len() <= 1 {
+            continue;
+        }
+        duplicates.push(json!({
+            "lines": 6,
+            "occurrences": occurrences.iter().map(|(path, line)| json!({"path": path, "lineNumber": line})).collect::<Vec<_>>(),
+        }));
+        if duplicates.len() >= limit {
+            break;
+        }
+    }
+    let count = duplicates.len();
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "blocks": duplicates,
+        "blockCount": count,
+    })
+}
+
+fn g5_unused_imports(tool: &str, files: &[(String, String)], limit: usize) -> Value {
+    let protected: [&str; 21] = [
+        "Foundation", "SwiftUI", "AppKit", "UIKit", "Combine", "CoreData", "CryptoKit",
+        "Security", "XCTest", "SwiftData", "Observation", "WebKit",
+        "UniformTypeIdentifiers", "Dispatch", "Network", "os", "SystemConfiguration",
+        "CoreGraphics", "QuartzCore", "StoreKit", "AuthenticationServices",
+    ];
+    let mut unused: Vec<Value> = Vec::new();
+    for (path, content) in files {
+        let lines = g5_lines(content);
+        for (index, line) in lines.iter().enumerate() {
+            let Some(module) = g5_first_capture(r"^import\s+([A-Za-z0-9_]+)", line, 1) else {
+                continue;
+            };
+            if protected.contains(&module.as_str()) {
+                continue;
+            }
+            let mut body = String::new();
+            for (other_index, other) in lines.iter().enumerate() {
+                if other_index != index {
+                    body.push_str(other);
+                    body.push('\n');
+                }
+            }
+            if g5_count_word(&body, &module) == 0 {
+                unused.push(json!({
+                    "path": path,
+                    "module": module,
+                    "lineNumber": index + 1,
+                }));
+            }
+            if unused.len() >= limit {
+                break;
+            }
+        }
+        if unused.len() >= limit {
+            break;
+        }
+    }
+    let count = unused.len();
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "unused": unused,
+        "unusedCount": count,
+    })
+}
+
+fn g5_license_check(tool: &str, files: &[(String, String)], required_text: &str) -> Value {
+    let mut missing: Vec<String> = Vec::new();
+    for (path, content) in files {
+        let head = g5_lines(content).iter().take(15).cloned().collect::<Vec<_>>().join("\n");
+        if !head.contains(required_text) {
+            missing.push(path.clone());
+        }
+    }
+    let count = missing.len();
+    json!({
+        "tool": tool,
+        "requiredText": required_text,
+        "filesChecked": files.len(),
+        "missing": missing,
+        "missingCount": count,
+    })
+}
+
+fn g5_doc_coverage(tool: &str, files: &[(String, String)]) -> Value {
+    let mut declarations = 0usize;
+    let mut documented = 0usize;
+    for (_, content) in files {
+        let lines = g5_lines(content);
+        for (index, line) in lines.iter().enumerate() {
+            if g5_regex_captures(
+                r"^\s*(public|open)\s+(func|class|struct|enum|protocol|var|let|typealias)\s+[A-Za-z0-9_]+",
+                line,
+            )
+            .is_empty()
+            {
+                continue;
+            }
+            declarations += 1;
+            let mut cursor: i64 = index as i64 - 1;
+            while cursor >= 0 {
+                let previous = lines[cursor as usize].trim();
+                if previous.is_empty() {
+                    cursor -= 1;
+                    continue;
+                }
+                if previous.starts_with("///") {
+                    documented += 1;
+                }
+                break;
+            }
+        }
+    }
+    let coverage = if declarations > 0 {
+        documented as f64 / declarations as f64
+    } else {
+        1.0
+    };
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "declarations": declarations,
+        "documented": documented,
+        "coverage": coverage,
+    })
+}
+
+fn g5_docstring(tool: &str, path: &str, content: &str, symbol: Option<&str>) -> Value {
+    let mut declarations: Vec<Value> = Vec::new();
+    for (index, line) in g5_lines(content).iter().enumerate() {
+        let matches = g5_regex_captures(
+            r"^\s*(?:(?:public|open|internal|private|fileprivate)\s+)?(func|class|struct|enum|protocol|init|var|let|typealias)\s+([A-Za-z0-9_]+)",
+            line,
+        );
+        let Some(first) = matches.first() else {
+            continue;
+        };
+        let kind = first.get(1).cloned().flatten().unwrap_or_default();
+        let name = first.get(2).cloned().flatten().unwrap_or_default();
+        if name.is_empty() {
+            continue;
+        }
+        if let Some(symbol) = symbol {
+            if symbol != name {
+                continue;
+            }
+        }
+        let mut block: Vec<String> = vec![format!("/// {name}")];
+        if kind == "func" {
+            let parameters = g5_first_capture(r"\(([^)]*)\)", line, 1).unwrap_or_default();
+            let names: Vec<String> = parameters
+                .split(',')
+                .filter_map(|part| {
+                    let pieces: Vec<&str> = part.trim().split(' ').collect();
+                    let first = pieces.first().copied().unwrap_or("");
+                    let cleaned = first.strip_prefix('_').unwrap_or(first);
+                    if cleaned.is_empty() {
+                        None
+                    } else {
+                        Some(cleaned.to_owned())
+                    }
+                })
+                .collect();
+            if !names.is_empty() {
+                block.push("///".to_owned());
+                block.push("/// - Parameters:".to_owned());
+                for parameter in names {
+                    block.push(format!("///   - {parameter}: "));
+                }
+            }
+            if line.contains("->") {
+                block.push("///".to_owned());
+                block.push("/// - Returns: ".to_owned());
+            }
+        }
+        declarations.push(json!({
+            "name": name,
+            "kind": kind,
+            "lineNumber": index + 1,
+            "docBlock": block.join("\n"),
+        }));
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "declarations": declarations,
+    })
+}
+
+fn g5_snippet_template(template: &str) -> Option<&'static str> {
+    match template {
+        "observable" => Some("@Observable\nfinal class Store {\n    var title = \"\"\n    var items: [String] = []\n}\n"),
+        "asyncstream" => Some("func makeStream() -> AsyncStream<String> {\n    AsyncStream { continuation in\n        continuation.yield(\"ready\")\n        continuation.finish()\n    }\n}\n"),
+        "actor" => Some("actor Counter {\n    private var value = 0\n    func next() -> Int {\n        value += 1\n        return value\n    }\n}\n"),
+        "glasscard" => Some("struct GlassCard: View {\n    var body: some View {\n        Text(\"Card\")\n            .padding()\n            .glassEffect()\n    }\n}\n"),
+        _ => None,
+    }
+}
+
+fn g5_strings_validate(tool: &str, files: &[(String, String)], limit: usize) -> Value {
+    let mut issues: Vec<Value> = Vec::new();
+    for (path, content) in files {
+        let mut seen: Vec<String> = Vec::new();
+        for (index, line) in g5_lines(content).iter().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with('*') {
+                continue;
+            }
+            let matches = g5_regex_captures(
+                r#"^"((?:[^"\\]|\\.)*)"\s*=\s*"((?:[^"\\]|\\.)*)"\s*;"#,
+                trimmed,
+            );
+            let Some(first) = matches.first() else {
+                issues.push(json!({"path": path, "lineNumber": index + 1, "kind": "syntax", "key": ""}));
+                continue;
+            };
+            let key = first.get(1).cloned().flatten().unwrap_or_default();
+            let value = first.get(2).cloned().flatten().unwrap_or_default();
+            if seen.contains(&key) {
+                issues.push(json!({"path": path, "lineNumber": index + 1, "kind": "duplicate", "key": key}));
+            } else {
+                seen.push(key.clone());
+            }
+            if value.is_empty() {
+                issues.push(json!({"path": path, "lineNumber": index + 1, "kind": "empty", "key": key}));
+            }
+            if issues.len() >= limit {
+                break;
+            }
+        }
+        if issues.len() >= limit {
+            break;
+        }
+    }
+    let count = issues.len();
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "issues": issues,
+        "issueCount": count,
+    })
+}
+
+fn g5_plist_key_values(text: &str) -> Vec<(String, String)> {
+    let mut values: Vec<(String, String)> = Vec::new();
+    let key_matches = g5_regex_captures(r"<key>([^<]+)</key>", text);
+    let mut offsets: Vec<usize> = Vec::new();
+    if let Some(regex) = g5_regex(r"<key>([^<]+)</key>") {
+        for m in regex.find_iter(text) {
+            offsets.push(m.end());
+        }
+    }
+    for (index, key_match) in key_matches.iter().enumerate() {
+        let Some(key) = key_match.get(1).cloned().flatten() else {
+            continue;
+        };
+        if key.is_empty() {
+            continue;
+        }
+        let after = offsets.get(index).copied().unwrap_or(text.len());
+        let rest = &text[after..];
+        if let Some(value_match) = g5_regex_captures(r"^\s*<(string|integer|real|date|data)>([^<]*)</(string|integer|real|date|data)>", rest).first() {
+            let open_tag = value_match.get(1).cloned().flatten().unwrap_or_default();
+            let close_tag = value_match.get(3).cloned().flatten().unwrap_or_default();
+            if open_tag == close_tag {
+                let value = value_match.get(2).cloned().flatten().unwrap_or_default();
+                values.push((key, value));
+            }
+        } else if rest.trim_start().starts_with("<true/>") {
+            values.push((key, "true".to_owned()));
+        } else if rest.trim_start().starts_with("<false/>") {
+            values.push((key, "false".to_owned()));
+        } else if let Some(tag_match) = g5_regex_captures(r"^\s*<(array|dict)>", rest).first() {
+            let tag = tag_match.get(1).cloned().flatten().unwrap_or_default();
+            values.push((key, format!("<{tag}>")));
+        } else if let Some(step_match) = g5_regex_captures(r"^\s*([A-Za-z0-9_.-]+)\s*=\s*([^;]+);", rest).first() {
+            let value = step_match.get(2).cloned().flatten().unwrap_or_default();
+            values.push((key, value));
+        }
+    }
+    if values.is_empty() {
+        for line in g5_lines(text) {
+            let trimmed = line.trim();
+            if let Some(m) = g5_regex_captures(r"^([A-Za-z0-9_.-]+)\s*=\s*([^;]+);", trimmed).first() {
+                let key = m.get(1).cloned().flatten().unwrap_or_default();
+                let value = m.get(2).cloned().flatten().unwrap_or_default();
+                if !key.is_empty() {
+                    values.push((key, value.trim().to_owned()));
+                }
+            }
+        }
+    }
+    values
+}
+
+fn g5_xcconfig_key_values(text: &str) -> Vec<(String, String)> {
+    let mut values: Vec<(String, String)> = Vec::new();
+    for line in g5_lines(text) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("//") {
+            continue;
+        }
+        if let Some(m) = g5_regex_captures(r"^([A-Za-z0-9_\.\[\]\*]+)\s*=\s*(.+)$", trimmed).first() {
+            let key = m.get(1).cloned().flatten().unwrap_or_default();
+            let value = m.get(2).cloned().flatten().unwrap_or_default();
+            if !key.is_empty() {
+                values.push((key, value.trim().to_owned()));
+            }
+        }
+    }
+    values
+}
+
+fn g5_key_value_diff(tool: &str, path: &str, other_path: &str, first: &[(String, String)], second: &[(String, String)]) -> Value {
+    let mut added: Vec<String> = Vec::new();
+    let mut removed: Vec<String> = Vec::new();
+    let mut changed: Vec<Value> = Vec::new();
+    let mut first_keys: Vec<String> = first.iter().map(|(k, _)| k.clone()).collect();
+    let mut second_keys: Vec<String> = second.iter().map(|(k, _)| k.clone()).collect();
+    first_keys.sort();
+    second_keys.sort();
+    for key in &second_keys {
+        if !first.iter().any(|(k, _)| k == key) {
+            added.push(key.clone());
+        }
+    }
+    for key in &first_keys {
+        if !second.iter().any(|(k, _)| k == key) {
+            removed.push(key.clone());
+        }
+    }
+    for key in &first_keys {
+        let old = first.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
+        let new = second.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
+        if let (Some(old), Some(new)) = (old, new) {
+            if old != new {
+                changed.push(json!({"key": key, "from": old, "to": new}));
+            }
+        }
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "otherPath": other_path,
+        "added": added,
+        "removed": removed,
+        "changed": changed,
+    })
+}
+
+
+fn g5_pbxproj_section(content: &str, name: &str) -> String {
+    let begin = format!("/* Begin {name} section */");
+    let end = format!("/* End {name} section */");
+    let Some(start) = content.find(&begin) else {
+        return String::new();
+    };
+    let Some(finish) = content.find(&end) else {
+        return String::new();
+    };
+    let body_start = start + begin.len();
+    if body_start > finish {
+        return String::new();
+    }
+    content[body_start..finish].to_owned()
+}
+
+fn g5_pbxproj_file_refs(content: &str) -> Vec<(String, String)> {
+    let section = g5_pbxproj_section(content, "PBXFileReference");
+    let mut refs: Vec<(String, String)> = Vec::new();
+    for m in g5_regex_captures(
+        r#"([0-9A-F]{24})\s*/\* [^*]+ \*/\s*=\s*\{[^}]*?path\s*=\s*"?([^";\n]+)"?;"#,
+        &section,
+    ) {
+        let id = m.get(1).cloned().flatten().unwrap_or_default();
+        let path = m.get(2).cloned().flatten().unwrap_or_default().trim().to_owned();
+        if !id.is_empty() && !path.is_empty() {
+            refs.push((id, path));
+        }
+    }
+    refs
+}
+
+fn g5_pbxproj_build_files(content: &str) -> Vec<(String, String)> {
+    let section = g5_pbxproj_section(content, "PBXBuildFile");
+    let mut files: Vec<(String, String)> = Vec::new();
+    for m in g5_regex_captures(
+        r"([0-9A-F]{24})\s*/\* [^*]+ \*/\s*=\s*\{[^}]*?fileRef\s*=\s*([0-9A-F]{24})\s*;",
+        &section,
+    ) {
+        let id = m.get(1).cloned().flatten().unwrap_or_default();
+        let reference = m.get(2).cloned().flatten().unwrap_or_default();
+        if !id.is_empty() && !reference.is_empty() {
+            files.push((id, reference));
+        }
+    }
+    files
+}
+
+fn g5_pbxproj_lint(tool: &str, path: &str, content: &str, workspace_paths: &[String]) -> Value {
+    let refs = g5_pbxproj_file_refs(content);
+    let mut missing: Vec<Value> = Vec::new();
+    let mut seen_paths: Vec<String> = Vec::new();
+    let mut duplicates: Vec<String> = Vec::new();
+    let mut sorted_paths: Vec<String> = refs.iter().map(|(_, p)| p.clone()).collect();
+    sorted_paths.sort();
+    for ref_path in sorted_paths {
+        if seen_paths.contains(&ref_path) {
+            if !duplicates.contains(&ref_path) {
+                duplicates.push(ref_path.clone());
+            }
+            continue;
+        }
+        seen_paths.push(ref_path.clone());
+        let exists = workspace_paths.iter().any(|workspace_path| {
+            workspace_path == &ref_path || workspace_path.ends_with(&format!("/{ref_path}"))
+        });
+        if !exists {
+            missing.push(json!({"path": ref_path, "reference": ref_path}));
+        }
+    }
+    let build_files = g5_pbxproj_build_files(content);
+    let mut dangling: Vec<String> = Vec::new();
+    let mut sorted_build_files = build_files.clone();
+    sorted_build_files.sort();
+    for (id, reference) in sorted_build_files {
+        if !refs.iter().any(|(ref_id, _)| ref_id == &reference) {
+            dangling.push(id);
+        }
+    }
+    let issue_count = missing.len() + duplicates.len() + dangling.len();
+    json!({
+        "tool": tool,
+        "path": path,
+        "fileReferences": refs.len(),
+        "missingFiles": missing,
+        "duplicatePaths": duplicates,
+        "danglingBuildFiles": dangling,
+        "issueCount": issue_count,
+    })
+}
+
+fn g5_pbxproj_scripts(tool: &str, path: &str, content: &str) -> Value {
+    let section = g5_pbxproj_section(content, "PBXShellScriptBuildPhase");
+    let mut phases: Vec<Value> = Vec::new();
+    for m in g5_regex_captures(r"\{[^}]*?isa\s*=\s*PBXShellScriptBuildPhase;[^}]*?\}", &section) {
+        let Some(block) = m.first().cloned().flatten() else {
+            continue;
+        };
+        let name = g5_first_capture(r#"name\s*=\s*"?([^";\n]+)"?;"#, &block, 1)
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
+        let shell_path = g5_first_capture(r"shellPath\s*=\s*([^;\n]+);", &block, 1)
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
+        let mut script = g5_first_capture(
+            r#"(?s)shellScript\s*=\s*"((?:[^"\\]|\\.)*)";"#,
+            &block,
+            1,
+        )
+        .unwrap_or_default();
+        if script.chars().count() > 200 {
+            script = script.chars().take(200).collect();
+        }
+        phases.push(json!({"name": name, "shellPath": shell_path, "script": script}));
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "phases": phases,
+    })
+}
+
+fn g5_pbxproj_configs(tool: &str, path: &str, content: &str, xcconfig_files: &[String]) -> Value {
+    let section = g5_pbxproj_section(content, "XCBuildConfiguration");
+    let mut configurations: Vec<String> = Vec::new();
+    for m in g5_regex_captures(r"name\s*=\s*([^;\n]+);", &section) {
+        let name = m.get(1).cloned().flatten().unwrap_or_default().trim().to_owned();
+        if !name.is_empty() && !configurations.contains(&name) {
+            configurations.push(name);
+        }
+    }
+    let count = configurations.len();
+    json!({
+        "tool": tool,
+        "path": path,
+        "configurations": configurations,
+        "configurationCount": count,
+        "xcconfigFiles": xcconfig_files,
+    })
+}
+
+fn g5_pbxproj_deps(tool: &str, path: &str, content: &str) -> Value {
+    let mut target_names: Vec<(String, String)> = Vec::new();
+    let mut target_deps: Vec<(String, Vec<String>)> = Vec::new();
+    let target_section = g5_pbxproj_section(content, "PBXNativeTarget");
+    for m in g5_regex_captures(
+        r"([0-9A-F]{24})\s*/\* ([^*]+) \*/\s*=\s*\{[^}]*?\}",
+        &target_section,
+    ) {
+        let id = m.get(1).cloned().flatten().unwrap_or_default();
+        let Some(block) = m.first().cloned().flatten() else {
+            continue;
+        };
+        if id.is_empty() {
+            continue;
+        }
+        let name = g5_first_capture(r"name\s*=\s*([^;\n]+);", &block, 1)
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
+        let dep_list = g5_first_capture(r"(?s)dependencies\s*=\s*\(([^)]*)\)", &block, 1).unwrap_or_default();
+        let dep_ids: Vec<String> = g5_regex_captures(r"([0-9A-F]{24})", &dep_list)
+            .iter()
+            .filter_map(|cap| cap.get(1).cloned().flatten())
+            .collect();
+        target_names.push((id.clone(), name));
+        target_deps.push((id, dep_ids));
+    }
+    let mut dep_targets: Vec<(String, String)> = Vec::new();
+    let dep_section = g5_pbxproj_section(content, "PBXTargetDependency");
+    for m in g5_regex_captures(
+        r"([0-9A-F]{24})[^\{]*\{[^}]*?target\s*=\s*([0-9A-F]{24})\s*;",
+        &dep_section,
+    ) {
+        let id = m.get(1).cloned().flatten().unwrap_or_default();
+        let target = m.get(2).cloned().flatten().unwrap_or_default();
+        if !id.is_empty() {
+            dep_targets.push((id, target));
+        }
+    }
+    let mut targets: Vec<Value> = Vec::new();
+    let mut sorted_deps = target_deps.clone();
+    sorted_deps.sort();
+    for (id, dep_ids) in sorted_deps {
+        let dependencies: Vec<String> = dep_ids
+            .iter()
+            .filter_map(|dep_id| dep_targets.iter().find(|(d, _)| d == dep_id).map(|(_, t)| t.clone()))
+            .filter_map(|target_id| {
+                target_names
+                    .iter()
+                    .find(|(t, _)| t == &target_id)
+                    .map(|(_, n)| n.clone())
+            })
+            .collect();
+        let name = target_names
+            .iter()
+            .find(|(t, _)| t == &id)
+            .map(|(_, n)| n.clone())
+            .unwrap_or(id);
+        targets.push(json!({"name": name, "dependencies": dependencies}));
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "targets": targets,
+    })
+}
+
+fn g5_pbxproj_sources(tool: &str, path: &str, content: &str) -> Value {
+    let refs = g5_pbxproj_file_refs(content);
+    let build_files = g5_pbxproj_build_files(content);
+    let mut phase_owners: Vec<(String, String)> = Vec::new();
+    let target_section = g5_pbxproj_section(content, "PBXNativeTarget");
+    for m in g5_regex_captures(
+        r"([0-9A-F]{24})\s*/\* ([^*]+) \*/\s*=\s*\{[^}]*?buildPhases\s*=\s*\(([^)]*)\)",
+        &target_section,
+    ) {
+        let name = m.get(2).cloned().flatten().unwrap_or_default().trim().to_owned();
+        let phase_list = m.get(3).cloned().flatten().unwrap_or_default();
+        for phase_match in g5_regex_captures(r"([0-9A-F]{24})", &phase_list) {
+            if let Some(phase_id) = phase_match.get(1).cloned().flatten() {
+                phase_owners.push((phase_id, name.clone()));
+            }
+        }
+    }
+    let mut by_target: Vec<(String, Vec<String>)> = Vec::new();
+    let sources_section = g5_pbxproj_section(content, "PBXSourcesBuildPhase");
+    for m in g5_regex_captures(
+        r"([0-9A-F]{24})[^\{]*\{[^}]*?files\s*=\s*\(([^)]*)\)",
+        &sources_section,
+    ) {
+        let phase_id = m.get(1).cloned().flatten().unwrap_or_default();
+        let file_list = m.get(2).cloned().flatten().unwrap_or_default();
+        let owner = phase_owners
+            .iter()
+            .find(|(p, _)| p == &phase_id)
+            .map(|(_, n)| n.clone())
+            .unwrap_or_default();
+        if !by_target.iter().any(|(n, _)| n == &owner) {
+            by_target.push((owner.clone(), Vec::new()));
+        }
+        for file_match in g5_regex_captures(r"([0-9A-F]{24})", &file_list) {
+            let Some(build_id) = file_match.get(1).cloned().flatten() else {
+                continue;
+            };
+            let Some(ref_id) = build_files.iter().find(|(b, _)| b == &build_id).map(|(_, r)| r.clone()) else {
+                continue;
+            };
+            let Some(file_path) = refs.iter().find(|(r, _)| r == &ref_id).map(|(_, p)| p.clone()) else {
+                continue;
+            };
+            if let Some(entry) = by_target.iter_mut().find(|(n, _)| n == &owner) {
+                entry.1.push(file_path);
+            }
+        }
+    }
+    let targets: Vec<Value> = by_target
+        .iter()
+        .map(|(name, sources)| json!({"name": name, "sources": sources}))
+        .collect();
+    json!({
+        "tool": tool,
+        "path": path,
+        "targets": targets,
+    })
+}
+
+fn g5_workspace_settings(tool: &str, cwd: &str, path: Option<&str>) -> Result<Value, CallError> {
+    let resolved: String = if let Some(path) = path.filter(|p| !p.is_empty()) {
+        path.to_owned()
+    } else {
+        let entries = g5_list_workspace_files(cwd, ".xcsettings", 20)?;
+        let found = entries.into_iter().find(|entry| entry["isDirectory"].as_bool() != Some(true));
+        let Some(found) = found.and_then(|entry| entry["path"].as_str().map(str::to_owned)) else {
+            return Ok(json!({"tool": tool, "found": false, "settings": {}}));
+        };
+        found
+    };
+    let text = read_text_file_at(cwd, &resolved)?;
+    let mut settings = serde_json::Map::new();
+    for (key, value) in g5_plist_key_values(&text) {
+        settings.insert(key, json!(value));
+    }
+    Ok(json!({
+        "tool": tool,
+        "path": resolved,
+        "found": true,
+        "settings": settings,
+    }))
+}
+
+fn g5_test_plans(tool: &str, files: &[(String, String)]) -> Value {
+    let mut plans: Vec<Value> = Vec::new();
+    for (path, content) in files {
+        let mut targets: Vec<String> = Vec::new();
+        if let Ok(parsed) = serde_json::from_str::<Value>(content) {
+            if let Some(test_targets) = parsed["testTargets"].as_array() {
+                for entry in test_targets {
+                    if let Some(name) = entry["target"]["name"].as_str() {
+                        targets.push(name.to_owned());
+                    } else if let Some(name) = entry["target"].as_str() {
+                        targets.push(name.to_owned());
+                    }
+                }
+            }
+        }
+        plans.push(json!({"path": path, "testTargets": targets}));
+    }
+    json!({
+        "tool": tool,
+        "plans": plans,
+    })
+}
+
+fn g5_info_plist_audit(tool: &str, files: &[(String, String)]) -> Value {
+    let mut plists: Vec<Value> = Vec::new();
+    let mut bundle_counts: Vec<(String, usize)> = Vec::new();
+    let version_pattern = r"^[0-9]+(\.[0-9]+){0,2}$";
+    for (path, content) in files {
+        let values = g5_plist_key_values(content);
+        let get = |key: &str| {
+            values
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.clone())
+                .unwrap_or_default()
+        };
+        let bundle_id = get("CFBundleIdentifier");
+        let short_version = get("CFBundleShortVersionString");
+        let version = get("CFBundleVersion");
+        let mut issues: Vec<String> = Vec::new();
+        if bundle_id.is_empty() {
+            issues.push("Missing CFBundleIdentifier.".to_owned());
+        }
+        if get("CFBundleName").is_empty() && get("CFBundleDisplayName").is_empty() {
+            issues.push("Missing CFBundleName.".to_owned());
+        }
+        if short_version.is_empty() {
+            issues.push("Missing CFBundleShortVersionString.".to_owned());
+        } else if g5_regex_captures(version_pattern, &short_version).is_empty() {
+            issues.push("CFBundleShortVersionString is not a dotted version.".to_owned());
+        }
+        if version.is_empty() {
+            issues.push("Missing CFBundleVersion.".to_owned());
+        } else if g5_regex_captures(version_pattern, &version).is_empty() {
+            issues.push("CFBundleVersion is not a dotted version.".to_owned());
+        }
+        if !bundle_id.is_empty() {
+            if let Some(entry) = bundle_counts.iter_mut().find(|(b, _)| b == &bundle_id) {
+                entry.1 += 1;
+            } else {
+                bundle_counts.push((bundle_id.clone(), 1));
+            }
+        }
+        plists.push(json!({
+            "path": path,
+            "bundleIdentifier": bundle_id,
+            "shortVersion": short_version,
+            "version": version,
+            "issues": issues,
+        }));
+    }
+    let mut duplicates: Vec<String> = bundle_counts
+        .iter()
+        .filter(|(_, count)| *count > 1)
+        .map(|(bundle, _)| bundle.clone())
+        .collect();
+    duplicates.sort();
+    json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "plists": plists,
+        "duplicateBundleIdentifiers": duplicates,
+    })
+}
+
+fn g5_normalize_path(path: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    for part in path.split('/') {
+        if part == "." || part.is_empty() {
+            continue;
+        }
+        if part == ".." {
+            parts.pop();
+            continue;
+        }
+        parts.push(part);
+    }
+    parts.join("/")
+}
+
+fn g5_markdown_links(
+    tool: &str,
+    cwd: &str,
+    path: Option<&str>,
+    limit: usize,
+) -> Result<Value, CallError> {
+    let entries = g5_list_workspace_files(cwd, "", 500)?;
+    let workspace_paths: Vec<String> = entries
+        .into_iter()
+        .filter(|entry| entry["isDirectory"].as_bool() != Some(true))
+        .filter_map(|entry| entry["path"].as_str().map(str::to_owned))
+        .collect();
+    let files = g5_read_text_files(cwd, path, &[".md"], 100)?;
+    let mut broken: Vec<Value> = Vec::new();
+    let mut link_count = 0usize;
+    for (file_path, content) in &files {
+        let directory = std::path::Path::new(file_path)
+            .parent()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        for (index, line) in g5_lines(content).iter().enumerate() {
+            for m in g5_regex_captures(r"\[[^\]]*\]\(([^)\s]+)\)", line) {
+                let Some(target) = m.get(1).cloned().flatten() else {
+                    continue;
+                };
+                if target.is_empty() {
+                    continue;
+                }
+                if target.starts_with("http://")
+                    || target.starts_with("https://")
+                    || target.starts_with("mailto:")
+                    || target.starts_with('#')
+                {
+                    continue;
+                }
+                link_count += 1;
+                let clean_target = target.split('#').next().unwrap_or(target.as_str()).to_owned();
+                let resolved = if directory.is_empty() || directory == "." {
+                    clean_target.clone()
+                } else {
+                    format!("{directory}/{clean_target}")
+                };
+                let normalized = g5_normalize_path(&resolved);
+                if !workspace_paths.contains(&normalized) && !workspace_paths.contains(&clean_target) {
+                    broken.push(json!({
+                        "path": file_path,
+                        "lineNumber": index + 1,
+                        "target": target,
+                    }));
+                }
+                if broken.len() >= limit {
+                    break;
+                }
+            }
+            if broken.len() >= limit {
+                break;
+            }
+        }
+        if broken.len() >= limit {
+            break;
+        }
+    }
+    let broken_count = broken.len();
+    Ok(json!({
+        "tool": tool,
+        "filesChecked": files.len(),
+        "links": link_count,
+        "broken": broken,
+        "brokenCount": broken_count,
+    }))
+}
+
+fn g5_docs_index(tool: &str, cwd: &str, path: Option<&str>) -> Result<Value, CallError> {
+    let entries = g5_list_workspace_files(cwd, "", 500)?;
+    let scoped = g5_scope_entries(entries, path);
+    let mut files: Vec<Value> = Vec::new();
+    for entry in scoped {
+        let entry_path = entry["path"].as_str().unwrap_or("").to_owned();
+        if entry["isDirectory"].as_bool() == Some(true) {
+            continue;
+        }
+        if !entry_path.ends_with(".md") || entry_path.starts_with('.') || entry_path.contains("/.") {
+            continue;
+        }
+        let Ok(text) = read_text_file_at(cwd, &entry_path) else {
+            continue;
+        };
+        let mut title = String::new();
+        for line in g5_lines(&text) {
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix("# ") {
+                title = rest.trim().to_owned();
+                break;
+            }
+        }
+        let size = entry["sizeBytes"]
+            .as_i64()
+            .unwrap_or(text.len() as i64);
+        files.push(json!({"path": entry_path, "title": title, "sizeBytes": size}));
+    }
+    Ok(json!({
+        "tool": tool,
+        "files": files,
+    }))
+}
+
+fn g5_call(state: &crate::ServerState, name: &str, args: &Value) -> Result<Value, CallError> {
+    let cwd = req_str(args, "cwd", name)?;
+    let path = opt_str(args, "path");
+    let limit = opt_u64(args, "limit").unwrap_or(200).clamp(1, 1000) as usize;
+    match name {
+        "code_summary" => {
+            let file = req_str(args, "path", name)?;
+            let text = read_text_file_at(&cwd, &file)?;
+            Ok(g5_file_summary(name, &file, &text))
+        }
+        "complexity_analysis" => {
+            let file = req_str(args, "path", name)?;
+            let text = read_text_file_at(&cwd, &file)?;
+            Ok(g5_complexity(name, &file, &text))
+        }
+        "code_lint" => {
+            let files = if let Some(file) = path.filter(|p| !p.is_empty()) {
+                let text = read_text_file_at(&cwd, &file)?;
+                vec![(file, text)]
+            } else {
+                g5_read_text_files(&cwd, None, &[".swift"], 100)?
+            };
+            Ok(g5_lint(name, &files, limit))
+        }
+        "runtime_diagnostics_engine" => {
+            let log_path = req_str(args, "logPath", name)?;
+            let text = read_text_file_at(&cwd, &log_path)?;
+            Ok(g5_diagnostics_log(name, &log_path, &text))
+        }
+        "build_log_analyze" => {
+            let file = req_str(args, "path", name)?;
+            let text = read_text_file_at(&cwd, &file)?;
+            Ok(g5_build_log(name, &file, &text))
+        }
+        "crash_log_parse" => {
+            let file = req_str(args, "path", name)?;
+            let text = read_text_file_at(&cwd, &file)?;
+            Ok(g5_crash_log(name, &file, &text))
+        }
+        "test_log_parse" => {
+            let file = req_str(args, "path", name)?;
+            let text = read_text_file_at(&cwd, &file)?;
+            Ok(g5_test_log(name, &file, &text))
+        }
+        "test_flaky_detect" => {
+            let file = req_str(args, "path", name)?;
+            let text = read_text_file_at(&cwd, &file)?;
+            Ok(g5_flaky_tests(name, &file, &text))
+        }
+        "code_metrics_analyzer" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            Ok(g5_metrics(name, &files))
+        }
+        "comment_density_report" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            Ok(g5_comment_density(name, &files, limit))
+        }
+        "function_size_report" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            Ok(g5_function_sizes(name, &files, limit))
+        }
+        "dead_code_scan" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            Ok(g5_dead_code(name, &files, false, limit))
+        }
+        "dead_code_eliminator" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            Ok(g5_dead_code(name, &files, true, limit))
+        }
+        "duplicate_code_scan" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            Ok(g5_duplicate_blocks(name, &files, limit))
+        }
+        "unused_imports_detector" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            Ok(g5_unused_imports(name, &files, limit))
+        }
+        "license_header_check" => {
+            let required_text = opt_str(args, "requiredText").unwrap_or_else(|| "Copyright".to_owned());
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 200)?;
+            Ok(g5_license_check(name, &files, &required_text))
+        }
+        "api_docs_coverage" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            Ok(g5_doc_coverage(name, &files))
+        }
+        "docstring_generator" => {
+            let file = req_str(args, "path", name)?;
+            let text = read_text_file_at(&cwd, &file)?;
+            Ok(g5_docstring(name, &file, &text, opt_str(args, "symbol").as_deref()))
+        }
+        "code_snippet_manager" => {
+            let template = req_str(args, "template", name)?;
+            let Some(content) = g5_snippet_template(&template) else {
+                return Err(failed(
+                    "Unknown template. Use observable, asyncstream, actor, or glasscard.".to_owned(),
+                ));
+            };
+            if let Some(file) = path.filter(|p| !p.is_empty()) {
+                write_text_file(&cwd, &file, content)?;
+                return Ok(json!({
+                    "tool": name,
+                    "template": template,
+                    "written": true,
+                    "path": file,
+                    "content": content,
+                }));
+            }
+            Ok(json!({
+                "tool": name,
+                "template": template,
+                "written": false,
+                "content": content,
+            }))
+        }
+        "strings_file_validate" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".strings"], 100)?;
+            Ok(g5_strings_validate(name, &files, limit))
+        }
+        "entitlements_diff" | "build_settings_diff" => {
+            let first = req_str(args, "path", name)?;
+            let second = req_str(args, "otherPath", name)?;
+            let first_text = read_text_file_at(&cwd, &first)?;
+            let second_text = read_text_file_at(&cwd, &second)?;
+            let first_pairs = if name == "entitlements_diff" {
+                g5_plist_key_values(&first_text)
+            } else {
+                g5_xcconfig_key_values(&first_text)
+            };
+            let second_pairs = if name == "entitlements_diff" {
+                g5_plist_key_values(&second_text)
+            } else {
+                g5_xcconfig_key_values(&second_text)
+            };
+            Ok(g5_key_value_diff(name, &first, &second, &first_pairs, &second_pairs))
+        }
+        "pbxproj_lint" => {
+            let resolved = g5_resolve_pbxproj(&cwd, path.as_deref(), name)?;
+            let text = read_text_file_at(&cwd, &resolved)?;
+            let entries = g5_list_workspace_files(&cwd, "", 500)?;
+            let workspace_paths: Vec<String> = entries
+                .into_iter()
+                .filter(|entry| entry["isDirectory"].as_bool() != Some(true))
+                .filter_map(|entry| entry["path"].as_str().map(str::to_owned))
+                .collect();
+            Ok(g5_pbxproj_lint(name, &resolved, &text, &workspace_paths))
+        }
+        "build_phase_scripts_list" => {
+            let resolved = g5_resolve_pbxproj(&cwd, path.as_deref(), name)?;
+            let text = read_text_file_at(&cwd, &resolved)?;
+            Ok(g5_pbxproj_scripts(name, &resolved, &text))
+        }
+        "build_configuration_list" => {
+            let resolved = g5_resolve_pbxproj(&cwd, path.as_deref(), name)?;
+            let text = read_text_file_at(&cwd, &resolved)?;
+            let entries = g5_list_workspace_files(&cwd, ".xcconfig", 100)?;
+            let xcconfigs: Vec<String> = entries
+                .into_iter()
+                .filter(|entry| entry["isDirectory"].as_bool() != Some(true))
+                .filter_map(|entry| entry["path"].as_str().map(str::to_owned))
+                .collect();
+            Ok(g5_pbxproj_configs(name, &resolved, &text, &xcconfigs))
+        }
+        "target_dependencies_list" => {
+            let resolved = g5_resolve_pbxproj(&cwd, path.as_deref(), name)?;
+            let text = read_text_file_at(&cwd, &resolved)?;
+            Ok(g5_pbxproj_deps(name, &resolved, &text))
+        }
+        "target_source_list" => {
+            let resolved = g5_resolve_pbxproj(&cwd, path.as_deref(), name)?;
+            let text = read_text_file_at(&cwd, &resolved)?;
+            Ok(g5_pbxproj_sources(name, &resolved, &text))
+        }
+        "workspace_settings_read" => g5_workspace_settings(name, &cwd, path.as_deref()),
+        "scheme_test_plan_list" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".xctestplan"], 100)?;
+            Ok(g5_test_plans(name, &files))
+        }
+        "info_plist_audit" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &["Info.plist"], 50)?;
+            Ok(g5_info_plist_audit(name, &files))
+        }
+        "markdown_link_check" => g5_markdown_links(name, &cwd, path.as_deref(), limit),
+        "docs_index_build" => g5_docs_index(name, &cwd, path.as_deref()),
+        _ => g5_run_scan(state, name, args),
+    }
+}
+
 
 pub fn call(
     state: &crate::ServerState,
@@ -10328,6 +13425,72 @@ pub fn call(
                 json!({"expectedRoot": root, "scope": scope, "ignoreWhitespace": ignore_whitespace}),
             )
         }
+        "search_symbol" => g5_call(state, name, &args),
+        "dependency_graph" => g5_call(state, name, &args),
+        "source_graph_builder" => g5_call(state, name, &args),
+        "semantic_query_engine" => g5_call(state, name, &args),
+        "code_summary" => g5_call(state, name, &args),
+        "code_lint" => g5_call(state, name, &args),
+        "complexity_analysis" => g5_call(state, name, &args),
+        "autonomous_review_engine" => g5_call(state, name, &args),
+        "runtime_diagnostics_engine" => g5_call(state, name, &args),
+        "code_metrics_analyzer" => g5_call(state, name, &args),
+        "memory_leak_detector" => g5_call(state, name, &args),
+        "dead_code_eliminator" => g5_call(state, name, &args),
+        "dead_code_scan" => g5_call(state, name, &args),
+        "duplicate_code_scan" => g5_call(state, name, &args),
+        "todo_scan" => g5_call(state, name, &args),
+        "todo_fixme_scanner" => g5_call(state, name, &args),
+        "license_header_check" => g5_call(state, name, &args),
+        "api_surface_extract" => g5_call(state, name, &args),
+        "access_level_audit" => g5_call(state, name, &args),
+        "concurrency_audit" => g5_call(state, name, &args),
+        "swift_concurrency_analyzer" => g5_call(state, name, &args),
+        "swift_migration_advisor" => g5_call(state, name, &args),
+        "security_audit_scanner" => g5_call(state, name, &args),
+        "secrets_scan" => g5_call(state, name, &args),
+        "network_security_auditor" => g5_call(state, name, &args),
+        "permissions_audit" => g5_call(state, name, &args),
+        "accessibility_audit" => g5_call(state, name, &args),
+        "accessibility_audit_scanner" => g5_call(state, name, &args),
+        "interface_simulator" => g5_call(state, name, &args),
+        "docstring_generator" => g5_call(state, name, &args),
+        "code_snippet_manager" => g5_call(state, name, &args),
+        "unused_imports_detector" => g5_call(state, name, &args),
+        "force_unwrap_scan" => g5_call(state, name, &args),
+        "string_literal_audit" => g5_call(state, name, &args),
+        "comment_density_report" => g5_call(state, name, &args),
+        "function_size_report" => g5_call(state, name, &args),
+        "call_hierarchy" => g5_call(state, name, &args),
+        "type_hierarchy" => g5_call(state, name, &args),
+        "protocol_conformance_list" => g5_call(state, name, &args),
+        "import_graph" => g5_call(state, name, &args),
+        "change_impact_estimate" => g5_call(state, name, &args),
+        "conflict_marker_scan" => g5_call(state, name, &args),
+        "build_log_analyze" => g5_call(state, name, &args),
+        "crash_log_parse" => g5_call(state, name, &args),
+        "deprecation_usage_scan" => g5_call(state, name, &args),
+        "info_plist_audit" => g5_call(state, name, &args),
+        "api_endpoint_audit" => g5_call(state, name, &args),
+        "color_usage_audit" => g5_call(state, name, &args),
+        "strings_file_validate" => g5_call(state, name, &args),
+        "entitlements_diff" => g5_call(state, name, &args),
+        "pbxproj_lint" => g5_call(state, name, &args),
+        "xctest_discovery" => g5_call(state, name, &args),
+        "build_settings_diff" => g5_call(state, name, &args),
+        "build_phase_scripts_list" => g5_call(state, name, &args),
+        "build_configuration_list" => g5_call(state, name, &args),
+        "target_dependencies_list" => g5_call(state, name, &args),
+        "target_source_list" => g5_call(state, name, &args),
+        "workspace_settings_read" => g5_call(state, name, &args),
+        "scheme_test_plan_list" => g5_call(state, name, &args),
+        "test_log_parse" => g5_call(state, name, &args),
+        "test_flaky_detect" => g5_call(state, name, &args),
+        "code_comment_extract" => g5_call(state, name, &args),
+        "api_docs_coverage" => g5_call(state, name, &args),
+        "markdown_link_check" => g5_call(state, name, &args),
+        "docs_index_build" => g5_call(state, name, &args),
+
         _ => Err(CallError::UnknownTool(name.to_owned())),
     }
 }
@@ -10446,7 +13609,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 200, "Swift registry must hold 200 tools");
+        assert_eq!(swift.len(), 265, "Swift registry must hold 265 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");

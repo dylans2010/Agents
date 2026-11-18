@@ -2301,6 +2301,714 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "ignoreWhitespace", type: "boolean", required: false, description: "Ignore whitespace changes in the diff."),
             ]
         ),
+        SystemToolDefinition(
+            name: "search_symbol",
+            description: "Heuristic declaration search for a symbol across four regex declaration patterns. Regex scan, not semantic analysis.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "symbol", type: "string", required: true, description: "Symbol name to search for."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dependency_graph",
+            description: "Regex import scan listing which files import which modules. Nodes conflate file paths and module names.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "source_graph_builder",
+            description: "Regex symbol and import graph over the workspace. Type edges come from declaration regex, not a semantic index.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "semantic_query_engine",
+            description: "Substring concept search over workspace text. Substring matching, not semantic search.",
+            action: "workspace.search",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "query", type: "string", required: true, description: "Substring to search for."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_summary",
+            description: "Line, non-empty-line and comment counts for one file. Does not extract interface declarations.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_lint",
+            description: "Line-length over 120 plus TODO and FIXME scan for one file or the workspace. Regex and line rules, not a style analyzer.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "complexity_analysis",
+            description: "Substring keyword counting for one file. Counts keywords in comments and strings too; not real cyclomatic complexity.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "autonomous_review_engine",
+            description: "Heuristic keyword scan for force-unwraps and concurrency smells. No retain-cycle check; findings are leads, not diagnoses.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "runtime_diagnostics_engine",
+            description: "Keyword scan of a crash or diagnostics log file for fatal errors, signals and thread mentions. Leads, not diagnoses.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "logPath", type: "string", required: true, description: "Crash or diagnostics log file, relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_metrics_analyzer",
+            description: "Line counts, comment density, function and type counts, plus a keyword-based complexity estimate per Swift file.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "memory_leak_detector",
+            description: "Heuristic static scan for unowned self captures, strong self captures, non-weak delegates and timer observers.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dead_code_eliminator",
+            description: "Report-only list of unreferenced private function candidates with file and line evidence. Deletes nothing; deletion is a separate confirmed edit.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dead_code_scan",
+            description: "Heuristic scan for declarations with zero references elsewhere in the workspace. Overloaded names are excluded.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "duplicate_code_scan",
+            description: "Normalized six-line sliding-window scan for repeated code blocks, reported as file and line pairs.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "todo_scan",
+            description: "Heuristic regex inventory of TODO, FIXME, XXX and HACK markers with file, line and text.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "todo_fixme_scanner",
+            description: "Heuristic regex inventory of TODO, FIXME, HACK and NOTE annotations with file, line and text.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "license_header_check",
+            description: "Lists Swift files whose first 15 lines lack the required header text. Defaults to Copyright.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "requiredText", type: "string", required: false, description: "Header text that must appear in the first 15 lines. Defaults to Copyright."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "api_surface_extract",
+            description: "Public and open declarations grouped by file, with counts. Regex scan, not a compiler API surface.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "access_level_audit",
+            description: "Declaration counts by access level: public, open, internal, private, fileprivate. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "concurrency_audit",
+            description: "Heuristic scan for main-queue sync, nonisolated unsafe, unstructured tasks, shared mutable statics and sync blocks.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "swift_concurrency_analyzer",
+            description: "Heuristic scan for non-Sendable transfers, unsafe mutable state and actor reentrancy hazards. Regex scan, not a compiler check.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "swift_migration_advisor",
+            description: "Heuristic audit for Swift 6 strict concurrency, mutable globals and actor isolation issues. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "security_audit_scanner",
+            description: "Heuristic scan for hardcoded secrets, plain HTTP URLs and unsafe credentials. Secret matches report file, line and pattern only, never values.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "secrets_scan",
+            description: "Heuristic scan for AWS keys, GitHub tokens, sk keys, credential assignments and private-key blocks. Reports file, line and pattern only, never matched values or line contents.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "network_security_auditor",
+            description: "Heuristic scan of App Transport Security keys, plaintext HTTP URLs and certificate pinning rules. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "permissions_audit",
+            description: "Heuristic scan of Info.plist usage descriptions, entitlements and PrivacyInfo entries, with missing-description checks.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "accessibility_audit",
+            description: "Heuristic scan for Buttons, Images and TextFields and their accessibility labels, hints and values. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "accessibility_audit_scanner",
+            description: "Heuristic scan of SwiftUI and AppKit views for accessibility labels, hints, traits and identifiers. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "interface_simulator",
+            description: "Heuristic audit of SwiftUI view structures, accessibility traits, dynamic type scaling and tap targets. Regex scan, not a running simulator.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "docstring_generator",
+            description: "Generates Apple DocC style markdown doc blocks for Swift declarations found by regex in one file.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "symbol", type: "string", required: false, description: "Declaration name; when given, only that declaration is documented."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_snippet_manager",
+            description: "Returns a standardized Swift 6 template by name, and writes it to path when given. Templates are fixed starter text, not generated code.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "template", type: "string", required: true, description: "Template name: observable, asyncstream, actor, or glasscard."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "unused_imports_detector",
+            description: "Heuristic scan for Swift module imports never referenced elsewhere in the same file.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "force_unwrap_scan",
+            description: "Heuristic regex scan for force unwraps, try! and as! across Swift sources.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "string_literal_audit",
+            description: "Heuristic scan for hardcoded user-facing string literals not routed through localization. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "comment_density_report",
+            description: "Comment-to-code ratios per Swift file, least-documented first. Line-based counts, not semantic documentation quality.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "function_size_report",
+            description: "Longest functions by brace-counted line span, highlighting decomposition candidates. Heuristic spans, not a compiler AST.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "call_hierarchy",
+            description: "Definition site, callers and callees for a function name, from regex. Callers are textual call sites, not a compiler call graph.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "function", type: "string", required: true, description: "Function name to trace."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "type_hierarchy",
+            description: "Class, struct, enum and protocol declarations with inheritance and conformance clauses, from regex.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "protocol_conformance_list",
+            description: "Every type declaring conformance to a protocol, from regex over declaration lines.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "protocol", type: "string", required: true, description: "Protocol name to list conformances for."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "import_graph",
+            description: "File-level import graph; which files import a given module. Regex scan over import lines.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "module", type: "string", required: false, description: "Module name; when given, only files importing it are listed."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "change_impact_estimate",
+            description: "Blast-radius estimate: files textually referencing a symbol name. Regex scan, not a dependency graph.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "symbol", type: "string", required: true, description: "Symbol name to search for."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "conflict_marker_scan",
+            description: "Regex scan for unresolved merge-conflict markers in source files.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "build_log_analyze",
+            description: "Parses a build log file for errors, warnings and the build result. Text parsing, not a build run.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "crash_log_parse",
+            description: "Parses a crash log file for exception type, termination reason, faulting thread and blamed frames. Text parsing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "deprecation_usage_scan",
+            description: "Regex scan for deprecated markers in declarations. Usage sites of a deprecated API need the API name via search_symbol.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "info_plist_audit",
+            description: "Audits Info.plist files for required keys, version-format sanity and duplicate bundle identifiers. Text parsing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "api_endpoint_audit",
+            description: "Hardcoded http and https URL literals grouped by host. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "color_usage_audit",
+            description: "Heuristic scan for hardcoded colors that should live in the asset catalog. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "strings_file_validate",
+            description: "Validates .strings files for syntax, duplicate keys and empty values. Line-based parsing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "entitlements_diff",
+            description: "Diffs two .entitlements plists into added, removed and changed keys. Text parsing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "otherPath", type: "string", required: true, description: "Second file to compare against path, relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "pbxproj_lint",
+            description: "Read-only regex lint over project.pbxproj text: file references pointing at missing files, duplicate paths and dangling build-file refs. Never writes the pbxproj.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "xctest_discovery",
+            description: "Lists XCTestCase subclasses and test methods by regex, without running anything.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "build_settings_diff",
+            description: "Diffs two .xcconfig files key by key. Text parsing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "otherPath", type: "string", required: true, description: "Second file to compare against path, relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "build_phase_scripts_list",
+            description: "Lists Run Script build phases from project.pbxproj text with truncated script bodies. Read-only.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "build_configuration_list",
+            description: "Lists build configurations per project and target from project.pbxproj text. Read-only.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "target_dependencies_list",
+            description: "Lists target-to-target dependencies from project.pbxproj text. Read-only.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "target_source_list",
+            description: "Lists source files compiled into each target from Compile Sources phases in project.pbxproj text. Read-only.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "workspace_settings_read",
+            description: "Reads Xcode workspace .xcsettings plists as key-value pairs. Text parsing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "scheme_test_plan_list",
+            description: "Lists .xctestplan files and the test targets each covers. JSON parsing, no test run.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "test_log_parse",
+            description: "Parses a test log for pass and fail outcomes, suite summaries, error lines and the failed list. Text parsing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "test_flaky_detect",
+            description: "Parses a test log for tests with both pass and fail outcomes. Text parsing.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_comment_extract",
+            description: "Extracts triple-slash and block doc comments per file, optionally limited to files mentioning a symbol. Regex scan.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+                SystemToolParameter(name: "symbol", type: "string", required: false, description: "Symbol name; when given, only files mentioning it are included."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "api_docs_coverage",
+            description: "Share of public declarations carrying doc comments, from regex over Swift files.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "markdown_link_check",
+            description: "Validates internal links in Markdown files against the workspace file list. Regex plus file existence, not a link crawler.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "docs_index_build",
+            description: "Indexes Markdown files with path, first-heading title and size. Line-based reading.",
+            action: "workspace.files",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+
     ]
 
     public static func tools(for toolset: AgentToolset) -> [SystemToolDefinition] {
@@ -5185,10 +5893,1543 @@ public nonisolated enum SystemToolRegistry {
             let ignoreWhitespace = optionalBool(arguments, "ignoreWhitespace") ?? false
             let root = try await Self.resolveThreadRoot(threadId: threadId, tool: name, runtime: runtime)
             return try await runWorkspaceApiOperation(method: "git.review.diff", threadId: threadId, params: ["expectedRoot": .string(root), "scope": .string(scope), "ignoreWhitespace": .bool(ignoreWhitespace)], tool: name, timeoutSeconds: 120, runtime: runtime)
+        case "search_symbol", "dependency_graph", "source_graph_builder", "semantic_query_engine", "code_summary",
+            "code_lint", "complexity_analysis", "autonomous_review_engine", "runtime_diagnostics_engine",
+            "code_metrics_analyzer", "memory_leak_detector", "dead_code_eliminator", "dead_code_scan",
+            "duplicate_code_scan", "todo_scan", "todo_fixme_scanner", "license_header_check", "api_surface_extract",
+            "access_level_audit", "concurrency_audit", "swift_concurrency_analyzer", "swift_migration_advisor",
+            "security_audit_scanner", "secrets_scan", "network_security_auditor", "permissions_audit",
+            "accessibility_audit", "accessibility_audit_scanner", "interface_simulator", "docstring_generator",
+            "code_snippet_manager", "unused_imports_detector", "force_unwrap_scan", "string_literal_audit",
+            "comment_density_report", "function_size_report", "call_hierarchy", "type_hierarchy",
+            "protocol_conformance_list", "import_graph", "change_impact_estimate", "conflict_marker_scan",
+            "build_log_analyze", "crash_log_parse", "deprecation_usage_scan", "info_plist_audit",
+            "api_endpoint_audit", "color_usage_audit", "strings_file_validate", "entitlements_diff", "pbxproj_lint",
+            "xctest_discovery", "build_settings_diff", "build_phase_scripts_list", "build_configuration_list",
+            "target_dependencies_list", "target_source_list", "workspace_settings_read", "scheme_test_plan_list",
+            "test_log_parse", "test_flaky_detect", "code_comment_extract", "api_docs_coverage",
+            "markdown_link_check", "docs_index_build":
+
+            return try await Self.runG5Tool(tool: name, arguments: arguments, runtime: runtime)
         default:
             throw SystemToolError.unknownTool(name)
         }
     }
+
+    private struct G5PatternSpec {
+        var label: String
+        var pattern: String
+        var redact: Bool
+        var capture: Int
+    }
+
+    private struct G5ScanSpec {
+        var shape: String
+        var literal: Bool
+        var sampleLimit: Int
+        var patterns: [G5PatternSpec]
+    }
+
+    private static let g5ScanSpecs: [String: G5ScanSpec] = [
+        "search_symbol": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "function", pattern: "func\\s+{symbol}\\b", redact: false, capture: 0), G5PatternSpec(label: "type", pattern: "(class|struct|enum|protocol)\\s+{symbol}\\b", redact: false, capture: 0), G5PatternSpec(label: "variable", pattern: "(let|var)\\s+{symbol}\\b", redact: false, capture: 0), G5PatternSpec(label: "typealias", pattern: "typealias\\s+{symbol}\\b", redact: false, capture: 0)]),
+        "dependency_graph": G5ScanSpec(shape: "files", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "import", pattern: "^import\\s+([A-Za-z0-9_]+)", redact: false, capture: 1)]),
+        "source_graph_builder": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "import", pattern: "^import\\s+([A-Za-z0-9_]+)", redact: false, capture: 1), G5PatternSpec(label: "type", pattern: "(class|struct|enum|protocol)\\s+([A-Za-z0-9_]+)", redact: false, capture: 2)]),
+        "semantic_query_engine": G5ScanSpec(shape: "flat", literal: true, sampleLimit: 0, patterns: [G5PatternSpec(label: "match", pattern: "{query}", redact: false, capture: 0)]),
+        "autonomous_review_engine": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "forceUnwrap", pattern: "[A-Za-z0-9_\\)\\]]![^=!]", redact: false, capture: 0), G5PatternSpec(label: "tryBang", pattern: "try!", redact: false, capture: 0), G5PatternSpec(label: "asBang", pattern: "as!", redact: false, capture: 0), G5PatternSpec(label: "mainSync", pattern: "DispatchQueue\\.main\\.sync", redact: false, capture: 0), G5PatternSpec(label: "fatal", pattern: "fatalError|precondition\\(", redact: false, capture: 0)]),
+        "memory_leak_detector": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "unownedSelf", pattern: "\\[unowned self\\]", redact: false, capture: 0), G5PatternSpec(label: "strongSelf", pattern: "\\[self\\]", redact: false, capture: 0), G5PatternSpec(label: "delegateAssign", pattern: "\\.delegate\\s*=", redact: false, capture: 0), G5PatternSpec(label: "scheduledTimer", pattern: "Timer\\.scheduledTimer", redact: false, capture: 0), G5PatternSpec(label: "observer", pattern: "NotificationCenter\\.default\\.addObserver", redact: false, capture: 0)]),
+        "todo_scan": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "todo", pattern: "\\b(TODO|FIXME|XXX|HACK)\\b", redact: false, capture: 0)]),
+        "todo_fixme_scanner": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "todo", pattern: "\\b(TODO|FIXME|HACK|NOTE)\\b", redact: false, capture: 0)]),
+        "api_surface_extract": G5ScanSpec(shape: "files", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "declaration", pattern: "\\b(public|open)\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0)]),
+        "access_level_audit": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "public", pattern: "\\bpublic\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0), G5PatternSpec(label: "open", pattern: "\\bopen\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0), G5PatternSpec(label: "internal", pattern: "\\binternal\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0), G5PatternSpec(label: "private", pattern: "\\bprivate\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0), G5PatternSpec(label: "fileprivate", pattern: "\\bfileprivate\\s+(func|class|struct|enum|protocol|var|let|typealias)\\b", redact: false, capture: 0)]),
+        "concurrency_audit": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "mainSync", pattern: "DispatchQueue\\.main\\.sync", redact: false, capture: 0), G5PatternSpec(label: "nonisolatedUnsafe", pattern: "nonisolated\\(unsafe\\)", redact: false, capture: 0), G5PatternSpec(label: "task", pattern: "Task\\s*\\{", redact: false, capture: 0), G5PatternSpec(label: "sharedMutableStatic", pattern: "static\\s+(let|var)\\s+[A-Za-z0-9_]+\\s*[:=]", redact: false, capture: 0), G5PatternSpec(label: "syncBlock", pattern: "\\.sync\\s*\\{", redact: false, capture: 0)]),
+        "swift_concurrency_analyzer": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "nonisolated", pattern: "nonisolated", redact: false, capture: 0), G5PatternSpec(label: "mainActor", pattern: "@MainActor", redact: false, capture: 0), G5PatternSpec(label: "actor", pattern: "\\bactor\\s+[A-Za-z0-9_]+", redact: false, capture: 0), G5PatternSpec(label: "sendable", pattern: "Sendable", redact: false, capture: 0), G5PatternSpec(label: "detached", pattern: "Task\\.detached", redact: false, capture: 0)]),
+        "swift_migration_advisor": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "dispatchQueue", pattern: "DispatchQueue", redact: false, capture: 0), G5PatternSpec(label: "lock", pattern: "NSLock|os_unfair_lock", redact: false, capture: 0), G5PatternSpec(label: "mutableGlobal", pattern: "static\\s+var\\s+[A-Za-z0-9_]+", redact: false, capture: 0), G5PatternSpec(label: "uncheckedSendable", pattern: "@unchecked Sendable", redact: false, capture: 0), G5PatternSpec(label: "nonisolatedUnsafe", pattern: "nonisolated\\(unsafe\\)", redact: false, capture: 0)]),
+        "security_audit_scanner": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "plainHttp", pattern: "http://[^ \\t\\\"'\\)]+", redact: false, capture: 0), G5PatternSpec(label: "apiKey", pattern: "api_key\\s*[:=]", redact: true, capture: 0), G5PatternSpec(label: "password", pattern: "password\\s*[:=]", redact: true, capture: 0), G5PatternSpec(label: "awsKey", pattern: "AKIA[0-9A-Z]{16}", redact: true, capture: 0), G5PatternSpec(label: "bearer", pattern: "Bearer\\s+[A-Za-z0-9\\-_\\.]+", redact: true, capture: 0)]),
+        "secrets_scan": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "awsKey", pattern: "AKIA[0-9A-Z]{16}", redact: true, capture: 0), G5PatternSpec(label: "githubToken", pattern: "ghp_[A-Za-z0-9]{20,}", redact: true, capture: 0), G5PatternSpec(label: "skKey", pattern: "sk-[A-Za-z0-9]{20,}", redact: true, capture: 0), G5PatternSpec(label: "apiKey", pattern: "api_key\\s*[:=]", redact: true, capture: 0), G5PatternSpec(label: "password", pattern: "password\\s*[:=]", redact: true, capture: 0), G5PatternSpec(label: "privateKey", pattern: "BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY", redact: true, capture: 0), G5PatternSpec(label: "slackToken", pattern: "xox[baprs]-[A-Za-z0-9\\-]{10,}", redact: true, capture: 0)]),
+        "network_security_auditor": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "plainHttp", pattern: "http://[^ \\t\\\"'\\)]+", redact: false, capture: 0), G5PatternSpec(label: "ats", pattern: "NSAppTransportSecurity", redact: false, capture: 0), G5PatternSpec(label: "arbitraryLoads", pattern: "NSAllowsArbitraryLoads", redact: false, capture: 0), G5PatternSpec(label: "localNetworking", pattern: "NSAllowsLocalNetworking", redact: false, capture: 0), G5PatternSpec(label: "pinning", pattern: "SecTrust|certificatePinning|pinnedCertificate", redact: false, capture: 0)]),
+        "permissions_audit": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "usageDescription", pattern: "UsageDescription", redact: false, capture: 0), G5PatternSpec(label: "privacyInfo", pattern: "NSPrivacy", redact: false, capture: 0), G5PatternSpec(label: "entitlement", pattern: "com\\.apple\\.security", redact: false, capture: 0), G5PatternSpec(label: "sensitiveEntitlement", pattern: "get-task-allow|application-identifier", redact: false, capture: 0)]),
+        "accessibility_audit": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "button", pattern: "Button\\(", redact: false, capture: 0), G5PatternSpec(label: "image", pattern: "Image\\(", redact: false, capture: 0), G5PatternSpec(label: "textField", pattern: "TextField\\(", redact: false, capture: 0), G5PatternSpec(label: "label", pattern: "\\.accessibilityLabel\\(", redact: false, capture: 0), G5PatternSpec(label: "hint", pattern: "\\.accessibilityHint\\(", redact: false, capture: 0), G5PatternSpec(label: "value", pattern: "\\.accessibilityValue\\(", redact: false, capture: 0)]),
+        "accessibility_audit_scanner": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "label", pattern: "\\.accessibilityLabel\\(", redact: false, capture: 0), G5PatternSpec(label: "hint", pattern: "\\.accessibilityHint\\(", redact: false, capture: 0), G5PatternSpec(label: "traits", pattern: "\\.accessibilityAddTraits\\(", redact: false, capture: 0), G5PatternSpec(label: "hidden", pattern: "\\.accessibilityHidden\\(", redact: false, capture: 0), G5PatternSpec(label: "identifier", pattern: "\\.accessibilityIdentifier\\(", redact: false, capture: 0)]),
+        "interface_simulator": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 5, patterns: [G5PatternSpec(label: "label", pattern: "\\.accessibilityLabel\\(", redact: false, capture: 0), G5PatternSpec(label: "dynamicType", pattern: "\\.dynamicTypeSize\\(", redact: false, capture: 0), G5PatternSpec(label: "font", pattern: "\\.font\\(", redact: false, capture: 0), G5PatternSpec(label: "button", pattern: "Button\\(", redact: false, capture: 0), G5PatternSpec(label: "fixedFrame", pattern: "\\.frame\\(width", redact: false, capture: 0), G5PatternSpec(label: "color", pattern: "\\.foregroundColor\\(|Color\\(", redact: false, capture: 0)]),
+        "force_unwrap_scan": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "forceUnwrap", pattern: "[A-Za-z0-9_\\)\\]]![^=!]", redact: false, capture: 0), G5PatternSpec(label: "tryBang", pattern: "try!", redact: false, capture: 0), G5PatternSpec(label: "asBang", pattern: "as!", redact: false, capture: 0)]),
+        "string_literal_audit": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "stringLiteral", pattern: "\"[^\"]{8,}\"", redact: false, capture: 0)]),
+        "call_hierarchy": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "definition", pattern: "(func|init)\\s+{function}\\b", redact: false, capture: 0), G5PatternSpec(label: "callSite", pattern: "\\b{function}\\s*\\(", redact: false, capture: 0)]),
+        "type_hierarchy": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "type", pattern: "(class|struct|enum|protocol)\\s+([A-Za-z0-9_]+)(\\s*:\\s*[^{]+)?", redact: false, capture: 2)]),
+        "protocol_conformance_list": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "conformance", pattern: "(class|struct|enum)\\s+([A-Za-z0-9_]+)\\s*:[^{]*\\b{protocol}\\b", redact: false, capture: 2)]),
+        "import_graph": G5ScanSpec(shape: "files", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "import", pattern: "^import\\s+([A-Za-z0-9_]+)", redact: false, capture: 1)]),
+        "change_impact_estimate": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "reference", pattern: "\\b{symbol}\\b", redact: false, capture: 0)]),
+        "conflict_marker_scan": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "marker", pattern: "^(<{7}|={7}|>{7}|\\|{7})", redact: false, capture: 0)]),
+        "deprecation_usage_scan": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "deprecated", pattern: "\\bdeprecated\\b", redact: false, capture: 0)]),
+        "api_endpoint_audit": G5ScanSpec(shape: "host", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "url", pattern: "https?://([A-Za-z0-9.\\-]+)", redact: false, capture: 1)]),
+        "color_usage_audit": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "color", pattern: "Color\\(|UIColor\\(|NSColor\\(|#[0-9A-Fa-f]{6}\\b", redact: false, capture: 0)]),
+        "xctest_discovery": G5ScanSpec(shape: "patterns", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "testClass", pattern: "class\\s+([A-Za-z0-9_]+)\\s*:\\s*XCTestCase", redact: false, capture: 1), G5PatternSpec(label: "testMethod", pattern: "func\\s+(test[A-Za-z0-9_]*)\\s*\\(", redact: false, capture: 1)]),
+        "code_comment_extract": G5ScanSpec(shape: "flat", literal: false, sampleLimit: 0, patterns: [G5PatternSpec(label: "comment", pattern: "///|/\\*\\*", redact: false, capture: 0)]),
+    ]
+
+    private static let g5ProtectedModules: Set<String> = [
+        "Foundation", "SwiftUI", "AppKit", "UIKit", "Combine", "CoreData", "CryptoKit",
+        "Security", "XCTest", "SwiftData", "Observation", "WebKit",
+        "UniformTypeIdentifiers", "Dispatch", "Network", "os", "SystemConfiguration",
+        "CoreGraphics", "QuartzCore", "StoreKit", "AuthenticationServices",
+    ]
+
+    private static func runG5Tool(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let cwd = try requiredString(arguments, "cwd", tool: tool)
+        let path = optionalString(arguments, "path")
+        let limit = max(1, min(1000, optionalInt(arguments, "limit") ?? 200))
+        switch tool {
+        case "code_summary":
+            let file = try requiredString(arguments, "path", tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: file)
+            return Self.parseG5FileSummary(tool: tool, path: file, content: document.content)
+        case "complexity_analysis":
+            let file = try requiredString(arguments, "path", tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: file)
+            return Self.parseG5Complexity(tool: tool, path: file, content: document.content)
+        case "code_lint":
+            return try await Self.runG5Lint(tool: tool, cwd: cwd, path: path, limit: limit, runtime: runtime)
+        case "runtime_diagnostics_engine":
+            let logPath = try requiredString(arguments, "logPath", tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: logPath)
+            return Self.parseG5DiagnosticsLog(tool: tool, logPath: logPath, content: document.content)
+        case "build_log_analyze":
+            let file = try requiredString(arguments, "path", tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: file)
+            return Self.parseG5BuildLog(tool: tool, path: file, content: document.content)
+        case "crash_log_parse":
+            let file = try requiredString(arguments, "path", tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: file)
+            return Self.parseG5CrashLog(tool: tool, path: file, content: document.content)
+        case "test_log_parse":
+            let file = try requiredString(arguments, "path", tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: file)
+            return Self.parseG5TestLog(tool: tool, path: file, content: document.content)
+        case "test_flaky_detect":
+            let file = try requiredString(arguments, "path", tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: file)
+            return Self.parseG5FlakyTests(tool: tool, path: file, content: document.content)
+        case "code_metrics_analyzer":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            return Self.parseG5Metrics(tool: tool, files: files)
+        case "comment_density_report":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            return Self.parseG5CommentDensity(tool: tool, files: files, limit: limit)
+        case "function_size_report":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            return Self.parseG5FunctionSizes(tool: tool, files: files, limit: limit)
+        case "dead_code_scan":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            return Self.parseG5DeadCode(tool: tool, files: files, privateOnly: false, limit: limit)
+        case "dead_code_eliminator":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            return Self.parseG5DeadCode(tool: tool, files: files, privateOnly: true, limit: limit)
+        case "duplicate_code_scan":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            return Self.parseG5DuplicateBlocks(tool: tool, files: files, limit: limit)
+        case "unused_imports_detector":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            return Self.parseG5UnusedImports(tool: tool, files: files, limit: limit)
+        case "license_header_check":
+            let requiredText = optionalString(arguments, "requiredText") ?? "Copyright"
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 200, runtime: runtime)
+            return Self.parseG5LicenseCheck(tool: tool, files: files, requiredText: requiredText)
+        case "api_docs_coverage":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            return Self.parseG5DocCoverage(tool: tool, files: files)
+        case "docstring_generator":
+            let file = try requiredString(arguments, "path", tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: file)
+            return Self.parseG5Docstring(tool: tool, path: file, content: document.content, symbol: optionalString(arguments, "symbol"))
+        case "code_snippet_manager":
+            return try await Self.runG5Snippet(tool: tool, arguments: arguments, runtime: runtime)
+        case "strings_file_validate":
+            return try await Self.runG5StringsValidate(tool: tool, cwd: cwd, path: path, limit: limit, runtime: runtime)
+        case "entitlements_diff", "build_settings_diff":
+            let first = try requiredString(arguments, "path", tool: tool)
+            let second = try requiredString(arguments, "otherPath", tool: tool)
+            let firstDoc = try await runtime.readWorkspaceFile(cwd: cwd, path: first)
+            let secondDoc = try await runtime.readWorkspaceFile(cwd: cwd, path: second)
+            let firstPairs = tool == "entitlements_diff" ? Self.parseG5PlistKeyValues(firstDoc.content) : Self.parseG5XcconfigKeyValues(firstDoc.content)
+            let secondPairs = tool == "entitlements_diff" ? Self.parseG5PlistKeyValues(secondDoc.content) : Self.parseG5XcconfigKeyValues(secondDoc.content)
+            return Self.parseG5KeyValueDiff(tool: tool, path: first, otherPath: second, first: firstPairs, second: secondPairs)
+        case "pbxproj_lint", "build_phase_scripts_list", "build_configuration_list", "target_dependencies_list", "target_source_list":
+            let resolved = try await Self.g5ResolvePbxproj(tool: tool, cwd: cwd, path: path, runtime: runtime)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: resolved)
+            switch tool {
+            case "pbxproj_lint":
+                let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: "", limit: 500)
+                let workspacePaths = entries.filter { !$0.isDirectory }.map { $0.path }
+                return Self.parseG5PbxprojLint(tool: tool, path: resolved, content: document.content, workspacePaths: workspacePaths)
+            case "build_phase_scripts_list":
+                return Self.parseG5PbxprojScripts(tool: tool, path: resolved, content: document.content)
+            case "build_configuration_list":
+                let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: ".xcconfig", limit: 100)
+                let xcconfigs = entries.filter { !$0.isDirectory }.map { $0.path }
+                return Self.parseG5PbxprojConfigs(tool: tool, path: resolved, content: document.content, xcconfigFiles: xcconfigs)
+            case "target_dependencies_list":
+                return Self.parseG5PbxprojDeps(tool: tool, path: resolved, content: document.content)
+            default:
+                return Self.parseG5PbxprojSources(tool: tool, path: resolved, content: document.content)
+            }
+        case "workspace_settings_read":
+            return try await Self.runG5WorkspaceSettings(tool: tool, cwd: cwd, path: path, runtime: runtime)
+        case "scheme_test_plan_list":
+            return try await Self.runG5TestPlans(tool: tool, cwd: cwd, path: path, runtime: runtime)
+        case "info_plist_audit":
+            return try await Self.runG5InfoPlistAudit(tool: tool, cwd: cwd, path: path, runtime: runtime)
+        case "markdown_link_check":
+            return try await Self.runG5MarkdownLinks(tool: tool, cwd: cwd, path: path, limit: limit, runtime: runtime)
+        case "docs_index_build":
+            return try await Self.runG5DocsIndex(tool: tool, cwd: cwd, path: path, runtime: runtime)
+        default:
+            return try await Self.runG5Scan(tool: tool, arguments: arguments, runtime: runtime)
+        }
+    }
+
+    private static func runG5Scan(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        guard let spec = g5ScanSpecs[tool] else {
+            throw SystemToolError.unknownTool(tool)
+        }
+        let cwd = try requiredString(arguments, "cwd", tool: tool)
+        let scope = optionalString(arguments, "path")
+        let limit = max(1, min(1000, optionalInt(arguments, "limit") ?? 200))
+        var substitutions: [String: String] = [:]
+        for key in ["symbol", "function", "protocol"] {
+            if let value = optionalString(arguments, key) {
+                substitutions[key] = NSRegularExpression.escapedPattern(for: value)
+            }
+        }
+        var groups: [[String: JSONValue]] = []
+        var totalMatches = 0
+        var truncated = false
+        if spec.literal {
+            let query = try requiredString(arguments, "query", tool: tool)
+            let hits = try await runtime.searchWorkspace(cwd: cwd, query: query, limit: limit)
+            let scoped = Self.g5ScopeHits(hits, scope: scope)
+            totalMatches = scoped.count
+            truncated = scoped.count >= limit
+            groups.append(Self.g5GroupJSON(label: "matches", hits: scoped, values: [], redact: false, sampleLimit: 0))
+        } else {
+            for patternSpec in spec.patterns {
+                var pattern = patternSpec.pattern
+                for (key, value) in substitutions {
+                    pattern = pattern.replacingOccurrences(of: "{\(key)}", with: value)
+                }
+                if pattern.contains("{symbol}") {
+                    throw SystemToolError.missingArgument(tool: tool, argument: "symbol")
+                }
+                if pattern.contains("{function}") {
+                    throw SystemToolError.missingArgument(tool: tool, argument: "function")
+                }
+                if pattern.contains("{protocol}") {
+                    throw SystemToolError.missingArgument(tool: tool, argument: "protocol")
+                }
+                let hits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: pattern, limit: limit)
+                let scoped = Self.g5ScopeHits(hits, scope: scope)
+                if scoped.count >= limit { truncated = true }
+                totalMatches += scoped.count
+                groups.append(Self.g5PatternGroupJSON(spec: spec, patternSpec: patternSpec, hits: scoped))
+            }
+        }
+        if tool == "code_comment_extract", let symbol = optionalString(arguments, "symbol") {
+            let symbolHits = try await runtime.searchWorkspace(cwd: cwd, query: symbol, limit: limit)
+            let symbolFiles = Set(symbolHits.map { $0.path })
+            groups = groups.map { group in
+                var copy = group
+                let kept = (group["matches"]?.arrayValue ?? []).filter { hit in
+                    guard let hitPath = hit["path"]?.stringValue else { return false }
+                    return symbolFiles.contains(hitPath)
+                }
+                copy["matches"] = .array(kept)
+                copy["count"] = .int(Int64(kept.count))
+                return copy
+            }
+            totalMatches = groups.reduce(0) { $0 + ($1["count"]?.intValue ?? 0) }
+        }
+        if tool == "import_graph", let module = optionalString(arguments, "module") {
+            groups = groups.filter { group in
+                (group["values"]?.arrayValue ?? []).contains { $0.stringValue == module }
+            }
+            totalMatches = groups.reduce(0) { $0 + ($1["count"]?.intValue ?? 0) }
+        }
+        return .object([
+            "tool": .string(tool),
+            "matchCount": .int(Int64(totalMatches)),
+            "truncated": .bool(truncated),
+            "groups": .array(groups),
+        ])
+    }
+
+    private static func g5ScopeHits(_ hits: [WorkspaceSearchHit], scope: String?) -> [WorkspaceSearchHit] {
+        guard let scope, !scope.isEmpty else { return hits }
+        return hits.filter { $0.path == scope || $0.path.hasPrefix(scope + "/") }
+    }
+
+    private static func g5PatternGroupJSON(spec: G5ScanSpec, patternSpec: G5PatternSpec, hits: [WorkspaceSearchHit]) -> [String: JSONValue] {
+        switch spec.shape {
+        case "files":
+            var byFile: [String: [WorkspaceSearchHit]] = [:]
+            var order: [String] = []
+            for hit in hits {
+                if byFile[hit.path] == nil { order.append(hit.path) }
+                byFile[hit.path, default: []].append(hit)
+            }
+            var groups: [[String: JSONValue]] = []
+            var allValues: [String] = []
+            for file in order {
+                let fileHits = byFile[file] ?? []
+                let values = Self.g5CaptureValues(patternSpec: patternSpec, hits: fileHits)
+                for value in values where !allValues.contains(value) { allValues.append(value) }
+                groups.append(Self.g5GroupJSON(label: file, hits: fileHits, values: values, redact: patternSpec.redact, sampleLimit: spec.sampleLimit))
+            }
+            return ["label": .string(patternSpec.label), "count": .int(Int64(hits.count)), "files": .array(groups), "values": .array(allValues.map { .string($0) })]
+        case "host":
+            var byHost: [String: [WorkspaceSearchHit]] = [:]
+            var order: [String] = []
+            for hit in hits {
+                let host = Self.g5CaptureValues(patternSpec: patternSpec, hits: [hit]).first ?? ""
+                if byHost[host] == nil { order.append(host) }
+                byHost[host, default: []].append(hit)
+            }
+            var groups: [[String: JSONValue]] = []
+            for host in order {
+                let hostHits = byHost[host] ?? []
+                groups.append(Self.g5GroupJSON(label: host, hits: hostHits, values: [], redact: patternSpec.redact, sampleLimit: spec.sampleLimit))
+            }
+            return ["label": .string(patternSpec.label), "count": .int(Int64(hits.count)), "hosts": .array(groups)]
+        default:
+            let values = Self.g5CaptureValues(patternSpec: patternSpec, hits: hits)
+            return Self.g5GroupJSON(label: patternSpec.label, hits: hits, values: values, redact: patternSpec.redact, sampleLimit: spec.sampleLimit)
+        }
+    }
+
+    private static func g5GroupJSON(label: String, hits: [WorkspaceSearchHit], values: [String], redact: Bool, sampleLimit: Int) -> [String: JSONValue] {
+        var seen: Set<String> = []
+        var unique: [WorkspaceSearchHit] = []
+        for hit in hits {
+            let key = "\(hit.path):\(hit.lineNumber)"
+            if seen.insert(key).inserted { unique.append(hit) }
+        }
+        let shown = sampleLimit > 0 ? Array(unique.prefix(sampleLimit)) : unique
+        return [
+            "label": .string(label),
+            "count": .int(Int64(unique.count)),
+            "matches": .array(shown.map { Self.g5HitJSON($0, redact: redact) }),
+            "values": .array(values.map { .string($0) }),
+        ]
+    }
+
+    private static func g5HitJSON(_ hit: WorkspaceSearchHit, redact: Bool) -> JSONValue {
+        if redact {
+            return .object(["path": .string(hit.path), "lineNumber": .int(Int64(hit.lineNumber))])
+        }
+        return .object([
+            "path": .string(hit.path),
+            "lineNumber": .int(Int64(hit.lineNumber)),
+            "lineText": .string(hit.lineText),
+        ])
+    }
+
+    private static func g5CaptureValues(patternSpec: G5PatternSpec, hits: [WorkspaceSearchHit]) -> [String] {
+        guard patternSpec.capture > 0 else { return [] }
+        guard let regex = try? NSRegularExpression(pattern: patternSpec.pattern, options: []) else { return [] }
+        var values: [String] = []
+        for hit in hits {
+            let range = NSRange(hit.lineText.startIndex..., in: hit.lineText)
+            guard let match = regex.firstMatch(in: hit.lineText, options: [], range: range) else { continue }
+            let captureRange = match.range(at: patternSpec.capture)
+            guard captureRange.location != NSNotFound, let swiftRange = Range(captureRange, in: hit.lineText) else { continue }
+            let value = String(hit.lineText[swiftRange])
+            if !values.contains(value) { values.append(value) }
+        }
+        return values
+    }
+
+    private static func g5RegexMatches(pattern: String, text: String, options: NSRegularExpression.Options = []) -> [(NSRange, [String?])] {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else { return [] }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.matches(in: text, options: [], range: range).map { match in
+            var groups: [String?] = []
+            for index in 0..<match.numberOfRanges {
+                let groupRange = match.range(at: index)
+                if groupRange.location == NSNotFound {
+                    groups.append(nil)
+                } else if let swiftRange = Range(groupRange, in: text) {
+                    groups.append(String(text[swiftRange]))
+                } else {
+                    groups.append(nil)
+                }
+            }
+            return (match.range, groups)
+        }
+    }
+
+    private static func g5FirstCapture(pattern: String, text: String, group: Int, options: NSRegularExpression.Options = []) -> String? {
+        let matches = Self.g5RegexMatches(pattern: pattern, text: text, options: options)
+        guard let first = matches.first, group < first.1.count else { return nil }
+        return first.1[group]
+    }
+
+    private static func g5CountSubstring(_ text: String, needle: String) -> Int {
+        guard !needle.isEmpty else { return 0 }
+        var count = 0
+        var rest = text[...]
+        while let found = rest.range(of: needle) {
+            count += 1
+            rest = rest[found.upperBound...]
+        }
+        return count
+    }
+
+    private static func g5CountWord(_ text: String, word: String) -> Int {
+        let pattern = "\\b" + NSRegularExpression.escapedPattern(for: word) + "\\b"
+        return Self.g5RegexMatches(pattern: pattern, text: text).count
+    }
+
+    private static func g5Lines(_ content: String) -> [String] {
+        content.components(separatedBy: "\n")
+    }
+
+    private static func g5FileCounts(_ content: String) -> (lines: Int, code: Int, comment: Int, blank: Int) {
+        let lines = Self.g5Lines(content)
+        var code = 0
+        var comment = 0
+        var blank = 0
+        var inBlock = false
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                blank += 1
+                continue
+            }
+            if inBlock {
+                comment += 1
+                if trimmed.contains("*/") { inBlock = false }
+                continue
+            }
+            if trimmed.hasPrefix("//") || trimmed.hasPrefix("*") {
+                comment += 1
+                continue
+            }
+            if trimmed.hasPrefix("/*") {
+                comment += 1
+                if !trimmed.contains("*/") { inBlock = true }
+                continue
+            }
+            code += 1
+        }
+        return (lines.count, code, comment, blank)
+    }
+
+    private static func g5ScopeEntries(_ entries: [WorkspaceFileEntry], path: String?) -> [WorkspaceFileEntry] {
+        guard let path, !path.isEmpty else { return entries }
+        return entries.filter { $0.path == path || $0.path.hasPrefix(path + "/") }
+    }
+
+    private static func g5ReadTextFiles(cwd: String, path: String?, extensions: [String], limit: Int, runtime: AgentsRuntimeClient) async throws -> [(path: String, content: String)] {
+        let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: "", limit: 500)
+        var scoped = Self.g5ScopeEntries(entries, path: path)
+        scoped = scoped.filter { entry in
+            !entry.isDirectory
+            && !entry.path.hasPrefix(".")
+            && !entry.path.contains("/.")
+            && extensions.contains { entry.path.hasSuffix($0) }
+        }
+        var files: [(path: String, content: String)] = []
+        for entry in scoped.prefix(limit) {
+            guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: entry.path) else { continue }
+            files.append((path: entry.path, content: document.content))
+        }
+        return files
+    }
+
+    private static func g5ResolvePbxproj(tool: String, cwd: String, path: String?, runtime: AgentsRuntimeClient) async throws -> String {
+        if let path, !path.isEmpty { return path }
+        let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: "project.pbxproj", limit: 20)
+        guard let found = entries.first(where: { !$0.isDirectory }) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "No project.pbxproj found in the workspace.")
+        }
+        return found.path
+    }
+
+
+    static func parseG5FileSummary(tool: String, path: String, content: String) -> JSONValue {
+        let counts = Self.g5FileCounts(content)
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "lines": .int(Int64(counts.lines)),
+            "codeLines": .int(Int64(counts.code)),
+            "commentLines": .int(Int64(counts.comment)),
+            "blankLines": .int(Int64(counts.blank)),
+        ])
+    }
+
+    static func parseG5Complexity(tool: String, path: String, content: String) -> JSONValue {
+        let counts = Self.g5FileCounts(content)
+        let keywords = ["if", "for", "while", "guard", "switch", "case", "catch"]
+        let operators = ["&&", "||"]
+        var keywordCounts: [[String: JSONValue]] = []
+        var total = 0
+        for keyword in keywords {
+            let count = Self.g5CountWord(content, word: keyword)
+            total += count
+            keywordCounts.append(["keyword": .string(keyword), "count": .int(Int64(count))])
+        }
+        for op in operators {
+            let count = Self.g5CountSubstring(content, needle: op)
+            total += count
+            keywordCounts.append(["keyword": .string(op), "count": .int(Int64(count))])
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "lines": .int(Int64(counts.lines)),
+            "keywords": .array(keywordCounts),
+            "complexityEstimate": .int(Int64(1 + total)),
+        ])
+    }
+
+    private static func runG5Lint(tool: String, cwd: String, path: String?, limit: Int, runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        var files: [(path: String, content: String)] = []
+        if let path, !path.isEmpty {
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            files = [(path: path, content: document.content)]
+        } else {
+            files = try await Self.g5ReadTextFiles(cwd: cwd, path: nil, extensions: [".swift"], limit: 100, runtime: runtime)
+        }
+        var issues: [[String: JSONValue]] = []
+        for file in files {
+            for (index, line) in Self.g5Lines(file.content).enumerated() {
+                if line.count > 120 {
+                    issues.append(["path": .string(file.path), "lineNumber": .int(Int64(index + 1)), "kind": .string("longLine"), "text": .string("Line is \(line.count) characters, over the 120 limit.")])
+                }
+                if line.contains("TODO") || line.contains("FIXME") {
+                    issues.append(["path": .string(file.path), "lineNumber": .int(Int64(index + 1)), "kind": .string("todo"), "text": .string(line.trimmingCharacters(in: .whitespaces))])
+                }
+                if issues.count >= limit { break }
+            }
+            if issues.count >= limit { break }
+        }
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "issues": .array(issues),
+            "issueCount": .int(Int64(issues.count)),
+        ])
+    }
+
+    static func parseG5DiagnosticsLog(tool: String, logPath: String, content: String) -> JSONValue {
+        let lines = Self.g5Lines(content)
+        let kinds: [(String, String, String)] = [
+            ("fatalError", "fatal error", "A fatal error was logged; inspect the frames near the first fatal line."),
+            ("exception", "EXC_", "An exception code was logged; match it against the exception type in the header."),
+            ("crash", "crash", "A crash mention was logged; check the faulting thread section for blamed frames."),
+            ("signal", "SIG", "A signal was logged; check which thread received it and what it was doing."),
+            ("thread", "Thread ", "Thread mentions were logged; compare the faulting thread against the others."),
+        ]
+        var findings: [[String: JSONValue]] = []
+        var leads: [String] = []
+        for (kind, needle, lead) in kinds {
+            var sample: [String] = []
+            var count = 0
+            for (index, line) in lines.enumerated() where line.contains(needle) {
+                count += 1
+                if sample.count < 3 {
+                    sample.append("\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+                }
+            }
+            if count > 0 {
+                leads.append(lead)
+                findings.append(["kind": .string(kind), "count": .int(Int64(count)), "sampleLines": .array(sample.map { .string($0) })])
+            }
+        }
+        return .object([
+            "tool": .string(tool),
+            "logPath": .string(logPath),
+            "lines": .int(Int64(lines.count)),
+            "findings": .array(findings),
+            "leads": .array(leads.map { .string($0) }),
+        ])
+    }
+
+    static func parseG5BuildLog(tool: String, path: String, content: String) -> JSONValue {
+        let lines = Self.g5Lines(content)
+        var errors: [[String: JSONValue]] = []
+        var warnings: [[String: JSONValue]] = []
+        var result = "unknown"
+        for (index, line) in lines.enumerated() {
+            if line.contains("BUILD SUCCEEDED") { result = "succeeded" }
+            if line.contains("BUILD FAILED") { result = "failed" }
+            if line.contains("error:") {
+                errors.append(["lineNumber": .int(Int64(index + 1)), "text": .string(line.trimmingCharacters(in: .whitespaces))])
+            } else if line.contains("warning:") {
+                warnings.append(["lineNumber": .int(Int64(index + 1)), "text": .string(line.trimmingCharacters(in: .whitespaces))])
+            }
+        }
+        if result == "unknown" && !errors.isEmpty { result = "failed" }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "result": .string(result),
+            "errors": .array(errors),
+            "warnings": .array(warnings),
+            "errorCount": .int(Int64(errors.count)),
+            "warningCount": .int(Int64(warnings.count)),
+        ])
+    }
+
+    static func parseG5CrashLog(tool: String, path: String, content: String) -> JSONValue {
+        let lines = Self.g5Lines(content)
+        var exceptionType = ""
+        var terminationReason = ""
+        var faultingThread = -1
+        var crashedThread = -1
+        var blamedFrames: [String] = []
+        var inCrashedThread = false
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if let value = Self.g5FirstCapture(pattern: "^Exception Type:\\s*(.+)$", text: trimmed, group: 1) {
+                exceptionType = value
+            }
+            if let value = Self.g5FirstCapture(pattern: "^Termination Reason:\\s*(.+)$", text: trimmed, group: 1) {
+                terminationReason = value
+            }
+            if let value = Self.g5FirstCapture(pattern: "^Triggered by Thread:\\s*(\\d+)", text: trimmed, group: 1), let number = Int(value) {
+                faultingThread = number
+            }
+            if let value = Self.g5FirstCapture(pattern: "^Thread (\\d+) Crashed:", text: trimmed, group: 1), let number = Int(value) {
+                crashedThread = number
+                inCrashedThread = true
+                continue
+            }
+            if inCrashedThread {
+                if trimmed.hasPrefix("Thread ") {
+                    inCrashedThread = false
+                    continue
+                }
+                if blamedFrames.count < 5, !trimmed.isEmpty {
+                    blamedFrames.append(trimmed)
+                }
+            }
+        }
+        if faultingThread < 0 { faultingThread = crashedThread }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "exceptionType": .string(exceptionType),
+            "terminationReason": .string(terminationReason),
+            "faultingThread": .int(Int64(faultingThread)),
+            "blamedFrames": .array(blamedFrames.map { .string($0) }),
+        ])
+    }
+
+    static func parseG5TestLog(tool: String, path: String, content: String) -> JSONValue {
+        let lines = Self.g5Lines(content)
+        var passed = 0
+        var failed = 0
+        var failedTests: [String] = []
+        var suites: [String: (passed: Int, failed: Int)] = [:]
+        var suiteOrder: [String] = []
+        var errorLines: [[String: JSONValue]] = []
+        var currentSuite = ""
+        for (index, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if let suite = Self.g5FirstCapture(pattern: "Test Suite '([^']+)' started", text: trimmed, group: 1) {
+                currentSuite = suite
+                if suites[suite] == nil {
+                    suites[suite] = (passed: 0, failed: 0)
+                    suiteOrder.append(suite)
+                }
+            } else if Self.g5FirstCapture(pattern: "Test Suite '([^']+)' finished", text: trimmed, group: 1) != nil {
+                currentSuite = ""
+            } else if let name = Self.g5FirstCapture(pattern: "Test Case '-\\[([^\\]]+)\\]' failed", text: trimmed, group: 1) {
+                failed += 1
+                failedTests.append(name)
+                if !currentSuite.isEmpty { suites[currentSuite]?.failed += 1 }
+            } else if Self.g5FirstCapture(pattern: "Test Case '-\\[([^\\]]+)\\]' passed", text: trimmed, group: 1) != nil {
+                passed += 1
+                if !currentSuite.isEmpty { suites[currentSuite]?.passed += 1 }
+            }
+            if trimmed.contains(": error:") {
+                errorLines.append(["lineNumber": .int(Int64(index + 1)), "text": .string(trimmed)])
+            }
+        }
+        var suiteJSON: [[String: JSONValue]] = []
+        for suite in suiteOrder {
+            let counts = suites[suite] ?? (passed: 0, failed: 0)
+            suiteJSON.append(["name": .string(suite), "passed": .int(Int64(counts.passed)), "failed": .int(Int64(counts.failed))])
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "passed": .int(Int64(passed)),
+            "failed": .int(Int64(failed)),
+            "failedTests": .array(failedTests.map { .string($0) }),
+            "suites": .array(suiteJSON),
+            "errorLines": .array(errorLines),
+        ])
+    }
+
+    static func parseG5FlakyTests(tool: String, path: String, content: String) -> JSONValue {
+        let lines = Self.g5Lines(content)
+        var outcomes: [String: (passes: Int, failures: Int)] = [:]
+        var order: [String] = []
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if let name = Self.g5FirstCapture(pattern: "Test Case '-\\[([^\\]]+)\\]' failed", text: trimmed, group: 1) {
+                if outcomes[name] == nil { order.append(name); outcomes[name] = (passes: 0, failures: 0) }
+                outcomes[name]?.failures += 1
+            } else if let name = Self.g5FirstCapture(pattern: "Test Case '-\\[([^\\]]+)\\]' passed", text: trimmed, group: 1) {
+                if outcomes[name] == nil { order.append(name); outcomes[name] = (passes: 0, failures: 0) }
+                outcomes[name]?.passes += 1
+            }
+        }
+        var flaky: [[String: JSONValue]] = []
+        for name in order {
+            let outcome = outcomes[name] ?? (passes: 0, failures: 0)
+            if outcome.passes > 0 && outcome.failures > 0 {
+                flaky.append(["name": .string(name), "passes": .int(Int64(outcome.passes)), "failures": .int(Int64(outcome.failures))])
+            }
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "flaky": .array(flaky),
+            "flakyCount": .int(Int64(flaky.count)),
+        ])
+    }
+
+    static func parseG5Metrics(tool: String, files: [(path: String, content: String)]) -> JSONValue {
+        var fileJSON: [[String: JSONValue]] = []
+        var totalLines = 0
+        var totalCode = 0
+        var totalComment = 0
+        var totalBlank = 0
+        var totalFunctions = 0
+        var totalTypes = 0
+        var totalComplexity = 0
+        for file in files {
+            let counts = Self.g5FileCounts(file.content)
+            let functions = Self.g5RegexMatches(pattern: "^\\s*(?:(?:public|open|internal|private|fileprivate)\\s+)?(?:static\\s+)?func\\s+[A-Za-z0-9_]+", text: file.content, options: [.anchorsMatchLines]).count
+            let types = Self.g5RegexMatches(pattern: "^\\s*(?:(?:public|open|internal|private|fileprivate)\\s+)?(?:final\\s+)?(class|struct|enum|protocol)\\s+[A-Za-z0-9_]+", text: file.content, options: [.anchorsMatchLines]).count
+            var complexity = 1
+            for keyword in ["if", "for", "while", "guard", "switch", "case", "catch"] {
+                complexity += Self.g5CountWord(file.content, word: keyword)
+            }
+            complexity += Self.g5CountSubstring(file.content, needle: "&&")
+            complexity += Self.g5CountSubstring(file.content, needle: "||")
+            totalLines += counts.lines
+            totalCode += counts.code
+            totalComment += counts.comment
+            totalBlank += counts.blank
+            totalFunctions += functions
+            totalTypes += types
+            totalComplexity += complexity
+            fileJSON.append([
+                "path": .string(file.path),
+                "lines": .int(Int64(counts.lines)),
+                "codeLines": .int(Int64(counts.code)),
+                "commentLines": .int(Int64(counts.comment)),
+                "blankLines": .int(Int64(counts.blank)),
+                "functions": .int(Int64(functions)),
+                "types": .int(Int64(types)),
+                "complexityEstimate": .int(Int64(complexity)),
+            ])
+        }
+        fileJSON.sort { ($0["lines"]?.intValue ?? 0) > ($1["lines"]?.intValue ?? 0) }
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "totals": .object([
+                "lines": .int(Int64(totalLines)),
+                "codeLines": .int(Int64(totalCode)),
+                "commentLines": .int(Int64(totalComment)),
+                "blankLines": .int(Int64(totalBlank)),
+                "functions": .int(Int64(totalFunctions)),
+                "types": .int(Int64(totalTypes)),
+                "complexityEstimate": .int(Int64(totalComplexity)),
+            ]),
+            "files": .array(fileJSON),
+        ])
+    }
+
+    static func parseG5CommentDensity(tool: String, files: [(path: String, content: String)], limit: Int) -> JSONValue {
+        var fileJSON: [[String: JSONValue]] = []
+        for file in files {
+            let counts = Self.g5FileCounts(file.content)
+            let documented = counts.code + counts.comment
+            let ratio = documented > 0 ? Double(counts.comment) / Double(documented) : 0
+            fileJSON.append([
+                "path": .string(file.path),
+                "lines": .int(Int64(counts.lines)),
+                "codeLines": .int(Int64(counts.code)),
+                "commentLines": .int(Int64(counts.comment)),
+                "commentRatio": .double(ratio),
+            ])
+        }
+        fileJSON.sort { ($0["commentRatio"]?.doubleValue ?? 0) < ($1["commentRatio"]?.doubleValue ?? 0) }
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "files": .array(Array(fileJSON.prefix(limit))),
+        ])
+    }
+
+    static func parseG5FunctionSizes(tool: String, files: [(path: String, content: String)], limit: Int) -> JSONValue {
+        var functions: [[String: JSONValue]] = []
+        for file in files {
+            let lines = Self.g5Lines(file.content)
+            var index = 0
+            while index < lines.count {
+                let line = lines[index]
+                guard let name = Self.g5FirstCapture(pattern: "^\\s*(?:(?:public|open|internal|private|fileprivate)\\s+)?(?:static\\s+)?func\\s+([A-Za-z0-9_]+)", text: line, group: 1) else {
+                    index += 1
+                    continue
+                }
+                var depth = 0
+                var started = false
+                var end = index
+                var cursor = index
+                while cursor < lines.count {
+                    for character in lines[cursor] {
+                        if character == "{" { depth += 1; started = true }
+                        if character == "}" { depth -= 1 }
+                    }
+                    if started && depth <= 0 {
+                        end = cursor
+                        break
+                    }
+                    cursor += 1
+                }
+                if started {
+                    functions.append([
+                        "name": .string(name),
+                        "path": .string(file.path),
+                        "startLine": .int(Int64(index + 1)),
+                        "endLine": .int(Int64(end + 1)),
+                        "lines": .int(Int64(end - index + 1)),
+                    ])
+                    index = max(end + 1, index + 1)
+                } else {
+                    index += 1
+                }
+            }
+        }
+        functions.sort { ($0["lines"]?.intValue ?? 0) > ($1["lines"]?.intValue ?? 0) }
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "functions": .array(Array(functions.prefix(limit))),
+        ])
+    }
+
+
+    static func parseG5DeadCode(tool: String, files: [(path: String, content: String)], privateOnly: Bool, limit: Int) -> JSONValue {
+        struct G5Declaration {
+            var name: String
+            var kind: String
+            var access: String
+            var path: String
+            var line: Int
+        }
+        var declarations: [G5Declaration] = []
+        var declarationCounts: [String: Int] = [:]
+        for file in files {
+            for (index, line) in Self.g5Lines(file.content).enumerated() {
+                guard let match = Self.g5RegexMatches(pattern: "^\\s*(private\\s+|fileprivate\\s+|internal\\s+|public\\s+|open\\s+)?(func|class|struct|enum|protocol|let|var|typealias)\\s+([A-Za-z0-9_]+)", text: line, options: [.anchorsMatchLines]).first else { continue }
+                let access = (match.1.count > 1 ? match.1[1] : nil)?.trimmingCharacters(in: .whitespaces) ?? ""
+                let kind = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                let name = match.1.count > 3 ? (match.1[3] ?? "") : ""
+                guard !name.isEmpty, !kind.isEmpty else { continue }
+                declarations.append(G5Declaration(name: name, kind: kind, access: access, path: file.path, line: index + 1))
+                declarationCounts[name, default: 0] += 1
+            }
+        }
+        var candidates: [[String: JSONValue]] = []
+        for declaration in declarations {
+            if declarationCounts[declaration.name, default: 0] > 1 { continue }
+            if privateOnly && !(declaration.access == "private" && declaration.kind == "func") { continue }
+            var references = 0
+            for file in files {
+                references += Self.g5CountWord(file.content, word: declaration.name)
+            }
+            if references <= 1 {
+                candidates.append([
+                    "name": .string(declaration.name),
+                    "kind": .string(declaration.kind),
+                    "path": .string(declaration.path),
+                    "lineNumber": .int(Int64(declaration.line)),
+                ])
+            }
+            if candidates.count >= limit { break }
+        }
+        var result: [String: JSONValue] = [
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "declarations": .int(Int64(declarations.count)),
+            "candidates": .array(candidates),
+            "candidateCount": .int(Int64(candidates.count)),
+        ]
+        if privateOnly {
+            result["reportOnly"] = .bool(true)
+        }
+        return .object(result)
+    }
+
+    static func parseG5DuplicateBlocks(tool: String, files: [(path: String, content: String)], limit: Int) -> JSONValue {
+        let window = 6
+        var blocks: [String: [(path: String, line: Int)]] = [:]
+        var order: [String] = []
+        for file in files {
+            let normalized = Self.g5Lines(file.content).map { line in
+                line.split(separator: " ").map(String.init).joined(separator: " ")
+            }.filter { !$0.isEmpty }
+            var lineNumbers: [Int] = []
+            for (index, line) in Self.g5Lines(file.content).enumerated() {
+                if !line.trimmingCharacters(in: .whitespaces).isEmpty { lineNumbers.append(index + 1) }
+            }
+            guard normalized.count >= window else { continue }
+            for start in 0...(normalized.count - window) {
+                let key = normalized[start..<(start + window)].joined(separator: "\n")
+                if blocks[key] == nil { order.append(key) }
+                blocks[key, default: []].append((path: file.path, line: lineNumbers[start]))
+            }
+        }
+        var duplicates: [[String: JSONValue]] = []
+        for key in order {
+            let occurrences = blocks[key] ?? []
+            let distinct = Set(occurrences.map { "\($0.path):\($0.line)" })
+            guard distinct.count > 1 else { continue }
+            duplicates.append([
+                "lines": .int(6),
+                "occurrences": .array(occurrences.map { occurrence in
+                    .object(["path": .string(occurrence.path), "lineNumber": .int(Int64(occurrence.line))])
+                }),
+            ])
+            if duplicates.count >= limit { break }
+        }
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "blocks": .array(duplicates),
+            "blockCount": .int(Int64(duplicates.count)),
+        ])
+    }
+
+    static func parseG5UnusedImports(tool: String, files: [(path: String, content: String)], limit: Int) -> JSONValue {
+        var unused: [[String: JSONValue]] = []
+        for file in files {
+            let lines = Self.g5Lines(file.content)
+            for (index, line) in lines.enumerated() {
+                guard let module = Self.g5FirstCapture(pattern: "^import\\s+([A-Za-z0-9_]+)", text: line, group: 1) else { continue }
+                if Self.g5ProtectedModules.contains(module) { continue }
+                var body = ""
+                for (otherIndex, other) in lines.enumerated() where otherIndex != index {
+                    body += other
+                    body += "\n"
+                }
+                if Self.g5CountWord(body, word: module) == 0 {
+                    unused.append([
+                        "path": .string(file.path),
+                        "module": .string(module),
+                        "lineNumber": .int(Int64(index + 1)),
+                    ])
+                }
+                if unused.count >= limit { break }
+            }
+            if unused.count >= limit { break }
+        }
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "unused": .array(unused),
+            "unusedCount": .int(Int64(unused.count)),
+        ])
+    }
+
+    static func parseG5LicenseCheck(tool: String, files: [(path: String, content: String)], requiredText: String) -> JSONValue {
+        var missing: [String] = []
+        for file in files {
+            let head = Self.g5Lines(file.content).prefix(15).joined(separator: "\n")
+            if !head.contains(requiredText) {
+                missing.append(file.path)
+            }
+        }
+        return .object([
+            "tool": .string(tool),
+            "requiredText": .string(requiredText),
+            "filesChecked": .int(Int64(files.count)),
+            "missing": .array(missing.map { .string($0) }),
+            "missingCount": .int(Int64(missing.count)),
+        ])
+    }
+
+    static func parseG5DocCoverage(tool: String, files: [(path: String, content: String)]) -> JSONValue {
+        var declarations = 0
+        var documented = 0
+        for file in files {
+            let lines = Self.g5Lines(file.content)
+            for (index, line) in lines.enumerated() {
+                guard Self.g5RegexMatches(pattern: "^\\s*(public|open)\\s+(func|class|struct|enum|protocol|var|let|typealias)\\s+[A-Za-z0-9_]+", text: line, options: [.anchorsMatchLines]).first != nil else { continue }
+                declarations += 1
+                var cursor = index - 1
+                while cursor >= 0 {
+                    let previous = lines[cursor].trimmingCharacters(in: .whitespaces)
+                    if previous.isEmpty {
+                        cursor -= 1
+                        continue
+                    }
+                    if previous.hasPrefix("///") { documented += 1 }
+                    break
+                }
+            }
+        }
+        let coverage = declarations > 0 ? Double(documented) / Double(declarations) : 1
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "declarations": .int(Int64(declarations)),
+            "documented": .int(Int64(documented)),
+            "coverage": .double(coverage),
+        ])
+    }
+
+    static func parseG5Docstring(tool: String, path: String, content: String, symbol: String?) -> JSONValue {
+        var declarations: [[String: JSONValue]] = []
+        for (index, line) in Self.g5Lines(content).enumerated() {
+            guard let match = Self.g5RegexMatches(pattern: "^\\s*(?:(?:public|open|internal|private|fileprivate)\\s+)?(func|class|struct|enum|protocol|init|var|let|typealias)\\s+([A-Za-z0-9_]+)", text: line, options: [.anchorsMatchLines]).first else { continue }
+            let kind = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let name = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            guard !name.isEmpty else { continue }
+            if let symbol, symbol != name { continue }
+            var block: [String] = ["/// \(name)"]
+            if kind == "func" {
+                let parameters = Self.g5FirstCapture(pattern: "\\(([^)]*)\\)", text: line, group: 1) ?? ""
+                let names = parameters.split(separator: ",").compactMap { part -> String? in
+                    let pieces = part.trimmingCharacters(in: .whitespaces).split(separator: " ")
+                    guard let first = pieces.first else { return nil }
+                    let cleaned = first.hasPrefix("_") ? String(first.dropFirst()) : String(first)
+                    return cleaned.isEmpty ? nil : cleaned
+                }
+                if !names.isEmpty {
+                    block.append("///")
+                    block.append("/// - Parameters:")
+                    for parameter in names {
+                        block.append("///   - \(parameter): ")
+                    }
+                }
+                if line.contains("->") {
+                    block.append("///")
+                    block.append("/// - Returns: ")
+                }
+            }
+            declarations.append([
+                "name": .string(name),
+                "kind": .string(kind),
+                "lineNumber": .int(Int64(index + 1)),
+                "docBlock": .string(block.joined(separator: "\n")),
+            ])
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "declarations": .array(declarations),
+        ])
+    }
+
+    static func g5SnippetTemplate(_ template: String) -> String? {
+        switch template {
+        case "observable":
+            return "@Observable\nfinal class Store {\n    var title = \"\"\n    var items: [String] = []\n}\n"
+        case "asyncstream":
+            return "func makeStream() -> AsyncStream<String> {\n    AsyncStream { continuation in\n        continuation.yield(\"ready\")\n        continuation.finish()\n    }\n}\n"
+        case "actor":
+            return "actor Counter {\n    private var value = 0\n    func next() -> Int {\n        value += 1\n        return value\n    }\n}\n"
+        case "glasscard":
+            return "struct GlassCard: View {\n    var body: some View {\n        Text(\"Card\")\n            .padding()\n            .glassEffect()\n    }\n}\n"
+        default:
+            return nil
+        }
+    }
+
+    private static func runG5Snippet(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let cwd = try requiredString(arguments, "cwd", tool: tool)
+        let template = try requiredString(arguments, "template", tool: tool)
+        guard let content = Self.g5SnippetTemplate(template) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Unknown template. Use observable, asyncstream, actor, or glasscard.")
+        }
+        if let path = optionalString(arguments, "path"), !path.isEmpty {
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: content)
+            return .object([
+                "tool": .string(tool),
+                "template": .string(template),
+                "written": .bool(true),
+                "path": .string(path),
+                "content": .string(content),
+            ])
+        }
+        return .object([
+            "tool": .string(tool),
+            "template": .string(template),
+            "written": .bool(false),
+            "content": .string(content),
+        ])
+    }
+
+    private static func runG5StringsValidate(tool: String, cwd: String, path: String?, limit: Int, runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".strings"], limit: 100, runtime: runtime)
+        var issues: [[String: JSONValue]] = []
+        for file in files {
+            var seen: Set<String> = []
+            for (index, line) in Self.g5Lines(file.content).enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty || trimmed.hasPrefix("//") || trimmed.hasPrefix("/*") || trimmed.hasPrefix("*") { continue }
+                guard let match = Self.g5RegexMatches(pattern: "^\"((?:[^\"\\\\]|\\\\.)*)\"\\s*=\\s*\"((?:[^\"\\\\]|\\\\.)*)\"\\s*;", text: trimmed).first else {
+                    issues.append(["path": .string(file.path), "lineNumber": .int(Int64(index + 1)), "kind": .string("syntax"), "key": .string("")])
+                    continue
+                }
+                let key = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                let value = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                if seen.contains(key) {
+                    issues.append(["path": .string(file.path), "lineNumber": .int(Int64(index + 1)), "kind": .string("duplicate"), "key": .string(key)])
+                } else {
+                    seen.insert(key)
+                }
+                if value.isEmpty {
+                    issues.append(["path": .string(file.path), "lineNumber": .int(Int64(index + 1)), "kind": .string("empty"), "key": .string(key)])
+                }
+                if issues.count >= limit { break }
+            }
+            if issues.count >= limit { break }
+        }
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "issues": .array(issues),
+            "issueCount": .int(Int64(issues.count)),
+        ])
+    }
+
+    static func parseG5PlistKeyValues(_ text: String) -> [String: String] {
+        var values: [String: String] = [:]
+        let keyMatches = Self.g5RegexMatches(pattern: "<key>([^<]+)</key>", text: text)
+        for keyMatch in keyMatches {
+            guard let key = keyMatch.1.count > 1 ? keyMatch.1[1] : nil, !key.isEmpty else { continue }
+            let afterStart = keyMatch.0.location + keyMatch.0.length
+            guard let textRange = Range(NSRange(location: afterStart, length: (text as NSString).length - afterStart), in: text) else { continue }
+            let rest = String(text[textRange])
+            if let tagMatch = Self.g5RegexMatches(pattern: "^\\s*<(string|integer|real|date|data)>([^<]*)</\\1>", text: rest).first {
+                values[key] = tagMatch.1.count > 2 ? (tagMatch.1[2] ?? "") : ""
+            } else if rest.trimmingCharacters(in: .whitespaces).hasPrefix("<true/>") {
+                values[key] = "true"
+            } else if rest.trimmingCharacters(in: .whitespaces).hasPrefix("<false/>") {
+                values[key] = "false"
+            } else if let tagMatch = Self.g5RegexMatches(pattern: "^\\s*<(array|dict)>", text: rest).first {
+                values[key] = "<" + (tagMatch.1.count > 1 ? (tagMatch.1[1] ?? "") : "") + ">"
+            } else if let stepMatch = Self.g5RegexMatches(pattern: "^\\s*([A-Za-z0-9_.-]+)\\s*=\\s*([^;]+);", text: rest).first {
+                values[key] = stepMatch.1.count > 2 ? (stepMatch.1[2] ?? "") : ""
+            }
+        }
+        if values.isEmpty {
+            for line in Self.g5Lines(text) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if let match = Self.g5RegexMatches(pattern: "^([A-Za-z0-9_.-]+)\\s*=\\s*([^;]+);", text: trimmed).first {
+                    let key = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                    let value = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                    if !key.isEmpty { values[key] = value.trimmingCharacters(in: .whitespaces) }
+                }
+            }
+        }
+        return values
+    }
+
+    static func parseG5XcconfigKeyValues(_ text: String) -> [String: String] {
+        var values: [String: String] = [:]
+        for line in Self.g5Lines(text) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("//") { continue }
+            guard let match = Self.g5RegexMatches(pattern: "^([A-Za-z0-9_\\.\\[\\]\\*]+)\\s*=\\s*(.+)$", text: trimmed).first else { continue }
+            let key = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let value = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !key.isEmpty { values[key] = value.trimmingCharacters(in: .whitespaces) }
+        }
+        return values
+    }
+
+    static func parseG5KeyValueDiff(tool: String, path: String, otherPath: String, first: [String: String], second: [String: String]) -> JSONValue {
+        var added: [String] = []
+        var removed: [String] = []
+        var changed: [[String: JSONValue]] = []
+        for key in second.keys.sorted() where first[key] == nil {
+            added.append(key)
+        }
+        for key in first.keys.sorted() where second[key] == nil {
+            removed.append(key)
+        }
+        for key in first.keys.sorted() {
+            if let old = first[key], let new = second[key], old != new {
+                changed.append(["key": .string(key), "from": .string(old), "to": .string(new)])
+            }
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "otherPath": .string(otherPath),
+            "added": .array(added.map { .string($0) }),
+            "removed": .array(removed.map { .string($0) }),
+            "changed": .array(changed),
+        ])
+    }
+
+
+    static func g5PbxprojSection(_ content: String, name: String) -> String {
+        guard let start = content.range(of: "/* Begin \(name) section */"),
+              let end = content.range(of: "/* End \(name) section */"),
+              start.upperBound <= end.lowerBound else { return "" }
+        return String(content[start.upperBound..<end.lowerBound])
+    }
+
+    static func g5PbxprojFileRefs(_ content: String) -> [String: String] {
+        var refs: [String: String] = [:]
+        let section = Self.g5PbxprojSection(content, name: "PBXFileReference")
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24})\\s*/\\* [^*]+ \\*/\\s*=\\s*\\{[^}]*?path\\s*=\\s*\"?([^\";\\n]+)\"?;", text: section, options: [.dotMatchesLineSeparators]) {
+            let id = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let path = match.1.count > 2 ? (match.1[2] ?? "").trimmingCharacters(in: .whitespaces) : ""
+            if !id.isEmpty && !path.isEmpty { refs[id] = path }
+        }
+        return refs
+    }
+
+    static func g5PbxprojBuildFiles(_ content: String) -> [String: String] {
+        var files: [String: String] = [:]
+        let section = Self.g5PbxprojSection(content, name: "PBXBuildFile")
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24})\\s*/\\* [^*]+ \\*/\\s*=\\s*\\{[^}]*?fileRef\\s*=\\s*([0-9A-F]{24})\\s*;", text: section, options: [.dotMatchesLineSeparators]) {
+            let id = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let ref = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !id.isEmpty && !ref.isEmpty { files[id] = ref }
+        }
+        return files
+    }
+
+    static func parseG5PbxprojLint(tool: String, path: String, content: String, workspacePaths: [String]) -> JSONValue {
+        let refs = Self.g5PbxprojFileRefs(content)
+        var missing: [[String: JSONValue]] = []
+        var seenPaths: [String: String] = [:]
+        var duplicates: [String] = []
+        for refPath in refs.values.sorted() {
+            if seenPaths[refPath] != nil {
+                if !duplicates.contains(refPath) { duplicates.append(refPath) }
+                continue
+            }
+            seenPaths[refPath] = refPath
+            let exists = workspacePaths.contains { workspacePath in
+                workspacePath == refPath || workspacePath.hasSuffix("/" + refPath)
+            }
+            if !exists {
+                missing.append(["path": .string(refPath), "reference": .string(refPath)])
+            }
+        }
+        let buildFiles = Self.g5PbxprojBuildFiles(content)
+        var dangling: [String] = []
+        for (id, ref) in buildFiles.sorted(by: { $0.key < $1.key }) where refs[ref] == nil {
+            dangling.append(id)
+        }
+        let issueCount = missing.count + duplicates.count + dangling.count
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "fileReferences": .int(Int64(refs.count)),
+            "missingFiles": .array(missing),
+            "duplicatePaths": .array(duplicates.map { .string($0) }),
+            "danglingBuildFiles": .array(dangling.map { .string($0) }),
+            "issueCount": .int(Int64(issueCount)),
+        ])
+    }
+
+    static func parseG5PbxprojScripts(tool: String, path: String, content: String) -> JSONValue {
+        var phases: [[String: JSONValue]] = []
+        let section = Self.g5PbxprojSection(content, name: "PBXShellScriptBuildPhase")
+        for match in Self.g5RegexMatches(pattern: "\\{[^}]*?isa\\s*=\\s*PBXShellScriptBuildPhase;[^}]*?\\}", text: section, options: [.dotMatchesLineSeparators]) {
+            guard let block = match.1.count > 0 ? match.1[0] : nil else { continue }
+            let name = Self.g5FirstCapture(pattern: "name\\s*=\\s*\"?([^\";\\n]+)\"?;", text: block, group: 1) ?? ""
+            let shellPath = Self.g5FirstCapture(pattern: "shellPath\\s*=\\s*([^;\\n]+);", text: block, group: 1) ?? ""
+            var script = Self.g5FirstCapture(pattern: "shellScript\\s*=\\s*\"((?:[^\"\\\\]|\\\\.)*)\";", text: block, group: 1, options: [.dotMatchesLineSeparators]) ?? ""
+            if script.count > 200 {
+                script = String(script.prefix(200))
+            }
+            phases.append([
+                "name": .string(name.trimmingCharacters(in: .whitespaces)),
+                "shellPath": .string(shellPath.trimmingCharacters(in: .whitespaces)),
+                "script": .string(script),
+            ])
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "phases": .array(phases),
+        ])
+    }
+
+    static func parseG5PbxprojConfigs(tool: String, path: String, content: String, xcconfigFiles: [String]) -> JSONValue {
+        var configurations: [String] = []
+        let section = Self.g5PbxprojSection(content, name: "XCBuildConfiguration")
+        for match in Self.g5RegexMatches(pattern: "name\\s*=\\s*([^;\\n]+);", text: section) {
+            let name = (match.1.count > 1 ? (match.1[1] ?? "") : "").trimmingCharacters(in: .whitespaces)
+            if !name.isEmpty && !configurations.contains(name) { configurations.append(name) }
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "configurations": .array(configurations.map { .string($0) }),
+            "configurationCount": .int(Int64(configurations.count)),
+            "xcconfigFiles": .array(xcconfigFiles.map { .string($0) }),
+        ])
+    }
+
+    static func parseG5PbxprojDeps(tool: String, path: String, content: String) -> JSONValue {
+        var targetNames: [String: String] = [:]
+        var targetDeps: [String: [String]] = [:]
+        let targetSection = Self.g5PbxprojSection(content, name: "PBXNativeTarget")
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24})\\s*/\\* ([^*]+) \\*/\\s*=\\s*\\{[^}]*?\\}", text: targetSection, options: [.dotMatchesLineSeparators]) {
+            let id = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            guard !id.isEmpty, let block = match.1.count > 0 ? match.1[0] : nil else { continue }
+            let name = Self.g5FirstCapture(pattern: "name\\s*=\\s*([^;\\n]+);", text: block, group: 1)?.trimmingCharacters(in: .whitespaces) ?? ""
+            let depList = Self.g5FirstCapture(pattern: "dependencies\\s*=\\s*\\(([^)]*)\\)", text: block, group: 1, options: [.dotMatchesLineSeparators]) ?? ""
+            targetNames[id] = name
+            targetDeps[id] = Self.g5RegexMatches(pattern: "([0-9A-F]{24})", text: depList).compactMap { $0.1.count > 1 ? $0.1[1] : nil }
+        }
+        var depTargets: [String: String] = [:]
+        let depSection = Self.g5PbxprojSection(content, name: "PBXTargetDependency")
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24})[^\\{]*\\{[^}]*?target\\s*=\\s*([0-9A-F]{24})\\s*;", text: depSection, options: [.dotMatchesLineSeparators]) {
+            let id = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let target = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !id.isEmpty { depTargets[id] = target }
+        }
+        var targets: [[String: JSONValue]] = []
+        for id in targetDeps.keys.sorted() {
+            let dependencies = (targetDeps[id] ?? []).compactMap { depTargets[$0] }.compactMap { targetNames[$0] }
+            targets.append([
+                "name": .string(targetNames[id] ?? id),
+                "dependencies": .array(dependencies.map { .string($0) }),
+            ])
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "targets": .array(targets),
+        ])
+    }
+
+    static func parseG5PbxprojSources(tool: String, path: String, content: String) -> JSONValue {
+        let refs = Self.g5PbxprojFileRefs(content)
+        let buildFiles = Self.g5PbxprojBuildFiles(content)
+        var phaseOwners: [String: String] = [:]
+        let targetSection = Self.g5PbxprojSection(content, name: "PBXNativeTarget")
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24})\\s*/\\* ([^*]+) \\*/\\s*=\\s*\\{[^}]*?buildPhases\\s*=\\s*\\(([^)]*)\\)", text: targetSection, options: [.dotMatchesLineSeparators]) {
+            let name = match.1.count > 2 ? (match.1[2] ?? "").trimmingCharacters(in: .whitespaces) : ""
+            let phaseList = match.1.count > 3 ? (match.1[3] ?? "") : ""
+            for phaseMatch in Self.g5RegexMatches(pattern: "([0-9A-F]{24})", text: phaseList) {
+                if let phaseId = phaseMatch.1.count > 1 ? phaseMatch.1[1] : nil {
+                    phaseOwners[phaseId] = name
+                }
+            }
+        }
+        var byTarget: [String: [String]] = [:]
+        var targetOrder: [String] = []
+        let sourcesSection = Self.g5PbxprojSection(content, name: "PBXSourcesBuildPhase")
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24})[^\\{]*\\{[^}]*?files\\s*=\\s*\\(([^)]*)\\)", text: sourcesSection, options: [.dotMatchesLineSeparators]) {
+            let phaseId = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let fileList = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            let owner = phaseOwners[phaseId] ?? ""
+            if byTarget[owner] == nil { targetOrder.append(owner) }
+            for fileMatch in Self.g5RegexMatches(pattern: "([0-9A-F]{24})", text: fileList) {
+                guard let buildId = fileMatch.1.count > 1 ? fileMatch.1[1] : nil,
+                      let refId = buildFiles[buildId],
+                      let filePath = refs[refId] else { continue }
+                byTarget[owner, default: []].append(filePath)
+            }
+        }
+        var targets: [[String: JSONValue]] = []
+        for owner in targetOrder {
+            targets.append([
+                "name": .string(owner),
+                "sources": .array((byTarget[owner] ?? []).map { .string($0) }),
+            ])
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "targets": .array(targets),
+        ])
+    }
+
+    private static func runG5WorkspaceSettings(tool: String, cwd: String, path: String?, runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let resolved: String
+        if let path, !path.isEmpty {
+            resolved = path
+        } else {
+            let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: ".xcsettings", limit: 20)
+            guard let found = entries.first(where: { !$0.isDirectory }) else {
+                return .object(["tool": .string(tool), "found": .bool(false), "settings": .object([:])])
+            }
+            resolved = found.path
+        }
+        let document = try await runtime.readWorkspaceFile(cwd: cwd, path: resolved)
+        let settings = Self.parseG5PlistKeyValues(document.content)
+        return .object([
+            "tool": .string(tool),
+            "path": .string(resolved),
+            "found": .bool(true),
+            "settings": .object(settings.mapValues { .string($0) }),
+        ])
+    }
+
+    private static func runG5TestPlans(tool: String, cwd: String, path: String?, runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".xctestplan"], limit: 100, runtime: runtime)
+        var plans: [[String: JSONValue]] = []
+        for file in files {
+            var targets: [String] = []
+            if let data = file.content.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let testTargets = json["testTargets"] as? [[String: Any]] {
+                for entry in testTargets {
+                    if let target = entry["target"] as? [String: Any], let name = target["name"] as? String {
+                        targets.append(name)
+                    } else if let target = entry["target"] as? String {
+                        targets.append(target)
+                    }
+                }
+            }
+            plans.append([
+                "path": .string(file.path),
+                "testTargets": .array(targets.map { .string($0) }),
+            ])
+        }
+        return .object([
+            "tool": .string(tool),
+            "plans": .array(plans),
+        ])
+    }
+
+    private static func runG5InfoPlistAudit(tool: String, cwd: String, path: String?, runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: ["Info.plist"], limit: 50, runtime: runtime)
+        var plists: [[String: JSONValue]] = []
+        var bundleIds: [String: Int] = [:]
+        for file in files {
+            let values = Self.parseG5PlistKeyValues(file.content)
+            var issues: [String] = []
+            let bundleId = values["CFBundleIdentifier"] ?? ""
+            let shortVersion = values["CFBundleShortVersionString"] ?? ""
+            let version = values["CFBundleVersion"] ?? ""
+            if bundleId.isEmpty { issues.append("Missing CFBundleIdentifier.") }
+            if values["CFBundleName"] == nil && values["CFBundleDisplayName"] == nil { issues.append("Missing CFBundleName.") }
+            if shortVersion.isEmpty {
+                issues.append("Missing CFBundleShortVersionString.")
+            } else if Self.g5RegexMatches(pattern: "^[0-9]+(\\.[0-9]+){0,2}$", text: shortVersion).isEmpty {
+                issues.append("CFBundleShortVersionString is not a dotted version.")
+            }
+            if version.isEmpty {
+                issues.append("Missing CFBundleVersion.")
+            } else if Self.g5RegexMatches(pattern: "^[0-9]+(\\.[0-9]+){0,2}$", text: version).isEmpty {
+                issues.append("CFBundleVersion is not a dotted version.")
+            }
+            if !bundleId.isEmpty { bundleIds[bundleId, default: 0] += 1 }
+            plists.append([
+                "path": .string(file.path),
+                "bundleIdentifier": .string(bundleId),
+                "shortVersion": .string(shortVersion),
+                "version": .string(version),
+                "issues": .array(issues.map { .string($0) }),
+            ])
+        }
+        let duplicates = bundleIds.filter { $0.value > 1 }.map { $0.key }.sorted()
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "plists": .array(plists),
+            "duplicateBundleIdentifiers": .array(duplicates.map { .string($0) }),
+        ])
+    }
+
+    private static func runG5MarkdownLinks(tool: String, cwd: String, path: String?, limit: Int, runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: "", limit: 500)
+        let workspacePaths = Set(entries.filter { !$0.isDirectory }.map { $0.path })
+        let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".md"], limit: 100, runtime: runtime)
+        var broken: [[String: JSONValue]] = []
+        var linkCount = 0
+        for file in files {
+            let directory = (file.path as NSString).deletingLastPathComponent
+            for (index, line) in Self.g5Lines(file.content).enumerated() {
+                for match in Self.g5RegexMatches(pattern: "\\[[^\\]]*\\]\\(([^)\\s]+)\\)", text: line) {
+                    guard let target = match.1.count > 1 ? match.1[1] : nil, !target.isEmpty else { continue }
+                    if target.hasPrefix("http://") || target.hasPrefix("https://") || target.hasPrefix("mailto:") || target.hasPrefix("#") { continue }
+                    linkCount += 1
+                    let cleanTarget = target.split(separator: "#").first.map(String.init) ?? target
+                    let resolved = directory.isEmpty || directory == "." ? cleanTarget : directory + "/" + cleanTarget
+                    let normalized = Self.g5NormalizePath(resolved)
+                    if !workspacePaths.contains(normalized) && !workspacePaths.contains(cleanTarget) {
+                        broken.append([
+                            "path": .string(file.path),
+                            "lineNumber": .int(Int64(index + 1)),
+                            "target": .string(target),
+                        ])
+                    }
+                    if broken.count >= limit { break }
+                }
+                if broken.count >= limit { break }
+            }
+            if broken.count >= limit { break }
+        }
+        return .object([
+            "tool": .string(tool),
+            "filesChecked": .int(Int64(files.count)),
+            "links": .int(Int64(linkCount)),
+            "broken": .array(broken),
+            "brokenCount": .int(Int64(broken.count)),
+        ])
+    }
+
+    private static func g5NormalizePath(_ path: String) -> String {
+        var parts: [String] = []
+        for part in path.split(separator: "/").map(String.init) {
+            if part == "." || part.isEmpty { continue }
+            if part == ".." {
+                if !parts.isEmpty { parts.removeLast() }
+                continue
+            }
+            parts.append(part)
+        }
+        return parts.joined(separator: "/")
+    }
+
+    private static func runG5DocsIndex(tool: String, cwd: String, path: String?, runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: "", limit: 500)
+        var scoped = Self.g5ScopeEntries(entries, path: path)
+        scoped = scoped.filter { !$0.isDirectory && $0.path.hasSuffix(".md") && !$0.path.hasPrefix(".") && !$0.path.contains("/.") }
+        var files: [[String: JSONValue]] = []
+        for entry in scoped {
+            guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: entry.path) else { continue }
+            var title = ""
+            for line in Self.g5Lines(document.content) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("# ") {
+                    title = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                    break
+                }
+            }
+            files.append([
+                "path": .string(entry.path),
+                "title": .string(title),
+                "sizeBytes": .int(entry.sizeBytes ?? Int64(document.content.utf8.count)),
+            ])
+        }
+        return .object([
+            "tool": .string(tool),
+            "files": .array(files),
+        ])
+    }
+
 
     private static func workerJSON(_ record: WorkerRecord) -> JSONValue {
         var object: [String: JSONValue] = [
