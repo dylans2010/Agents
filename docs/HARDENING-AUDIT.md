@@ -498,7 +498,8 @@ history extended to Slices 99–104.
 same tree `6325d57d`); corrected lines confirmed present at HEAD.
 Statically verified only — no Swift compile here, as for every slice in
 this record. The local pre-push commit is `9cadcd38` (same tree as
-remote `741c8582`).
+remote `741c8582`). Slice 106 re-verified this slice; see
+[How to re-verify](#how-to-re-verify).
 ---
 
 ## Slice 107 — ParentThreadId description pins (remote `27dabf95`)
@@ -675,6 +676,24 @@ limitation of the audited component, or a question owed to Dylan.
   re-verification; both were fixed in Slice 105, which also corrected the
   registry param descriptions to the pinned behavior (see the Slice 101
   section above).
+  **Slice 106 re-verification (no commit):** Slice 106 re-audited Slice
+  105 read-only and passed it with minors — recorded here from the
+  verification report, since the slice left no commit to re-derive from.
+  It independently re-measured all counts (128 Swift `@Test`, 3,000 Rust
+  including 45 `#[gpui_kit::test]`, per-crate table), ran a full
+  string-aware parse of both registries (332 tools / 1,087 params each
+  side, 0 mismatches), and confirmed the pinned test expectations match.
+  Six findings: (1) MINOR — worker-report inaccuracy: the "zero old
+  wording remains anywhere" claim overstated, since this record's Slice
+  101 section quotes both old wordings as a historical record (`:412`) —
+  legitimate, left as-is; (2) MINOR — the `list_workers` description
+  misdescribed bound behavior, fixed in Slice 107; (3) MINOR —
+  inconsistent treatment of the pinned plan descriptions, fixed in Slice
+  107; (4) NOTE — worker misattribution: the "Parent thread ID to
+  include worker status for." string belongs to `session_progress_report`,
+  not `worker_status`; (5) TRIVIAL — pre-existing ToolDef-struct
+  imprecision, fixed in Slice 107; (6) TRIVIAL — loose `:4419` line
+  citation, fixed in Slice 107.
 - **Mac-gate checklist.** `docs/MAC-GATE.md` is the single ordered
   checklist for the Mac gate (Xcode build, Swift tests, Rust tests, live
   provider runs, visual/accessibility checks). Run it top to bottom on

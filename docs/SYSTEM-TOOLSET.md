@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–109)
+### Hardening wave (Slices 69–111)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–109 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–111 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -901,6 +901,20 @@ no entries in this file either and are not backfilled here. Full record:
   reads "Parent thread ID to include worker status for, pinned to the
   session thread when bound." on both sides. No behavior change, no test
   change; registry counts unchanged at 332.
+- **Slice 110** — Read-only re-verification of Slice 109: PASS WITH
+  MINORs — independently re-enumerated 129/129 identity params,
+  byte-identical cross-side; confirmed the new
+  `session_progress_report` wording true against the handler code. Two
+  findings: 1 MINOR — the Slice 106 entry in this file misstated the
+  pre-107 pinning state — plus 1 INFO — two off-by-one line cites in the
+  Slice 109 section of `docs/HARDENING-AUDIT.md`. No commit; both fixed
+  in Slice 111.
+- **Slice 111** — Docs-only (local `8fc9c6c4`, remote
+  `ac474eafeba792f72dae8c286b39a204e624d093`, tree `f1b97fc6`; 2 files):
+  fixed the Slice 110 findings, backfilled the Slice 109 remote SHA
+  `23a73f2d`, added HARDENING-AUDIT sections for Slices 105 and 107, and
+  noted Slice 110 in re-verify. Totals unchanged at 23 defects / 25
+  tests.
 
 ## The MCP server
 
@@ -1331,7 +1345,13 @@ implemented, and why:
   alias-covered (`conversation_context_manager` via the registered
   `context_persistence_store`). The remaining 21 are 20 with no real
   backend (NONE) plus 1 duplicate (`code_review`, a duplicate of the
-  registered `autonomous_review_engine`). Entries are counted by
+  registered `autonomous_review_engine`). "Alias-covered" and "duplicate"
+  here are docs-level capability judgments, not code-level aliases:
+  neither ID occurs in either registry — the capability is provided
+  under a different registered name, `conversation_context_manager` by
+  `context_persistence_store`, and `code_review` by
+  `autonomous_review_engine` (a mechanical keyword scan, not LLM
+  review). Entries are counted by
   bullet: one entry per ``- `id` `` line in `AvailableTools.md`,
   excluding the prose bullet at line 176 (the `safe_undo` note under
   Known Limitations); the line-487 bullet carries a second ID,
