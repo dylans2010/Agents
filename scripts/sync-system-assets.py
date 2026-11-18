@@ -71,6 +71,12 @@ def main():
     if not expected:
         raise SystemExit("sync-system-assets: no system assets found at %s@%s" % (UPSTREAM_DIR, PINNED_REVISION))
     os.makedirs(dest_dir, exist_ok=True)
+    manifest_path = os.path.join(dest_dir, ".sync-manifest.json")
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as handle:
+            previously_synced = set(json.load(handle))
+    except (OSError, ValueError):
+        previously_synced = set()
     downloaded = {}
     for name in sorted(expected):
         blob = api_get("%s/repos/%s/git/blobs/%s" % (API_BASE, UPSTREAM_REPO, expected[name]))
@@ -87,17 +93,22 @@ def main():
         with open(target, "wb") as handle:
             handle.write(data)
         downloaded[name] = actual
-    stale = [
+    stale = sorted(
         name
-        for name in os.listdir(dest_dir)
-        if name.endswith(".md") and name not in expected
-    ]
+        for name in previously_synced
+        if name.endswith(".md")
+        and name not in expected
+        and os.path.isfile(os.path.join(dest_dir, name))
+    )
     for name in stale:
         os.remove(os.path.join(dest_dir, name))
         print("sync-system-assets: removed stale file %s" % name)
     if set(downloaded) != set(expected):
         raise SystemExit("sync-system-assets: incomplete download: got %d of %d files" % (len(downloaded), len(expected)))
     total_bytes = sum(os.path.getsize(os.path.join(dest_dir, name)) for name in downloaded)
+    with open(manifest_path, "w", encoding="utf-8") as handle:
+        json.dump(sorted(downloaded), handle, indent=2)
+        handle.write("\n")
     print("sync-system-assets: verified %d files (%d bytes) at %s" % (len(downloaded), total_bytes, PINNED_REVISION))
     for name in sorted(downloaded):
         print("sync-system-assets: %s %s" % (downloaded[name], name))
