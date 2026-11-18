@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# NOTE: Agents-maintained copy. The files under Agents/Resources/SystemAssets
+# were imported verbatim from dylans2010/Qwen-Code at the pinned revision
+# below, then rebranded for Agents (product/path names, registry references;
+# see Slices 16/18/19/23). Do NOT blindly re-run this sync: it would
+# overwrite the Agents rebrand with upstream SwiftCode-era text. If upstream
+# ever needs to be pulled in again, re-apply the rebrand afterwards.
 import base64
 import hashlib
 import json

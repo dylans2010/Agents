@@ -3,7 +3,7 @@
 
 `use_app` is the dedicated native macOS application interaction system for Assist. It allows you to inspect, navigate, operate, and verify third-party and installed macOS applications through native macOS Accessibility APIs (`AXUIElement`), CoreGraphics synthetic event generation (`CGEvent`), `ScreenCaptureKit` visual perception, and `NSWorkspace` session lifecycle management.
 
-The tool's schema is registered in `AssistToolRegistry`. This document teaches *when* and *how* to use it, following Assist's operational standards.
+The tool's schema is registered in `SystemToolRegistry`. This document teaches *when* and *how* to use it, following Assist's operational standards.
 
 ---
 
@@ -147,7 +147,7 @@ The interaction engine automatically handles display offsets, multi-monitor setu
 
 Every failure produces an error code from `AssistToolErrorCode` and an actionable `recoveryHint`:
 - `notFound`: Application, window, or UI target was not found. Re-run `list_applications`, `list_windows`, or `inspect_ui` to get the fresh identifier.
-- `permissionDenied`: Accessibility or Screen Recording permission is missing in macOS System Settings. Advise the user to enable SwiftCode in System Settings > Privacy & Security > Accessibility.
+- `permissionDenied`: Accessibility or Screen Recording permission is missing in macOS System Settings. Advise the user to enable Agents in System Settings > Privacy & Security > Accessibility.
 - `timeout`: State transition did not occur within the timeout period. Re-inspect current UI to determine actual state.
 - `invalidInput`: Target was ambiguous or coordinates were invalid. Refine target using an exact `elem_X` ID.
 - `executionFailed`: Control rejected action. Try synthetic pointer click or keyboard shortcut fallback.

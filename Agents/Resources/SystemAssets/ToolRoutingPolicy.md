@@ -1,7 +1,7 @@
 <!-- system-index-depends: AvailableTools.md, CallTool.md -->
 # ToolRoutingPolicy — Authoritative Operational Rules for Tool Selection & Execution
 
-This document establishes the mandatory operational rules governing tool routing, tool priority, and execution behavior across SwiftCode Assist.
+This document establishes the mandatory operational rules governing tool routing, tool priority, and execution behavior across Agents Assist.
 
 ## Mandatory Tool Priority & Routing Rules
 

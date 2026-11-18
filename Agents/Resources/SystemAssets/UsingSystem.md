@@ -55,7 +55,7 @@ For every system-level investigation, follow this sequence:
 
 ## 6. Authorization requirements
 
-A tool call grants no privileges. `use_system` runs with your normal user privileges — the same as the SwiftCode process itself. There is no elevation path: it never runs anything as root, never prompts for an administrator password, and never disables SIP, TCC, or sandbox restrictions.
+A tool call grants no privileges. `use_system` runs with your normal user privileges — the same as the Agents process itself. There is no elevation path: it never runs anything as root, never prompts for an administrator password, and never disables SIP, TCC, or sandbox restrictions.
 
 Consequences you must internalize:
 

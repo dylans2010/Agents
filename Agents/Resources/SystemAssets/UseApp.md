@@ -119,5 +119,5 @@ For comprehensive operating guidelines, workflow patterns, and coordinate space 
 - **Permission:** **Accessibility** (`TCC` category `kTCCServiceAccessibility`).
 - **Authorization Check:**
   - Evaluated via `AXIsProcessTrustedWithOptions()`.
-  - If SwiftCode does not have Accessibility privileges, macOS requires the user to grant access in **System Settings > Privacy & Security > Accessibility** by toggling **SwiftCode** on.
+  - If Agents does not have Accessibility privileges, macOS requires the user to grant access in **System Settings > Privacy & Security > Accessibility** by toggling **Agents** on.
   - The tool produces an actionable error explaining the requirement and providing instructions if accessibility access is denied.

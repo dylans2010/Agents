@@ -230,7 +230,7 @@ Budget: up to ~15,000 characters.
 
 An artifact's claims are only as strong as their citations. Every factual claim about the codebase, the system, or a tool result must be traceable.
 
-- **File references use `path:line`.** `SwiftCode/Backend/Assist/AssistManager.swift:142` — never "in the manager file" or "somewhere in Assist".
+- **File references use `path:line`.** `Agents/Core/SystemTools/SystemToolRegistry.swift:991` — never "in the manager file" or "somewhere in Assist".
 - **Tool results are cited, not pasted.** Quote the decisive excerpt (a few lines in a code fence); reference the rest by what it was ("full output in Appendix"). Never paste a whole file or a whole tool result into the body.
 - **Label the epistemic status of every non-trivial claim:**
   - **Verified** — confirmed by a tool result, a build, a test, or direct inspection. Say how: "verified by `xcodebuild` on …", "confirmed by reading …".
@@ -342,7 +342,7 @@ The Artifacts UI renders **text + formatting only**: headings, lists, tables, co
 - **No HTML execution:** raw HTML in artifact content is treated as inert text, not rendered as a web page.
 - **No JavaScript execution:** scripts in artifacts never run.
 - **No network:** artifacts can't fetch URLs, embed live iframes, or phone home.
-- **No widgets:** artifacts are documents, not apps. Interactive UI belongs in SwiftCode's native surfaces, not in an artifact.
+- **No widgets:** artifacts are documents, not apps. Interactive UI belongs in Agents' native surfaces, not in an artifact.
 - **Renderer capabilities to rely on:** `#`–`######` headings, `-`/`*` bullets, `1.` ordered lists, `- [ ]` task lists, `>` blockquotes, `---` dividers, fenced code blocks with language tags and line numbers, and GitHub-style tables. Mermaid diagrams render as code, not graphics — use ASCII diagrams or describe the structure in a table instead.
 
 Never promise the user interactive behavior inside an artifact.

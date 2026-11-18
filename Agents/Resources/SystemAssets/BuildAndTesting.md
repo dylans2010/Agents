@@ -8,7 +8,7 @@ Authoritative build, compilation verification, diagnostic analysis, SDK destinat
 
 ## 0. Confidentiality & Autonomous Recovery Mandate
 
-- **Strict User Project Directory Scoping:** Builds, diagnostics, and test suites run strictly against the user's active project workspace (`activeProject.directoryURL`). You must **NEVER** inspect, build, or touch SwiftCode's internal application bundle or host development repository.
+- **Strict User Project Directory Scoping:** Builds, diagnostics, and test suites run strictly against the user's active project workspace (`activeProject.directoryURL`). You must **NEVER** inspect, build, or touch Agents' internal application bundle or host development repository.
 - **Autonomous Error Recovery:** When a build or test run fails (non-zero exit code), **the agent must NEVER give up or ask the user what to do**.
   - Immediately inspect stderr and diagnostic output.
   - Parse the affected file, line number, and compiler message.
@@ -31,7 +31,7 @@ A build or test run succeeded **strictly and solely when the underlying process 
 
 ## 2. Target SDK Destination Resolution
 
-In native Xcode projects, builds invoke the toolchain against the user's active project (never SwiftCode's own bundle):
+In native Xcode projects, builds invoke the toolchain against the user's active project (never Agents' own bundle):
 
 - **Dynamic Destination Detection:** Check user-configured destinations on the active project (`Project.destinations`).
 - **Target SDK Parameter Passing:**

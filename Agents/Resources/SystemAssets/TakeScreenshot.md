@@ -93,7 +93,7 @@ In addition to returning structured metadata, the engine automatically attaches 
 - **Permission:** **Screen Recording** (`TCC` category `kTCCServiceScreenCapture`).
 - **Authorization Flow:**
   - On macOS 14+ / Sonoma / Sequoia, macOS enforces Screen Recording permissions via `CGPreflightScreenCaptureAccess()` and `CGRequestScreenCaptureAccess()`.
-  - If access has not been granted, the tool returns a descriptive permission error explaining that the user must open **System Settings > Privacy & Security > Screen Recording** and toggle **SwiftCode** on.
+  - If access has not been granted, the tool returns a descriptive permission error explaining that the user must open **System Settings > Privacy & Security > Screen Recording** and toggle **Agents** on.
   - If denied or revoked, do not attempt to bypass or retry in a loop. Ask the user to authorize Screen Recording in System Settings.
 
 ---

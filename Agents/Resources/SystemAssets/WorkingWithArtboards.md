@@ -1,6 +1,6 @@
 # Working with Artboards & Visual UI Builder
 
-This guide provides canonical instructions and architectural context for Assist when interacting with SwiftCode's **Artboards**, **Visual UI Builder**, and **SwiftUI Live Preview** subsystem.
+This guide provides canonical instructions and architectural context for Assist when interacting with Agents' **Artboards**, **Visual UI Builder**, and **SwiftUI Live Preview** subsystem.
 
 ---
 
