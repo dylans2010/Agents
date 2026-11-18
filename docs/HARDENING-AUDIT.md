@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–124
+# Hardening Audit — Slices 71–126
 
 ## Summary
 
@@ -35,7 +35,10 @@ regression tests added — bringing the totals to **29 defects fixed and
 following the Slice 105/109 precedent. Slice 124, appended after that,
 fixed the Slice 123 findings and backfilled the Slice 122 remote SHA —
 all description-only, following the Slice 105/109 precedent, so the
-totals stay at **29 defects fixed and 27 regression tests**. The remaining
+totals stay at **29 defects fixed and 27 regression tests**. Slice 126,
+appended after that, qualified the Slice 124 diff-row combined-children
+claim — all description-only, following the Slice 105/109 precedent, so
+the totals stay at **29 defects fixed and 27 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -728,7 +731,10 @@ run here, as for every slice in this record.
    modifiers appear nowhere else in `Agents/` — this is their first use
    (`DiffInspectorView.swift:798,800,1122,1125`). No explicit label: the
    combined children (file name, directory, +N/−M counts) already read
-   naturally, and a label would duplicate the visible file name (Slice 34
+   naturally when not hovered — three hover-revealed buttons
+   (`DiffInspectorView.swift:727-758`) also sit inside the combined element
+   when hovered, but their actions are duplicated in the context menu — and
+   a label would duplicate the visible file name (Slice 34
    rule).
 3. **Diff line-number gutter was not VoiceOver-activatable**
    (`Agents/Inspector/DiffInspectorView.swift:1122-1128`).
@@ -829,7 +835,7 @@ row and the diff gutter jump, and the gutter reads as a button only when
 the line is jumpable; (3) the thread context menu on an already-read
 thread shows only "Mark as Unread" (no disabled "Mark as Read").
 
-## Slice 124 — Fix Slice 123 findings: docs precision, Slice 122 SHA backfill
+## Slice 124 — Fix Slice 123 findings: docs precision, Slice 122 SHA backfill (remote `70ccd083`)
 
 **Audited:** the Slice 123 verification report on Slice 122 — the
 three docs findings and the correlated terminal-row note — re-checked
@@ -847,10 +853,14 @@ interactive child — the close `Button(action: onClose)` at `:686` with
 its own `.accessibilityLabel("Close terminal \(displayTitle)")` at
 `:695` — and combining the row's children would merge that button into
 the single row element, so VoiceOver users could no longer reach "Close
-terminal …" as a separate control. The diff row's combined children are
-all non-interactive (file name, directory, +N/−M counts; its action
-buttons live in the context menu, outside the combined element), so the
-pattern applied cleanly there and does not here. Left unchanged;
+terminal …" as a separate control. When not hovered, the diff row's
+combined children are all non-interactive (file name, directory, +N/−M
+counts; its action buttons live in the context menu, outside the combined
+element), so the pattern applied cleanly there and does not here. When
+hovered, three inline buttons (Open in Inspector Editor, Open in
+External Editor, Quote File in Composer) do appear inside the combined
+element (`DiffInspectorView.swift:727-758`), but each action is duplicated
+in the context menu, which stays reachable. Left unchanged;
 Mac-gate owed (see below).
 
 **Docs corrections (not counted):** (1) the Slice 122 §2 sentence now
@@ -883,8 +893,9 @@ zero new `//` comments in added lines (docs only, no Swift changed);
 `git diff --stat` shows only this record, `docs/MAC-GATE.md`, and the
 `SYSTEM-TOOLSET.md` hardening entry. Audit baseline: local `main`
 `9df38e0b`, remote `main` `1acbed3c26bd201f835fea76d77056f857b48cf6`,
-same tree `e3beabbdbe21f7312ec747bc5baa5b2afa40d811`. Remote SHA to be
-backfilled by the next slice, as this slice backfilled Slice 122's.
+same tree `e3beabbdbe21f7312ec747bc5baa5b2afa40d811`. Remote SHA
+`70ccd083957f102dd55dd3cfc190d074e6c38137`, backfilled by Slice 126, as
+this slice backfilled Slice 122's.
 
 **Mac-gate checks owed:** (1) decide how VoiceOver activates the
 terminal session row without swallowing its close button — the row
@@ -892,6 +903,63 @@ terminal session row without swallowing its close button — the row
 `.isButton` trait and no action, so it may itself not be
 VoiceOver-activatable, while the close button at `:686` must stay
 separately reachable; any fix must keep both.
+
+## Slice 126 — Qualify diff-row combined-children claim; record hovered-state follow-up
+
+**Audited:** the Slice 125 verification report on Slice 124 — the one
+docs-precision finding (F1) — re-checked against the code at HEAD.
+Statically verified only — no build or test run here, as for every slice
+in this record.
+
+**Defects fixed (0):** no code change. The Slice 124 "Defects fixed (0)"
+paragraph overstated the diff row: it said the row's combined children
+are all non-interactive, but `DiffFileSummaryRow.body`'s outer `HStack`
+(`Agents/Inspector/DiffInspectorView.swift:696-784`), to which
+`.accessibilityElement(children: .combine)` applies at `:798`, contains
+an `if isHovered` block (`:727-758`) with three `Button`s — Open in
+Inspector Editor (`:730`), Open in External Editor (`:738`), Quote File
+in Composer (`:749`). When the row is hovered, those interactive children
+are inside the combined element and would be merged into the single row
+element by the same mechanism Slice 124 cites for the terminal close
+button. The context-menu buttons (`:801-827`) are indeed outside the
+combined element. Mitigations, unchanged from Slice 125: the buttons
+render only when `isHovered`, a state VoiceOver users effectively never
+trigger, and each hover button's action is duplicated in the context menu
+(`:803` Open in Inspector, `:807` Open in External Editor, `:823` Quote
+File in Composer), which stays reachable. The gutter row (`:1122`)
+genuinely has text-only children. The terminal-row decision stands.
+
+**Docs corrections (not counted):** (1) the Slice 124 "Defects fixed (0)"
+paragraph now says the diff row's combined children are all
+non-interactive *when not hovered*, and notes the three hover-revealed
+buttons inside the combined element with their actions duplicated in the
+context menu; (2) the Slice 122 §2 sentence now carries the same
+qualifier on its "combined children (file name, directory, +N/−M counts)"
+list; (3) the Slice 124 section heading now carries the pushed remote SHA
+`70ccd083` and the Verification paragraph the full
+`70ccd083957f102dd55dd3cfc190d074e6c38137`, replacing the "to be
+backfilled" note. Description-only, so the totals stay at 29 defects fixed and 27
+regression tests, following the Slice 105/109 precedent.
+
+**Tests added (0):** docs-only slice. Swift `@Test` total stays 128
+(109 in `AgentsTests/`, 19 in `CoincideRemoteTests/`).
+
+**Verification:** re-read of all changed hunks; the cited lines
+re-verified in the file (`DiffInspectorView.swift:696-798,801-827,
+1122`); registry counts unchanged at 332 tools per side (Swift
+`SystemToolDefinition(` 332; Rust `ToolDef {` 333 raw incl. the struct
+declaration at `tools.rs:14`); zero new `//` comments in added lines
+(docs only, no Swift changed); `git diff --stat` shows only this record
+and the `SYSTEM-TOOLSET.md` hardening entry. Audit baseline: local `main`
+`a15a133e`, remote `main` `70ccd083957f102dd55dd3cfc190d074e6c38137`,
+same tree `9dea8822ea538fac1b5a8747e1bc6c8aca828642`. Remote SHA to be
+backfilled by the next slice, as this slice backfilled Slice 124's.
+
+**Mac-gate checks owed:** (1) in the hovered state the diff row has the
+same swallowing property Slice 124 declined to introduce in the terminal
+row — look at whether the hover buttons should be excluded from the
+combined element or left as-is, given they are hover-only and their
+actions are duplicated in the context menu.
 
 ## Documented, not fixed
 
@@ -1050,6 +1118,15 @@ limitation of the audited component, or a question owed to Dylan.
   `:543` and predates Slice 32. Correlated note: the terminal session
   row itself may not be VoiceOver-activatable (tap-to-select, `.isButton`
   trait only, no action). All fixed or recorded in Slice 124.
+  **Slice 125 re-verification (no commit):** Slice 125 re-verified Slice
+  124 read-only and passed it with minors — one MINOR: the Slice 124
+  "Defects fixed (0)" paragraph overstated the diff row's combined
+  children as all non-interactive, ignoring the three hover-revealed
+  buttons inside the combined element
+  (`DiffInspectorView.swift:727-758`); mitigated because the buttons
+  render only when hovered, a state VoiceOver users effectively never
+  trigger, and each action is duplicated in the context menu. Fixed in
+  Slice 126.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)

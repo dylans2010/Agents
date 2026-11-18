@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–124)
+### Hardening wave (Slices 69–126)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–124 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–126 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -961,6 +961,16 @@ no entries in this file either and are not backfilled here. Full record:
   re-verification. No code change: the terminal session row keeps its
   close button reachable, so the combine pattern does not apply cleanly
   there — Mac-gate owed. No test added; totals unchanged at 29 defects /
+  27 tests. Full record: `docs/HARDENING-AUDIT.md`.
+- **Slice 126** — Docs-only: qualified the Slice 124 diff-row
+  combined-children claim — the children are all non-interactive only
+  when not hovered; three hover-revealed buttons
+  (`DiffInspectorView.swift:727-758`) sit inside the combined element
+  when hovered, with their actions duplicated in the context menu —
+  applied the same qualifier to the Slice 122 §2 list, backfilled the
+  Slice 124 remote SHA `70ccd083`, and noted the Slice 125
+  re-verification. No code change: the hovered-state swallowing question
+  is Mac-gate owed. No test added; totals unchanged at 29 defects /
   27 tests. Full record: `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
