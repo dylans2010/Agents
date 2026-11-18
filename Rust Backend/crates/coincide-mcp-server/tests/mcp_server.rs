@@ -538,7 +538,12 @@ fn tools_call_executes_real_file_operations() {
 #[test]
 fn tools_call_reports_engine_errors_without_a_socket() {
     let workspace = temp_dir("agents-mcp-workspace");
-    let mut session = Session::spawn(workspace.path(), None);
+    let mut session = spawn_with_thread(
+        workspace.path(),
+        None,
+        "thread-1",
+        &workspace.join("missing-control.sock"),
+    );
     initialize(&mut session);
     let result = call(
         &mut session,
@@ -1183,7 +1188,7 @@ fn notifications_produce_no_response() {
 #[test]
 fn use_mcp_rejects_non_string_arguments() {
     let workspace = temp_dir("agents-mcp-workspace");
-    let mut session = Session::spawn(workspace.path(), None);
+    let (mut session, control) = spawn_bound(workspace.path(), None);
     initialize(&mut session);
     let result = call(
         &mut session,
@@ -1194,6 +1199,7 @@ fn use_mcp_rejects_non_string_arguments() {
     let text = result["content"][0]["text"].as_str().unwrap();
     assert!(text.contains("JSON object string"), "unexpected use_mcp error: {text}");
     session.close();
+    control.stop();
 }
 
 #[test]
@@ -1202,7 +1208,7 @@ fn derived_data_locate_survives_a_symlink_cycle() {
     let root = workspace.path().join("derived");
     std::fs::create_dir_all(root.join("child")).unwrap();
     std::os::unix::fs::symlink(root.clone(), root.join("child").join("loop")).unwrap();
-    let mut session = Session::spawn(workspace.path(), None);
+    let (mut session, control) = spawn_bound(workspace.path(), None);
     initialize(&mut session);
     let result = call(
         &mut session,
@@ -1211,6 +1217,7 @@ fn derived_data_locate_survives_a_symlink_cycle() {
     );
     assert_eq!(result["isError"], false, "symlink cycle broke derived_data_locate: {result}");
     session.close();
+    control.stop();
 }
 
 #[test]
@@ -1250,7 +1257,7 @@ fn derived_data_locate_flags_deep_tree_truncation() {
     let shallow = root.join("Shallow");
     std::fs::create_dir_all(&shallow).unwrap();
     std::fs::write(shallow.join("top.txt"), "top").unwrap();
-    let mut session = Session::spawn(workspace.path(), None);
+    let (mut session, control) = spawn_bound(workspace.path(), None);
     initialize(&mut session);
     let result = call(
         &mut session,
@@ -1278,6 +1285,7 @@ fn derived_data_locate_flags_deep_tree_truncation() {
     assert_eq!(shallow_entry["bytes"], 3);
     assert_eq!(shallow_entry["files"], 1);
     session.close();
+    control.stop();
 }
 
 #[test]
