@@ -447,6 +447,15 @@ struct AssistantDashboardViewModelTests {
         }
     }
 
+    @Test("Orphaned failed run offers no retry control")
+    func controlsForOrphanedFailedRunOfferNoRetry() {
+        let controls = AssistantDashboardViewModel.availableControls(for: Self.makeRecord(status: "failed"), projectPath: nil, isOrphan: true)
+        #expect(!controls.contains(.retry))
+        #expect(controls.contains(.openThread))
+        let nonOrphaned = AssistantDashboardViewModel.availableControls(for: Self.makeRecord(status: "failed"), projectPath: nil, isOrphan: false)
+        #expect(nonOrphaned.contains(.retry))
+    }
+
     @Test("Completed run offers neither cancel nor retry")
     func controlsForCompletedRun() {
         let controls = AssistantDashboardViewModel.availableControls(for: Self.makeRecord(status: "completed"), projectPath: nil)
@@ -562,6 +571,34 @@ struct AssistantDashboardViewModelTests {
         #expect(stub.spawnedRequests[0].requests[0].targetFiles == ["Sources/Foo.swift"])
         #expect(stub.spawnedRequests[0].requests[0].assistantId == assistantID)
         #expect(viewModel.runs.count == 2)
+        #expect(viewModel.selectedRunID == stub.runs.last?.id)
+    }
+
+    @Test("View model retry of a running run does nothing")
+    @MainActor
+    func viewModelRetryOfRunningRunDoesNothing() async {
+        let stub = StubRunDataSource()
+        let record = Self.makeRecord(status: "running")
+        stub.runs = [record]
+        let viewModel = AssistantDashboardViewModel(sourceProvider: { stub })
+        await viewModel.loadRuns()
+        await viewModel.retryRun(record)
+        #expect(stub.spawnedRequests.isEmpty)
+        #expect(viewModel.runs.count == 1)
+        #expect(viewModel.selectedRunID == nil)
+    }
+
+    @Test("View model cancel of a terminal run does nothing")
+    @MainActor
+    func viewModelCancelOfTerminalRunDoesNothing() async {
+        let stub = StubRunDataSource()
+        let record = Self.makeRecord(status: "completed")
+        stub.runs = [record]
+        let viewModel = AssistantDashboardViewModel(sourceProvider: { stub })
+        await viewModel.loadRuns()
+        await viewModel.cancelRun(record)
+        #expect(stub.cancelledIDs.isEmpty)
+        #expect(viewModel.runs.first?.status == "completed")
     }
 
     @Test("View model detail load reports sections that failed to load")

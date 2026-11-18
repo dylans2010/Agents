@@ -12,7 +12,7 @@ struct AssistantRunDetailView: View {
 
     private var record: WorkerRecord { detail.record }
     private var controls: Set<AssistantRunControl> {
-        AssistantDashboardViewModel.availableControls(for: record, projectPath: detail.projectPath)
+        AssistantDashboardViewModel.availableControls(for: record, projectPath: detail.projectPath, isOrphan: detail.isOrphan)
     }
 
     var body: some View {
@@ -105,7 +105,7 @@ struct AssistantRunDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(detail.isOrphan || viewModel.retryingIDs.contains(record.id))
+                .disabled(viewModel.retryingIDs.contains(record.id))
             }
             if controls.contains(.viewOutput) && (detail.outputText != nil || detail.transcript != nil) {
                 Button("View Output") {

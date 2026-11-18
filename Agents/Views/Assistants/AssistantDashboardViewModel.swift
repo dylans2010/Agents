@@ -363,6 +363,7 @@ public final class AssistantDashboardViewModel {
     }
 
     public func cancelRun(_ record: WorkerRecord) async {
+        guard AssistantRunStatus.from(runtimeStatus: record.status) == .running else { return }
         guard let source = sourceProvider() else { return }
         guard !cancellingIDs.contains(record.id) else { return }
         cancellingIDs.insert(record.id)
@@ -388,6 +389,8 @@ public final class AssistantDashboardViewModel {
     }
 
     public func retryRun(_ record: WorkerRecord) async {
+        let status = AssistantRunStatus.from(runtimeStatus: record.status)
+        guard status == .failed || status == .cancelled else { return }
         guard let source = sourceProvider() else { return }
         guard !retryingIDs.contains(record.id) else { return }
         retryingIDs.insert(record.id)
@@ -479,7 +482,7 @@ public final class AssistantDashboardViewModel {
             .sorted { runEndKey($0) > runEndKey($1) }
     }
 
-    public static func availableControls(for record: WorkerRecord, projectPath: String?) -> Set<AssistantRunControl> {
+    public static func availableControls(for record: WorkerRecord, projectPath: String?, isOrphan: Bool = false) -> Set<AssistantRunControl> {
         var controls: Set<AssistantRunControl> = []
         let status = AssistantRunStatus.from(runtimeStatus: record.status)
         if !record.threadId.isEmpty {
@@ -488,7 +491,7 @@ public final class AssistantDashboardViewModel {
         if status == .running {
             controls.insert(.cancel)
         }
-        if status == .failed || status == .cancelled {
+        if (status == .failed || status == .cancelled) && !isOrphan {
             controls.insert(.retry)
         }
         if UUID(uuidString: record.threadId) != nil {
