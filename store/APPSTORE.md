@@ -61,13 +61,11 @@ Coincide is an independent project, not affiliated with Anthropic, OpenAI, Curso
 
 Website: https://coincide.dev
 Source code: https://github.com/apoorvdarshan/coincide
-Privacy Policy: https://coincide.dev/privacy
-Terms of Use: https://coincide.dev/terms
 ```
 
 ## Privacy URL
 ```
-https://coincide.dev/privacy
+https://github.com/dylans2010/Agents
 ```
 
 ## Support URL

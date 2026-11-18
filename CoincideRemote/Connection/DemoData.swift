@@ -520,7 +520,7 @@ enum DemoData {
             isRepository: true, branch: "remote-image-previews", upstream: "origin/remote-image-previews", ahead: 1,
             changedFiles: 2, hasRemote: true, canCommit: true, canPush: true, canPull: false,
             pullRequest: RemotePullRequest(
-                number: 161, title: "Coincide Remote: bot characters in their own colors", url: "https://github.com/apoorvdarshan/coincide/pull/161",
+                number: 161, title: "Coincide Remote: bot characters in their own colors", url: "https://github.com",
                 state: .open, checks: .pending))
     }
 
@@ -528,10 +528,10 @@ enum DemoData {
         RemotePullRequestList(items: [
             RemotePullRequest(
                 number: 161, title: "Coincide Remote: bot characters in their own colors, pictures in bounds", url: "https://github.com",
-                author: "apoorvdarshan", headBranch: "remote-bot-picker-media", baseBranch: "main", checks: .pending,
+                author: "brulee", headBranch: "remote-bot-picker-media", baseBranch: "main", checks: .pending,
                 review: .reviewRequired, updatedAt: Date().addingTimeInterval(-600)),
             RemotePullRequest(
-                number: 158, title: "Settings › Models and Browser on the phone", url: "https://github.com", author: "apoorvdarshan",
+                number: 158, title: "Settings › Models and Browser on the phone", url: "https://github.com", author: "brulee",
                 headBranch: "remote-settings-polish", baseBranch: "main", checks: .passing, review: .approved,
                 updatedAt: Date().addingTimeInterval(-7200)),
             RemotePullRequest(

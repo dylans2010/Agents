@@ -8,7 +8,7 @@ The helper waits for a normal exit of the exact parent process and a one-use con
 
 ## Required release artifact
 
-The feed is `https://api.github.com/repos/apoorvdarshan/coincide/releases/latest`. It must be a published, non-prerelease version with a three-component numeric tag, such as `v0.2.0`. The version must be strictly newer than the running app's `CFBundleShortVersionString`; same-version build-number updates and downgrades are not supported.
+The feed is `https://api.github.com/repos/dylans2010/Agents/releases/latest`. It must be a published, non-prerelease version with a three-component numeric tag, such as `v0.2.0`. The version must be strictly newer than the running app's `CFBundleShortVersionString`; same-version build-number updates and downgrades are not supported.
 
 Provide one of these assets:
 

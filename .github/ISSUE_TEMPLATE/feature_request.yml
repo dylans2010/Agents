@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for the idea. A clear problem statement helps more than a solution alone.
-        Please check [existing issues](https://github.com/apoorvdarshan/coincide/issues) first to avoid duplicates.
+        Please check [existing issues](https://github.com/dylans2010/Agents/issues) first to avoid duplicates.
   - type: textarea
     id: problem
     attributes:

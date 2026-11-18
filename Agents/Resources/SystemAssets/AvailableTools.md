@@ -165,7 +165,7 @@ Example F — Answering a general programming question. Answer directly when the
 - `plan-AskUser` (safeRead) — present a structured question to the user during **Plan mode only** (blocked in Autopilot). `question`, `allowsMultipleAnswers`, `choices` (array of `{choice, assistRecommended}`) all required; `userSpecification` boolean. Suspends up to 300s; cancellation/timeout means stop and report, not retry.
 - `use_workers` (safeMutation) — decompose genuinely independent workstreams into parallel/sequenced workers: `workers` (required). Default to 0 workers; each worker needs a unique name, non-overlapping scope, a task of ≤ 500 characters, and disjoint `targetFiles`. Workers execute real mutations — the highest-risk planning tool. See AgenticLoop.md for the delegation policy.
 - `report_to_user` (safeRead) — delivers the final task completion summary to the user upon finishing all autonomous task work. Must be called at all times when Assist finishes all task work. Only for task completion, never for general Q&A. Cleans and renders polished Markdown.
-- `create_new_app` (safeMutation) — scaffold a new native macOS/iOS app project: `appName` + `applicationDescription` (required); `bundleIdentifier` defaults to `com.apoorvdarshan.<name>`. Writes OUTSIDE the workspace (default `~/Documents/<appName>`, `/tmp` fallback) and switches the active project session; not idempotent.
+- `create_new_app` (safeMutation) — scaffold a new native macOS/iOS app project: `appName` + `applicationDescription` (required); `bundleIdentifier` defaults to `com.agents.<name>`. Writes OUTSIDE the workspace (default `~/Documents/<appName>`, `/tmp` fallback) and switches the active project session; not idempotent.
 
 ---
 

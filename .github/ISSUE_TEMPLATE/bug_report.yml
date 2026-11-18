@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for reporting a bug. The details below help reproduce it quickly.
-        Security issues belong in [private vulnerability reporting](https://github.com/apoorvdarshan/coincide/security/advisories/new), not here.
+        Security issues belong in [private vulnerability reporting](https://github.com/dylans2010/Agents/security/advisories/new), not here.
         **Never paste API keys, tokens, cookies or private code.** Agent output and logs can contain them, so check before you post.
   - type: input
     id: macos-version

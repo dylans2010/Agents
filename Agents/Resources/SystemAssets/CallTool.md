@@ -78,7 +78,7 @@ Deterministic schema failures — fix the argument payload, never retry the iden
 - `file_create`: `overwrite` is a boolean (default `false`).
 - `plan-AskUser`: Only valid in Plan mode. Blocked in Autopilot mode. Never show internal state expressions in chat.
 - `search_skills`: `query` is required string; `limit` is integer (default 8, max 20).
-- `create_new_app`: `appName` and `applicationDescription` are required strings; `bundleIdentifier` defaults to `com.apoorvdarshan.<name>`; `platform` ∈ `iOS`/`macOS`/`watchOS`/`visionOS`. Writes outside the workspace (default `~/Documents/<appName>`) and switches the active project session.
+- `create_new_app`: `appName` and `applicationDescription` are required strings; `bundleIdentifier` defaults to `com.agents.<name>`; `platform` ∈ `iOS`/`macOS`/`watchOS`/`visionOS`. Writes outside the workspace (default `~/Documents/<appName>`) and switches the active project session.
 - `save_to_memory`: `content` (required text to remember), `category` (optional: "preferences", "architecture", "conventions", "rules"), `importance` (optional: "high", "normal", "low"). Call when user states valuable context or preferences to remember across sessions.
 - `view_memory`: `section` (optional filter). Reads the persistent `UserMemory.md`.
 - `manage_memory`: `action` ∈ `read`/`append`/`edit`/`delete`/`clear`. Directly manages `UserMemory.md`.
