@@ -154,7 +154,7 @@ wc -l` for the fully-qualified count:
 | Crate | `#[test]` | `#[::core::prelude::v1::test]` | Total |
 | --- | --- | --- | --- |
 | coincide-core | 1,821 | 0 | 1,821 |
-| coincide-desktop | 368 | 736 | 1,104 |
+| coincide-desktop | 367 | 736 | 1,103 |
 | coincide-awake-helper | 9 | 0 | 9 |
 | coincide-macos-ffi | 3 | 0 | 3 |
 | coincide-mcp-server | 16 | 0 | 16 |

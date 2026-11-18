@@ -154,7 +154,7 @@ form is confirmed present at HEAD.
 2. Claude result-frame error text was echoed into persisted transcripts,
    leaking provider error wording into the thread record. Failed-turn
    messages now use fixed strings that never include the raw result frame
-   — `failed_turn_message` in `provider_claude.rs:744`.
+   — `failed_turn_message` in `provider_claude.rs:648`.
 
 **Tests added (3):** `claude_config_rewrite_replaces_the_previous_turn`,
 `claude_result_error_text_never_reaches_the_transcript`,
