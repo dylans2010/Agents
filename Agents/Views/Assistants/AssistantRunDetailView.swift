@@ -419,20 +419,7 @@ struct AssistantRunDetailView: View {
     }
 
     private func activityText(for item: RemoteItem) -> String {
-        if item.kind == .tool {
-            if let title = item.title, !isRawToolIdentifier(title) {
-                return title
-            }
-            return "Tool activity"
-        }
-        return item.title ?? item.text
-    }
-
-    private func isRawToolIdentifier(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !trimmed.contains(" "), !trimmed.contains("\n") else { return false }
-        let allowed = CharacterSet.lowercaseLetters.union(.decimalDigits).union(CharacterSet(charactersIn: "_"))
-        return trimmed.unicodeScalars.allSatisfy { allowed.contains($0) }
+        AssistantToolActivity.displayTitle(for: item)
     }
 
     private func errorSection(_ error: String) -> some View {

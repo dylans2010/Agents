@@ -169,11 +169,31 @@ public struct AssistantToolActivity: Codable, Hashable, Sendable, Identifiable {
             .first ?? ""
         self.init(
             id: item.id,
-            title: item.title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? firstLine,
+            title: item.kind == .tool
+                ? Self.displayTitle(for: item)
+                : (item.title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? firstLine),
             category: item.category,
             status: item.status,
             detail: item.detail
         )
+    }
+
+    public static func displayTitle(for item: RemoteItem) -> String {
+        if item.kind == .tool {
+            if let title = item.title?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !title.isEmpty, !isRawToolIdentifier(title) {
+                return title
+            }
+            return "Tool activity"
+        }
+        return item.title ?? item.text
+    }
+
+    public static func isRawToolIdentifier(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains(" "), !trimmed.contains("\n") else { return false }
+        let allowed = CharacterSet.lowercaseLetters.union(.decimalDigits).union(CharacterSet(charactersIn: "_-.:"))
+        return trimmed.unicodeScalars.allSatisfy { allowed.contains($0) }
     }
 }
 

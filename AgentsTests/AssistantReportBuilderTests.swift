@@ -675,4 +675,62 @@ struct AssistantReportBuilderTests {
         #expect(review.findings.isEmpty)
         #expect(report.markdownRepresentation.contains("# Test Assistant"))
     }
+
+    @Test("Raw tool identifiers never reach report titles")
+    func rawToolIdentifiersBecomeGenericActivityLabel() {
+        let items = [
+            Self.makeToolItem(title: "read_file", category: "read", status: "completed"),
+            Self.makeToolItem(title: "read-file", category: "read", status: "completed"),
+            Self.makeToolItem(title: "mcp.server.tool", category: "mcp", status: "completed"),
+            Self.makeToolItem(title: "server:read_file", category: "read", status: "completed"),
+            Self.makeToolItem(title: "", category: "read", status: "completed"),
+            Self.makeToolItem(title: "   ", category: "read", status: "completed"),
+            Self.makeToolItem(title: "Read file", category: "read", status: "completed"),
+            Self.makeToolItem(title: "Run command", category: "command", status: "completed"),
+            Self.makeToolItem(title: "Read Sources/Auth.swift", category: "read", status: "completed"),
+        ]
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(transcriptItems: items.count),
+            definition: Self.makeDefinition(category: .codeReviewSecurity),
+            transcriptItems: items
+        ))
+        let titles = report.header.toolActivity.map(\.title)
+        #expect(titles == [
+            "Tool activity", "Tool activity", "Tool activity", "Tool activity", "Tool activity",
+            "Tool activity", "Read file", "Run command", "Read Sources/Auth.swift",
+        ])
+        let markdown = report.markdownRepresentation
+        #expect(markdown.contains("- Tool activity (completed)"))
+        #expect(!markdown.contains("read_file"))
+        #expect(!markdown.contains("read-file"))
+        #expect(!markdown.contains("mcp.server.tool"))
+        #expect(!markdown.contains("server:read_file"))
+    }
+
+    @Test("Tool display titles keep human titles and genericize raw identifiers")
+    func toolDisplayTitleGuardsRawIdentifiers() {
+        func title(_ title: String?) -> String {
+            AssistantToolActivity.displayTitle(for: RemoteItem(
+                id: UUID(), index: 0, kind: .tool, text: "fallback text", title: title
+            ))
+        }
+        #expect(title(nil) == "Tool activity")
+        #expect(title("") == "Tool activity")
+        #expect(title("   ") == "Tool activity")
+        #expect(title("read_file") == "Tool activity")
+        #expect(title("read-file") == "Tool activity")
+        #expect(title("mcp.server.tool") == "Tool activity")
+        #expect(title("server:read_file") == "Tool activity")
+        #expect(title("Read file") == "Read file")
+        #expect(title("Run command") == "Run command")
+        #expect(title("Read Sources/Auth.swift") == "Read Sources/Auth.swift")
+        #expect(AssistantToolActivity.isRawToolIdentifier("read_file"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("read-file"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("mcp.server.tool"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("server:read_file"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("Read file"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("Read Sources/Auth.swift"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier(""))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("   "))
+    }
 }
