@@ -1058,8 +1058,10 @@ public final class AppModel {
 
     public func refreshProviders() async {
         guard let client = runtime else { return }
-        if let list = try? await client.listAllProviders() {
-            self.providers = list
+        do {
+            self.providers = try await client.listAllProviders()
+        } catch {
+            presentError(error)
         }
     }
 

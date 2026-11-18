@@ -526,6 +526,11 @@ public struct ProvidersSettingsPane: View {
             || upper.hasPrefix("OPENCODE_")
     }
 
+    private func isDroppedEnvironmentKey(_ name: String) -> Bool {
+        let upper = name.uppercased()
+        return isCredentialEnvironmentKey(name) || upper.contains("BASE_URL") || upper.contains("ENDPOINT")
+    }
+
     private func environmentVariablesSection(_ provider: DesktopProviderInfo) -> some View {
         Section {
             if envPairs.isEmpty {
@@ -580,6 +585,8 @@ public struct ProvidersSettingsPane: View {
             }
         } header: {
             Text("Environment Variables")
+        } footer: {
+            Text("API keys, tokens, secrets and endpoint overrides are not saved here. Add credentials as Keychain API Key accounts above.")
         }
     }
 
@@ -765,12 +772,14 @@ public struct ProvidersSettingsPane: View {
             HStack {
                 Spacer()
                 Button("Cancel") {
+                    updatedSecretText = ""
                     updatingKeyAccount = nil
                 }
                 Button("Update Key") {
                     let providerID = account.provider.isEmpty ? (selectedProvider?.id ?? "") : account.provider
                     let accountID = account.id
                     let secret = updatedSecretText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    updatedSecretText = ""
                     updatingKeyAccount = nil
                     Task { await updateAccountSecret(provider: providerID, accountID: accountID, secret: secret) }
                 }
@@ -873,6 +882,7 @@ public struct ProvidersSettingsPane: View {
         }
         let exec = executableDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedExec: String? = exec.isEmpty ? nil : ExternalEditorService.expandedPath(exec)
+        let droppedKeys = envMap.keys.filter { isDroppedEnvironmentKey($0) }.sorted()
 
         do {
             _ = try await runtime.saveProviderConfig(
@@ -884,7 +894,15 @@ public struct ProvidersSettingsPane: View {
             await appModel.refreshProviders()
             await appModel.refreshWorkspace()
             loadDrafts(from: selectedProvider)
-            appModel.presentToast("Saved \(provider.displayName)", style: .success)
+            if droppedKeys.isEmpty {
+                appModel.presentToast("Saved \(provider.displayName)", style: .success)
+            } else {
+                appModel.presentToast(
+                    "Saved \(provider.displayName) Without Credentials",
+                    detail: "\(droppedKeys.joined(separator: ", ")) \(droppedKeys.count == 1 ? "was" : "were") not saved as environment variables. Add credentials as Keychain API Key accounts above.",
+                    style: .warning
+                )
+            }
         } catch {
             appModel.presentError(error)
         }

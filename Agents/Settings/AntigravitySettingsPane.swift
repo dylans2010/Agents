@@ -548,11 +548,13 @@ public struct AntigravitySettingsPane: View {
             HStack {
                 Spacer()
                 Button("Cancel") {
+                    updatedAPIKeyText = ""
                     updatingKeyAccount = nil
                 }
                 Button("Update Key") {
                     let target = account
                     let secret = updatedAPIKeyText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    updatedAPIKeyText = ""
                     updatingKeyAccount = nil
                     Task { await updateAccountKey(target, newKey: secret) }
                 }
@@ -644,14 +646,18 @@ public struct AntigravitySettingsPane: View {
                 apiKey: key,
                 keyVariable: "GEMINI_API_KEY"
             )
-            // If an unapproved discovered binary exists, also ensure provider enabled
+            var autoApproveError: Error?
             if provider?.approvedExecutable == nil, let discovered = discoveredCandidates.first {
-                _ = try? await runtime.saveProviderConfig(
-                    provider: "antigravity",
-                    executable: ExternalEditorService.expandedPath(discovered),
-                    environment: provider?.environment,
-                    enabled: true
-                )
+                do {
+                    _ = try await runtime.saveProviderConfig(
+                        provider: "antigravity",
+                        executable: ExternalEditorService.expandedPath(discovered),
+                        environment: provider?.environment,
+                        enabled: true
+                    )
+                } catch {
+                    autoApproveError = error
+                }
             }
             newAPIKey = ""
             if newAccountName == "Default Gemini Key" {
@@ -660,7 +666,15 @@ public struct AntigravitySettingsPane: View {
             await appModel.refreshProviders()
             await appModel.refreshWorkspace()
             syncDraftFromProvider()
-            appModel.presentToast("Saved Gemini API Key", detail: "Stored in macOS Keychain", style: .success)
+            if let autoApproveError {
+                appModel.presentToast(
+                    "Saved Gemini API Key",
+                    detail: "Stored in macOS Keychain. Runtime approval failed: \(autoApproveError.localizedDescription)",
+                    style: .warning
+                )
+            } else {
+                appModel.presentToast("Saved Gemini API Key", detail: "Stored in macOS Keychain", style: .success)
+            }
         } catch {
             appModel.presentError(error)
         }

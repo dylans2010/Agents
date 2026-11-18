@@ -633,26 +633,34 @@ struct AgentModelPickerPopover: View {
     private func refreshCatalog(for providerID: String) async {
         guard let client = appModel.runtime else { return }
         isRefreshingCatalog = true
-        if let list = try? await client.fetchModelCatalog(
-            provider: providerID,
-            refresh: true,
-            threadID: appModel.selectedThreadID,
-            accountID: activeSelection.accountID
-        ) {
+        defer { isRefreshingCatalog = false }
+        do {
+            let list = try await client.fetchModelCatalog(
+                provider: providerID,
+                refresh: true,
+                threadID: appModel.selectedThreadID,
+                accountID: activeSelection.accountID
+            )
             fetchedCatalogModels[AgentBranding.normalizedID(providerID)] = list
+        } catch {
+            appModel.presentError(error)
         }
         await appModel.refreshProviders()
-        isRefreshingCatalog = false
     }
 
     private func toggleFavorite(provider: String, model: CatalogModelEntry) {
         let newFavorite = !model.isFavorite
         Task {
-            try? await appModel.runtime?.setModelPreference(
-                provider: provider,
-                modelID: model.id,
-                favorite: newFavorite
-            )
+            do {
+                try await appModel.runtime?.setModelPreference(
+                    provider: provider,
+                    modelID: model.id,
+                    favorite: newFavorite
+                )
+            } catch {
+                appModel.presentError(error)
+                return
+            }
             await refreshCatalog(for: provider)
         }
     }
