@@ -2340,7 +2340,12 @@ pub fn remote_item(item: &Value, index: usize, pending: &[PendingRequest]) -> It
             clipped |= cut;
             approval = Some(Approval {
                 options: approval_options(&params),
-                resolution: string("resolution"),
+                // The outcome is stored under the approval object; keep
+                // the top-level key as a fallback.
+                resolution: item["approval"]["resolution"]
+                    .as_str()
+                    .map(str::to_owned)
+                    .or(string("resolution")),
                 text_placeholder: None,
                 accepts_text: false,
                 response_text: None,
@@ -2652,8 +2657,18 @@ mod tests {
         assert_eq!(waiting.approval.as_ref().unwrap().options.len(), 2);
         assert!(waiting.detail.as_ref().unwrap().contains("\"command\""));
         assert!(waiting.text.is_empty());
+        assert_eq!(waiting.approval.as_ref().unwrap().resolution, None);
         let answered = remote_item(&approval, 0, &[]);
         assert_eq!(answered.status.as_deref(), Some("completed"));
+        assert_eq!(answered.approval.as_ref().unwrap().resolution, None);
+        let mut resolved = approval.clone();
+        resolved["approval"] = json!({"resolution": "Approved"});
+        let answered = remote_item(&resolved, 0, &[]);
+        assert_eq!(answered.status.as_deref(), Some("completed"));
+        assert_eq!(
+            answered.approval.as_ref().unwrap().resolution.as_deref(),
+            Some("Approved")
+        );
         let question = json!({"id":"Q","kind":"question","externalID":"9","createdAt":0,
             "text":json!({"questions":[{"id":"pw","question":"Password?","isSecret":true,"options":[{"label":"a","description":"b"}]}]}).to_string(),
             "answers":{"pw":["hunter2"]}});

@@ -19,6 +19,19 @@ prompts) without redaction. The run-detail notice is not an exclusion: it is
 composed only of the fixed section labels "Transcript", "Changes", and
 "Git state", so it carries no model or engine content.
 
+## Approval history cards
+
+A resolved approval in the transcript shows a one-line human summary
+instead of the raw request-params JSON: the provider's display title, the
+approved command, or a human tool name, in that order. Raw identifiers
+(`toolCallId`, `rawInput`, session and call IDs) are never selected for the
+summary, so they cannot reach the card even though the full JSON stays in
+the item for the live attention card, and the summary itself is run through
+the gate. The resolution badge on a resolved card reads the outcome from
+the stored approval object. While a request is still waiting, the history
+card keeps the raw JSON block: the same pending request is shown by
+`PendingAttentionView`, which is the operative surface until it is answered.
+
 ## What it detects
 
 - Verbatim or near-verbatim fragments (case and whitespace differences
@@ -41,7 +54,10 @@ composed only of the fixed section labels "Transcript", "Changes", and
   in full, suffix included.
 - Internal identifiers in transport contexts: thread, run, worker, client,
   session, and assistant UUIDs that appear next to their transport label,
-  and `tool_call_id` values.
+  and `tool_call_id` values. The camelCase `toolCallId` used in ACP
+  permission params is not covered by these patterns, so the approval
+  history card protects that field by never selecting it (see above)
+  rather than by redaction.
 
 ## Over-redaction
 

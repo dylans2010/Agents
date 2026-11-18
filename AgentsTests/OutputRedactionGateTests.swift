@@ -278,4 +278,74 @@ struct OutputRedactionGateTests {
         #expect(!output.text.contains("CoincideComputerUse-AB12"))
         #expect(output.text.contains("context line stays"))
     }
+
+    private func makeApprovalItem(detail: String, status: String) -> RemoteItem {
+        RemoteItem(id: UUID(), index: 0, kind: .approval, title: "Approval required", detail: detail, status: status)
+    }
+
+    @Test("Resolved approval summary shows the provider title, never the raw JSON")
+    func resolvedApprovalSummaryShowsProviderTitle() {
+        let detail = "{\"toolCall\":{\"toolCallId\":\"call-9f3a1b2c\",\"title\":\"Write workspace file\",\"rawInput\":{\"path\":\"/Users/dylan/Notes.md\",\"content\":\"secret draft\"}}}"
+        let summary = InlineApprovalHistoryCard.resolvedSummary(for: makeApprovalItem(detail: detail, status: "completed"))
+        #expect(summary == "Write workspace file")
+        #expect(!(summary ?? "").contains("call-9f3a1b2c"))
+        #expect(!(summary ?? "").contains("secret draft"))
+        #expect(!(summary ?? "").contains("toolCallId"))
+    }
+
+    @Test("Resolved approval summary shows the approved command")
+    func resolvedApprovalSummaryShowsCommand() {
+        let summary = InlineApprovalHistoryCard.resolvedSummary(
+            for: makeApprovalItem(detail: "{\"command\":\"ls -la /tmp\"}", status: "completed"))
+        #expect(summary == "ls -la /tmp")
+    }
+
+    @Test("Resolved approval summary keeps a human tool name and drops its call ID")
+    func resolvedApprovalSummaryKeepsHumanToolName() {
+        let detail = "{\"toolName\":\"Bash\",\"input\":{\"command\":\"ls\"},\"toolCallId\":\"toolu_abc123\"}"
+        let summary = InlineApprovalHistoryCard.resolvedSummary(for: makeApprovalItem(detail: detail, status: "completed"))
+        #expect(summary == "Bash")
+        #expect(!(summary ?? "").contains("toolu_abc123"))
+    }
+
+    @Test("Resolved approval summary drops a raw identifier tool name")
+    func resolvedApprovalSummaryDropsRawToolIdentifier() {
+        let detail = "{\"toolName\":\"readFile\",\"input\":{},\"toolCallId\":\"toolu_abc\"}"
+        #expect(InlineApprovalHistoryCard.resolvedSummary(for: makeApprovalItem(detail: detail, status: "completed")) == nil)
+    }
+
+    @Test("Resolved approval summary falls back to the coarse tool kind")
+    func resolvedApprovalSummaryFallsBackToToolKind() {
+        let detail = "{\"toolCall\":{\"kind\":\"execute\",\"toolCallId\":\"call-x\"}}"
+        let summary = InlineApprovalHistoryCard.resolvedSummary(for: makeApprovalItem(detail: detail, status: "completed"))
+        #expect(summary == "Execute")
+    }
+
+    @Test("Resolved approval summary is nil when no safe field is present")
+    func resolvedApprovalSummaryNilWithoutSafeField() {
+        let detail = "{\"toolCall\":{\"toolCallId\":\"call-x\"}}"
+        #expect(InlineApprovalHistoryCard.resolvedSummary(for: makeApprovalItem(detail: detail, status: "completed")) == nil)
+    }
+
+    @Test("Waiting approval has no resolved summary; its JSON stays for the live card")
+    func waitingApprovalHasNoResolvedSummary() {
+        let detail = "{\"toolCall\":{\"toolCallId\":\"call-x\",\"title\":\"Write workspace file\"}}"
+        #expect(InlineApprovalHistoryCard.resolvedSummary(for: makeApprovalItem(detail: detail, status: "waiting")) == nil)
+    }
+
+    @Test("Resolved approval summary takes the first line of a multi-line command")
+    func resolvedApprovalSummaryTakesFirstCommandLine() {
+        let detail = "{\"command\":\"echo one\\necho two\"}"
+        let summary = InlineApprovalHistoryCard.resolvedSummary(for: makeApprovalItem(detail: detail, status: "completed"))
+        #expect(summary == "echo one")
+    }
+
+    @Test("Resolved approval summary redacts internal names inside the command")
+    func resolvedApprovalSummaryRedactsInternalNames() {
+        let detail = "{\"command\":\"cat com.apoorvdarshan.coincide.rust.provider-account.v1.codex\"}"
+        let summary = InlineApprovalHistoryCard.resolvedSummary(for: makeApprovalItem(detail: detail, status: "completed"))
+        #expect((summary ?? "").contains(OutputRedactionGate.redactionMarker))
+        #expect(!(summary ?? "").contains("provider-account.v1"))
+        #expect((summary ?? "").contains("cat"))
+    }
 }

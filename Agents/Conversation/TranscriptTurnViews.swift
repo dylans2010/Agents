@@ -1388,6 +1388,42 @@ struct InlineApprovalHistoryCard: View {
     let item: RemoteItem
     let appModel: AppModel
 
+    /// One-line human summary of a resolved approval, built only from
+    /// already-safe fields in the stored request params: the provider's
+    /// display title, the approved command, or a human tool name. Raw
+    /// identifiers (`toolCallId`, `rawInput`, session/call IDs) are never
+    /// selected, so they cannot reach the card even though the full JSON
+    /// stays in `item.detail` for the live attention card. Nil while the
+    /// request is still waiting, and nil when no safe field is present.
+    /// The result is run through the redaction gate before it is returned.
+    static func resolvedSummary(for item: RemoteItem) -> String? {
+        guard !item.isWaiting else { return nil }
+        guard let detail = item.detail, !detail.isEmpty,
+              let data = detail.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        let toolCall = json["toolCall"] as? [String: Any]
+        let candidates: [String?] = [
+            toolCall?["title"] as? String,
+            json["command"] as? String,
+            (json["toolName"] as? String).flatMap {
+                AssistantToolActivity.isRawToolIdentifier($0) ? nil : $0
+            },
+            (toolCall?["kind"] as? String)?.capitalized,
+        ]
+        guard let what = candidates
+            .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .first(where: { !$0.isEmpty })
+        else { return nil }
+        let firstLine = what
+            .components(separatedBy: .newlines)
+            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }?
+            .trimmingCharacters(in: .whitespaces)
+        guard let firstLine, !firstLine.isEmpty else { return nil }
+        let trimmed = firstLine.count > 200 ? String(firstLine.prefix(200)) + "…" : firstLine
+        return OutputRedactionGate.shared.redactedText(trimmed)
+    }
+
     var body: some View {
         let tint: Color = item.isWaiting ? AppTheme.warning : AppTheme.secondaryLabel
         HStack(alignment: .top, spacing: 10) {
@@ -1416,7 +1452,13 @@ struct InlineApprovalHistoryCard: View {
                     }
                 }
 
-                if let detail = item.detail, !detail.isEmpty {
+                if let summary = Self.resolvedSummary(for: item) {
+                    Text(summary)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                        .lineLimit(1)
+                        .textSelection(.enabled)
+                } else if item.isWaiting, let detail = item.detail, !detail.isEmpty {
                     Text(OutputRedactionGate.shared.redactedText(detail))
                         .font(.system(size: 11.5, design: .monospaced))
                         .foregroundStyle(AppTheme.secondaryLabel)
