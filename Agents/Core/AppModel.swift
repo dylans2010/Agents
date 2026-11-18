@@ -484,7 +484,8 @@ public final class AppModel {
             let id = try await client.createProject(path: path, name: name)
             await refreshWorkspace()
             let prompt = agentToolset == .system ? systemPromptForSelectedThread.text : nil
-            let newThread = try? await client.newThread(projectID: id, systemPrompt: prompt, toolset: agentToolset)
+            let allowedTools = agentToolset == .system ? selectedThread?.allowedTools : nil
+            let newThread = try? await client.newThread(projectID: id, systemPrompt: prompt, toolset: agentToolset, allowedTools: allowedTools)
             await refreshWorkspace()
             if let newThread {
                 selectThread(newThread)

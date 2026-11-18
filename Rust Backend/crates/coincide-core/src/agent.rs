@@ -1887,7 +1887,7 @@ mod tests {
         assert!(validate_allowed_tools(Some(&tools(&[""]))).is_err());
         assert!(validate_allowed_tools(Some(&tools(&["   "]))).is_err());
         assert!(validate_allowed_tools(Some(&tools(&["x".repeat(257).as_str()]))).is_err());
-        assert!(validate_allowed_tools(Some(&tools(&["read\u{1}file"])))).is_err());
+        assert!(validate_allowed_tools(Some(&tools(&["read\u{1}file"]))).is_err());
         assert!(validate_allowed_tools(Some(&tools(&["read_file", "read_file"]))).is_err());
         let over_cap = (0..334).map(|n| format!("tool_{n}")).collect::<Vec<_>>();
         assert!(validate_allowed_tools(Some(&over_cap)).is_err());

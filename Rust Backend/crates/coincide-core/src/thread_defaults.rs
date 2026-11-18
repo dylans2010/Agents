@@ -306,6 +306,7 @@ impl Engine {
             toolset,
             allowed_tools.as_deref(),
         )?;
+        let toolset = toolset.or_else(|| allowed_tools.as_ref().map(|_| "system"));
         if toolset == Some("system") || allowed_tools.is_some() {
             let provider = thread["selection"]["provider"].as_str().unwrap_or("codex");
             crate::agent::ensure_system_toolset_supported(provider)?;

@@ -1541,14 +1541,12 @@ impl Adapter {
             return Err(RemoteError::failed(message));
         }
         let prompt = supplied_prompt.filter(|_| {
-            document["systemPrompt"]
-                .as_str()
-                .is_none_or(|stored| stored.trim().is_empty())
+            let stored = &document["systemPrompt"];
+            stored.is_null() || stored.as_str().is_some_and(|stored| stored.trim().is_empty())
         });
         let allowed_tools = supplied_tools.filter(|_| {
-            document["allowedTools"]
-                .as_array()
-                .is_none_or(|stored| stored.is_empty())
+            let stored = &document["allowedTools"];
+            stored.is_null() || stored.as_array().is_some_and(|stored| stored.is_empty())
         });
         if prompt.is_none() && allowed_tools.is_none() {
             return Ok(());
@@ -1678,6 +1676,7 @@ impl Adapter {
             allowed_tools.as_deref(),
         )
         .map_err(|error| RemoteError::failed(error.to_string()))?;
+        let toolset = toolset.or_else(|| allowed_tools.as_ref().map(|_| "system".to_string()));
         let workspace = self.workspace(false, runs)?;
         let project = match project {
             Some(project) => workspace
