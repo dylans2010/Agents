@@ -334,13 +334,6 @@ public struct SidebarThreadRow: View {
             Button {
                 Task { await appModel.performThreadAction(.markUnread, on: thread.id) }
             } label: {
-                Label("Mark as Read", systemImage: "checkmark.circle")
-            }
-            .disabled(true)
-
-            Button {
-                Task { await appModel.performThreadAction(.markUnread, on: thread.id) }
-            } label: {
                 Label("Mark as Unread", systemImage: "circle.fill")
             }
         }

@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–119)
+### Hardening wave (Slices 69–122)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–119 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–122 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -941,6 +941,17 @@ no entries in this file either and are not backfilled here. Full record:
   — 2 docs findings (the `provider/event` persistence wording; three
   off-by-one line cites) plus `docs/MAC-GATE.md` staleness, fixed in
   Slice 120. No commit.
+- **Slice 122** — Swift UI audit: 4 defects fixed (composer `NSTextView`
+  now carries the placeholder as its AppKit accessibility label; diff
+  file row and diff line-number gutter are now VoiceOver-activatable via
+  `accessibilityElement` + `accessibilityAction`; removed a permanently
+  disabled "Mark as Read" menu item whose action called `.markUnread`);
+  0 tests added (no accessibility-label test pattern in the codebase).
+  Liquid Glass, hardcoded colors, and the post-Slice-32 control sweep
+  clean; corrected the Slice 118 `provider_transport.rs` cite `:8-10` →
+  `:6-8`. Registry counts unchanged at 332. Statically verified only.
+  Totals now 29 defects / 27 tests. Full record:
+  `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
 

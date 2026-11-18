@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–118
+# Hardening Audit — Slices 71–122
 
 ## Summary
 
@@ -26,7 +26,13 @@ Slice 105 precedent, so the totals stay at **23 defects fixed and
 25 regression tests**. Slice 118, appended after that, audited the
 OpenCode, Grok, Cursor, and Antigravity provider integrations: 2 further
 defects fixed and 2 regression tests added — bringing the totals to
-**25 defects fixed and 27 regression tests**. The remaining
+**25 defects fixed and 27 regression tests**. Slice 122, appended after
+that, audited the Swift app UI (Liquid Glass consistency, accessibility
+close-out, dead UI, hardcoded colors): 4 further defects fixed and 0
+regression tests added — bringing the totals to **29 defects fixed and
+27 regression tests**. The Slice 122 correction of the Slice 118
+`provider_transport.rs` line cite is description-only and not counted,
+following the Slice 105/109 precedent. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -648,7 +654,7 @@ the private profile import is size-bounded (64 MiB) and
 symlink-checked. Shared paths also checked clean: `session_servers`
 bails loudly when the MCP binary is missing (`mcp.rs:93-97`);
 `Transport` inbound/outbound frames are capped at 32 MiB with a
-64 MiB queue (`provider_transport.rs:8-10`); OpenCode HTTP responses
+64 MiB queue (`provider_transport.rs:6-8`); OpenCode HTTP responses
 and SSE frames are capped at 8 MiB (`provider_opencode_http.rs:6`);
 the OpenCode rejection of System Tools is loud at thread creation
 (`agent.rs:721-727`, via `bot_engine.rs:180`,
@@ -677,6 +683,138 @@ baseline: local `main` `d6f55594`, remote `main` `cc09b357`, same tree
 `e6d48ac26eda0705c68c361f4368aa1c8fbf7039`. The local pre-push commit is
 `50a42e70` (tree `29fbdddc9d4095c7934e518af58956406d84fe6f`, same tree as
 remote `bf146ce8`).
+
+## Slice 122 — Swift UI audit: Liquid Glass consistency, accessibility close-out, dead UI
+
+**Audited:** the Swift app UI only (`Agents/`, 66 Swift files; Rust and
+the iOS companion untouched) — every `glassEffect` / `glassBackground` /
+`material(` use; the 3 unresolved Slice 32 accessibility items; a sweep
+for unlabeled controls added since Slice 32; buttons/menu items/views in
+the workspace/history/inspector/composer surfaces for empty, no-op, or
+TODO actions; hardcoded `Color(` / `.white` / `.black` / hex literals in
+UI code added since Slice 7. Statically verified only — no build or test
+run here, as for every slice in this record.
+
+**Defects fixed (4):**
+
+1. **Composer `NSTextView` had no accessibility label**
+   (`Agents/Conversation/ComposerNSTextView.swift:100,128`). The
+   composer is an AppKit `NSTextView` in an `NSScrollView` via
+   `NSViewRepresentable`, and its placeholder is drawn by hand in
+   `draw(_:)`, so VoiceOver had no prompt text for the field. Now
+   `textView.accessibilityLabel = placeholder` in `makeNSView`, re-synced
+   in `updateNSView` alongside the existing placeholder sync, so the
+   label tracks the dynamic placeholder ("Ask …", "Steer or queue a
+   follow-up message…"). Setting the label is AppKit metadata only;
+   whether VoiceOver announces it without double-announcing typed text
+   is a Mac-gate check (see below).
+2. **Diff file row was not VoiceOver-activatable**
+   (`Agents/Inspector/DiffInspectorView.swift:798-800`).
+   `DiffFileSummaryRow` selects on `.onTapGesture(perform: onSelect)`
+   with no accessibility element, so VoiceOver could read the row's text
+   but not activate it. Now `.accessibilityElement(children: .combine)`
+   + `.accessibilityAddTraits(isSelected ? [.isButton, .isSelected] :
+   .isButton)` + `.accessibilityAction { onSelect() }`, following the
+   `TerminalDrawerRootView` row precedent. No explicit label: the
+   combined children (file name, directory, +N/−M counts) already read
+   naturally, and a label would duplicate the visible file name (Slice 34
+   rule).
+3. **Diff line-number gutter was not VoiceOver-activatable**
+   (`Agents/Inspector/DiffInspectorView.swift:1122-1128`).
+   `UnifiedDiffLineRow`'s gutter jumps to the line in the Inspector
+   Editor on tap, with the action described only by a `.help` tooltip.
+   Now a combined element + `.accessibilityLabel` reusing the tooltip
+   text when `canJumpToLine` ("Open at line N in Inspector Editor", else
+   "Line N") + the `.isButton` trait only when jumpable +
+   `.accessibilityAction` guarded by the same `canJumpToLine` check as
+   the tap handler.
+4. **Dead "Mark as Read" menu item in the thread context menu**
+   (`Agents/Sidebar/SidebarThreadRow.swift:333-339` after the fix; the
+   removed item was at `:334-340` before it). In the already-read branch
+   (`thread.unseen == nil`) the menu showed a permanently `.disabled(true)`
+   "Mark as Read" item whose action called `.markUnread` — a copy-paste
+   of the sibling button, so even enabled it would have done the opposite
+   of its label. Removed; the branch now shows only the working "Mark as
+   Unread" item. The unread branch (`unseen != nil`) already shows the
+   working "Mark as Read" (`markSeen`) item and is unchanged.
+
+**No defects found in Liquid Glass consistency.** The three `AppTheme`
+helpers remain the only real `glassEffect` call sites
+(`AppTheme.swift:324,328,332`); their 8 use sites are all chrome — toast
+(`MainWindowView.swift:120`), composer (`ComposerBarView.swift:211`),
+composer cards (`ComposerBarView.swift:1173,1261`), approval/question
+cards (`PendingAttentionView.swift:164,346`), Jump to Latest pill
+(`TranscriptScrollView.swift:182`), terminal banner
+(`TerminalDrawerRootView.swift:444`) — and no glass sits on conversation
+content, lists, or editor surfaces. The only other `glassEffect` hit is a
+string literal in a code-snippet template
+(`SystemToolRegistry.swift:11057`, the "glasscard" snippet the tool emits
+for users), not a UI call site; left as-is. The single `material(` use is
+`.thinMaterial` on the sidebar footer bar (`SidebarRootView.swift:675`),
+introduced by Slice 7 itself; left as-is.
+
+**No defects found in hardcoded colors.** No `.white` / `.black` /
+`Color(red:` / hex literal was added to UI code since Slice 7
+(`bb71be67`). Every existing instance is a deliberate fixed-contrast use:
+white text on accent/warning/danger fills (badge counts in
+`ConversationRootView.swift:359`, `SidebarRootView.swift:813`,
+`SidebarThreadRow.swift:194`; Stop/Send buttons in
+`ComposerBarView.swift:657,685`), white on the media-overlay scrim
+(`MediaLightboxSheet.swift:154,167,170`), white behind the pairing QR code
+(`RemoteSettingsPane.swift:142`, QR codes must scan on white), and the
+white checkmark on user-chosen tint swatches
+(`BotEditorSheet.swift:288-289`). The `NSColor.white/black` alpha blends
+in `AppTheme.swift:115-116,124-125` and
+`NativeCodeEditorNSView.swift:378-379,423-424` are the adaptive theme
+definitions themselves, and the terminal's `isDark ? white : black` picks
+(`NativeTerminalNSView.swift:576,623,631`) are dark/light branches, not
+hardcoded UI colors.
+
+**No further defects found in the accessibility sweep or dead-UI check.**
+The only controls added since Slice 32 (`565a293f`) are the
+environment-variable KEY/Value fields
+(`ProvidersSettingsPane.swift:549,553`), which carry placeholder labels,
+and the remove-row button beside them is labelled; no new unlabeled
+Button/Toggle/Picker/onTapGesture was added in the 15 files changed since
+Slice 32. The other pre-existing `onTapGesture` select rows (pull
+requests, workspace files, sidebar bot row) predate Slice 32 and are
+unchanged since it, so they are out of this slice's "added since Slice 32"
+scope and were left untouched. The two `EmptyView()` defaults
+(`PendingAttentionView.swift:35`, `GeneralSettingsPane.swift:258`) are
+exhaustive-switch arms, not dead UI; the three `Button("Cancel", role:
+.cancel) {}` buttons are the standard alert-dismiss idiom; the two
+`fatalError("init(coder:) has not been implemented")` stubs
+(`NativeCodeEditorNSView.swift:401`, `NativeTerminalNSView.swift:171`)
+are the standard programmatic-NSView pattern.
+
+**Tests added (0):** no Swift `@Test` pattern exists for
+accessibility-label or menu-item assertions in this codebase, and none was
+added. Swift `@Test` total stays 128 (109 in `AgentsTests/`, 19 in
+`CoincideRemoteTests/`; the 2 `@Test` hits in `SystemToolRegistry.swift`
+are generated-code strings, not tests).
+
+**Docs correction (not counted):** the Slice 118 section cited
+`provider_transport.rs:8-10` for the 32 MiB inbound/outbound caps; the
+caps are at `:6-7`, `:8` is the 64 MiB queue and `:9` the write deadline —
+corrected to `:6-8`. Description-only, so the totals move only by the 4
+defects above, following the Slice 105/109 precedent.
+
+**Verification:** re-read of all four changed hunks; zero new `//`
+comments in added lines; registry counts unchanged at 332 tools per side
+(Swift `SystemToolDefinition(` 332; Rust `ToolDef {` 333 raw incl. the
+struct declaration at `tools.rs:14`); `git diff --stat` shows only the
+three Swift files plus this record and the `SYSTEM-TOOLSET.md` hardening
+entry. Audit baseline: local `main` `ede38793`, remote `main`
+`165ef9a81`, same tree
+`6e56794a9bc76c3470a945bc650610c991803c93`. Remote SHA to be backfilled by
+the next slice, as Slice 120 backfilled Slice 118's.
+
+**Mac-gate checks owed:** (1) VoiceOver focus on the composer announces
+the placeholder label ("Ask …" / "Steer or queue…") and does not
+double-announce with typed text; (2) VoiceOver can activate the diff file
+row and the diff gutter jump, and the gutter reads as a button only when
+the line is jumpable; (3) the thread context menu on an already-read
+thread shows only "Mark as Unread" (no disabled "Mark as Read").
 
 ## Documented, not fixed
 

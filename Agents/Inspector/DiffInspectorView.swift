@@ -795,6 +795,9 @@ private struct DiffFileSummaryRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .onHover { isHovered = $0 }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { onSelect() }
         .contextMenu {
             if file.status.lowercased() != "deleted" {
                 Button("Open in Inspector Editor", systemImage: "doc.text.magnifyingglass", action: onOpenInInspector)
@@ -1116,6 +1119,14 @@ private struct UnifiedDiffLineRow: View {
                     }
                 }
                 .help(canJumpToLine ? "Open at line \(line.newLine ?? line.oldLine ?? 1) in Inspector Editor" : "")
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(canJumpToLine ? "Open at line \(line.newLine ?? line.oldLine ?? 1) in Inspector Editor" : "Line \(line.newLine ?? line.oldLine ?? 1)")
+                .accessibilityAddTraits(canJumpToLine ? .isButton : [])
+                .accessibilityAction {
+                    if canJumpToLine {
+                        onJumpToLine()
+                    }
+                }
 
                 Rectangle()
                     .fill(AppTheme.separator.opacity(0.45))
