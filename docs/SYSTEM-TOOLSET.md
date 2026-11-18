@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–134)
+### Hardening wave (Slices 69–138)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–134 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–138 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -1008,6 +1008,18 @@ no entries in this file either and are not backfilled here. Full record:
   still reports the pre-existing `"Engine lock failed"`). Statically
   verified only; `cargo test -p coincide-mcp-server` on Dylan's Mac is
   owed. Full record: `docs/HARDENING-AUDIT.md`.
+- **Slice 138** — Swift `execute()` handler-arm coverage audit: 332/332
+  definitions reachable — 207 top-level arms (199 single-name + 8
+  multi-name: the 65 G5 tools, the 38 G6 tools, the 20 computer-use
+  tools, plus 5 alias pairs), 0 missing, 0 dead, 0 duplicate. Depth
+  checked: the G5 arm partitions exactly into 32 `runG5Tool` inner cases
+  + 33 `g5ScanSpecs` entries; the G6 arm into 37 inner cases +
+  `derived_data_locate`'s pre-switch guard; the computer-use arm
+  forwards all 20 names generically through the engine RPC. The
+  fallback for an unhandled tool is the honest `unknownTool` error, and
+  it is unreachable for registered tools. 0 defects, 0 tests; totals
+  unchanged at 30 defects / 28 tests. Full record:
+  `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
 

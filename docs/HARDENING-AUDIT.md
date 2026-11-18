@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–134
+# Hardening Audit — Slices 71–138
 
 ## Summary
 
@@ -56,7 +56,14 @@ appended after that, isolated MCP server dispatch panics: per-request
 dispatch is now wrapped in `catch_unwind`, a panicking handler returns a
 fixed-message `-32603` error, and the server keeps serving subsequent
 requests — 1 further defect fixed and 1 regression test added, bringing
-the totals to **30 defects fixed and 28 regression tests**. The remaining
+the totals to **30 defects fixed and 28 regression tests**. Slice 138, appended after that, audited Swift
+`SystemToolRegistry.execute()` handler-arm coverage across all 332
+registered tools and found 0 missing arms, 0 dead arms, and 0 defects —
+every definition is reachable, including through the shared
+multi-name arms, and the fallback for an unhandled tool is the honest
+`unknownTool` error, not a wrong result — all description-only,
+following the Slice 105/109 precedent, so the totals stay at
+**30 defects fixed and 28 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -1263,6 +1270,99 @@ tree are in the slice's push report.
 **Mac-gate checks owed:** `cargo test -p coincide-mcp-server` on Dylan's
 Mac — the new test was written, not executed, here.
 
+## Slice 138 — Swift `execute()` handler-arm coverage audit (0 defects)
+
+**Audited:** whether every one of the 332 definitions in
+`Agents/Core/SystemTools/SystemToolRegistry.swift` (`systemTools`) is
+actually reachable in Swift `execute()` — handler-arm coverage, never
+audited before. Prior slices verified the definitions
+332/332/332 including param descriptions (Slice 132), all 275 returns
+in `execute()` are `JSONValue` (Slices 103/104), and thread-identity
+pinning on all 129 identity params (Slices 105–110); the Rust side was
+used only as a reference (Rust `tools.rs` `call()` verified 332/332
+dispatch arms in Slice 72).
+
+**Dispatch structure (as found):** `execute()` (`:3826–7444`) dispatches
+on **name**, not action: after the thread-identity pin
+(`:3835–3838`), a guard at `:3839–3844` resolves the definition and
+throws `SystemToolError.toolNotActive` when the tool is registered but
+not active under the caller's toolset, or `unknownTool` when the name
+is not registered at all; the body is a single `switch
+definition.name` (`:3845`) with a `default:` arm at `:7441–7442`
+that throws `SystemToolError.unknownTool(name)` — an honest error, not
+a silent wrong result. The fallback is unreachable for a registered
+tool: the guard admits only registered names, and every registered
+name has an arm (below). A missing arm would therefore degrade to the
+honest `unknownTool` error, never to a fabricated success — but no arm
+is missing.
+
+**Method:** a Python re-parse of both the definitions array and the
+`execute()` switch (a first single-line pass undercounted the arms at
+209 and falsely reported 123 missing, because three arms span multiple
+lines; the corrected parser accumulates multi-line case labels), plus
+hand verification of every shared arm and of the helper dispatchers
+they delegate to, to rule out "covered by an arm but unhandled inside
+the helper".
+
+**Coverage (measured): 332 definitions → 332 covered / 0 missing /
+0 dead arms / 0 duplicate arms.** The switch has 207 top-level arms
+carrying 332 name entries: 199 single-name arms plus 8 multi-name
+arms — `run_build` / `run_tests` (`:4010`), the 20 computer-use tools
+(`:4125`), `file_read` / `view_file` (`:4132`), `create_file` /
+`file_create` (`:4143`), `use_terminal` / `run_command` (`:4335`),
+`project_scheme_list` / `project_target_list` (`:5956`), the 38 G6
+tools (`:6705`), and the 65 G5 tools (`:7187`). All 63 distinct actions
+have at least one covered tool; no action is wholly or partly
+uncovered.
+
+**Depth check (shared arms do real work, not fall-through):**
+
+- G5 arm (65 names) → `runG5Tool` (`:10083`): 32 inner switch cases
+  plus 33 `g5ScanSpecs` entries (`:7460`, reached via `runG5Scan`'s
+  `default:` and its guard at `:10197`) partition the 65 exactly — 0
+  unhandled inside the helper, 0 inner cases or spec keys outside the
+  arm.
+- G6 arm (38 names) → `runG6Tool` (`:7995`): 37 inner switch cases
+  plus `derived_data_locate`, handled by the pre-switch early return
+  at `:7996` (`g6DerivedData`) before the switch's `unknownTool`
+  default at `:9370` — 0 unhandled.
+- Computer-use arm (20 names) → `runComputerUseTool` (`:11670`):
+  no per-name switch, by design — it forwards the tool name
+  generically through the `computer_use.request` engine RPC
+  (`"name": tool`) and polls `computer_use.result`, so all 20 are
+  handled by construction.
+- The only other `unknownTool` throws inside `execute()` are the
+  pre-switch guard (`:3843`) and the `use_mcp` recursion
+  (`:4414`, for a delegated MCP tool name that has no registry
+  definition) — both legitimate.
+
+**Defects fixed (0):** no code change. No arm was added: with 0
+missing arms there is nothing to add, and adding arms for symmetry
+would be dead code — the fallback already returns the honest error.
+The definitions array, params, and descriptions are untouched.
+
+**Tests added (0):** docs-only slice. No new arm means no new arm to
+test; the existing `ToolsetTests.swift` coverage of `execute()` is
+unchanged.
+
+**Verification:** static only (no Swift toolchain in this environment,
+as for every slice in this record). Coverage script re-run after the
+final parse (332/332, 0/0/0); brace balance re-checked on both changed
+docs files; full diff read — only the two intended files, only the
+intended hunks; the Slice 136 remote SHA verified against the GitHub
+API (`92cc6f32698235ca9c24d7b2b967cf84f27dc97a`, tree
+`963d7ddd7ebe51dcd6a788835ac0af9dedece72d`, parent
+`33cc12f1cd1161590f84bcb777e3107e742954b2`); the Slice 137 facts below
+spot-checked (program diff 224 files +54,296/−3,595; 17 remaining
+"3,002" hits in `docs/`, all historical; the Slice 134 test function
+closes at `tests/mcp_server.rs:598`; `coincide-mcp-server` holds 19
+`#[test]` attributes). Zero new `//` comments (docs only, no Swift
+changed); no secrets. The local pre-push commit SHA and tree are in
+the slice's push report.
+
+**Mac-gate checks owed:** none new; no code changed, so there is
+nothing to build.
+
 ## Documented, not fixed
 
 Items the audits found, recorded, and deliberately left open. None of
@@ -1466,7 +1566,11 @@ limitation of the audited component, or a question owed to Dylan.
   explained); all 8 open items still accurately documented.
   **Slice 135 re-verification (no commit):** Slice 135 re-verified Slice
   134 read-only and passed it with minors — the one MINOR is a docs
-  staleness, fixed in Slice 136: the Rust test total in
+  staleness, fixed in Slice 136 (remote
+  `92cc6f32698235ca9c24d7b2b967cf84f27dc97a`, tree
+  `963d7ddd7ebe51dcd6a788835ac0af9dedece72d`, parent
+  `33cc12f1cd1161590f84bcb777e3107e742954b2`, verified against the GitHub
+  API by Slice 138): the Rust test total in
   `docs/MAC-GATE.md` still said 3,002, but Slice 134's new test made it
   3,003. The Slice 134 verdict itself stands: sync tree-identical
   (remote `33cc12f1` / tree `27f24342`); the gap is real (zero
@@ -1485,6 +1589,14 @@ limitation of the audited component, or a question owed to Dylan.
   `coincide-mcp-server` 19). The Slice 134 diff touches only the four
   intended files (+147/−14); totals recounted at 30 defects / 28 tests;
   program diff 224 files +54,272/−3,595.
+  **Slice 137 re-verification (no commit):** Slice 137 re-verified Slice
+  136 read-only and passed it with zero findings — sync tree-identical;
+  counts re-measured 3,003 real (2,222 + 736 + 45), `coincide-mcp-server`
+  19; all 17 remaining "3,002" hits in `docs/` verified historical; the
+  Slice 134 test function closes at `tests/mcp_server.rs:598` (Slice 136
+  right, Slice 134's `:599` wrong); program diff at current HEAD 224
+  files +54,296/−3,595. Spot-checked by Slice 138; every fact above
+  confirmed as written.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)
