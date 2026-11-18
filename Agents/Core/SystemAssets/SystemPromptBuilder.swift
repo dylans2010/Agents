@@ -68,15 +68,12 @@ public nonisolated struct SystemPromptBuilder: Sendable {
             }
             return true
         }
-        func appendText(_ text: String, force: Bool) -> Bool {
+        func appendText(_ text: String) -> Bool {
             let normalizedBody = SystemAssetIndex.normalized(text)
             guard !seenBodies.contains(normalizedBody) else {
                 return false
             }
             let cost = max(1, text.count / 4)
-            if !force && usedTokens + cost > maxEstimatedTokens {
-                return false
-            }
             seenBodies.insert(normalizedBody)
             parts.append(text)
             usedTokens += cost
@@ -91,7 +88,7 @@ public nonisolated struct SystemPromptBuilder: Sendable {
             var contributed = false
             if !roleText.isEmpty {
                 let sectionText = name.isEmpty ? roleText : "Assistant \"\(name)\" instructions:\n\(roleText)"
-                if appendText(sectionText, force: true) {
+                if appendText(sectionText) {
                     contributed = true
                 }
             }

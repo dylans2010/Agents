@@ -1819,7 +1819,7 @@ impl Adapter {
         let mut patch = serde_json::Map::new();
         patch.insert("systemPrompt".into(), json!(system_prompt));
         patch.insert("toolset".into(), json!("system"));
-        if let Some(allowed_tools) = allowed_tools {
+        if let Some(allowed_tools) = allowed_tools.filter(|list| !list.is_empty()) {
             patch.insert("allowedTools".into(), json!(allowed_tools));
         }
         self.call(
@@ -2816,6 +2816,29 @@ mod tests {
             .update_stored_prompt(id, "Behave.", Some(&tools))
             .unwrap();
         adapter.update_stored_prompt(id, "Behave differently.", None).unwrap();
+        let (_, document) = adapter.document(id).unwrap();
+        assert_eq!(document["systemPrompt"], "Behave differently.");
+        assert_eq!(document["allowedTools"], json!(["read_file"]));
+    }
+
+    #[test]
+    fn update_stored_prompt_keeps_allowed_tools_when_empty_list_supplied() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let thread = engine.store.new_thread(NO_PROJECT).unwrap();
+        let id = Uuid::parse_str(thread["id"].as_str().unwrap()).unwrap();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let tools = vec!["read_file".to_owned()];
+        adapter
+            .update_stored_prompt(id, "Behave.", Some(&tools))
+            .unwrap();
+        let empty: Vec<String> = vec![];
+        adapter
+            .update_stored_prompt(id, "Behave differently.", Some(&empty))
+            .unwrap();
         let (_, document) = adapter.document(id).unwrap();
         assert_eq!(document["systemPrompt"], "Behave differently.");
         assert_eq!(document["allowedTools"], json!(["read_file"]));
