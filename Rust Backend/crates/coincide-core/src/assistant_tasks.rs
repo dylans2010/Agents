@@ -565,8 +565,8 @@ pub fn due_tasks(document: &AssistantTaskDocument, now: DateTime<Utc>) -> Result
         if !task.is_active() {
             continue;
         }
-        if let Some(reason) = task.trigger.unavailable_reason() {
-            bail!("{reason}");
+        if task.trigger.unavailable_reason().is_some() {
+            continue;
         }
         let stored = task
             .next_run_at
@@ -1002,6 +1002,27 @@ mod tests {
         assert_eq!(due.len(), 1);
         assert_eq!(due[0].task_id, ID);
         assert_eq!(due[0].occurrence, utc(2026, 11, 18, 10, 0).timestamp());
+    }
+
+    #[test]
+    fn due_tasks_skips_active_unavailable_trigger_and_returns_due_timer_task() {
+        let mut document: AssistantTaskDocument =
+            serde_json::from_value(json!({"version": 1, "tasks": []})).unwrap();
+        let mut unavailable =
+            validate_task(&task_json("00000000-0000-4000-8000-000000000006")).unwrap();
+        unavailable.trigger = TriggerKind::GitCommit;
+        unavailable.next_run_at = Some(utc(2026, 11, 18, 10, 0).timestamp());
+        let mut due = validate_task(&task_json(ID)).unwrap();
+        due.next_run_at = Some(utc(2026, 11, 18, 10, 0).timestamp());
+        document.tasks = vec![unavailable, due];
+        let due = due_tasks(&document, utc(2026, 11, 18, 12, 0)).unwrap();
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].task_id, ID);
+        assert_eq!(due[0].occurrence, utc(2026, 11, 18, 10, 0).timestamp());
+        let missed = record_missed_runs(&mut document, utc(2026, 11, 18, 12, 0)).unwrap();
+        assert_eq!(missed, vec![ID.to_string()]);
+        assert!(document.tasks[0].last_outcome.is_none());
+        assert_eq!(document.tasks[0].missed_count, 0);
     }
 
     #[test]
