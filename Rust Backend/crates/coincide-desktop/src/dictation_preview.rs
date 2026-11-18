@@ -246,19 +246,6 @@ impl Coincide {
             .map(|source| source.0)
             .unwrap_or_else(|| self.composer.read(cx).value().to_string())
     }
-    pub(super) fn committed_composer_source(
-        &self,
-        cx: &App,
-    ) -> (String, std::ops::Range<usize>, bool) {
-        self.dictation_original_source(cx).unwrap_or_else(|| {
-            let input = self.composer.read(cx);
-            (
-                input.value().to_string(),
-                input.selected_range(),
-                input.is_selection_reversed(),
-            )
-        })
-    }
     fn restore_owned_dictation_preview(&mut self, cx: &mut Context<Self>) -> bool {
         let Some(preview) = self.voice.preview.take() else {
             return true;

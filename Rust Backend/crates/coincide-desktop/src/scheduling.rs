@@ -492,48 +492,6 @@ impl Coincide {
         }
         self.refresh_schedules(cx);
     }
-    /// Swift's ScheduleActions.confirmDelete: nothing is deleted until the
-    /// user picks Delete, and the guard snapshot is checked again then.
-    fn confirm_schedule_delete(
-        &mut self,
-        id: String,
-        expected: Value,
-        scope_epoch: u64,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self
-            .schedule_editor
-            .delete_prompt
-            .as_ref()
-            .is_some_and(|task| !task.is_ready())
-        {
-            return;
-        }
-        let Some(task) = self.schedules.iter().find(|task| task["id"] == id) else {
-            self.schedule_status = "Schedule no longer exists. Refresh and try again.".into();
-            cx.notify();
-            return;
-        };
-        let (message, detail) =
-            delete_confirmation(&text(task, "name"), task["threadID"].is_string());
-        let answer = window.prompt(
-            PromptLevel::Warning,
-            &message,
-            Some(detail),
-            &["Delete", "Cancel"],
-            cx,
-        );
-        self.schedule_editor.delete_prompt = Some(cx.spawn_in(window, async move |this, cx| {
-            if answer.await.unwrap_or(1) != 0 {
-                return;
-            }
-            this.update(cx, |this, cx| {
-                this.schedule_action(&id, "schedules.delete", &expected, scope_epoch, cx)
-            })
-            .ok();
-        }));
-    }
     pub(super) fn open_schedule_editor(
         &mut self,
         id: Option<&str>,
@@ -1940,55 +1898,6 @@ fn delete_confirmation(name: &str, has_thread: bool) -> (String, &'static str) {
             "Existing threads are kept. A running thread continues until you stop it."
         },
     )
-}
-fn schedule_timing(recurrence: &Value) -> String {
-    let zone = text(recurrence, "timeZoneID");
-    let time = format!(
-        "{:02}:{:02} ({zone})",
-        recurrence["hour"].as_u64().unwrap_or(0),
-        recurrence["minute"].as_u64().unwrap_or(0)
-    );
-    let weekday = |day: u64| {
-        [
-            "Sunday",
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-        ]
-        .get(day.saturating_sub(1) as usize)
-        .copied()
-        .unwrap_or("Unknown day")
-    };
-    match recurrence["kind"].as_str().unwrap_or("") {
-        "once" => format!("Once at {} · {zone}", schedule_date(&recurrence["date"])),
-        "interval" => format!(
-            "Every {} minutes · first run {}",
-            recurrence["intervalMinutes"],
-            schedule_date(&recurrence["date"])
-        ),
-        "daily" => format!("Daily at {time}"),
-        "weekly" => format!(
-            "Every {} at {time}",
-            weekday(recurrence["weekday"].as_u64().unwrap_or(0))
-        ),
-        "weekdays" => format!("Monday–Friday at {time}"),
-        "days" => format!(
-            "{} at {time}",
-            recurrence["weekdays"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(Value::as_u64)
-                .map(weekday)
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
-        "cron" => format!("Cron {} ({zone})", text(recurrence, "cron")),
-        _ => "Unsupported timing".into(),
-    }
 }
 
 #[cfg(test)]

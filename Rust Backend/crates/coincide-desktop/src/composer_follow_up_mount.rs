@@ -698,41 +698,6 @@ impl Coincide {
         }
         menu.into_any_element()
     }
-    pub(super) fn follow_up_pane(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        if !self.follow_up_picker {
-            return None;
-        }
-        let thread = self.selected.as_ref()?;
-        let chosen = choice::selected(thread, &self.settings);
-        let mut pane = div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .child("While the agent works");
-        for behavior in [Behavior::Steer, Behavior::Queue, Behavior::Interrupt] {
-            let unsupported = behavior == Behavior::Steer
-                && !matches!(
-                    thread["selection"]["provider"].as_str(),
-                    Some("codex" | "opencode" | "lithos" | "claude")
-                );
-            pane = pane.child(
-                Button::new(SharedString::from(format!("follow-up-{}", behavior.key())))
-                    .label(behavior.label())
-                    .icon(behavior_icon(behavior))
-                    .selected(chosen == behavior)
-                    .disabled(unsupported)
-                    .tooltip(if unsupported {
-                        "This provider does not support native steering yet"
-                    } else {
-                        behavior_help(behavior)
-                    })
-                    .on_click(
-                        cx.listener(move |this, _, _, cx| this.choose_follow_up(behavior, cx)),
-                    ),
-            );
-        }
-        Some(pane.into_any_element())
-    }
     pub(super) fn choose_follow_up(&mut self, behavior: Behavior, cx: &mut Context<Self>) {
         let Some(id) = self.selected.as_ref().map(|thread| text(thread, "id")) else {
             return;

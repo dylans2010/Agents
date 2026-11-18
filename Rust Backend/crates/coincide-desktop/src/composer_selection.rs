@@ -2509,18 +2509,6 @@ impl Coincide {
         self.selection_ui.pending_model = None;
         self.selection_ui.expanded = false;
     }
-    pub(super) fn retry_selected_account_readiness(&mut self) {
-        if self
-            .selected
-            .as_ref()
-            .is_some_and(named_models::named_thread)
-        {
-            self.selection_ui.capability_cache.invalidate();
-            self.selection_ui.automatic_profile_context = None;
-            self.selection_ui.automatic_profile_attempted_at = None;
-            self.selection_ui.automatic_profile_quiet = None;
-        }
-    }
     pub(super) fn selection_model_changed(&mut self, cx: &mut Context<Self>) {
         if let Some(draft) = self
             .selection_ui
@@ -2542,36 +2530,6 @@ impl Coincide {
             edit(draft);
         }
         cx.notify();
-    }
-    fn reload_selection_draft(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let result = (|| -> Result<Value> {
-            let previous = self
-                .selected
-                .as_ref()
-                .context("Select a conversation first")?;
-            let current = call(
-                &self.engine,
-                "threads.read",
-                json!({"threadId":previous["id"],"itemLimit":0}),
-            )?;
-            refreshed_selection_view(previous, &current)
-        })();
-        match result {
-            Ok(thread) => {
-                let draft = SelectionDraft::from_thread(&thread);
-                self.model_input.update(cx, |input, cx| {
-                    input.set_value(draft.custom.clone(), window, cx)
-                });
-                self.selection_ui.drafts.insert(text(&thread, "id"), draft);
-                self.replace_selected_thread(Some(thread));
-                self.selection_ui.context = None;
-                self.refresh_selection_capabilities(cx);
-            }
-            Err(error) => {
-                self.status = format!("Selection was not reloaded: {error}");
-                cx.notify();
-            }
-        }
     }
     /// Swift's Shift-Tab: flip the open conversation between Plan and Build.
     pub(super) fn toggle_plan_mode(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -2702,132 +2660,6 @@ impl Coincide {
                 cx.notify();
             }
         }
-    }
-    fn clear_saved_effort(
-        &mut self,
-        expected_id: &str,
-        expected_selection: &Value,
-        cx: &mut Context<Self>,
-    ) {
-        let result = (|| -> Result<Value> {
-            let thread = self
-                .selected
-                .as_ref()
-                .context("Select a conversation first")?;
-            let id = text(thread, "id");
-            anyhow::ensure!(
-                id == expected_id && thread["selection"] == *expected_selection,
-                "Effort repair belongs to a previous selection; current draft retained"
-            );
-            let draft = self
-                .selection_ui
-                .drafts
-                .get(&id)
-                .context("Selection draft unavailable")?;
-            anyhow::ensure!(
-                saved_effort_scope(draft, thread),
-                "Saved selection changed; pending choices were retained"
-            );
-            let mut engine = try_state(&self.engine)?;
-            let current = engine.store.thread(&id)?;
-            let capabilities = selection_response(
-                &mut engine,
-                "agent.selection.capabilities",
-                json!({"threadId":id}),
-            )?;
-            let params =
-                repair_clear_params(draft, &current, &capabilities, self.running.contains(&id))?;
-            selection_response(&mut engine, "agent.select", params)
-        })();
-        match result {
-            Ok(mut thread) => {
-                self.preserve_pending_draft(&mut thread);
-                let id = text(&thread, "id");
-                let mut saved = SelectionDraft::from_thread(&thread);
-                if let Some(previous) = self.selection_ui.drafts.get(&id) {
-                    saved.custom = previous.custom.clone();
-                }
-                self.selection_ui.drafts.insert(id, saved);
-                self.replace_selected_thread(Some(thread));
-                self.selection_ui.context = None;
-                self.status="Saved effort explicitly cleared. Other selection fields, message draft and references were retained. No message was sent.".into();
-                if self
-                    .selected
-                    .as_ref()
-                    .is_some_and(|thread| exact_astra_model(&SelectionDraft::from_thread(thread)))
-                {
-                    self.status.push_str(" Model/app default applies only with fresh catalog proof; refresh capabilities before sending.");
-                }
-            }
-            Err(error) => self.status = format!("Saved effort was not cleared: {error}"),
-        }
-        cx.notify();
-    }
-    fn clear_saved_speed_options(
-        &mut self,
-        expected_id: &str,
-        expected_selection: &Value,
-        repair: SpeedRepair,
-        cx: &mut Context<Self>,
-    ) {
-        let result = (|| -> Result<Value> {
-            let thread = self
-                .selected
-                .as_ref()
-                .context("Select a conversation first")?;
-            let id = text(thread, "id");
-            anyhow::ensure!(
-                id == expected_id && thread["selection"] == *expected_selection,
-                "Option repair belongs to a previous selection; current draft retained"
-            );
-            let draft = self
-                .selection_ui
-                .drafts
-                .get(&id)
-                .context("Selection draft unavailable")?;
-            anyhow::ensure!(
-                saved_effort_scope(draft, thread),
-                "Saved selection changed; pending choices were retained"
-            );
-            let mut engine = try_state(&self.engine)?;
-            let current = engine.store.thread(&id)?;
-            let capabilities = selection_response(
-                &mut engine,
-                "agent.selection.capabilities",
-                json!({"threadId":id}),
-            )?;
-            let params = speed_repair_params(
-                draft,
-                &current,
-                &capabilities,
-                self.running.contains(&id),
-                repair,
-            )?;
-            selection_response(&mut engine, "agent.select", params)
-        })();
-        match result {
-            Ok(mut thread) => {
-                self.preserve_pending_draft(&mut thread);
-                let id = text(&thread, "id");
-                let mut saved = SelectionDraft::from_thread(&thread);
-                if let Some(previous) = self.selection_ui.drafts.get(&id) {
-                    saved.custom = previous.custom.clone();
-                }
-                self.selection_ui.drafts.insert(id, saved);
-                self.replace_selected_thread(Some(thread));
-                self.selection_ui.context = None;
-                self.status=match repair {SpeedRepair::Speed=>"Saved speed explicitly cleared to Standard. Other selection fields, message draft and references were retained. No message was sent.",SpeedRepair::Both=>"Saved effort and speed explicitly cleared. Other selection fields, message draft and references were retained. No message was sent."}.into();
-                if matches!(repair, SpeedRepair::Both)
-                    && self.selected.as_ref().is_some_and(|thread| {
-                        exact_astra_model(&SelectionDraft::from_thread(thread))
-                    })
-                {
-                    self.status.push_str(" Model/app default applies only with fresh catalog proof; refresh capabilities before sending.");
-                }
-            }
-            Err(error) => self.status = format!("Saved options were not cleared: {error}"),
-        }
-        cx.notify();
     }
     fn apply_selection_draft(&mut self, cx: &mut Context<Self>) {
         if self.selection_ui.pending_apply.is_some() {
@@ -4052,9 +3884,6 @@ impl Coincide {
     }
     pub(super) fn composer_selection_capabilities(&self) -> &Value {
         &self.selection_ui.capabilities
-    }
-    pub(super) fn composer_selection_expanded(&self) -> bool {
-        self.selection_ui.expanded
     }
     pub(super) fn empty_workspace_welcome(&self, cx: &mut Context<Self>) -> AnyElement {
         div()

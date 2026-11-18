@@ -483,41 +483,6 @@ impl Coincide {
             cx.notify();
         }
     }
-    fn open_composer_file_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.voice.preview.is_some() {
-            self.cancel_composer_dictation(cx);
-        }
-
-        self.sync_composer_file_picker(window, cx);
-        if self.composer_files.binding.is_none() {
-            self.status =
-                "Open a conversation and finish saving its draft before choosing a project file."
-                    .into();
-            cx.notify();
-            return;
-        }
-        if self.composer_files.opened {
-            self.close_composer_file_picker(window, cx);
-            return;
-        }
-        self.composer_files.invalidate();
-        self.composer_files.opened = true;
-        self.composer_files.automatic = false;
-        self.composer_files.trigger = None;
-        let (draft, selection, _) = self.committed_composer_source(cx);
-        let query = query_at_caret(&draft, selection).unwrap_or_default();
-        self.composer_files
-            .query
-            .update(cx, |input, cx| input.set_value(query, window, cx));
-        self.composer_files
-            .query
-            .read(cx)
-            .focus_handle(cx)
-            .focus(window, cx);
-        self.composer_files.status =
-            "Search lists Git project paths only. No file body is read or attached.".into();
-        cx.notify();
-    }
     pub(super) fn close_composer_file_picker(
         &mut self,
         window: &mut Window,
@@ -902,21 +867,6 @@ impl Coincide {
         }
         window.prevent_default();
         cx.stop_propagation();
-    }
-    pub(super) fn composer_file_button(&self, cx: &mut Context<Self>) -> AnyElement {
-        Button::new("composer-project-files")
-            .icon(gpui_kit::assets::IconName::AtSign)
-            .xsmall()
-            .h(px(26.))
-            .accessibility_label("Attach project file reference")
-            .compact()
-            .ghost()
-            .tooltip("Attach a project file path reference; file contents are not read")
-            .disabled(
-                self.file_reference_binding(cx).is_none() || self.composer_files.workers.closed(),
-            )
-            .on_click(cx.listener(|this, _, window, cx| this.open_composer_file_picker(window, cx)))
-            .into_any_element()
     }
     pub(super) fn composer_file_popup(
         &self,

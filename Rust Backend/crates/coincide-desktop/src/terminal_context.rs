@@ -169,58 +169,6 @@ impl TerminalWorkspace {
             }
         }
     }
-    /// Swift's "Send Last Command's Output to Agent" (⇧⌘L): the same bounded
-    /// request and receipt path as a selection, for the frame on screen.
-    pub(super) fn request_last_output(&mut self, key: PaneId, cx: &mut Context<Self>) {
-        let result = (|| -> Result<SelectionRequest> {
-            ensure!(
-                self.visible
-                    && !self.context_pending
-                    && !self.stopping.load(Ordering::Acquire)
-                    && self.ids().contains(&key),
-                "Terminal pane is not available"
-            );
-            let pane = self
-                .panes
-                .get(&key)
-                .ok_or_else(|| anyhow::anyhow!("Terminal pane is unavailable"))?;
-            ensure!(!pane.closing, "Terminal is closing");
-            let terminal = pane
-                .terminal
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("Wait for terminal"))?;
-            let frame = pane
-                .frame
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("Wait for terminal output"))?;
-            ensure!(
-                frame["shell"]["command"].is_string(),
-                "Run a command in this terminal first"
-            );
-            let origin = TerminalPoint { row: 0, col: 0 };
-            Ok(SelectionRequest {
-                thread: self.thread.clone(),
-                pane: key,
-                terminal: terminal.clone(),
-                ticket: pane.ticket,
-                revision: frame["revision"]
-                    .as_u64()
-                    .ok_or_else(|| anyhow::anyhow!("Invalid terminal revision"))?,
-                start: origin,
-                end: origin,
-                last_output: true,
-                epoch: self.context_epoch.clone(),
-                generation: self.context_epoch.load(Ordering::Acquire),
-            })
-        })();
-        match result {
-            Ok(request) => cx.emit(TerminalContextEvent::Requested(request)),
-            Err(error) => {
-                self.notice = error.to_string();
-                cx.notify();
-            }
-        }
-    }
 }
 
 #[cfg(test)]

@@ -183,14 +183,6 @@ impl Engine {
         }
         Ok(())
     }
-    pub fn native_archived_conversations(
-        &self,
-        query: &str,
-        offset: usize,
-        limit: usize,
-    ) -> Result<ArchivedConversations> {
-        self.store.archived_conversations(query, offset, limit)
-    }
     pub fn native_archived_conversations_for_project(
         &self,
         query: &str,

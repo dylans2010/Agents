@@ -108,13 +108,6 @@ public struct RemotePairingPayload: Codable, Hashable, Sendable {
 }
 
 public enum RemoteCrypto {
-    /// `count` random bytes, base64url without padding.
-    public static func randomToken(bytes count: Int = 32) -> String {
-        var generator = SystemRandomNumberGenerator()
-        let bytes = (0..<count).map { _ in UInt8.random(in: .min ... .max, using: &generator) }
-        return base64URL(Data(bytes))
-    }
-
     public static func sha256Hex(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }

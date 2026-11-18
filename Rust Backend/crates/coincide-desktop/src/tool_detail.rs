@@ -1141,14 +1141,6 @@ pub(super) fn code_span_text(
     StyledText::new(text.to_owned()).with_runs(runs)
 }
 
-fn item_text_empty(item_id: &str, app: &super::Coincide) -> bool {
-    app.selected
-        .as_ref()
-        .and_then(|thread| thread["items"].as_array())
-        .and_then(|items| items.iter().find(|item| item["id"] == item_id))
-        .is_none_or(|item| item["text"].as_str().unwrap_or_default().is_empty())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

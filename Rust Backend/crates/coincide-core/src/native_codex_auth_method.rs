@@ -17,9 +17,6 @@ impl PreparedCodexAuthChange {
     pub fn conversation_count(&self) -> usize {
         self.threads.len()
     }
-    pub fn uses_login(&self) -> bool {
-        self.target == Authentication::Login
-    }
 }
 impl Engine {
     pub fn prepare_native_codex_auth_change(

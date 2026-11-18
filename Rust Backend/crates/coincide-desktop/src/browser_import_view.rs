@@ -319,52 +319,6 @@ impl BrowserSettings {
     }
 }
 
-pub(super) fn browser_import_sources(cx: &App) -> impl IntoElement {
-    // Browser Logos collection (alrra/browser-logos, 58881b84); Arc's site favicon.
-    const LOGOS: [(&str, &[u8]); 8] = [
-        ("Chrome", include_bytes!("../assets/browsers/chrome.png")),
-        ("Safari", include_bytes!("../assets/browsers/safari.png")),
-        ("Edge", include_bytes!("../assets/browsers/edge.png")),
-        ("Brave", include_bytes!("../assets/browsers/brave.png")),
-        ("Arc", include_bytes!("../assets/browsers/arc.png")),
-        ("Vivaldi", include_bytes!("../assets/browsers/vivaldi.png")),
-        ("Opera", include_bytes!("../assets/browsers/opera.png")),
-        ("Firefox", include_bytes!("../assets/browsers/firefox.png")),
-    ];
-    static IMAGES: std::sync::OnceLock<[(&str, Arc<gpui_kit::Image>); 8]> =
-        std::sync::OnceLock::new();
-    let images = IMAGES.get_or_init(|| {
-        LOGOS.map(|(name, bytes)| {
-            (
-                name,
-                Arc::new(gpui_kit::Image::from_bytes(
-                    gpui_kit::ImageFormat::Png,
-                    bytes.to_vec(),
-                )),
-            )
-        })
-    });
-    let theme = cx.theme();
-    div()
-        .flex()
-        .flex_wrap()
-        .gap_1p5()
-        .children(images.iter().map(|(name, image)| {
-            div()
-                .flex()
-                .items_center()
-                .gap_1p5()
-                .px_2()
-                .py_1()
-                .rounded_md()
-                .bg(theme.muted)
-                .text_color(theme.foreground)
-                .text_xs()
-                .child(gpui_kit::img(image.clone()).size(px(15.)))
-                .child(*name)
-        }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

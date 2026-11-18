@@ -7,35 +7,6 @@ impl Coincide {
     pub(super) fn pull_requests_panel_open(&self) -> bool {
         self.workspace_open && self.github_open && !self.github_threads_open
     }
-    /// Swift's togglePullRequestsPanel, shared by the toolbar button and the
-    /// palette: shows the PR panel in the inspector, or closes it when shown.
-    pub(super) fn toggle_pull_requests_panel(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let showing = self.pull_requests_panel_open();
-        self.clear_inspector_placeholders();
-        self.session_import_open = false;
-        if showing {
-            self.workspace_open = false;
-        } else {
-            self.workspace_open = true;
-            self.github_open = true;
-            self.github_threads_open = false;
-            self.ensure_inspector_space(window);
-            self.hide_selected_browser_surface(cx);
-            if self.terminal_on_right() {
-                self.terminal_open = false;
-            }
-            self.close_schedule_surface();
-        }
-        self.settings_open = false;
-        self.sync_transcription_binding(cx);
-        self.remember_current_inspector(cx);
-        self.sync_workspace_context(cx);
-        cx.notify();
-    }
     fn workspace_switcher(&self, cx: &mut Context<Self>) -> AnyElement {
         let owner = cx.entity().downgrade();
         let active = if self.github_threads_open {

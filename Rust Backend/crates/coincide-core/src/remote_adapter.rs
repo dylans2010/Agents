@@ -834,10 +834,6 @@ impl Adapter {
         Ok((id, document))
     }
 
-    pub fn require_thread(&self, thread: Uuid) -> Result<(), RemoteError> {
-        self.document(thread).map(|_| ())
-    }
-
     /// The same selection policy used by the desktop composer also validates
     /// phone changes, under the same engine lock as the thread read.
     pub fn update_thread_settings(&self, requested: &ThreadSettings) -> Result<(), RemoteError> {

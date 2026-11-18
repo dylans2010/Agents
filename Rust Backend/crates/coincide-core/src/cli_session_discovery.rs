@@ -35,13 +35,6 @@ pub struct Scan {
     pub incomplete: bool,
 }
 
-pub fn provider_name(provider: ImportProvider) -> &'static str {
-    match provider {
-        ImportProvider::Codex => "codex",
-        ImportProvider::Claude => "claude",
-    }
-}
-
 /// `CLAUDE_CONFIG_DIR`/projects, and `CODEX_HOME`/sessions and archived_sessions,
 /// falling back to `~/.claude` and `~/.codex` as the CLIs do.
 pub fn default_roots(
@@ -271,12 +264,6 @@ pub fn display_name(provider: ImportProvider) -> &'static str {
         ImportProvider::Codex => "Codex",
         ImportProvider::Claude => "Claude Code",
     }
-}
-
-pub fn candidate_json(candidate: &Candidate) -> Value {
-    let modified = chrono::DateTime::<chrono::Utc>::from(candidate.modified).to_rfc3339();
-    json!({"path":candidate.path.to_string_lossy(),"provider":provider_name(candidate.provider),
-        "title":candidate.title,"directory":candidate.directory,"modifiedAt":modified})
 }
 
 #[cfg(test)]

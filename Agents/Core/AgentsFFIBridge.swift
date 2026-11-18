@@ -447,23 +447,6 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         return snapshot
     }
 
-    @discardableResult
-    public func performSettingsAction(id: String) async throws -> RemoteSettingsSnapshot {
-        let res = try await adapterCall(.settingsAction(key: id))
-        guard case .settings(let snapshot) = res else {
-            throw AgentsRuntimeError.unexpectedResult(expected: "settings", actual: "\(res)")
-        }
-        return snapshot
-    }
-
-    public func fetchSettingsDocument(key: String) async throws -> RemoteSettingsDocument {
-        let res = try await adapterCall(.settingsDocument(key: key))
-        guard case .settingsDocument(let doc) = res else {
-            throw AgentsRuntimeError.unexpectedResult(expected: "settingsDocument", actual: "\(res)")
-        }
-        return doc
-    }
-
     public func saveSettingsDocument(_ document: RemoteSettingsDocument) async throws -> RemoteSettingsDocument {
         let res = try await adapterCall(.saveSettingsDocument(document))
         guard case .settingsDocument(let saved) = res else {
@@ -526,16 +509,6 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
             throw AgentsRuntimeError.unexpectedResult(expected: "checkout", actual: "\(res)")
         }
         return checkout
-    }
-
-    public func fetchUsageDashboard(
-        query: RemoteUsageQuery = RemoteUsageQuery()
-    ) async throws -> RemoteUsageDashboard {
-        let res = try await adapterCall(.usageDashboard(query))
-        guard case .usageDashboard(let dashboard) = res else {
-            throw AgentsRuntimeError.unexpectedResult(expected: "usageDashboard", actual: "\(res)")
-        }
-        return dashboard
     }
 
     public func forkThread(_ request: RemoteForkRequest) async throws -> UUID {
@@ -1133,10 +1106,6 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
     }
 
     // 4. Workspace Files, Ripgrep-Speed Search, Read & Write
-    private struct WorkspaceFilesEnvelope: Decodable {
-        var files: [WorkspaceFileEntry]?
-    }
-
     public func listWorkspaceFiles(
         cwd: String,
         query: String = "",
@@ -1597,16 +1566,6 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
             action: "attachments.stage",
             params: params,
             as: StagedAttachment.self
-        )
-    }
-
-    public func removeStagedAttachment(threadID: String, attachmentID: String) async throws {
-        _ = try await engineRPC(
-            method: "attachments.remove",
-            params: [
-                "threadId": .string(threadID),
-                "attachmentId": .string(attachmentID),
-            ]
         )
     }
 

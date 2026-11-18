@@ -334,17 +334,6 @@ public final class AppModel {
         }
     }
 
-    public func shutdownSynchronously() {
-        pollTask?.cancel()
-        pollTask = nil
-        toastDismissTask?.cancel()
-        if let client = runtime {
-            runtime = nil
-            isBootstrapped = false
-            client.closeSynchronously()
-        }
-    }
-
     public func applyAppearanceToNSApp() {
         guard NSApp != nil else { return }
         NSApp.appearance = appearancePreference.nsAppearance

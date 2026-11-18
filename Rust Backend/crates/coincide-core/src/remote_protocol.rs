@@ -652,7 +652,7 @@ pub struct PairResult {
     pub server: ServerInfo,
 }
 
-/// A phone allowed to connect, as Settings lists it (`RemoteDevice`).
+/// A phone allowed to connect, as Settings lists it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Device {

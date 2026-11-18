@@ -537,9 +537,6 @@ pub(super) fn menu_shortcut(settings: &Value, command: Command) -> Option<Shortc
     let shortcut = binding(settings, command).shortcut?;
     (!shortcut.reserved() && resolve(settings, &shortcut) == Some(command)).then_some(shortcut)
 }
-pub(super) fn menu_shortcut_label(settings: &Value, command: Command) -> Option<String> {
-    menu_shortcut(settings, command).map(|shortcut| shortcut.display())
-}
 
 /// The command's shortcut as this platform writes it, for tooltips.
 pub(super) fn shortcut_hint(settings: &Value, command: Command) -> Option<String> {

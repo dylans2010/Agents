@@ -871,18 +871,3 @@ public struct RemoteUsage: Codable, Hashable, Sendable, Identifiable {
         self.checkedAt = checkedAt
     }
 }
-
-/// A phone allowed to connect, as the Mac's Settings list it.
-public struct RemoteDevice: Codable, Hashable, Sendable, Identifiable {
-    public var id: String
-    public var name: String
-    public var pairedAt: Date
-    public var lastSeenAt: Date?
-
-    public init(id: String, name: String, pairedAt: Date = Date(), lastSeenAt: Date? = nil) {
-        self.id = id
-        self.name = name
-        self.pairedAt = pairedAt
-        self.lastSeenAt = lastSeenAt
-    }
-}

@@ -154,15 +154,6 @@ public struct RemoteSidebarOptions: Codable, Hashable, Sendable {
     public static let threadLimits = [10, 20, 50]
 }
 
-/// A project.
-public struct RemoteProjectReference: Codable, Hashable, Sendable {
-    public var projectID: UUID
-
-    public init(projectID: UUID) {
-        self.projectID = projectID
-    }
-}
-
 /// What a project's new threads start with ("Project Defaults…"): the agent and model, permissions and mode, or the
 /// global defaults.
 public struct RemoteProjectDefaults: Codable, Hashable, Sendable {

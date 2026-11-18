@@ -147,13 +147,6 @@ extension View {
             .listRowBackground(Color.clear)
     }
 
-    /// A grouped settings list on the theme's colors: its sidebar tone behind, and cards in its surface color.
-    func themedList(_ theme: Theme) -> some View {
-        listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(theme.isDark ? theme.content : theme.sidebar)
-    }
-
     /// Cards of a grouped list in the theme's raised color, for a `Section`, with switches that read on them.
     func themedCards(_ theme: Theme) -> some View {
         listRowBackground(theme.isDark ? theme.surface : theme.content)

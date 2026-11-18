@@ -398,11 +398,6 @@ impl ScheduleDocument {
     }
 }
 
-/// The native sidebar's calendar snooze choices. This computes dates only;
-/// snoozing never schedules execution or grants provider approval.
-pub fn native_snooze_presets() -> Vec<(&'static str, f64)> {
-    sidebar_snooze_presets(chrono::Local::now())
-}
 fn sidebar_snooze_presets<T: TimeZone>(now: DateTime<T>) -> Vec<(&'static str, f64)> {
     let stamp = |date: DateTime<T>| date.timestamp_millis() as f64 / 1000. - 978307200.;
     let mut result = vec![

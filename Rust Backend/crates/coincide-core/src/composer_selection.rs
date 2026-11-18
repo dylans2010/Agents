@@ -154,9 +154,6 @@ pub(crate) fn validate_thread_with_proof(
     )?
     .preflight()
 }
-pub fn apply_modes(params: &Value, thread: &mut Value) -> Result<()> {
-    apply_modes_with_proof(params, thread, None)
-}
 pub(crate) fn apply_modes_with_proof(
     params: &Value,
     thread: &mut Value,
