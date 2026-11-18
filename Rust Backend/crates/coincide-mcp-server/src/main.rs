@@ -13,6 +13,7 @@ pub struct ServerState {
     pub thread_id: Option<String>,
     pub socket: PathBuf,
     pub assets_dir: Option<PathBuf>,
+    pub control: std::sync::Mutex<coincide_core::control::ControlClient>,
 }
 
 const USAGE: &str = "coincide-mcp-server --cwd <dir> [--thread-id <id>] [--socket <path>] [--assets-dir <dir>]";
@@ -51,11 +52,13 @@ fn parse_args(args: &[String]) -> Result<ServerState, String> {
             .map_err(|error| error.to_string())?
             .join("control.sock"),
     };
+    let control = std::sync::Mutex::new(coincide_core::control::ControlClient::new(socket.clone()));
     Ok(ServerState {
         cwd,
         thread_id,
         socket,
         assets_dir,
+        control,
     })
 }
 

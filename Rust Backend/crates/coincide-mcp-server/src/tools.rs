@@ -7655,11 +7655,12 @@ fn engine_request(
     method: &str,
     params: Value,
 ) -> Result<Value, CallError> {
-    let response = coincide_core::control::request(
-        &state.socket,
-        &json!({"method": method, "params": params}),
-    )
-    .map_err(|error| {
+    let response = state
+        .control
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .call(&json!({"method": method, "params": params}))
+        .map_err(|error| {
         failed(format!(
             "Cannot reach the Agents engine control socket at {}: {error}",
             state.socket.display()

@@ -109,6 +109,8 @@ public final class AppModel {
     @ObservationIgnored private var lastObservedRevision: UInt64 = 0
     @ObservationIgnored private var lastObservedRunningIDs: Set<String> = []
     @ObservationIgnored private var lastObservedAttentionCount: Int = 0
+    @ObservationIgnored private var lastPollActive: Bool = false
+    @ObservationIgnored private var pollFastUntil: Date = .distantPast
 
     /// Lifecycle hooks consumed by `AppDelegate` & `StatusBarController`.
     @ObservationIgnored public var onStatusChanged: (@MainActor (RuntimePollStatus) -> Void)?
@@ -210,6 +212,7 @@ public final class AppModel {
                 self.lastObservedRevision = initialStatus.revision
                 self.lastObservedRunningIDs = Set(initialStatus.runningThreadIDs)
                 self.lastObservedAttentionCount = initialStatus.totalAttentionCount
+                self.lastPollActive = initialStatus.busy || initialStatus.running > 0 || initialStatus.starting > 0 || !initialStatus.runningThreadIDs.isEmpty
                 onStatusChanged?(initialStatus)
             }
 
@@ -235,11 +238,22 @@ public final class AppModel {
         }
     }
 
+    private var pollInterval: Duration {
+        if lastPollActive || Date.now < pollFastUntil {
+            return .milliseconds(150)
+        }
+        return .milliseconds(1000)
+    }
+
+    private func boostPollForNewActivity() {
+        pollFastUntil = Date.now.addingTimeInterval(10)
+    }
+
     private func startPollLoop() {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(150))
+                try? await Task.sleep(for: self?.pollInterval ?? .milliseconds(150))
                 guard !Task.isCancelled, let self else { break }
                 await self.performSinglePollTick()
             }
@@ -249,6 +263,7 @@ public final class AppModel {
     private func performSinglePollTick() async {
         guard let client = runtime else { return }
         guard let polled = try? await client.pollStatus() else { return }
+        lastPollActive = polled.busy || polled.running > 0 || polled.starting > 0 || !polled.runningThreadIDs.isEmpty
         if polled.busy {
             return
         }
@@ -646,6 +661,7 @@ public final class AppModel {
             let outcome = try await client.send(
                 RemoteSendRequest(threadID: targetThread, text: text, images: images, delivery: delivery, systemPrompt: systemPromptText)
             )
+            boostPollForNewActivity()
             await refreshWorkspace()
             if selectedThreadUUID == targetThread {
                 activeTranscript = try? await client.openThread(targetThread)
@@ -661,6 +677,7 @@ public final class AppModel {
         guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
         do {
             try await client.stop(thread: tid)
+            pollFastUntil = .distantPast
             if selectedThreadUUID == tid {
                 activeTranscript = try? await client.openThread(tid)
             }
@@ -699,6 +716,7 @@ public final class AppModel {
         guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
         do {
             try await client.respond(thread: tid, requestID: itemID, optionID: optionID, text: text)
+            boostPollForNewActivity()
             activeTranscript = try? await client.openThread(tid)
             await refreshWorkspace()
         } catch {
@@ -714,6 +732,7 @@ public final class AppModel {
         guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
         do {
             try await client.answer(thread: tid, requestID: itemID, answers: answers)
+            boostPollForNewActivity()
             activeTranscript = try? await client.openThread(tid)
             await refreshWorkspace()
         } catch {

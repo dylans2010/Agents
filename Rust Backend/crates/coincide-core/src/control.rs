@@ -165,24 +165,48 @@ pub fn serve(path: PathBuf, engine: SharedEngine) -> Result<Server> {
             }
             match listener.accept() {
                 Ok((mut stream, _)) => {
-                    let response = (|| -> Result<Value> {
-                        configure_client_stream(&stream)?;
-                        let request = read_frame(&mut stream)?;
-                        let mut engine = engine
-                            .lock()
-                            .map_err(|_| anyhow::anyhow!("Engine lock failed"))?;
-                        Ok(dispatch_command_line(&mut engine, request))
-                    })()
-                    .unwrap_or_else(|e| serde_json::json!({"error":{"message":e.to_string()}}));
-                    if serde_json::to_vec(&response)
-                        .is_ok_and(|bytes| bytes.len() as u64 >= MAX_FRAME)
-                    {
-                        let _ = write_frame(
-                            &mut stream,
-                            &serde_json::json!({"id":response["id"],"error":{"message":"Response exceeds 4 MiB; use itemLimit/itemOffset with threads.read"}}),
-                        );
-                    } else {
-                        let _ = write_frame(&mut stream, &response);
+                    if configure_client_stream(&stream).is_err() {
+                        continue;
+                    }
+                    let Ok(reader_stream) = stream.try_clone() else {
+                        continue;
+                    };
+                    let mut reader = BufReader::new(reader_stream);
+                    let mut first_frame = true;
+                    loop {
+                        match read_frame(&mut reader) {
+                            Ok(request) => {
+                                let response = (|| -> Result<Value> {
+                                    let mut engine = engine
+                                        .lock()
+                                        .map_err(|_| anyhow::anyhow!("Engine lock failed"))?;
+                                    Ok(dispatch_command_line(&mut engine, request))
+                                })()
+                                .unwrap_or_else(|e| serde_json::json!({"error":{"message":e.to_string()}}));
+                                if serde_json::to_vec(&response)
+                                    .is_ok_and(|bytes| bytes.len() as u64 >= MAX_FRAME)
+                                {
+                                    let _ = write_frame(
+                                        &mut stream,
+                                        &serde_json::json!({"id":response["id"],"error":{"message":"Response exceeds 4 MiB; use itemLimit/itemOffset with threads.read"}}),
+                                    );
+                                } else {
+                                    let _ = write_frame(&mut stream, &response);
+                                }
+                                if first_frame {
+                                    first_frame = false;
+                                    let _ = stream
+                                        .set_read_timeout(Some(Duration::from_millis(500)));
+                                }
+                                if stopping.load(Ordering::Relaxed) {
+                                    break;
+                                }
+                                if let Ok(mut engine) = engine.lock() {
+                                    engine.poll();
+                                }
+                            }
+                            Err(_) => break,
+                        }
                     }
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -213,14 +237,70 @@ fn configure_client_stream(stream: &UnixStream) -> Result<()> {
     stream.set_write_timeout(Some(Duration::from_secs(2)))?;
     Ok(())
 }
+pub struct ControlClient {
+    path: PathBuf,
+    #[cfg(unix)]
+    stream: Option<UnixStream>,
+}
+
+impl ControlClient {
+    pub fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            #[cfg(unix)]
+            stream: None,
+        }
+    }
+    #[cfg(unix)]
+    pub fn connect(path: &Path) -> Result<Self> {
+        Ok(Self {
+            path: path.to_owned(),
+            stream: Some(connect_stream(path)?),
+        })
+    }
+    pub fn call(&mut self, request: &Value) -> Result<Value> {
+        #[cfg(unix)]
+        {
+            if self.stream.is_none() {
+                self.stream = Some(connect_stream(&self.path)?);
+            }
+            match self.exchange(request) {
+                Ok(reply) => Ok(reply),
+                Err(_) => {
+                    self.stream = None;
+                    self.stream = Some(connect_stream(&self.path)?);
+                    self.exchange(request)
+                }
+            }
+        }
+        #[cfg(not(unix))]
+        {
+            request(&self.path, request)
+        }
+    }
+    #[cfg(unix)]
+    fn exchange(&mut self, request: &Value) -> Result<Value> {
+        let stream = self
+            .stream
+            .as_mut()
+            .context("Control client is not connected")?;
+        write_frame(stream, request).context("Sending control request")?;
+        read_frame(stream).context("Reading control reply")
+    }
+}
+
 #[cfg(unix)]
-pub fn request(path: &Path, request: &Value) -> Result<Value> {
-    let mut stream =
+fn connect_stream(path: &Path) -> Result<UnixStream> {
+    let stream =
         UnixStream::connect(path).context("Cannot reach the Rust Coincide instance")?;
     stream.set_read_timeout(Some(Duration::from_secs(10)))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
-    write_frame(&mut stream, request).context("Sending control request")?;
-    read_frame(&mut stream).context("Reading control reply")
+    Ok(stream)
+}
+
+#[cfg(unix)]
+pub fn request(path: &Path, request: &Value) -> Result<Value> {
+    ControlClient::connect(path)?.call(request)
 }
 #[cfg(not(any(unix, windows)))]
 pub fn request(_path: &Path, _request: &Value) -> Result<Value> {

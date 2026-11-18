@@ -11,11 +11,12 @@ struct TranscriptScrollView: View {
     @State private var isLoadingEarlier = false
     @State private var isNearBottom = true
     @State private var scrollNonce: Int = 0
+    @State private var blockCache = RenderBlockCache()
 
     private static let bottomAnchorID = "coincide-transcript-bottom-anchor"
 
     private var renderBlocks: [TranscriptRenderBlock] {
-        TranscriptRenderBlock.build(from: transcript)
+        blockCache.blocks(for: transcript)
     }
 
     private var streamingTailSignature: String {
@@ -187,5 +188,23 @@ struct TranscriptScrollView: View {
             }
             .animation(.snappy(duration: 0.18), value: isNearBottom)
         }
+    }
+}
+
+@MainActor
+private final class RenderBlockCache {
+    private var signature: Int?
+    private var blocks: [TranscriptRenderBlock] = []
+
+    func blocks(for transcript: RemoteTranscript) -> [TranscriptRenderBlock] {
+        var hasher = Hasher()
+        hasher.combine(transcript.items)
+        hasher.combine(transcript.turnChanges)
+        let next = hasher.finalize()
+        if signature != next {
+            signature = next
+            blocks = TranscriptRenderBlock.build(from: transcript)
+        }
+        return blocks
     }
 }

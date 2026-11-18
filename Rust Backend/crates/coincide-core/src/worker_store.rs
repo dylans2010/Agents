@@ -161,34 +161,6 @@ pub fn parse_batch_spawn_request(params: &Value) -> Result<(String, Vec<SpawnReq
     Ok((parent_thread_id, requests))
 }
 
-fn load_state(store: &Store) -> Result<(serde_json::Map<String, Value>, serde_json::Map<String, Value>)> {
-    let document = store.document(WORKERS_DOCUMENT)?.unwrap_or(json!({}));
-    let object = document.as_object().cloned().unwrap_or_default();
-    let workers = object
-        .get("workers")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-    let plans = object
-        .get("plans")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-    Ok((workers, plans))
-}
-
-fn save_state(
-    store: &mut Store,
-    workers: &serde_json::Map<String, Value>,
-    plans: &serde_json::Map<String, Value>,
-) -> Result<()> {
-    store.save_document(
-        WORKERS_DOCUMENT,
-        &json!({"version": 1, "workers": workers, "plans": plans}),
-    )?;
-    Ok(())
-}
-
 pub fn worker_record_json(
     id: &str,
     request: &SpawnRequest,
@@ -225,7 +197,6 @@ pub fn insert_record(
     provider: &str,
     transcript_start: usize,
 ) -> Result<Value> {
-    let (mut workers, plans) = load_state(store)?;
     let id = uuid::Uuid::new_v4().to_string();
     let started_at = now_seconds();
     let record = worker_record_json(
@@ -236,14 +207,12 @@ pub fn insert_record(
         transcript_start,
         started_at,
     );
-    workers.insert(id, record.clone());
-    save_state(store, &workers, &plans)?;
+    store.worker_upsert(&id, &record)?;
     Ok(record)
 }
 
 pub fn load_workers(store: &Store) -> Result<Vec<Value>> {
-    let (workers, _) = load_state(store)?;
-    let mut records: Vec<Value> = workers.values().cloned().collect();
+    let mut records: Vec<Value> = store.worker_records()?;
     records.sort_by(|a, b| {
         let ca = a.get("createdAt").and_then(Value::as_f64).unwrap_or(0.0);
         let cb = b.get("createdAt").and_then(Value::as_f64).unwrap_or(0.0);
@@ -253,10 +222,8 @@ pub fn load_workers(store: &Store) -> Result<Vec<Value>> {
 }
 
 pub fn load_worker(store: &Store, id: &str) -> Result<Value> {
-    let (workers, _) = load_state(store)?;
-    workers
-        .get(id)
-        .cloned()
+    store
+        .worker_record(id)?
         .with_context(|| format!("Unknown worker '{id}'"))
 }
 
@@ -266,10 +233,7 @@ pub fn save_worker(store: &mut Store, record: &Value) -> Result<()> {
         .and_then(Value::as_str)
         .context("Worker record has no id")?
         .to_owned();
-    let (mut workers, plans) = load_state(store)?;
-    ensure!(workers.contains_key(&id), "Unknown worker '{id}'");
-    workers.insert(id, record.clone());
-    save_state(store, &workers, &plans)?;
+    ensure!(store.worker_upsert(&id, record)?, "Unknown worker '{id}'");
     Ok(())
 }
 
@@ -493,17 +457,13 @@ pub fn create_plan(store: &mut Store, params: &Value) -> Result<Value> {
     let plan_id = uuid::Uuid::new_v4().to_string();
     let created_at = now_seconds();
     let plan = plan_json(&plan_id, &parent_thread_id, &task, &steps, created_at);
-    let (workers, mut plans) = load_state(store)?;
-    plans.insert(plan_id, plan.clone());
-    save_state(store, &workers, &plans)?;
+    store.worker_plan_upsert(&plan_id, &plan)?;
     Ok(plan)
 }
 
 pub fn load_plan(store: &Store, plan_id: &str) -> Result<Value> {
-    let (_, plans) = load_state(store)?;
-    plans
-        .get(plan_id)
-        .cloned()
+    store
+        .worker_plan(plan_id)?
         .with_context(|| format!("Unknown plan '{plan_id}'"))
 }
 
@@ -545,9 +505,7 @@ pub fn breakdown_plan(store: &mut Store, params: &Value) -> Result<Value> {
         "Breakdown produced too many steps"
     );
     plan["steps"] = Value::Array(expanded);
-    let (workers, mut plans) = load_state(store)?;
-    plans.insert(plan_id, plan.clone());
-    save_state(store, &workers, &plans)?;
+    store.worker_plan_upsert(&plan_id, &plan)?;
     Ok(plan)
 }
 

@@ -2749,6 +2749,28 @@ struct ToolsetTests {
         await client.close()
     }
 
+    @Test("Memory store round-trips per entry and delete leaves siblings")
+    func memoryStorePerEntryRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        _ = try await Self.run("mem_store", arguments: ["key": .string("slice15-alpha"), "value": .string("one")], client: client)
+        _ = try await Self.run("mem_store", arguments: ["key": .string("slice15-beta"), "value": .string("two")], client: client)
+        let retrieved = try await Self.run("mem_retrieve", arguments: ["key": .string("slice15-alpha")], client: client)
+        #expect(retrieved["value"]?.stringValue == "one")
+        let deleted = try await Self.run("mem_delete", arguments: ["key": .string("slice15-alpha")], client: client)
+        #expect(deleted["deleted"]?.boolValue == true)
+        let survivor = try await Self.run("mem_retrieve", arguments: ["key": .string("slice15-beta")], client: client)
+        #expect(survivor["value"]?.stringValue == "two")
+        var deletedRetrieveFailed = false
+        do {
+            _ = try await Self.run("mem_retrieve", arguments: ["key": .string("slice15-alpha")], client: client)
+        } catch {
+            deletedRetrieveFailed = true
+        }
+        #expect(deletedRetrieveFailed)
+        await client.close()
+    }
+
     @Test("Slice 14: invalid Slice 14 arguments are refused before any runtime call")
     func sliceFourteenValidationRefused() async throws {
         let (client, tempRoot) = try Self.makeClient()

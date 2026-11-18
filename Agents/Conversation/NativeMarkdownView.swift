@@ -517,13 +517,21 @@ enum WorkspacePathLinkResolver {
 
 // MARK: - Native Markdown View
 
-public struct NativeMarkdownView: View {
+public struct NativeMarkdownView: View, Equatable {
     public let text: String
     public var fontScale: Double = 1.0
     public var usesSerif: Bool = true
     public var highlightQuery: String = ""
     public var workspaceRoot: String? = nil
     public var onOpenWorkspaceFile: ((String, Int?, Int?) -> Void)? = nil
+
+    public static func == (lhs: NativeMarkdownView, rhs: NativeMarkdownView) -> Bool {
+        lhs.text == rhs.text
+            && lhs.fontScale == rhs.fontScale
+            && lhs.usesSerif == rhs.usesSerif
+            && lhs.highlightQuery == rhs.highlightQuery
+            && lhs.workspaceRoot == rhs.workspaceRoot
+    }
 
     public init(
         text: String,

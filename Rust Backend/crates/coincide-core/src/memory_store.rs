@@ -89,24 +89,6 @@ fn opt_limit(params: &Value, name: &str, default: usize) -> usize {
         .clamp(1, 1000)
 }
 
-fn load_entries(store: &Store) -> Result<serde_json::Map<String, Value>> {
-    let document = store.document(MEMORY_DOCUMENT)?.unwrap_or(json!({}));
-    let mut object = document
-        .as_object()
-        .cloned()
-        .unwrap_or_default();
-    let entries = object
-        .remove("entries")
-        .and_then(|v| v.as_object().cloned())
-        .unwrap_or_default();
-    Ok(entries)
-}
-
-fn save_entries(store: &mut Store, entries: &serde_json::Map<String, Value>) -> Result<()> {
-    store.save_document(MEMORY_DOCUMENT, &json!({"version": 1, "entries": entries}))?;
-    Ok(())
-}
-
 fn entry_json(key: &str, scope: &str, value: &str, updated_at: f64) -> Value {
     json!({
         "key": key,
@@ -134,9 +116,9 @@ fn entry_matches(entry: &Value, query: &str) -> bool {
     key.contains(&needle) || value.contains(&needle)
 }
 
-fn sorted_entries(entries: &serde_json::Map<String, Value>, scope: Option<&str>, query: &str) -> Vec<Value> {
+fn sorted_entries(entries: &[Value], scope: Option<&str>, query: &str) -> Vec<Value> {
     let mut rows: Vec<Value> = entries
-        .values()
+        .iter()
         .filter(|entry| {
             scope.is_none_or(|wanted| entry.get("scope").and_then(Value::as_str) == Some(wanted))
                 && entry_matches(entry, query)
@@ -157,12 +139,9 @@ pub fn store_entry(store: &mut Store, params: &Value) -> Result<Value> {
     let key = validate_key(&req_str(params, "key")?)?;
     let value = validate_value(&req_str(params, "value")?)?;
     let scope = normalize_scope(opt_str(params, "scope").as_deref())?;
-    let mut entries = load_entries(store)?;
     let composite = composite_key(&scope, &key);
-    let overwritten = entries.contains_key(&composite);
     let updated_at = now_seconds();
-    entries.insert(composite, entry_json(&key, &scope, &value, updated_at));
-    save_entries(store, &entries)?;
+    let overwritten = store.memory_upsert(&composite, &scope, &entry_json(&key, &scope, &value, updated_at))?;
     Ok(json!({
         "key": key,
         "scope": scope,
@@ -175,11 +154,9 @@ pub fn store_entry(store: &mut Store, params: &Value) -> Result<Value> {
 pub fn retrieve_entry(store: &Store, params: &Value) -> Result<Value> {
     let key = validate_key(&req_str(params, "key")?)?;
     let scope = normalize_scope(opt_str(params, "scope").as_deref())?;
-    let entries = load_entries(store)?;
     let composite = composite_key(&scope, &key);
-    entries
-        .get(&composite)
-        .cloned()
+    store
+        .memory_entry(&composite)?
         .with_context(|| format!("No memory entry for key \"{key}\" in scope \"{scope}\""))
 }
 
@@ -190,7 +167,7 @@ pub fn list_entries(store: &Store, params: &Value) -> Result<Value> {
     };
     let query = opt_str(params, "query").unwrap_or_default();
     let limit = opt_limit(params, "limit", DEFAULT_LIST_LIMIT);
-    let entries = load_entries(store)?;
+    let entries = store.memory_entries()?;
     let rows = sorted_entries(&entries, scope.as_deref(), &query);
     let total = rows.len();
     let truncated = total > limit;
@@ -205,13 +182,11 @@ pub fn list_entries(store: &Store, params: &Value) -> Result<Value> {
 pub fn delete_entry(store: &mut Store, params: &Value) -> Result<Value> {
     let key = validate_key(&req_str(params, "key")?)?;
     let scope = normalize_scope(opt_str(params, "scope").as_deref())?;
-    let mut entries = load_entries(store)?;
     let composite = composite_key(&scope, &key);
     ensure!(
-        entries.remove(&composite).is_some(),
+        store.memory_delete(&composite)?,
         "No memory entry for key \"{key}\" in scope \"{scope}\""
     );
-    save_entries(store, &entries)?;
     Ok(json!({"key": key, "scope": scope, "deleted": true}))
 }
 
@@ -222,11 +197,7 @@ pub fn clear_scope(store: &mut Store, params: &Value) -> Result<Value> {
         confirmed,
         "mem_clear refuses without confirm=true: clearing a scope is irreversible"
     );
-    let mut entries = load_entries(store)?;
-    let before = entries.len();
-    entries.retain(|_, entry| entry.get("scope").and_then(Value::as_str) != Some(scope.as_str()));
-    let deleted = before - entries.len();
-    save_entries(store, &entries)?;
+    let deleted = store.memory_delete_scope(&scope)?;
     Ok(json!({"scope": scope, "deleted": deleted}))
 }
 
@@ -234,7 +205,7 @@ pub fn snapshot_context(store: &mut Store, params: &Value) -> Result<Value> {
     let scope = normalize_scope(opt_str(params, "scope").as_deref())?;
     let query = opt_str(params, "query").unwrap_or_default();
     let limit = opt_limit(params, "limit", DEFAULT_SNAPSHOT_LIMIT);
-    let mut entries = load_entries(store)?;
+    let entries = store.memory_entries()?;
     let rows = sorted_entries(&entries, Some(&scope), &query);
     let total = rows.len();
     let page: Vec<Value> = rows.into_iter().take(limit).collect();
@@ -251,8 +222,7 @@ pub fn snapshot_context(store: &mut Store, params: &Value) -> Result<Value> {
     });
     let value = serde_json::to_string(&summary)?;
     let composite = composite_key(&scope, &key);
-    entries.insert(composite, entry_json(&key, &scope, &value, stored_at));
-    save_entries(store, &entries)?;
+    store.memory_upsert(&composite, &scope, &entry_json(&key, &scope, &value, stored_at))?;
     Ok(json!({
         "snapshotId": snapshot_id,
         "key": key,
@@ -270,9 +240,8 @@ pub fn context_store(store: &mut Store, params: &Value) -> Result<Value> {
     let action = req_str(params, "action")?;
     match action.as_str() {
         "get" => {
-            let entries = load_entries(store)?;
             let composite = composite_key(&scope, &key);
-            match entries.get(&composite) {
+            match store.memory_entry(&composite)? {
                 Some(entry) => Ok(json!({
                     "key": key,
                     "scope": scope,
@@ -289,12 +258,9 @@ pub fn context_store(store: &mut Store, params: &Value) -> Result<Value> {
         }
         "set" => {
             let value = validate_value(&req_str(params, "value")?)?;
-            let mut entries = load_entries(store)?;
             let composite = composite_key(&scope, &key);
-            let overwritten = entries.contains_key(&composite);
             let updated_at = now_seconds();
-            entries.insert(composite, entry_json(&key, &scope, &value, updated_at));
-            save_entries(store, &entries)?;
+            let overwritten = store.memory_upsert(&composite, &scope, &entry_json(&key, &scope, &value, updated_at))?;
             Ok(json!({
                 "key": key,
                 "scope": scope,
@@ -304,10 +270,8 @@ pub fn context_store(store: &mut Store, params: &Value) -> Result<Value> {
             }))
         }
         "delete" => {
-            let mut entries = load_entries(store)?;
             let composite = composite_key(&scope, &key);
-            let deleted = entries.remove(&composite).is_some();
-            save_entries(store, &entries)?;
+            let deleted = store.memory_delete(&composite)?;
             Ok(json!({"key": key, "scope": scope, "deleted": deleted}))
         }
         other => bail!("Unknown context_persistence_store action \"{other}\": expected get, set, or delete"),

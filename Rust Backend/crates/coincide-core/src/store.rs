@@ -123,6 +123,116 @@ fn draft_revision(db: &Connection, id: &str) -> Result<Option<Vec<u8>>> {
         .optional()?)
 }
 
+fn legacy_document(db: &Connection, name: &str) -> Result<Option<(Value, bool)>> {
+    let from_documents: Option<String> = db
+        .query_row(
+            "SELECT document FROM documents WHERE name=?1",
+            [name],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(document) = from_documents {
+        return Ok(serde_json::from_str(&document)
+            .ok()
+            .map(|value| (value, true)));
+    }
+    let from_original: Option<Vec<u8>> = db
+        .query_row(
+            "SELECT data FROM original_files WHERE path=?1 AND json_valid(CAST(data AS TEXT))",
+            [name],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(from_original
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .map(|value| (value, false)))
+}
+
+fn migrate_memory_entries(db: &mut Connection) -> Result<()> {
+    let count: i64 =
+        db.query_row("SELECT count(*) FROM memory_entries", [], |row| row.get(0))?;
+    if count > 0 {
+        return Ok(());
+    }
+    let Some((document, from_documents)) = legacy_document(db, "memory.json")? else {
+        return Ok(());
+    };
+    let entries = document
+        .get("entries")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    if entries.is_empty() {
+        if from_documents {
+            db.execute("DELETE FROM documents WHERE name='memory.json'", [])?;
+        }
+        return Ok(());
+    }
+    let tx = db.transaction()?;
+    for (composite, entry) in &entries {
+        let scope = entry
+            .get("scope")
+            .and_then(Value::as_str)
+            .unwrap_or("global");
+        tx.execute(
+            "INSERT OR IGNORE INTO memory_entries(composite_key,scope,entry) VALUES (?1,?2,?3)",
+            params![composite.as_str(), scope, entry.to_string()],
+        )?;
+    }
+    if from_documents {
+        tx.execute("DELETE FROM documents WHERE name='memory.json'", [])?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+fn migrate_worker_documents(db: &mut Connection) -> Result<()> {
+    let records: i64 =
+        db.query_row("SELECT count(*) FROM worker_records", [], |row| row.get(0))?;
+    let plan_count: i64 =
+        db.query_row("SELECT count(*) FROM worker_plans", [], |row| row.get(0))?;
+    if records > 0 || plan_count > 0 {
+        return Ok(());
+    }
+    let Some((document, from_documents)) = legacy_document(db, "workers.json")? else {
+        return Ok(());
+    };
+    let workers = document
+        .get("workers")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let plans = document
+        .get("plans")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    if workers.is_empty() && plans.is_empty() {
+        if from_documents {
+            db.execute("DELETE FROM documents WHERE name='workers.json'", [])?;
+        }
+        return Ok(());
+    }
+    let tx = db.transaction()?;
+    for (id, record) in &workers {
+        tx.execute(
+            "INSERT OR IGNORE INTO worker_records(id,record) VALUES (?1,?2)",
+            params![id.as_str(), record.to_string()],
+        )?;
+    }
+    for (id, plan) in &plans {
+        tx.execute(
+            "INSERT OR IGNORE INTO worker_plans(id,plan) VALUES (?1,?2)",
+            params![id.as_str(), plan.to_string()],
+        )?;
+    }
+    if from_documents {
+        tx.execute("DELETE FROM documents WHERE name='workers.json'", [])?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThreadSummary {
     pub id: String,
@@ -403,13 +513,19 @@ impl Store {
             CREATE TABLE IF NOT EXISTS thread_search_pending(id TEXT PRIMARY KEY COLLATE NOCASE);
             CREATE TRIGGER IF NOT EXISTS thread_search_pending_delete AFTER DELETE ON threads BEGIN
               DELETE FROM thread_search_pending WHERE id=OLD.id;
-            END;")?;
+            END;
+            CREATE TABLE IF NOT EXISTS memory_entries(composite_key TEXT PRIMARY KEY, scope TEXT NOT NULL, entry TEXT NOT NULL CHECK(json_valid(entry)));
+            CREATE INDEX IF NOT EXISTS memory_entries_scope ON memory_entries(scope);
+            CREATE TABLE IF NOT EXISTS worker_records(id TEXT PRIMARY KEY, record TEXT NOT NULL CHECK(json_valid(record)));
+            CREATE TABLE IF NOT EXISTS worker_plans(id TEXT PRIMARY KEY, plan TEXT NOT NULL CHECK(json_valid(plan)));")?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
         }
         db.execute_batch("CREATE INDEX IF NOT EXISTS thread_summaries_snooze ON thread_summaries(snoozed_until) WHERE snoozed_until IS NOT NULL;")?;
+        migrate_memory_entries(&mut db)?;
+        migrate_worker_documents(&mut db)?;
         Ok(Self {
             db: Some(db),
             selection_scopes: Default::default(),
@@ -1625,6 +1741,117 @@ impl Store {
         );
         tx.execute("INSERT INTO documents(name,document) VALUES ('bots.json',?1) ON CONFLICT(name) DO UPDATE SET document=excluded.document", [value.to_string()])?;
         tx.commit()?;
+        Ok(())
+    }
+    pub(crate) fn memory_entry(&self, composite: &str) -> Result<Option<Value>> {
+        let entry: Option<String> = self
+            .connection()?
+            .query_row(
+                "SELECT entry FROM memory_entries WHERE composite_key=?1",
+                [composite],
+                |row| row.get(0),
+            )
+            .optional()?;
+        entry
+            .map(|text| serde_json::from_str::<Value>(&text).map_err(anyhow::Error::from))
+            .transpose()
+    }
+    pub(crate) fn memory_upsert(
+        &mut self,
+        composite: &str,
+        scope: &str,
+        entry: &Value,
+    ) -> Result<bool> {
+        let existed: bool = self
+            .connection()?
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM memory_entries WHERE composite_key=?1)",
+                [composite],
+                |row| row.get(0),
+            )?;
+        self.connection_mut()?.execute(
+            "INSERT INTO memory_entries(composite_key,scope,entry) VALUES (?1,?2,?3) ON CONFLICT(composite_key) DO UPDATE SET scope=excluded.scope, entry=excluded.entry",
+            params![composite, scope, entry.to_string()],
+        )?;
+        Ok(existed)
+    }
+    pub(crate) fn memory_delete(&mut self, composite: &str) -> Result<bool> {
+        let removed = self
+            .connection_mut()?
+            .execute("DELETE FROM memory_entries WHERE composite_key=?1", [composite])?;
+        Ok(removed > 0)
+    }
+    pub(crate) fn memory_entries(&self) -> Result<Vec<Value>> {
+        let mut statement = self
+            .connection()?
+            .prepare("SELECT entry FROM memory_entries")?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+        let mut entries = Vec::new();
+        for row in rows {
+            entries.push(serde_json::from_str::<Value>(&row?)?);
+        }
+        Ok(entries)
+    }
+    pub(crate) fn memory_delete_scope(&mut self, scope: &str) -> Result<usize> {
+        Ok(self
+            .connection_mut()?
+            .execute("DELETE FROM memory_entries WHERE scope=?1", [scope])?)
+    }
+    pub(crate) fn worker_record(&self, id: &str) -> Result<Option<Value>> {
+        let record: Option<String> = self
+            .connection()?
+            .query_row(
+                "SELECT record FROM worker_records WHERE id=?1",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        record
+            .map(|text| serde_json::from_str::<Value>(&text).map_err(anyhow::Error::from))
+            .transpose()
+    }
+    pub(crate) fn worker_upsert(&mut self, id: &str, record: &Value) -> Result<bool> {
+        let existed: bool = self
+            .connection()?
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM worker_records WHERE id=?1)",
+                [id],
+                |row| row.get(0),
+            )?;
+        self.connection_mut()?.execute(
+            "INSERT INTO worker_records(id,record) VALUES (?1,?2) ON CONFLICT(id) DO UPDATE SET record=excluded.record",
+            params![id, record.to_string()],
+        )?;
+        Ok(existed)
+    }
+    pub(crate) fn worker_records(&self) -> Result<Vec<Value>> {
+        let mut statement = self
+            .connection()?
+            .prepare("SELECT record FROM worker_records")?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+        let mut records = Vec::new();
+        for row in rows {
+            records.push(serde_json::from_str::<Value>(&row?)?);
+        }
+        Ok(records)
+    }
+    pub(crate) fn worker_plan(&self, id: &str) -> Result<Option<Value>> {
+        let plan: Option<String> = self
+            .connection()?
+            .query_row(
+                "SELECT plan FROM worker_plans WHERE id=?1",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        plan.map(|text| serde_json::from_str::<Value>(&text).map_err(anyhow::Error::from))
+            .transpose()
+    }
+    pub(crate) fn worker_plan_upsert(&mut self, id: &str, plan: &Value) -> Result<()> {
+        self.connection_mut()?.execute(
+            "INSERT INTO worker_plans(id,plan) VALUES (?1,?2) ON CONFLICT(id) DO UPDATE SET plan=excluded.plan",
+            params![id, plan.to_string()],
+        )?;
         Ok(())
     }
 
