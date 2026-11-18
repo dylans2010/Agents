@@ -154,11 +154,11 @@ struct ComputerUseInspectorView: View {
                     Text("\(record.tool) · \(record.startedAt.formatted(date: .abbreviated, time: .shortened))")
                         .font(.callout.bold())
                     if let error = record.error {
-                        Text(error)
+                        Text(OutputRedactionGate.shared.redactedText(error))
                             .foregroundStyle(AppTheme.danger)
                             .font(.callout)
                     } else if let result = record.result {
-                        Text(ComputerUseController.prettyJSON(result))
+                        Text(OutputRedactionGate.shared.redactedText(ComputerUseController.prettyJSON(result)))
                             .font(.system(.callout, design: .monospaced))
                             .textSelection(.enabled)
                     } else if record.timedOut {
@@ -263,7 +263,7 @@ struct ComputerUseInspectorView: View {
                         Text("\(record.tool) · \(record.startedAt.formatted(date: .abbreviated, time: .shortened))")
                             .font(.callout.bold())
                         if let error = record.error {
-                            Text(error)
+                            Text(OutputRedactionGate.shared.redactedText(error))
                                 .foregroundStyle(AppTheme.danger)
                                 .font(.callout)
                         } else if record.result != nil {

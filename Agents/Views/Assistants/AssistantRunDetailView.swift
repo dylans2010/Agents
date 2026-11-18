@@ -218,7 +218,7 @@ struct AssistantRunDetailView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.secondaryLabel)
             } else if let output {
-                Text(outputExpanded ? output : Self.truncatedOutput(output))
+                Text(OutputRedactionGate.shared.redactedText(outputExpanded ? output : Self.truncatedOutput(output)))
                     .font(.system(size: 11.5))
                     .foregroundStyle(AppTheme.primaryLabel)
                     .textSelection(.enabled)
@@ -250,7 +250,7 @@ struct AssistantRunDetailView: View {
                                 .foregroundStyle(AppTheme.secondaryLabel)
                         }
                         if let detailText = item.detail, !detailText.isEmpty {
-                            Text(detailText)
+                            Text(OutputRedactionGate.shared.redactedText(detailText))
                                 .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                                 .lineLimit(2)
@@ -425,7 +425,7 @@ struct AssistantRunDetailView: View {
     private func errorSection(_ error: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionTitle("Error")
-            Text(error)
+            Text(OutputRedactionGate.shared.redactedText(error))
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.warning)
                 .textSelection(.enabled)

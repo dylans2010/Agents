@@ -775,7 +775,7 @@ struct ToolOrReasoningStepRow: View {
             if isDetailOpen && hasExpandableBody {
                 if item.kind == .reasoning {
                     NativeMarkdownView(
-                        text: item.text,
+                        text: OutputRedactionGate.shared.redactedText(item.text),
                         fontScale: max(0.85, appModel.fontScale * 0.94),
                         usesSerif: false,
                         highlightQuery: highlightQuery,
@@ -869,6 +869,10 @@ private struct ToolPayloadBox: View {
 
     @State private var copied = false
 
+    private var displayText: String {
+        OutputRedactionGate.shared.redactedText(text)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -878,7 +882,7 @@ private struct ToolPayloadBox: View {
                 Spacer()
                 Button {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(text, forType: .string)
+                    NSPasteboard.general.setString(displayText, forType: .string)
                     copied = true
                     Task {
                         try? await Task.sleep(for: .seconds(1.4))
@@ -903,7 +907,7 @@ private struct ToolPayloadBox: View {
             ScrollView([.horizontal, .vertical], showsIndicators: true) {
                 if isPatch {
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(text.components(separatedBy: "\n").enumerated()), id: \.offset) { _, line in
+                        ForEach(Array(displayText.components(separatedBy: "\n").enumerated()), id: \.offset) { _, line in
                             Text(line.isEmpty ? " " : line)
                                 .font(AppTheme.codeFont(scale: fontScale, size: 11.5))
                                 .foregroundStyle(patchForeground(for: line))
@@ -916,7 +920,7 @@ private struct ToolPayloadBox: View {
                     .textSelection(.enabled)
                     .padding(.vertical, 4)
                 } else {
-                    Text(text)
+                    Text(displayText)
                         .font(AppTheme.codeFont(scale: fontScale, size: 11.5))
                         .foregroundStyle(AppTheme.primaryLabel)
                         .fixedSize(horizontal: true, vertical: false)
@@ -1014,7 +1018,7 @@ struct AssistantTurnRow: View {
                     // Rich Markdown body
                     if !item.text.isEmpty {
                         NativeMarkdownView(
-                            text: item.text,
+                            text: OutputRedactionGate.shared.redactedText(item.text),
                             fontScale: appModel.fontScale,
                             usesSerif: appModel.usesSerifReplies,
                             highlightQuery: highlightQuery,
@@ -1053,7 +1057,7 @@ struct AssistantTurnRow: View {
                         HStack(spacing: 10) {
                             Button {
                                 NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(item.text, forType: .string)
+                                NSPasteboard.general.setString(OutputRedactionGate.shared.redactedText(item.text), forType: .string)
                                 copiedMarkdown = true
                                 Task {
                                     try? await Task.sleep(for: .seconds(1.5))
@@ -1068,7 +1072,7 @@ struct AssistantTurnRow: View {
                             .help("Copy Markdown reply")
 
                             Button {
-                                let snippet = item.text
+                                let snippet = OutputRedactionGate.shared.redactedText(item.text)
                                     .components(separatedBy: "\n")
                                     .prefix(14)
                                     .map { "> \($0)" }
@@ -1259,7 +1263,7 @@ struct PlanTurnCard: View {
             }
 
             NativeMarkdownView(
-                text: item.text,
+                text: OutputRedactionGate.shared.redactedText(item.text),
                 fontScale: appModel.fontScale,
                 usesSerif: false,
                 highlightQuery: highlightQuery,
@@ -1304,7 +1308,7 @@ struct ErrorTurnCard: View {
                 Spacer()
             }
             if !item.text.isEmpty {
-                Text(item.text)
+                Text(OutputRedactionGate.shared.redactedText(item.text))
                     .font(.system(size: 12.5))
                     .foregroundStyle(AppTheme.primaryLabel)
                     .textSelection(.enabled)
@@ -1329,7 +1333,7 @@ struct ErrorTurnCard: View {
 
                 Button {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(item.text, forType: .string)
+                    NSPasteboard.general.setString(OutputRedactionGate.shared.redactedText(item.text), forType: .string)
                     copiedError = true
                     Task {
                         try? await Task.sleep(for: .seconds(1.4))
@@ -1359,7 +1363,7 @@ struct NoticeTurnRow: View {
     let item: RemoteItem
 
     var body: some View {
-        let message = item.text.isEmpty ? (item.title ?? "") : item.text
+        let message = OutputRedactionGate.shared.redactedText(item.text.isEmpty ? (item.title ?? "") : item.text)
         if !message.isEmpty {
             HStack {
                 Spacer()
@@ -1410,7 +1414,7 @@ struct InlineApprovalHistoryCard: View {
                 }
 
                 if let detail = item.detail, !detail.isEmpty {
-                    Text(detail)
+                    Text(OutputRedactionGate.shared.redactedText(detail))
                         .font(.system(size: 11.5, design: .monospaced))
                         .foregroundStyle(AppTheme.secondaryLabel)
                         .lineLimit(2)
@@ -1455,7 +1459,7 @@ struct InlineQuestionHistoryCard: View {
 
             ForEach(item.questions?.questions ?? []) { q in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(q.prompt)
+                    Text(OutputRedactionGate.shared.redactedText(q.prompt))
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.secondaryLabel)
                     if let ans = item.answers?[q.id], !ans.isEmpty {

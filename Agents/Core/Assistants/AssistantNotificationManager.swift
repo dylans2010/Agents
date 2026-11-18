@@ -205,16 +205,17 @@ public final class AssistantNotificationManager {
         let title = assistantName ?? "Assistant"
         switch worker.status {
         case "completed":
-            let result = (worker.result ?? "")
-                .replacingOccurrences(of: "\n", with: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !result.isEmpty else { return false }
-            let excerpt = result.count > 140 ? String(result.prefix(140)) + "…" : result
+            let result = worker.result ?? ""
+            guard !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+            let excerpt = OutputRedactionGate.shared.notificationExcerpt(for: result)
+            let body = excerpt.isEmpty
+                ? "Findings ready in \(worker.name)."
+                : "Findings ready in \(worker.name): \(excerpt)"
             post(
                 category: .significantFindings,
                 runID: worker.threadId,
                 title: title,
-                body: "Findings ready in \(worker.name): \(excerpt)",
+                body: body,
                 assistantID: assistantID,
                 threadID: worker.threadId
             )

@@ -12,6 +12,10 @@ public struct AssistantResultView: View {
         self.report = report
     }
 
+    private func redacted(_ text: String) -> String {
+        OutputRedactionGate.shared.redactedText(text)
+    }
+
     public var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
@@ -109,7 +113,7 @@ public struct AssistantResultView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "xmark.octagon.fill")
                         .foregroundStyle(AppTheme.danger)
-                    Text(error)
+                    Text(redacted(error))
                         .foregroundStyle(AppTheme.danger)
                 }
                 .font(.system(size: 12))
@@ -170,7 +174,7 @@ public struct AssistantResultView: View {
         if let summary, !summary.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 sectionTitle("Summary", icon: "text.alignleft")
-                Text(summary)
+                Text(redacted(summary))
                     .font(.system(size: 12.5))
                     .foregroundStyle(AppTheme.primaryLabel)
                     .textSelection(.enabled)
@@ -194,12 +198,12 @@ public struct AssistantResultView: View {
                                 .background(Capsule().fill(severityColor(severity).opacity(0.14)))
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(finding.title)
+                            Text(redacted(finding.title))
                                 .font(.system(size: 12.5))
                                 .foregroundStyle(AppTheme.primaryLabel)
                                 .textSelection(.enabled)
                             if let detail = finding.detail, !detail.isEmpty {
-                                Text(detail)
+                                Text(redacted(detail))
                                     .font(.system(size: 12))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                             }
@@ -237,12 +241,12 @@ public struct AssistantResultView: View {
                                 .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                                 .foregroundStyle(AppTheme.accent)
                         }
-                        Text(item.snippet)
+                        Text(redacted(item.snippet))
                             .font(.system(size: 12.5))
                             .foregroundStyle(AppTheme.primaryLabel)
                             .textSelection(.enabled)
                         if let note = item.note, !note.isEmpty {
-                            Text(note)
+                            Text(redacted(note))
                                 .font(.system(size: 12))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                         }
@@ -261,7 +265,7 @@ public struct AssistantResultView: View {
                     HStack(alignment: .top, spacing: 6) {
                         Text("•")
                             .foregroundStyle(AppTheme.tertiaryLabel)
-                        Text(item)
+                        Text(redacted(item))
                             .font(.system(size: 12.5))
                             .foregroundStyle(AppTheme.primaryLabel)
                             .textSelection(.enabled)
@@ -326,7 +330,7 @@ public struct AssistantResultView: View {
                     Text("Changed files unavailable")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryLabel)
-                    Text(reason)
+                    Text(redacted(reason))
                         .font(.system(size: 12))
                         .foregroundStyle(AppTheme.secondaryLabel)
                     if !build.header.targetFiles.isEmpty {
@@ -355,7 +359,7 @@ public struct AssistantResultView: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(testColor(test.outcome))
                         if let detail = test.detail, !detail.isEmpty {
-                            Text(detail)
+                            Text(redacted(detail))
                                 .font(.system(size: 12))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                         }
@@ -407,7 +411,7 @@ public struct AssistantResultView: View {
                                 }
                             }
                             if let detail = activity.detail, !detail.isEmpty {
-                                Text(detail)
+                                Text(redacted(detail))
                                     .font(.system(size: 12))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                                     .lineLimit(3)
@@ -454,7 +458,7 @@ public struct AssistantResultView: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .frame(width: 110, alignment: .leading)
-                        Text(entry.value)
+                        Text(redacted(entry.value))
                             .font(.system(size: 11.5, design: .monospaced))
                             .foregroundStyle(AppTheme.secondaryLabel)
                             .textSelection(.enabled)
@@ -466,7 +470,7 @@ public struct AssistantResultView: View {
 
     private func copyReport() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(report.markdownRepresentation, forType: .string)
+        NSPasteboard.general.setString(redacted(report.markdownRepresentation), forType: .string)
         copyConfirmation = "Report copied"
     }
 

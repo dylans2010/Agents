@@ -669,7 +669,7 @@ struct WorkersInspectorView: View {
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }
                 } else if let result = peekedResult(for: worker) {
-                    Text(resultPeekExpandedIDs.contains(worker.id) ? result : Self.resultPeekText(result))
+                    Text(OutputRedactionGate.shared.redactedText(resultPeekExpandedIDs.contains(worker.id) ? result : Self.resultPeekText(result)))
                         .font(.system(size: 11.5))
                         .foregroundStyle(AppTheme.primaryLabel)
                         .textSelection(.enabled)
@@ -686,7 +686,7 @@ struct WorkersInspectorView: View {
                         .font(.system(size: 11, weight: .medium))
                     }
                     if let peekError = resultPeekErrorByWorker[worker.id] {
-                        Text("Result refresh failed: \(peekError)")
+                        Text("Result refresh failed: \(OutputRedactionGate.shared.redactedText(peekError))")
                             .font(.system(size: 11))
                             .foregroundStyle(AppTheme.warning)
                     }
@@ -695,7 +695,7 @@ struct WorkersInspectorView: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 11))
                             .foregroundStyle(AppTheme.warning)
-                        Text("Couldn’t load the result: \(peekError)")
+                        Text("Couldn’t load the result: \(OutputRedactionGate.shared.redactedText(peekError))")
                             .font(.system(size: 11))
                             .foregroundStyle(AppTheme.secondaryLabel)
                             .lineLimit(2)
