@@ -630,6 +630,188 @@ fn resources_serve_real_asset_files() {
     session.close();
 }
 
+const RETRIEVAL_ALPHA: &str = "# Alpha Guide\n\n## Getting Started\nAlpha tokens live here for the alpha walkthrough.\n\n## Advanced Alpha\nDeep alpha material.\n";
+const RETRIEVAL_BETA: &str = "# Beta Guide\n\n## Getting Started\nBeta tokens live here for the beta walkthrough.\n\n## Advanced Beta\nDeep beta material.\n";
+const RETRIEVAL_GAMMA: &str = "# Gamma Notes\n\n## Overview\nShared token appears in this body text.\n";
+
+fn retrieval_fixtures() -> tempfile::TempDir {
+    let dir = temp_dir("agents-mcp-retrieval");
+    std::fs::write(dir.path().join("Safeguards.md"), "# Safeguards\n").unwrap();
+    std::fs::write(dir.path().join("Identity.md"), "# Identity\n").unwrap();
+    std::fs::write(dir.path().join("Alpha.md"), RETRIEVAL_ALPHA).unwrap();
+    std::fs::write(dir.path().join("Beta.md"), RETRIEVAL_BETA).unwrap();
+    std::fs::write(dir.path().join("Gamma Notes.md"), RETRIEVAL_GAMMA).unwrap();
+    dir
+}
+
+fn search_skills(session: &mut Session, query: &str, limit: u64) -> Value {
+    let text = call_text(
+        session,
+        "search_skills",
+        json!({"query": query, "limit": limit}),
+    );
+    serde_json::from_str(&text).expect("search_skills result parses as JSON")
+}
+
+fn ranked(result: &Value) -> Vec<(String, String, String, i64, String, String)> {
+    result["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| {
+            (
+                entry["documentID"].as_str().unwrap().to_owned(),
+                entry["fileName"].as_str().unwrap().to_owned(),
+                entry["sectionHeading"].as_str().unwrap().to_owned(),
+                entry["score"].as_i64().unwrap(),
+                entry["reason"].as_str().unwrap().to_owned(),
+                entry["text"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn search_skills_matches_canonical_ranking() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let assets = retrieval_fixtures();
+    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    initialize(&mut session);
+    let alpha = search_skills(&mut session, "alpha", 10);
+    assert_eq!(alpha["documentCount"].as_u64().unwrap(), 5);
+    assert_eq!(
+        ranked(&alpha),
+        vec![
+            (
+                "Alpha".to_owned(),
+                "Alpha.md".to_owned(),
+                "Advanced Alpha".to_owned(),
+                72,
+                "phrase".to_owned(),
+                "Advanced Alpha\n\nDeep alpha material.".to_owned(),
+            ),
+            (
+                "Alpha".to_owned(),
+                "Alpha.md".to_owned(),
+                "Getting Started".to_owned(),
+                72,
+                "phrase".to_owned(),
+                "Getting Started\n\nAlpha tokens live here for the alpha walkthrough.".to_owned(),
+            ),
+            (
+                "Alpha".to_owned(),
+                "Alpha.md".to_owned(),
+                "Alpha Guide".to_owned(),
+                71,
+                "phrase".to_owned(),
+                "Alpha Guide\n\n".to_owned(),
+            ),
+        ]
+    );
+    let guide = search_skills(&mut session, "guide", 10);
+    assert_eq!(
+        ranked(&guide),
+        vec![
+            (
+                "Alpha".to_owned(),
+                "Alpha.md".to_owned(),
+                "Alpha Guide".to_owned(),
+                71,
+                "phrase".to_owned(),
+                "Alpha Guide\n\n".to_owned(),
+            ),
+            (
+                "Beta".to_owned(),
+                "Beta.md".to_owned(),
+                "Beta Guide".to_owned(),
+                71,
+                "phrase".to_owned(),
+                "Beta Guide\n\n".to_owned(),
+            ),
+            (
+                "Alpha".to_owned(),
+                "Alpha.md".to_owned(),
+                "Advanced Alpha".to_owned(),
+                5,
+                "keyword".to_owned(),
+                "Advanced Alpha\n\nDeep alpha material.".to_owned(),
+            ),
+            (
+                "Alpha".to_owned(),
+                "Alpha.md".to_owned(),
+                "Getting Started".to_owned(),
+                5,
+                "keyword".to_owned(),
+                "Getting Started\n\nAlpha tokens live here for the alpha walkthrough.".to_owned(),
+            ),
+            (
+                "Beta".to_owned(),
+                "Beta.md".to_owned(),
+                "Advanced Beta".to_owned(),
+                5,
+                "keyword".to_owned(),
+                "Advanced Beta\n\nDeep beta material.".to_owned(),
+            ),
+            (
+                "Beta".to_owned(),
+                "Beta.md".to_owned(),
+                "Getting Started".to_owned(),
+                5,
+                "keyword".to_owned(),
+                "Getting Started\n\nBeta tokens live here for the beta walkthrough.".to_owned(),
+            ),
+        ]
+    );
+    let getting = search_skills(&mut session, "getting started", 10);
+    assert_eq!(
+        ranked(&getting),
+        vec![
+            (
+                "Alpha".to_owned(),
+                "Alpha.md".to_owned(),
+                "Getting Started".to_owned(),
+                80,
+                "exactHeading".to_owned(),
+                "Getting Started\n\nAlpha tokens live here for the alpha walkthrough.".to_owned(),
+            ),
+            (
+                "Beta".to_owned(),
+                "Beta.md".to_owned(),
+                "Getting Started".to_owned(),
+                80,
+                "exactHeading".to_owned(),
+                "Getting Started\n\nBeta tokens live here for the beta walkthrough.".to_owned(),
+            ),
+        ]
+    );
+    session.close();
+}
+
+#[test]
+fn search_skills_full_document_readable_outside_top_results() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let assets = retrieval_fixtures();
+    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    initialize(&mut session);
+    let top = search_skills(&mut session, "alpha", 1);
+    let results = top["results"].as_array().unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["fileName"].as_str().unwrap(), "Alpha.md");
+    assert_eq!(
+        results[0]["resourceUri"].as_str().unwrap(),
+        "agents-asset://Alpha.md"
+    );
+    assert!(results.iter().all(|entry| entry["fileName"] != "Beta.md"));
+    let read = session.request(
+        "resources/read",
+        json!({"uri": "agents-asset://Beta.md"}),
+    );
+    assert!(read.get("error").is_none(), "resources/read failed: {read}");
+    let text = read["result"]["contents"][0]["text"].as_str().unwrap();
+    assert_eq!(text, RETRIEVAL_BETA);
+    session.close();
+}
+
 #[test]
 fn prompts_get_errors_honestly_without_a_stored_prompt() {
     let workspace = temp_dir("agents-mcp-workspace");

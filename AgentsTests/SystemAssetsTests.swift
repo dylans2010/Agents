@@ -332,4 +332,90 @@ struct SystemAssetsTests {
         #expect(viaManager.estimatedTokens == viaBuilder.estimatedTokens)
         #expect(viaManager.includedDocumentIDs.first == "Safeguards")
     }
+
+    private static let retrievalAlpha = "# Alpha Guide\n\n## Getting Started\nAlpha tokens live here for the alpha walkthrough.\n\n## Advanced Alpha\nDeep alpha material.\n"
+    private static let retrievalBeta = "# Beta Guide\n\n## Getting Started\nBeta tokens live here for the beta walkthrough.\n\n## Advanced Beta\nDeep beta material.\n"
+    private static let retrievalGamma = "# Gamma Notes\n\n## Overview\nShared token appears in this body text.\n"
+
+    private static func makeRetrievalFixture() throws -> URL {
+        let temp = Self.makeTemporaryDirectory()
+        try Self.retrievalAlpha.write(to: temp.appendingPathComponent("Alpha.md"), atomically: true, encoding: .utf8)
+        try Self.retrievalBeta.write(to: temp.appendingPathComponent("Beta.md"), atomically: true, encoding: .utf8)
+        try Self.retrievalGamma.write(to: temp.appendingPathComponent("Gamma Notes.md"), atomically: true, encoding: .utf8)
+        return temp
+    }
+
+    @Test("Canonical ranking pins the same results the Rust port must reproduce")
+    func canonicalRankingParityFixture() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        #expect(manager.isReady)
+        #expect(manager.documentCount == 3)
+        let alpha = manager.search("alpha", limit: 10)
+        #expect(alpha.map(\.documentID) == ["Alpha", "Alpha", "Alpha"])
+        #expect(alpha.map(\.fileName) == ["Alpha.md", "Alpha.md", "Alpha.md"])
+        #expect(alpha.map(\.sectionHeading) == ["Advanced Alpha", "Getting Started", "Alpha Guide"])
+        #expect(alpha.map(\.score) == [72, 72, 71])
+        #expect(alpha.map(\.reason) == ["phrase", "phrase", "phrase"])
+        #expect(alpha.map(\.text) == [
+            "Advanced Alpha\n\nDeep alpha material.",
+            "Getting Started\n\nAlpha tokens live here for the alpha walkthrough.",
+            "Alpha Guide\n\n",
+        ])
+        let getting = manager.search("getting started", limit: 10)
+        #expect(getting.map(\.fileName) == ["Alpha.md", "Beta.md"])
+        #expect(getting.map(\.sectionHeading) == ["Getting Started", "Getting Started"])
+        #expect(getting.map(\.score) == [80, 80])
+        #expect(getting.map(\.reason) == ["exactHeading", "exactHeading"])
+    }
+
+    @Test("Two documents sharing a title token both rank")
+    func sharedTitleTokenRanksBothDocuments() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        let guide = manager.search("guide", limit: 10)
+        #expect(guide.map(\.fileName) == ["Alpha.md", "Beta.md", "Alpha.md", "Alpha.md", "Beta.md", "Beta.md"])
+        #expect(guide.map(\.sectionHeading) == ["Alpha Guide", "Beta Guide", "Advanced Alpha", "Getting Started", "Advanced Beta", "Getting Started"])
+        #expect(guide.map(\.score) == [71, 71, 5, 5, 5, 5])
+        #expect(guide.map(\.reason) == ["phrase", "phrase", "keyword", "keyword", "keyword", "keyword"])
+        #expect(Set(guide.map(\.fileName)) == ["Alpha.md", "Beta.md"])
+        #expect(guide.map(\.documentID) == ["Alpha", "Beta", "Alpha", "Alpha", "Beta", "Beta"])
+    }
+
+    @Test("Multi-word queries tokenize before postings lookup")
+    func multiWordQueriesTokenizeBeforePostings() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        let index = try #require(manager.index)
+        #expect(SystemAssetIndex.tokenize("getting-started guide") == ["getting", "started", "guide"])
+        #expect(SystemAssetIndex.tokenize("getting started") == ["getting", "started"])
+        #expect(index.postings(for: "getting started").isEmpty)
+        #expect(index.postings(for: "getting-started").isEmpty)
+        let results = manager.search("getting started", limit: 10)
+        #expect(results.count == 2)
+        #expect(results.allSatisfy { $0.reason == "exactHeading" })
+        #expect(results.allSatisfy { $0.sectionHeading == "Getting Started" })
+    }
+
+    @Test("A document outside the top results stays fully retrievable")
+    func fullDocumentRetrievalOutsideTopResults() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        let top = manager.search("alpha", limit: 1)
+        #expect(top.count == 1)
+        #expect(top.first?.fileName == "Alpha.md")
+        #expect(top.allSatisfy { $0.fileName != "Beta.md" })
+        let beta = try #require(manager.document(fileName: "Beta.md"))
+        #expect(beta.rawText == Self.retrievalBeta)
+        #expect(beta.sections.count == 3)
+        #expect(beta.rawText.contains("Deep beta material."))
+        #expect(beta.sections.map(\.heading) == ["Beta Guide", "Getting Started", "Advanced Beta"])
+        let gamma = try #require(manager.document(fileName: "Gamma Notes.md"))
+        #expect(gamma.rawText == Self.retrievalGamma)
+        #expect(gamma.id == "Gamma Notes")
+    }
 }

@@ -16325,81 +16325,26 @@ fn g6_misc_call(
                     "{name} could not locate the bundled SystemAssets directory."
                 )));
             };
-            let names = crate::assets::list_asset_names(&dir)
-                .map_err(|error| failed(format!("{name} could not list SystemAssets: {error}")))?;
-            let document_count = names.len();
-            let query_lower = query.to_lowercase();
-            let tokens: Vec<&str> = query_lower.split_whitespace().collect();
-            let mut scored: Vec<(i64, Value)> = Vec::new();
-            for file_name in &names {
-                let Ok(content) = crate::assets::read_asset_text(&dir, file_name) else {
-                    continue;
-                };
-                let lower = content.to_lowercase();
-                let mut title = String::new();
-                let mut section_heading = String::new();
-                let mut heading_path: Vec<String> = Vec::new();
-                for line in content.lines() {
-                    let trimmed = line.trim();
-                    if let Some(rest) = trimmed.strip_prefix("# ") {
-                        if title.is_empty() {
-                            title = rest.trim().to_owned();
-                        }
-                    } else if let Some(rest) = trimmed.strip_prefix("## ") {
-                        if section_heading.is_empty() {
-                            section_heading = rest.trim().to_owned();
-                            heading_path.push(section_heading.clone());
-                        }
-                    }
-                }
-                if title.is_empty() {
-                    title = file_name
-                        .strip_suffix(".md")
-                        .unwrap_or(file_name)
-                        .to_owned();
-                }
-                if section_heading.is_empty() {
-                    section_heading = title.clone();
-                }
-                let mut score: i64 = 0;
-                for token in &tokens {
-                    if file_name.to_lowercase().contains(*token) {
-                        score += 5;
-                    }
-                    if title.to_lowercase().contains(*token) {
-                        score += 10;
-                    }
-                    if section_heading.to_lowercase().contains(*token) {
-                        score += 5;
-                    }
-                    score += lower.matches(*token).count() as i64;
-                }
-                if score > 0 {
-                    let truncated = content.chars().count() > 2000;
-                    let text: String = content.chars().take(2000).collect();
-                    scored.push((
-                        score,
-                        json!({
-                            "documentID": file_name.strip_suffix(".md").unwrap_or(file_name),
-                            "fileName": file_name,
-                            "title": title,
-                            "sectionHeading": section_heading,
-                            "headingPath": heading_path,
-                            "text": text,
-                            "truncated": truncated,
-                            "score": score,
-                            "reason": "token match",
-                        }),
-                    ));
-                }
-            }
-            scored.sort_by(|a, b| b.0.cmp(&a.0));
-            let results: Vec<Value> = scored.into_iter().take(limit).map(|(_, value)| value).collect();
+            let outcome = crate::system_assets_search::search(&dir, &query, limit)
+                .map_err(|error| failed(format!("{name} could not search SystemAssets: {error}")))?;
             Ok(json!({
                 "query": query,
                 "searched": "bundled SystemAssets index",
-                "documentCount": document_count,
-                "results": results,
+                "documentCount": outcome.document_count,
+                "results": outcome.results.iter().map(|result| {
+                    json!({
+                        "documentID": result.document_id,
+                        "fileName": result.file_name,
+                        "title": result.title,
+                        "sectionHeading": result.section_heading,
+                        "headingPath": result.heading_path,
+                        "text": result.text.chars().take(2000).collect::<String>(),
+                        "truncated": result.text.chars().count() > 2000,
+                        "score": result.score,
+                        "reason": result.reason,
+                        "resourceUri": crate::assets::asset_uri(&result.file_name),
+                    })
+                }).collect::<Vec<Value>>(),
             }))
         }
         "plan-AskUser" => {

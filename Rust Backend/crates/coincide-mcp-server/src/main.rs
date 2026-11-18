@@ -1,5 +1,6 @@
 mod assets;
 mod protocol;
+mod system_assets_search;
 mod tools;
 
 use std::{
