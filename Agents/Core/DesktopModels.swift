@@ -632,6 +632,7 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
     public var probeAccountId: String?
     public var probeProtocolVersion: Int?
     public var probeAuthMethods: [String]
+    public var probeErrorCode: Int?
 
     public init(
         provider: String,
@@ -650,7 +651,8 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
         probeUsedKey: Bool = false,
         probeAccountId: String? = nil,
         probeProtocolVersion: Int? = nil,
-        probeAuthMethods: [String] = []
+        probeAuthMethods: [String] = [],
+        probeErrorCode: Int? = nil
     ) {
         self.provider = provider
         self.ok = ok
@@ -669,6 +671,7 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
         self.probeAccountId = probeAccountId
         self.probeProtocolVersion = probeProtocolVersion
         self.probeAuthMethods = probeAuthMethods
+        self.probeErrorCode = probeErrorCode
     }
 
     public init(from decoder: Decoder) throws {
@@ -694,6 +697,7 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
             self.probeAccountId = probe["accountId"]?.stringValue
             self.probeProtocolVersion = probe["protocolVersion"]?.intValue
             self.probeAuthMethods = probe["authMethods"]?.arrayValue?.compactMap { $0.stringValue } ?? []
+            self.probeErrorCode = probe["errorCode"]?.intValue
             if self.executablePath == nil {
                 self.executablePath = probe["executable"]?.stringValue
             }
@@ -711,6 +715,7 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
             self.probeAccountId = nil
             self.probeProtocolVersion = nil
             self.probeAuthMethods = []
+            self.probeErrorCode = nil
         }
         if let probeState = self.probeState {
             self.ok = probeState == "handshakeOk" || probeState == "authenticated"

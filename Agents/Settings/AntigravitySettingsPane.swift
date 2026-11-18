@@ -267,7 +267,7 @@ public struct AntigravitySettingsPane: View {
                 accountID: live.probeAccountId,
                 protocolVersion: live.probeProtocolVersion,
                 authMethods: live.probeAuthMethods,
-                errorCode: nil,
+                errorCode: live.probeErrorCode,
                 checkedAt: probeRanAt,
                 handshakeVerified: state == "handshakeOk" || state == "authenticated",
                 authenticationVerified: state == "authenticated" && live.probeUsedKey
@@ -481,6 +481,7 @@ public struct AntigravitySettingsPane: View {
         isProbing = true
         defer { isProbing = false }
         do {
+            let probeStartedAt = Date()
             let res = try await runtime.checkProvider(provider: "antigravity", probe: true, accountID: accountID)
             self.probeResult = res
             self.probeRanAt = Date()
@@ -489,7 +490,8 @@ public struct AntigravitySettingsPane: View {
                recorded.probeState == res.probeState,
                let recordedAt = recorded.probeCheckedAt,
                let ranAt = probeRanAt,
-               recordedAt >= ranAt.addingTimeInterval(-120) {
+               recordedAt >= probeStartedAt.addingTimeInterval(-5),
+               recordedAt <= ranAt {
                 self.probeResult = nil
                 self.probeRanAt = nil
             }

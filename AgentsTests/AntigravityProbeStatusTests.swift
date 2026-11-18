@@ -101,6 +101,7 @@ struct AntigravityProbeStatusTests {
         #expect(result.probeAccountId == nil)
         #expect(result.probeProtocolVersion == 1)
         #expect(result.probeAuthMethods == ["gemini-api-key"])
+        #expect(result.probeErrorCode == nil)
     }
 
     @Test("Rejected probe result decodes not ok with the server detail")
@@ -117,6 +118,7 @@ struct AntigravityProbeStatusTests {
         #expect(result.probeAccountId == nil)
         #expect(result.probeProtocolVersion == 1)
         #expect(result.probeAuthMethods == ["gemini-api-key"])
+        #expect(result.probeErrorCode == -32001)
     }
 
     @Test("Probe result without a probe decodes empty probe fields")
@@ -131,6 +133,7 @@ struct AntigravityProbeStatusTests {
         #expect(result.probeAccountId == nil)
         #expect(result.probeProtocolVersion == nil)
         #expect(result.probeAuthMethods.isEmpty)
+        #expect(result.probeErrorCode == nil)
     }
 
     @Test("Authenticated probe result decodes used key and account id")
