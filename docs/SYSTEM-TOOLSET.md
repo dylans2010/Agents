@@ -53,7 +53,7 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 
 ## The 332-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 332 tools, 63 distinct actions: several tools share one action (`workspace.read_file` x59, `terminal.create` x60, `workspace.write_file` x46, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x4, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 38 single-tool actions).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 332 tools, 63 distinct actions: several tools share one action (`workspace.read_file` x59, `terminal.create` x60, `workspace.write_file` x47, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x4, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x4, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 38 single-tool actions).
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -148,10 +148,10 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `git_branch_compare` | `git.diff.range` | engine | Engine `git.diff.range`, async workspace channel polled via `workspace.result` |
 | `project_diff` | `git.diff` | engine | Engine `git.diff`, async workspace channel polled via `workspace.result` |
 | `git_branch_manager` | `git.branches.list` | engine | Dispatches on `action`: list/create/checkout/delete via Engine `git.branches.*`, polled via `git.actions.result`; delete requires `confirm=true` |
-| `save_to_memory` | `memory.store` | engine | Engine RPC `memory.store` on the live engine |
-| `use_mcp` | `mcp.tools` | engine | Meta-tool over the live registry: `list` / `list_tools` / recursive `SystemToolRegistry.execute`; only the `coincide` server exists |
+| `save_to_memory` | `memory.store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::store_entry` (SQLite `memory.json`) |
+| `use_mcp` | `mcp.tools` | desktop | Local meta-tool over the live registry: `list` / `list_tools` / recursive `SystemToolRegistry.execute`; only the `coincide` server exists |
 | `take_screenshot` | `computer_use.request` | engine | Engine `computer_use.request` (`get_desktop_state` with `include_screenshot`), polled via `computer_use.result`; FFI Pump drains it into the native macOS executor |
-| `start_subagent` | `workers.spawn` | engine | Engine RPC `workers.spawn` on the live engine (alias of `use_workers`) |
+| `start_subagent` | `workers.spawn` | desktop | FFI `workers.*` arm -> `Engine::workers_spawn` (record in SQLite `workers.json`) (alias of `use_workers`) |
 | `git_stash_operator` | `git.stash` | engine | Engine `git.stash` (`workspace_git::stash` on the hardened `git()` runner), polled via `workspace.result`; pop/drop require `confirm=true` |
 | `git_blame_inspector` | `git.blame` | engine | Engine `git.blame` (`git blame --line-porcelain`), polled via `workspace.result` |
 | `git_bisect` | `git.bisect` | engine | Engine `git.bisect` (start/good/bad/skip/reset/log), polled via `workspace.result` |

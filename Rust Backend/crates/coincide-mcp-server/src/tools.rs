@@ -1798,7 +1798,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
     ToolDef {
         name: "code_insert",
         description: "Insert code into a file at a 1-based line, or before or after a pattern that must match exactly once.",
-        action: "workspace.edit_file",
+        action: "workspace.write_file",
         channel: "desktop",
         params: &[
             ToolParam {
