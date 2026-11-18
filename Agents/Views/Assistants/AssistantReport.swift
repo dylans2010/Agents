@@ -6,13 +6,15 @@ public enum AssistantReportStatus: String, Codable, Hashable, Sendable {
     case failed
     case cancelled
     case running
+    case unknown
 
     public init(workerStatus: String) {
         switch workerStatus.lowercased() {
         case "completed": self = .completed
         case "failed": self = .failed
         case "cancelled": self = .cancelled
-        default: self = .running
+        case "running": self = .running
+        default: self = .unknown
         }
     }
 
@@ -22,6 +24,7 @@ public enum AssistantReportStatus: String, Codable, Hashable, Sendable {
         case .failed: return "Failed"
         case .cancelled: return "Cancelled"
         case .running: return "Running"
+        case .unknown: return "Unknown"
         }
     }
 }
@@ -415,6 +418,10 @@ extension AssistantReport {
             if let reason = report.diffAvailability.unavailableReason {
                 lines.append("")
                 lines.append("Changed files unavailable: \(reason)")
+            }
+            if report.diffAvailability == .confirmedNoChanges {
+                lines.append("")
+                lines.append("No files were changed by this run.")
             }
             if !report.testsRun.isEmpty {
                 lines.append("")

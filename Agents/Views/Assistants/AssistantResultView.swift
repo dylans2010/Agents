@@ -144,6 +144,7 @@ public struct AssistantResultView: View {
         case .failed: color = AppTheme.danger
         case .cancelled: color = AppTheme.warning
         case .running: color = AppTheme.accent
+        case .unknown: color = AppTheme.secondaryLabel
         }
         return Text(status.displayName)
             .font(.system(size: 11, weight: .semibold))
@@ -214,10 +215,10 @@ public struct AssistantResultView: View {
         }
     }
 
-    private func severityColor(_ severity: AssistantFindingSeverity) -> Color {
+    func severityColor(_ severity: AssistantFindingSeverity) -> Color {
         switch severity {
         case .critical: return AppTheme.danger
-        case .high: return Color(nsColor: .systemOrange)
+        case .high: return AppTheme.warning
         case .medium: return AppTheme.warning
         case .low: return AppTheme.info
         case .info: return AppTheme.secondaryLabel

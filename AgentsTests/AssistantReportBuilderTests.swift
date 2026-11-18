@@ -1,3 +1,4 @@
+import AppKit
 import CoincideRemoteKit
 import Foundation
 import Testing
@@ -404,6 +405,142 @@ struct AssistantReportBuilderTests {
         #expect(analysis.evidence[0].file == "Sources/Auth.swift")
         #expect(analysis.evidence[0].line == 42)
         #expect(analysis.evidence[0].snippet == "token stored in plaintext")
+    }
+
+    @Test("A findings-only result yields a nil summary instead of raw heading text")
+    func findingsOnlyResultYieldsNilSummary() {
+        let result = """
+            ## Findings
+            - Low: Unused import in Sources/Util.swift:3
+            - Critical: Hardcoded secret in Sources/Config.swift:17
+            """
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(result: result),
+            definition: Self.makeDefinition(category: .codeReviewSecurity)
+        ))
+        guard case .review(let review) = report else {
+            Issue.record("Expected a review report")
+            return
+        }
+        #expect(review.summary == nil)
+        #expect(review.findings.count == 2)
+        #expect(!report.markdownRepresentation.contains("## Summary"))
+        #expect(report.markdownRepresentation.contains("## Findings"))
+    }
+
+    @Test("Repeated headings merge instead of dropping the first section")
+    func duplicateHeadingsMergeSections() {
+        let result = """
+            ## Findings
+            - Low: First finding in Sources/A.swift:1
+            ## Findings
+            - High: Second finding in Sources/B.swift:2
+            """
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(result: result),
+            definition: Self.makeDefinition(category: .codeReviewSecurity)
+        ))
+        guard case .review(let review) = report else {
+            Issue.record("Expected a review report")
+            return
+        }
+        #expect(review.findings.count == 2)
+        #expect(review.findings.map(\.title).contains("First finding in"))
+        #expect(review.findings.map(\.title).contains("Second finding in"))
+        #expect(review.findings.map(\.file).contains("Sources/A.swift"))
+        #expect(review.findings.map(\.file).contains("Sources/B.swift"))
+    }
+
+    @Test("Root-level file refs parse without a slash in the path")
+    func rootLevelFileRefsParse() {
+        let result = """
+            ## Findings
+            - Critical: Hardcoded secret in Package.swift:10
+            - Low: Outdated link in README.md:3
+            """
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(result: result),
+            definition: Self.makeDefinition(category: .codeReviewSecurity)
+        ))
+        guard case .review(let review) = report else {
+            Issue.record("Expected a review report")
+            return
+        }
+        #expect(review.findings.count == 2)
+        #expect(review.findings[0].file == "Package.swift")
+        #expect(review.findings[0].line == 10)
+        #expect(review.findings[1].file == "README.md")
+        #expect(review.findings[1].line == 3)
+    }
+
+    @Test("High severity uses the AppTheme warning color")
+    func highSeverityUsesAppThemeWarning() {
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(),
+            definition: Self.makeDefinition(category: .codeReviewSecurity)
+        ))
+        let view = AssistantResultView(report: report)
+        #expect(NSColor(view.severityColor(.high)) == NSColor(AppTheme.warning))
+        #expect(NSColor(view.severityColor(.medium)) == NSColor(AppTheme.warning))
+    }
+
+    @Test("Build markdown states no files were changed when the diff confirms it")
+    func buildMarkdownStatesNoChangesWhenConfirmed() {
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(),
+            definition: Self.makeDefinition(category: .buildingFixing, permissionProfile: .workspaceModify),
+            diff: RemoteDiff(title: "Uncommitted", files: [])
+        ))
+        guard case .build(let build) = report else {
+            Issue.record("Expected a build report")
+            return
+        }
+        #expect(build.diffAvailability == .confirmedNoChanges)
+        #expect(report.markdownRepresentation.contains("No files were changed by this run."))
+    }
+
+    @Test("An empty turn changed files list confirms no modifications when no diff is supplied")
+    func emptyTurnChangedFilesConfirmsNoModifications() {
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(result: "Reviewed."),
+            definition: Self.makeDefinition(category: .codeReviewSecurity),
+            turnChangedFiles: []
+        ))
+        guard case .review(let review) = report else {
+            Issue.record("Expected a review report")
+            return
+        }
+        #expect(review.noModificationsConfirmed)
+        #expect(report.markdownRepresentation.contains("No workspace modifications were made by this run."))
+    }
+
+    @Test("A non-empty turn changed files list does not confirm no modifications")
+    func nonEmptyTurnChangedFilesDoesNotConfirmNoModifications() {
+        let changed = [RemoteChangedFile(path: "Sources/Auth.swift", status: "modified", additions: 1, deletions: 0)]
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(result: "Reviewed."),
+            definition: Self.makeDefinition(category: .codeReviewSecurity),
+            turnChangedFiles: changed
+        ))
+        guard case .review(let review) = report else {
+            Issue.record("Expected a review report")
+            return
+        }
+        #expect(!review.noModificationsConfirmed)
+    }
+
+    @Test("An unfamiliar worker status maps to unknown, never running")
+    func unfamiliarWorkerStatusMapsToUnknown() {
+        #expect(AssistantReportStatus(workerStatus: "queued") == .unknown)
+        #expect(AssistantReportStatus(workerStatus: "queued").displayName == "Unknown")
+        #expect(AssistantReportStatus(workerStatus: "running") == .running)
+        #expect(AssistantReportStatus(workerStatus: "completed") == .completed)
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(status: "queued"),
+            definition: Self.makeDefinition(category: .codeReviewSecurity)
+        ))
+        #expect(report.header.status == .unknown)
+        #expect(report.markdownRepresentation.contains("Status: Unknown"))
     }
 
     @Test("A missing result yields no summary and no invented sections")

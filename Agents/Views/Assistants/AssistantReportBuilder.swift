@@ -129,6 +129,9 @@ public enum AssistantReportBuilder {
         if let diff = input.diff {
             return diff.files.isEmpty
         }
+        if let changed = input.turnChangedFiles {
+            return changed.isEmpty
+        }
         return false
     }
 
@@ -186,7 +189,7 @@ enum AssistantResultTextParser {
         let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return parsed }
         let sections = splitSections(trimmed)
-        parsed.summary = summary(from: sections, wholeText: trimmed)
+        parsed.summary = summary(from: sections)
         if let findingsText = sections["findings"] {
             parsed.findings = parseFindings(findingsText)
         }
@@ -208,8 +211,11 @@ enum AssistantResultTextParser {
         var preamble: [String] = []
         for line in text.components(separatedBy: .newlines) {
             if let heading = headingText(line) {
-                currentKey = heading.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-                sections[currentKey ?? ""] = []
+                let key = heading.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                currentKey = key
+                if sections[key] == nil {
+                    sections[key] = []
+                }
             } else if let key = currentKey {
                 sections[key, default: []].append(line)
             } else {
@@ -243,14 +249,14 @@ enum AssistantResultTextParser {
         return paragraphs.first
     }
 
-    private static func summary(from sections: [String: String], wholeText: String) -> String? {
+    private static func summary(from sections: [String: String]) -> String? {
         if let summaryText = sections["summary"], let paragraph = firstParagraph(summaryText) {
             return paragraph
         }
         if let preamble = sections[""], let paragraph = firstParagraph(preamble) {
             return paragraph
         }
-        return firstParagraph(wholeText)
+        return nil
     }
 
     private static func entries(in section: String?) -> [String] {
@@ -377,7 +383,7 @@ enum AssistantResultTextParser {
             guard let colon = candidate.lastIndex(of: ":") else { continue }
             let path = String(candidate[..<colon])
             let number = String(candidate[candidate.index(after: colon)...])
-            guard !path.isEmpty, path.contains("/"), let lineNumber = Int(number) else { continue }
+            guard !path.isEmpty, let lineNumber = Int(number) else { continue }
             var remaining = words
             remaining.remove(at: index)
             let title = remaining.joined(separator: " ").trimmingCharacters(in: .whitespaces)
