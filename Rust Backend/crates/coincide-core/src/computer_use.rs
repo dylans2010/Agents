@@ -770,24 +770,6 @@ pub enum Extended {
         region: [f64; 4],
     },
 }
-impl Extended {
-    pub fn tool(&self) -> &'static str {
-        match self {
-            Self::DoubleClick(_) => "double_click",
-            Self::RightClick(_) => "right_click",
-            Self::Scroll { .. } => "scroll",
-            Self::MoveCursor { .. } => "move_cursor",
-            Self::Drag { .. } => "drag",
-            Self::TypeText { .. } => "type_text",
-            Self::Hotkey { .. } => "hotkey",
-            Self::InvokeMenu { .. } => "invoke_menu",
-            Self::LaunchApp { .. } => "launch_app",
-            Self::SetWindowFrame { .. } => "set_window_frame",
-            Self::DesktopScreenshot => "get_desktop_state",
-            Self::Zoom { .. } => "zoom",
-        }
-    }
-}
 pub enum NativeResult {
     Data(Value),
     Snapshot(Snapshot),

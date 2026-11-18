@@ -7826,9 +7826,7 @@ fn with_session_defaults(state: &crate::ServerState, mut args: Value) -> Value {
     {
         object.insert("cwd".to_owned(), json!(cwd));
     }
-    if !object.contains_key("threadId")
-        && let Some(thread_id) = &state.thread_id
-    {
+    if let Some(thread_id) = &state.thread_id {
         object.insert("threadId".to_owned(), json!(thread_id));
     }
     args
@@ -21327,5 +21325,39 @@ mod tests {
                 assert_eq!(param.description, *description, "param description");
             }
         }
+    }
+
+    #[test]
+    fn session_thread_identity_wins_over_model_supplied_thread_id() {
+        let state = crate::ServerState {
+            cwd: std::path::PathBuf::from("/tmp"),
+            thread_id: Some("session-thread".to_owned()),
+            socket: std::path::PathBuf::from("/tmp/control.sock"),
+            assets_dir: None,
+            control: std::sync::Mutex::new(coincide_core::control::ControlClient::new(
+                std::path::PathBuf::from("/tmp/control.sock"),
+            )),
+        };
+        assert_eq!(
+            with_session_defaults(&state, json!({"threadId": "another-thread"}))["threadId"],
+            "session-thread"
+        );
+        assert_eq!(
+            with_session_defaults(&state, json!({}))["threadId"],
+            "session-thread"
+        );
+        let unbound = crate::ServerState {
+            cwd: std::path::PathBuf::from("/tmp"),
+            thread_id: None,
+            socket: std::path::PathBuf::from("/tmp/control.sock"),
+            assets_dir: None,
+            control: std::sync::Mutex::new(coincide_core::control::ControlClient::new(
+                std::path::PathBuf::from("/tmp/control.sock"),
+            )),
+        };
+        assert_eq!(
+            with_session_defaults(&unbound, json!({"threadId": "model-thread"}))["threadId"],
+            "model-thread"
+        );
     }
 }

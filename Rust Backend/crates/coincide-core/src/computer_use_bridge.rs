@@ -221,14 +221,6 @@ impl Bridge {
             && state.retired.is_empty()
             && self.inner.connections.load(Ordering::Acquire) == 0
     }
-    /// Threads holding a capability, for the Settings activity list.
-    pub fn threads(&self) -> Vec<Uuid> {
-        self.inner
-            .state
-            .lock()
-            .map(|state| state.grants.keys().copied().collect())
-            .unwrap_or_default()
-    }
 }
 impl Drop for Bridge {
     fn drop(&mut self) {
@@ -882,7 +874,6 @@ mod tests {
         let folder = access.configuration.parent().unwrap().to_owned();
         bridge.disable(a);
         assert!(!folder.exists());
-        assert_eq!(bridge.threads(), vec![b]);
         // Turning Computer Use off ends every capability at once.
         authority.native_enable(false);
         assert!(
@@ -895,7 +886,6 @@ mod tests {
         let parent = folder.parent().unwrap().to_owned();
         bridge.stop();
         assert!(!parent.exists());
-        assert!(bridge.threads().is_empty());
         await_drained(&bridge);
     }
     fn await_drained(bridge: &Bridge) {
