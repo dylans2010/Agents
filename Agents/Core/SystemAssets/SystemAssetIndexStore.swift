@@ -411,6 +411,19 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
                 reparsePaths.append(document.relativePath)
             }
         }
+        for index in documents.indices {
+            let document = documents[index]
+            guard let reparsed = try? SystemAssetDocument.parse(fileName: document.fileName, relativePath: document.relativePath, data: Data(document.rawText.utf8)) else {
+                continue
+            }
+            if reparsed.category != document.category || reparsed.tags != document.tags || reparsed.dependencies != document.dependencies || reparsed.title != document.title {
+                documents[index].category = reparsed.category
+                documents[index].tags = reparsed.tags
+                documents[index].dependencies = reparsed.dependencies
+                documents[index].title = reparsed.title
+                structuresDirty = true
+            }
+        }
         let chunkIDs = Set(payload.chunks.map(\.id))
         if payload.chunks.contains(where: { !documentIDs.contains($0.documentID) }) {
             structuresDirty = true

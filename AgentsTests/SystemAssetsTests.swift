@@ -146,8 +146,40 @@ struct SystemAssetsTests {
 
     @Test("The central index records dependencies declared after its first heading")
     func centralIndexRecordsPostHeadingDependencies() {
-        let manager = Self.manager()
+        let store = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: store) }
+        let manager = SystemAssetManager(directory: Self.assetsDirectory(), storeDirectory: store)
         #expect(manager.document(fileName: "AgentSystemAsset.md")?.dependencies == ["Safeguards.md", "CallTool.md"])
+    }
+
+    @Test("A persisted index with stale post-heading dependencies is repaired on load")
+    func stalePostHeadingDependenciesRepairedOnLoad() throws {
+        let source = Self.makeTemporaryDirectory()
+        let storeDir = Self.makeTemporaryDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: source)
+            try? FileManager.default.removeItem(at: storeDir)
+        }
+        let bundled = Self.assetsDirectory()
+        for name in ["AgentSystemAsset.md", "Safeguards.md", "CallTool.md"] {
+            try FileManager.default.copyItem(at: bundled.appendingPathComponent(name), to: source.appendingPathComponent(name))
+        }
+        let first = SystemAssetManager(directory: source, storeDirectory: storeDir)
+        #expect(first.isReady)
+        #expect(first.document(fileName: "AgentSystemAsset.md")?.dependencies == ["Safeguards.md", "CallTool.md"])
+        let firstVersion = first.indexHealth.indexVersion
+        let store = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: storeDir)
+        var payload = try SystemAssetIndexStore.decodePayload(Data(contentsOf: store.storeFileURL))
+        if let index = payload.documents.firstIndex(where: { $0.fileName == "AgentSystemAsset.md" }) {
+            payload.documents[index].dependencies = []
+        }
+        payload.checksum = SystemAssetIndexStore.checksum(of: payload)
+        try SystemAssetIndexStore.encodePayload(payload).write(to: store.storeFileURL, options: [.atomic])
+        let second = SystemAssetManager(directory: source, storeDirectory: storeDir)
+        #expect(second.isReady)
+        #expect(second.document(fileName: "AgentSystemAsset.md")?.dependencies == ["Safeguards.md", "CallTool.md"])
+        #expect(second.index?.relatedDocumentIDs(ofFileName: "Safeguards.md").contains("AgentSystemAsset") == true)
+        #expect(second.indexHealth.indexVersion == firstVersion + 1)
     }
 
     @Test("Content hashes are stable across loads and sections are never empty")
