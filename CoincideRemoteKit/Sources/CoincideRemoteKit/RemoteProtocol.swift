@@ -662,7 +662,6 @@ public enum RemoteResult: Hashable, Sendable {
     case usage([RemoteUsage])
     /// A bot the phone saved. Only a phone that asked (`saveBot`) ever gets it.
     case bot(UUID)
-    /// An assistant the app saved. Only a caller that asked (`saveAssistant`) ever gets it.
     case assistant(UUID)
     /// The Mac's Settings. Only a phone that asked (`settings`) ever gets it.
     case settings(RemoteSettingsSnapshot)
@@ -686,7 +685,6 @@ public enum RemoteResult: Hashable, Sendable {
     case projectDefaults(RemoteProjectDefaults)
     /// The scheduled tasks. Only a phone that asked (`scheduledTasks` and their changes) ever gets them.
     case scheduledTasks(RemoteScheduledTasks)
-    /// The assistants. Only a caller that asked (`assistants` and their changes) ever gets them.
     case assistants(RemoteAssistants)
     /// A folder's git state. Only a phone that asked (`gitState`) ever gets it.
     case gitState(RemoteGitState)
