@@ -758,6 +758,18 @@ pub static DEFINITIONS: &[ToolDef] = &[
         }],
     },
     ToolDef {
+        name: "delete_worker",
+        description: "Delete a finished worker's record. Only completed, failed, or cancelled workers can be deleted; deleting a running worker is an error, and the worker thread itself is never deleted.",
+        action: "workers.delete",
+        channel: "desktop",
+        params: &[ToolParam {
+            name: "workerId",
+            kind: "string",
+            required: true,
+            description: "Worker ID from use_workers or list_workers.",
+        }],
+    },
+    ToolDef {
         name: "intel_plan_task",
         description: "Draft a plan for a complex task as worker steps. Mechanical sentence decomposition, not LLM planning; each step still needs disjoint targetFiles assigned before spawning.",
         action: "workers.plan",
@@ -17067,10 +17079,11 @@ pub fn call(
             let args = default_parent_thread(state, args);
             engine_request(state, "workers.list", args)
         }
-        "worker_status" | "worker_result" | "cancel_worker" => {
+        "worker_status" | "worker_result" | "cancel_worker" | "delete_worker" => {
             let method = match name {
                 "worker_status" => "workers.status",
                 "worker_result" => "workers.result",
+                "delete_worker" => "workers.delete",
                 _ => "workers.cancel",
             };
             engine_request(state, method, args)
@@ -21310,7 +21323,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 332, "Swift registry must hold 332 tools");
+        assert_eq!(swift.len(), 333, "Swift registry must hold 333 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");

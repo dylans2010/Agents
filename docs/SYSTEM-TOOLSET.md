@@ -30,7 +30,7 @@ transcript).
   keeps the parent's toolset and prompt.
 - MCP delivery: for MCP-capable providers the launch carries an `McpMount`
   (thread id and data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 332 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 333 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. Claude is the exception: it gets the mount AND the stored prompt
   injected via `--append-system-prompt`. For the other MCP-capable providers
@@ -54,11 +54,11 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
 
-## The 332-tool registry
+## The 333-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 332 tools, 63 distinct actions: several tools share one action (`workspace.read_file` x59, `terminal.create` x60, `workspace.write_file` x47, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x4, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x4, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 38 single-tool actions).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 333 tools, 64 distinct actions: several tools share one action (`workspace.read_file` x59, `terminal.create` x60, `workspace.write_file` x47, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x4, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x4, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 39 single-tool actions).
 
-Production tool execution is the Rust MCP server, not the Swift registry: `tools/call` in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` dispatches the 332 `DEFINITIONS` entries either to `coincide_core::workspace_tools` directly or via `engine_request` over the engine control socket (`<data_dir>/control.sock`). The Swift `SystemToolRegistry` is the canonical schema mirror (definitions, the Rust cross-check test, the UI display filter); its `execute()` is exercised by tests, not by the production turn path. The `Real backend` column below describes each action's backend on either side of that mirror.
+Production tool execution is the Rust MCP server, not the Swift registry: `tools/call` in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` dispatches the 333 `DEFINITIONS` entries either to `coincide_core::workspace_tools` directly or via `engine_request` over the engine control socket (`<data_dir>/control.sock`). The Swift `SystemToolRegistry` is the canonical schema mirror (definitions, the Rust cross-check test, the UI display filter); its `execute()` is exercised by tests, not by the production turn path. The `Real backend` column below describes each action's backend on either side of that mirror.
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -104,6 +104,7 @@ Production tool execution is the Rust MCP server, not the Swift registry: `tools
 | `worker_status` | `workers.status` | desktop | FFI `workers.*` arm -> `Engine::workers_status` (record in SQLite `worker_records`) |
 | `worker_result` | `workers.result` | desktop | FFI `workers.*` arm -> `Engine::workers_result` (record in SQLite `worker_records`) |
 | `cancel_worker` | `workers.cancel` | desktop | FFI `workers.*` arm -> `Engine::workers_cancel` (record in SQLite `worker_records`) |
+| `delete_worker` | `workers.delete` | desktop | FFI `workers.*` arm -> `Engine::workers_delete` (record in SQLite `worker_records`) |
 | `intel_plan_task` | `workers.plan` | desktop | FFI `workers.*` arm -> `Engine::workers_plan` (plan in SQLite `worker_plans`) |
 | `intel_breakdown_task` | `workers.breakdown` | desktop | FFI `workers.*` arm -> `Engine::workers_breakdown` (plan in SQLite `worker_plans`) |
 | `execution_plan` | `workers.execution_plan` | desktop | FFI `workers.*` arm -> `Engine::workers_execution_plan` (plan in SQLite `worker_plans`) |
@@ -1111,7 +1112,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 332-tool registry, with the same names, descriptions,
+- `tools/list` — the real 333-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -1175,11 +1176,11 @@ What is enforced for real in this slice:
 
 - The system prompt is delivered as a genuine developer/system instruction
   for Codex and Claude, never as user text.
-- `SystemToolRegistry` (Swift) registers exactly 332 tools in 63 distinct
+- `SystemToolRegistry` (Swift) registers exactly 333 tools in 64 distinct
   actions, each mapped to a real core action; the Rust MCP server table in
-  `Rust Backend/crates/coincide-mcp-server/src/tools.rs` carries the same 332
+  `Rust Backend/crates/coincide-mcp-server/src/tools.rs` carries the same 333
   names, actions, and channels, and the Rust cross-check test asserts the two
-  tables match exactly (see "The 332-tool registry" above). Production
+  tables match exactly (see "The 333-tool registry" above). Production
   execution is the MCP server's `tools/call`, not the Swift registry's
   `execute()`. Slice 1 added seventeen more tools to the original set, all
   real:
@@ -1262,9 +1263,10 @@ What is enforced for real in this slice:
       confirmation toggle. Everything reads the real store through the FFI
       `memory.*` actions.
   - Workers, as engine methods `workers.spawn` / `workers.list` /
-    `workers.status` / `workers.result` / `workers.cancel` / `workers.plan` /
+    `workers.status` / `workers.result` / `workers.cancel` / `workers.delete` / `workers.plan` /
     `workers.breakdown` / `workers.execution_plan` (`use_workers`,
     `list_workers`, `worker_status`, `worker_result`, `cancel_worker`,
+    `delete_worker`,
     `intel_plan_task`, `intel_breakdown_task`, `execution_plan`). Slice 4
     added eight, all real:
     - Worker design: a worker is a real provider turn on its own thread, not
@@ -1468,7 +1470,7 @@ implemented, and why:
   real — see the Enforcement boundary above — as are `intel_plan_task`,
   `intel_breakdown_task`, and `execution_plan` in their honest mechanical
   form. `list_workers`, `worker_status`, `worker_result`, and
-  `cancel_worker` have no catalog IDs; they are the lifecycle tools this
+  `cancel_worker` and `delete_worker` have no catalog IDs; they are the lifecycle tools this
   slice added so the parent can observe and collect workers through tool
   calls.
 - Computer use (`use_app`, `take_screenrecord`): `take_screenshot` is now

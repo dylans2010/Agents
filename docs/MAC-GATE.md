@@ -99,7 +99,7 @@ is **143** `@Test` functions. The two `@Test(` hits in
 generator (`SystemToolRegistry.swift`, the stub and placeholder
 generators), not real tests, and are excluded from the 143. The
 registry test asserts the tool count directly
-(`AgentsTests/ToolsetTests.swift`, `#expect(tools.count == 332)`).
+(`AgentsTests/ToolsetTests.swift`, `#expect(tools.count == 333)`).
 
 ### Step 4 — Run the Coincide Remote iOS tests
 
@@ -241,7 +241,7 @@ real workspace, and confirm the toolset behavior matches the documented
 split:
 
 - **Claude**: system prompt (`--append-system-prompt`) plus the MCP
-  mount. Confirm the 332 system tools are offered through the mount and a
+  mount. Confirm the 333 system tools are offered through the mount and a
   tool call round-trips through `coincide-mcp-server`.
 - **Codex**: system prompt only, no MCP mount. Confirm the prompt is
   delivered and no MCP mount is attempted.
@@ -253,12 +253,12 @@ split:
 The mount plumbing is `mcp::mount_for` / `session_servers_for` /
 `claude_config_path` in `Rust Backend/crates/coincide-core/src`
 (`api.rs`, `provider_acp.rs`, `provider_antigravity.rs`,
-`provider_claude.rs`). The 332-tool registry is
+`provider_claude.rs`). The 333-tool registry is
 `Agents/Core/SystemTools/SystemToolRegistry.swift` (Swift mirror) and
-`Rust Backend/crates/coincide-mcp-server/src/tools.rs` (the 332
+`Rust Backend/crates/coincide-mcp-server/src/tools.rs` (the 333
 `DEFINITIONS` entries the server actually serves). Both sides were
-measured at 332 with 63 distinct actions at time of writing, and tests
-assert 332 on both sides (`AgentsTests/ToolsetTests.swift`,
+measured at 333 with 64 distinct actions at time of writing, and tests
+assert 333 on both sides (`AgentsTests/ToolsetTests.swift`,
 `tools.rs` cross-check test).
 
 ### 2.2 Turn-completion watermark

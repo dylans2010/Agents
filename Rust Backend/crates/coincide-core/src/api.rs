@@ -992,6 +992,7 @@ impl Engine {
                 methods.push("workers.status");
                 methods.push("workers.result");
                 methods.push("workers.cancel");
+                methods.push("workers.delete");
                 methods.push("workers.plan");
                 methods.push("workers.breakdown");
                 methods.push("workers.execution_plan");
