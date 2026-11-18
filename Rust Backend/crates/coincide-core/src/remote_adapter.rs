@@ -310,6 +310,78 @@ impl Adapter {
         Ok(response["result"].clone())
     }
 
+    fn assistant_record(&self, assistant_id: &str) -> Result<crate::assistants::Assistant, RemoteError> {
+        let id = Uuid::parse_str(assistant_id).map_err(|_| RemoteError::bad_request())?;
+        let listed = self.call("assistants.list", json!({}))?;
+        let found = listed["assistants"]
+            .as_array()
+            .and_then(|assistants| {
+                assistants.iter().find(|assistant| {
+                    assistant["id"]
+                        .as_str()
+                        .and_then(|value| Uuid::parse_str(value).ok())
+                        == Some(id)
+                })
+            })
+            .cloned()
+            .ok_or_else(|| RemoteError::failed(format!("Unknown assistant '{id}'")))?;
+        crate::assistants::validate_assistant(&found)
+            .map_err(|_| RemoteError::failed(format!("Unknown assistant '{id}'")))
+    }
+
+    fn ceiling_tools(
+        profile: &str,
+        supplied: Option<&[String]>,
+    ) -> Result<Option<Vec<String>>, RemoteError> {
+        let Some(effective) = crate::agent::effective_allowed_tools(profile, supplied) else {
+            return Ok(None);
+        };
+        if effective.is_empty() {
+            return Err(RemoteError::failed(
+                "This assistant has no tools available for this conversation.",
+            ));
+        }
+        Ok(Some(effective))
+    }
+
+    fn enforce_profile_tools(&self, thread: Uuid) -> Result<(), RemoteError> {
+        let (_, document) = self.document(thread)?;
+        if document["toolset"].as_str() == Some("provider") {
+            return Ok(());
+        }
+        let Some(assistant_id) = document["assistantId"].as_str().filter(|id| !id.is_empty())
+        else {
+            return Ok(());
+        };
+        let assistant = self.assistant_record(assistant_id)?;
+        let stored = document["allowedTools"]
+            .as_array()
+            .filter(|list| !list.is_empty())
+            .map(|list| {
+                list.iter()
+                    .filter_map(|name| name.as_str().map(str::to_owned))
+                    .collect::<Vec<_>>()
+            });
+        let base = stored.as_deref().or(assistant
+            .allowed_tools
+            .as_deref()
+            .filter(|list| !list.is_empty()));
+        let Some(effective) = Self::ceiling_tools(&assistant.permission_profile, base)? else {
+            return Ok(());
+        };
+        if stored.as_deref() == Some(effective.as_slice()) {
+            return Ok(());
+        }
+        let mut patch = serde_json::Map::new();
+        patch.insert("allowedTools".into(), json!(effective));
+        if stored.is_none() {
+            patch.insert("toolset".into(), json!("system"));
+        }
+        let id = document["id"].as_str().unwrap_or_default();
+        self.call("threads.patch", json!({"threadId": id, "patch": patch}))?;
+        Ok(())
+    }
+
     fn snapshot_providers(&self, deadline: Instant) -> Result<Vec<Provider>, RemoteError> {
         let mut engine = self.lock_engine_until(deadline)?;
         if engine.admissions_frozen() {
@@ -1557,7 +1629,15 @@ impl Adapter {
         if prompt.is_none() && allowed_tools.is_none() {
             return Ok(());
         }
-        crate::agent::validate_system_prompt_and_toolset(prompt, Some("system"), allowed_tools)
+        let allowed_tools = if let Some(id) =
+            document["assistantId"].as_str().filter(|id| !id.is_empty())
+        {
+            let assistant = self.assistant_record(id)?;
+            Self::ceiling_tools(&assistant.permission_profile, allowed_tools)?
+        } else {
+            allowed_tools.map(|list| list.to_vec())
+        };
+        crate::agent::validate_system_prompt_and_toolset(prompt, Some("system"), allowed_tools.as_deref())
             .map_err(|error| RemoteError::failed(error.to_string()))?;
         let provider = document["selection"]["provider"]
             .as_str()
@@ -1593,6 +1673,7 @@ impl Adapter {
         }
         let images = self.import_remote_images(request, &document)?;
         self.bind_system_prompt(request, &document)?;
+        self.enforce_profile_tools(request.thread_id)?;
         if !runs.running.contains(&upper(&id)) {
             self.with_engine(|engine| {
                 if images.is_empty() {
@@ -1709,6 +1790,21 @@ impl Adapter {
                     .map_err(|_| RemoteError::bad_request())
             })
             .transpose()?;
+        let allowed_tools = match &assistant_id {
+            Some(id) => {
+                let assistant = self.assistant_record(id)?;
+                let base = allowed_tools.as_deref().or(if toolset.as_deref() == Some("provider") {
+                    None
+                } else {
+                    assistant
+                        .allowed_tools
+                        .as_deref()
+                        .filter(|list| !list.is_empty())
+                });
+                Self::ceiling_tools(&assistant.permission_profile, base)?
+            }
+            None => allowed_tools,
+        };
         if let Some(selection) = &selection {
             if let Some(provider) = &selection.provider {
                 crate::agent::Provider::from_name(provider)
@@ -1862,10 +1958,18 @@ impl Adapter {
                 "This thread uses Provider Tools, so a system prompt cannot be applied to it.",
             ));
         }
+        let allowed_tools = if let Some(id) =
+            document["assistantId"].as_str().filter(|id| !id.is_empty())
+        {
+            let assistant = self.assistant_record(id)?;
+            Self::ceiling_tools(&assistant.permission_profile, allowed_tools)?
+        } else {
+            allowed_tools.map(|list| list.to_vec())
+        };
         crate::agent::validate_system_prompt_and_toolset(
             Some(system_prompt),
             Some("system"),
-            allowed_tools,
+            allowed_tools.as_deref(),
         )
         .map_err(|error| RemoteError::failed(error.to_string()))?;
         let provider = document["selection"]["provider"]
@@ -1876,7 +1980,7 @@ impl Adapter {
         let mut patch = serde_json::Map::new();
         patch.insert("systemPrompt".into(), json!(system_prompt));
         patch.insert("toolset".into(), json!("system"));
-        if let Some(allowed_tools) = allowed_tools.filter(|list| !list.is_empty()) {
+        if let Some(allowed_tools) = allowed_tools.as_deref().filter(|list| !list.is_empty()) {
             patch.insert("allowedTools".into(), json!(allowed_tools));
         }
         self.call(
@@ -2820,18 +2924,64 @@ mod tests {
         assert_eq!(document["toolset"], "system");
     }
 
-    #[test]
-    fn new_thread_stores_assistant_id_and_rejects_malformed_ids() {
+    fn seed_assistant(adapter: &Adapter, profile: &str, allowed_tools: Option<Value>) -> String {
+        let id = "00000000-0000-4000-8000-000000000001";
+        let listed = adapter.call("assistants.list", json!({})).unwrap();
+        let mut assistant = json!({
+            "id": id,
+            "name": "Reviewer",
+            "description": "Reviews diffs",
+            "icon": "magnifyingglass",
+            "category": "code-review-security",
+            "systemPrompt": "Review the diff for security issues.",
+            "intendedTasks": ["Review pull requests"],
+            "expectedOutputFormat": "A list of findings",
+            "model": "sonnet",
+            "permissionProfile": profile,
+            "inputRequirements": ["A diff"],
+            "version": 1,
+            "source": "custom",
+            "isFavorite": false,
+            "lastUsedAt": Value::Null,
+            "createdAt": 1_000_000,
+            "updatedAt": 1_000_000
+        });
+        if let Some(tools) = allowed_tools {
+            assistant["allowedTools"] = tools;
+        }
+        adapter
+            .call(
+                "assistants.save",
+                json!({"assistant": assistant, "baseline": listed["baseline"]}),
+            )
+            .unwrap();
+        id.to_owned()
+    }
+
+    fn fixture_adapter() -> (tempfile::TempDir, Adapter) {
         let directory = tempfile::tempdir().unwrap();
         let engine = crate::api::Engine::fixture(
             crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
         );
         let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
         let adapter = Adapter::new(shared.clone(), "fixture");
+        (directory, adapter)
+    }
+
+    fn stored_tools(adapter: &Adapter, id: &str) -> Value {
+        let (_, document) = adapter
+            .document(Uuid::parse_str(id).unwrap())
+            .unwrap();
+        document["allowedTools"].clone()
+    }
+
+    #[test]
+    fn new_thread_stores_assistant_id_and_rejects_malformed_ids() {
+        let (_directory, adapter) = fixture_adapter();
         let runs = Runs::default();
-        let assistant = "00000000-0000-4000-8000-000000000001";
+        let assistant = seed_assistant(&adapter, "read-only", None);
         let created = adapter
-            .new_thread(None, &runs, None, None, None, Some(assistant.to_owned()), None)
+            .new_thread(None, &runs, None, None, None, Some(assistant.clone()), None)
             .unwrap();
         let (_, document) =
             adapter.document(Uuid::parse_str(&created).unwrap()).unwrap();
@@ -2839,6 +2989,221 @@ mod tests {
         assert!(adapter
             .new_thread(None, &runs, None, None, None, Some("not-a-uuid".to_owned()), None)
             .is_err());
+    }
+
+    #[test]
+    fn new_thread_with_read_only_assistant_narrows_supplied_tools() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(
+            &adapter,
+            "read-only",
+            Some(json!(["write_file"])),
+        );
+        let created = adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                Some(vec![
+                    "read_file".to_owned(),
+                    "write_file".to_owned(),
+                    "run_command".to_owned(),
+                ]),
+                Some(assistant),
+                None,
+            )
+            .unwrap();
+        assert_eq!(stored_tools(&adapter, &created), json!(["read_file"]));
+    }
+
+    #[test]
+    fn new_thread_with_unknown_assistant_fails_closed() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        assert!(adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                None,
+                Some("00000000-0000-4000-8000-000000000099".to_owned()),
+                None,
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn new_thread_without_assistant_keeps_supplied_tools() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let created = adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                Some(vec!["read_file".to_owned(), "write_file".to_owned()]),
+                None,
+                None,
+            )
+            .unwrap();
+        assert_eq!(
+            stored_tools(&adapter, &created),
+            json!(["read_file", "write_file"])
+        );
+    }
+
+    #[test]
+    fn new_thread_with_read_only_assistant_binds_assistant_tools() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(
+            &adapter,
+            "read-only",
+            Some(json!(["read_file", "write_file"])),
+        );
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, Some(assistant), None)
+            .unwrap();
+        assert_eq!(stored_tools(&adapter, &created), json!(["read_file"]));
+    }
+
+    #[test]
+    fn new_thread_with_approval_required_assistant_denies_terminal_git_and_delete() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(&adapter, "approval-required", None);
+        let created = adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                Some(vec![
+                    "read_file".to_owned(),
+                    "run_command".to_owned(),
+                    "git_commit".to_owned(),
+                    "delete_file".to_owned(),
+                    "write_file".to_owned(),
+                ]),
+                Some(assistant),
+                None,
+            )
+            .unwrap();
+        assert_eq!(
+            stored_tools(&adapter, &created),
+            json!(["read_file", "write_file"])
+        );
+    }
+
+    #[test]
+    fn enforce_profile_tools_narrows_stale_stored_tools() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(&adapter, "read-only", None);
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, Some(assistant), None)
+            .unwrap();
+        let (resolved, _) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        adapter
+            .call(
+                "threads.patch",
+                json!({"threadId": resolved, "patch": {"allowedTools": ["write_file", "read_file"]}}),
+            )
+            .unwrap();
+        assert_eq!(
+            stored_tools(&adapter, &created),
+            json!(["write_file", "read_file"])
+        );
+        adapter
+            .enforce_profile_tools(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        assert_eq!(stored_tools(&adapter, &created), json!(["read_file"]));
+    }
+
+    #[test]
+    fn enforce_profile_tools_leaves_threads_without_assistants_unchanged() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let created = adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                Some(vec!["write_file".to_owned()]),
+                None,
+                None,
+            )
+            .unwrap();
+        adapter
+            .enforce_profile_tools(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        assert_eq!(stored_tools(&adapter, &created), json!(["write_file"]));
+    }
+
+    #[test]
+    fn enforce_profile_tools_fails_closed_for_unknown_assistant() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, None, None)
+            .unwrap();
+        let (resolved, _) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        adapter
+            .call(
+                "threads.patch",
+                json!({"threadId": resolved, "patch": {"assistantId": "00000000-0000-4000-8000-000000000099"}}),
+            )
+            .unwrap();
+        assert!(adapter
+            .enforce_profile_tools(Uuid::parse_str(&created).unwrap())
+            .is_err());
+    }
+
+    #[test]
+    fn update_stored_prompt_narrows_by_assistant_profile() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(&adapter, "read-only", None);
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, Some(assistant), None)
+            .unwrap();
+        let id = Uuid::parse_str(&created).unwrap();
+        adapter
+            .update_stored_prompt(id, "Behave.", Some(&["write_file".to_owned(), "read_file".to_owned()]))
+            .unwrap();
+        assert_eq!(stored_tools(&adapter, &created), json!(["read_file"]));
+    }
+
+    #[test]
+    fn bind_system_prompt_narrows_supplied_tools_by_assistant_profile() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(&adapter, "read-only", None);
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, Some(assistant), None)
+            .unwrap();
+        let (_, document) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        let request = SendRequest {
+            thread_id: Uuid::parse_str(&created).unwrap(),
+            text: "hello".to_owned(),
+            images: Vec::new(),
+            delivery: Default::default(),
+            system_prompt: None,
+            allowed_tools: Some(vec!["write_file".to_owned(), "read_file".to_owned()]),
+        };
+        adapter.bind_system_prompt(&request, &document).unwrap();
+        assert_eq!(stored_tools(&adapter, &created), json!(["read_file"]));
     }
 
     fn selection_thread(
