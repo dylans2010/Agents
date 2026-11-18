@@ -718,7 +718,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
             name: "parentThreadId",
             kind: "string",
             required: false,
-            description: "Parent thread ID; lists every worker when omitted.",
+            description: "Parent thread ID, pinned to the session thread when bound; lists every worker when omitted and unbound.",
         }],
     },
     ToolDef {
@@ -767,7 +767,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "parentThreadId",
                 kind: "string",
                 required: true,
-                description: "Parent thread ID that owns the plan.",
+                description: "Parent thread ID that owns the plan, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "task",
@@ -793,7 +793,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "parentThreadId",
                 kind: "string",
                 required: false,
-                description: "Parent thread ID the plan must belong to.",
+                description: "Parent thread ID the plan must belong to, pinned to the session thread when bound.",
             },
         ],
     },
@@ -807,7 +807,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "parentThreadId",
                 kind: "string",
                 required: true,
-                description: "Parent thread ID that owns the plan.",
+                description: "Parent thread ID that owns the plan, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "objective",

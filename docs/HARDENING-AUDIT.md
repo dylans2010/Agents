@@ -391,7 +391,7 @@ remote `b98da65c`).
    takes an opt-in `sessionThreadId: String? = nil` parameter (`:3826`,
    parameter at `:3831`) and, when non-empty, overwrites both ids in the
    arguments (`:3834-3836`); the `use_mcp` recursion threads it through
-   (`:4419` case, `:4422` call). Calls without one keep the supplied
+   (`:4392` case, `:4422` call). Calls without one keep the supplied
    values.
 
 **Tests added (4):** in `AgentsTests/WorkersTests.swift` —
@@ -529,8 +529,8 @@ limitation of the audited component, or a question owed to Dylan.
 - **Registry 332 check.** Count the `ToolDef {` entries inside the
   `DEFINITIONS` slice in
   `Rust Backend/crates/coincide-mcp-server/src/tools.rs:47` — expect 332
-  (re-verified at HEAD: exactly 332; one further `ToolDef {` literal
-  exists outside `DEFINITIONS`, in test/helper code). Cross-check the same
+  (re-verified at HEAD: exactly 332; the one further `ToolDef {` match is the
+  `pub struct ToolDef {` declaration at `tools.rs:14`, not a registry entry). Cross-check the same
   332 names, actions, and order against
   `Agents/Core/SystemTools/SystemToolRegistry.swift`; the canonical
   description is `docs/SYSTEM-TOOLSET.md:57-61`.

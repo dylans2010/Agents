@@ -467,7 +467,7 @@ public nonisolated enum SystemToolRegistry {
             action: "workers.list",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "parentThreadId", type: "string", required: false, description: "Parent thread ID; lists every worker when omitted."),
+                SystemToolParameter(name: "parentThreadId", type: "string", required: false, description: "Parent thread ID, pinned to the session thread when bound; lists every worker when omitted and unbound."),
             ]
         ),
         SystemToolDefinition(
@@ -503,7 +503,7 @@ public nonisolated enum SystemToolRegistry {
             action: "workers.plan",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the plan."),
+                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the plan, pinned to the session thread when bound."),
                 SystemToolParameter(name: "task", type: "string", required: true, description: "Task to decompose into worker steps."),
             ]
         ),
@@ -514,7 +514,7 @@ public nonisolated enum SystemToolRegistry {
             channel: .desktop,
             parameters: [
                 SystemToolParameter(name: "planId", type: "string", required: true, description: "Plan ID from intel_plan_task."),
-                SystemToolParameter(name: "parentThreadId", type: "string", required: false, description: "Parent thread ID the plan must belong to."),
+                SystemToolParameter(name: "parentThreadId", type: "string", required: false, description: "Parent thread ID the plan must belong to, pinned to the session thread when bound."),
             ]
         ),
         SystemToolDefinition(
@@ -523,7 +523,7 @@ public nonisolated enum SystemToolRegistry {
             action: "workers.execution_plan",
             channel: .desktop,
             parameters: [
-                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the plan."),
+                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the plan, pinned to the session thread when bound."),
                 SystemToolParameter(name: "objective", type: "string", required: true, description: "Objective to plan, at most 500 characters."),
                 SystemToolParameter(name: "mode", type: "string", required: true, description: "Plan mode, for example build."),
             ]
