@@ -416,6 +416,85 @@ struct AgentsRuntimeTests {
         await model.shutdown()
     }
 
+    @Test("AppModel launchAssistant rejects an empty task without creating a thread")
+    @MainActor
+    func appModelLaunchAssistantRejectsEmptyTask() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-launch-empty-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+
+        let projID = await model.addProject(at: projectDir.path, name: "LaunchEmptyProject")
+        #expect(projID != nil)
+
+        let assistant = RemoteAssistant(
+            id: UUID(),
+            name: "Reviewer",
+            category: .codeReviewSecurity,
+            systemPrompt: "Review the diff for security issues.",
+            allowedTools: ["read_file"],
+            provider: "claude",
+            model: "claude-sonnet-4"
+        )
+        await model.launchAssistant(assistant, task: "   ", in: projID)
+        await model.refreshWorkspace()
+        #expect(model.workspace.threads.first { $0.assistantId == assistant.id.uuidString } == nil)
+        #expect(model.lastError == "Task text is empty")
+
+        await model.shutdown()
+    }
+
+    @Test("AppModel refreshAssistants preserves launched assistant threads")
+    @MainActor
+    func appModelRefreshAssistantsPreservesLaunchedThreads() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-launch-refresh-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+
+        let projID = await model.addProject(at: projectDir.path, name: "LaunchRefreshProject")
+        #expect(projID != nil)
+
+        let first = RemoteAssistant(
+            id: UUID(),
+            name: "Reviewer",
+            category: .codeReviewSecurity,
+            systemPrompt: "Review the diff for security issues.",
+            allowedTools: ["read_file"],
+            provider: "claude",
+            model: "claude-sonnet-4"
+        )
+        let second = RemoteAssistant(
+            id: UUID(),
+            name: "Generalist",
+            category: .codeReviewSecurity,
+            systemPrompt: "Help with the code.",
+            allowedTools: ["read_file"]
+        )
+        await model.launchAssistant(first, task: "Review the latest diff.", in: projID)
+        await model.launchAssistant(second, task: "Help with the code.", in: projID)
+        await model.refreshAssistants()
+        await model.refreshWorkspace()
+        let firstThread = model.workspace.threads.first { $0.assistantId == first.id.uuidString }
+        let secondThread = model.workspace.threads.first { $0.assistantId == second.id.uuidString }
+        #expect(firstThread != nil)
+        #expect(secondThread != nil)
+        #expect(firstThread?.id != secondThread?.id)
+        #expect(model.selectedThread?.id == secondThread?.id)
+
+        await model.shutdown()
+    }
+
     @Test("RuntimePollStatus decodes turnResults serial and recent entries")
     func pollStatusDecodesTurnResults() throws {
         let payload = """

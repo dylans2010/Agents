@@ -134,7 +134,6 @@ public final class AppModel {
     public var externalEditors: ExternalEditorService { ExternalEditorService.shared }
 
     @ObservationIgnored public private(set) var runtime: AgentsRuntimeClient?
-    @ObservationIgnored public private(set) var assistantExecutionManager: AssistantExecutionManager?
     @ObservationIgnored public private(set) var assistantTaskManager: AssistantTaskManager?
     @ObservationIgnored public private(set) var assistantChangeLedger: AssistantChangeLedger?
     @ObservationIgnored private var pollTask: Task<Void, Never>?
@@ -429,7 +428,6 @@ public final class AppModel {
             await taskManager.stopPolling()
         }
         assistantTaskManager = nil
-        assistantExecutionManager = nil
         assistantChangeLedger = nil
         toastDismissTask?.cancel()
         await voiceDictation.cancelRecording()
@@ -723,6 +721,10 @@ public final class AppModel {
 
     public func launchAssistant(_ assistant: RemoteAssistant, modelConfig: AssistantModelConfig? = nil, task: String, in projectID: UUID? = nil) async {
         guard let client = runtime else { return }
+        guard !task.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            presentError(AgentsRuntimeError.desktopFailure("Task text is empty"))
+            return
+        }
         do {
             let resolvedConfig = (modelConfig ?? AssistantModelConfig(provider: assistant.provider, model: assistant.model))
                 .resolvingCurrent(provider: selectedThread?.selection.provider, model: selectedThread?.selection.modelID)
@@ -1117,18 +1119,8 @@ public final class AppModel {
     public func refreshAssistants() async {
         defer { assistantsLoaded = true }
         guard let client = runtime else { return }
-        let previousIDs = Set(assistants.map(\.id))
         if let assistants = try? await client.listAssistants() {
             self.assistants = assistants.assistants
-        }
-        if assistantExecutionManager != nil, Set(assistants.map(\.id)) != previousIDs,
-           let manager = assistantExecutionManager, await manager.activeRunCount() == 0 {
-            assistantExecutionManager = AssistantExecutionManager(
-                runtime: client,
-                catalog: assistantCatalog,
-                currentProvider: selectedThread?.selection.provider,
-                currentModel: selectedThread?.selection.modelID
-            )
         }
     }
 
@@ -1140,14 +1132,6 @@ public final class AppModel {
         if assistantTaskManager == nil {
             assistantTaskManager = AssistantTaskManager(runtime: client)
             await assistantTaskManager?.startPolling()
-        }
-        if assistantExecutionManager == nil {
-            assistantExecutionManager = AssistantExecutionManager(
-                runtime: client,
-                catalog: assistantCatalog,
-                currentProvider: selectedThread?.selection.provider,
-                currentModel: selectedThread?.selection.modelID
-            )
         }
     }
 

@@ -607,11 +607,14 @@ Everything below is absent at base `b81e42ea`. Do not describe any
 of it as done; the file pointers are where the work would land, not
 where it lives.
 
-- **Execution manager.** There is no component that runs an
-  assistant end-to-end (pick assistant → run → report) beyond
-  `AppModel.launchAssistant` (create a thread, send the task) and
-  `workers.spawn` with `assistantId`. No queue, no run record, no
-  progress surface.
+- **Execution manager.** There is one launch path:
+  `AppModel.launchAssistant` (create a thread, send the task);
+  background work goes through `workers.spawn` with `assistantId`.
+  A second launch stack, `AssistantExecutionManager`, was removed:
+  it had no production callers, and `refreshAssistants` rebuilt it
+  whenever the catalog changed, dropping its in-memory runs. Run
+  state lives only in the runtime workspace. No queue, no run
+  record, no progress surface beyond those two paths.
 - **Permission-profile enforcement (E1).** The four profiles are
   stored and tested for honesty against the tool lists, but nothing
   in the engine reads `permissionProfile`. A `workspace-modify`
