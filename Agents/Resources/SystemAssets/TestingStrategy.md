@@ -61,6 +61,15 @@ A meaningful test has these properties:
 - **Minimal.** It sets up only what the behaviour needs. A test with fifty lines of setup is testing the setup, and it will break when the setup changes.
 - **Honest about its dependencies.** If it needs the network, the disk, or the clock, it says so — by being in the integration tier, not by secretly depending on them in the unit tier.
 
+### 3.1 Test tiers
+
+- **Unit tests.** Fast, isolated, no I/O. The bulk of the suite. Run on every change.
+- **Integration tests.** Real collaborators: real database, real file system, real network stub. Slower, fewer, targeted at the seams where components meet.
+- **End-to-end tests.** The whole product, through the real interface, for the critical flows. Few in number, high in value, slow — run them before release, not on every keystroke.
+- **Manual checks.** What cannot be automated: visual quality, feel, accessibility, real-device behaviour. Recorded as a checklist, not as folklore.
+
+Each tier has a different job. A unit test cannot catch a broken integration; an end-to-end test cannot diagnose which component failed. Do not ask one tier to do another's job.
+
 ### 3.2 Example: a test that can fail, and one that cannot
 
 A meaningful test asserts behaviour — saving an empty document produces an empty file:
@@ -89,15 +98,6 @@ func savingDoesNotCrash() throws {
 ```
 
 The second test passes even if `save` writes nothing at all, or writes the wrong content — it asserts nothing about behaviour, so the only way it fails is by throwing. The first test earns its place by being seen to fail: break `save` so it writes a single space, watch the test go red, then restore it.
-
-### 3.1 Test tiers
-
-- **Unit tests.** Fast, isolated, no I/O. The bulk of the suite. Run on every change.
-- **Integration tests.** Real collaborators: real database, real file system, real network stub. Slower, fewer, targeted at the seams where components meet.
-- **End-to-end tests.** The whole product, through the real interface, for the critical flows. Few in number, high in value, slow — run them before release, not on every keystroke.
-- **Manual checks.** What cannot be automated: visual quality, feel, accessibility, real-device behaviour. Recorded as a checklist, not as folklore.
-
-Each tier has a different job. A unit test cannot catch a broken integration; an end-to-end test cannot diagnose which component failed. Do not ask one tier to do another's job.
 
 ---
 
