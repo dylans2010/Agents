@@ -1871,6 +1871,13 @@ impl Store {
         }
         Ok(records)
     }
+    pub(crate) fn worker_delete(&mut self, id: &str) -> Result<bool> {
+        let deleted = self.connection_mut()?.execute(
+            "DELETE FROM worker_records WHERE id=?1",
+            [id],
+        )?;
+        Ok(deleted > 0)
+    }
     pub(crate) fn worker_plan(&self, id: &str) -> Result<Option<Value>> {
         let plan: Option<String> = self
             .connection()?

@@ -9,6 +9,8 @@ pub const MAX_TARGET_FILES: usize = 64;
 pub const MAX_PLAN_STEPS: usize = 16;
 pub const MAX_WORKERS_PER_PARENT: usize = 32;
 pub const MAX_WORKER_RESULT_CHARS: usize = 64 * 1024;
+pub const WORKER_RETENTION_SETTING: &str = "workerRetentionCount";
+pub const DEFAULT_WORKER_RETENTION_COUNT: usize = 50;
 
 pub fn truncate_worker_text(text: &str) -> String {
     if text.chars().count() <= MAX_WORKER_RESULT_CHARS {
@@ -216,7 +218,56 @@ pub fn insert_record(
         started_at,
     );
     store.worker_upsert(&id, &record)?;
+    prune_terminal_records(store, &request.parent_thread_id)?;
     Ok(record)
+}
+
+pub fn retention_limit(store: &Store) -> usize {
+    let settings = store
+        .document("settings.json")
+        .ok()
+        .flatten()
+        .unwrap_or(json!({}));
+    let raw = settings.get(WORKER_RETENTION_SETTING);
+    let parsed = raw
+        .and_then(Value::as_u64)
+        .map(|value| value as usize)
+        .or_else(|| raw.and_then(Value::as_f64).map(|value| value.max(0.0) as usize));
+    parsed.unwrap_or(DEFAULT_WORKER_RETENTION_COUNT)
+}
+
+pub fn prune_terminal_records(store: &mut Store, parent_thread_id: &str) -> Result<()> {
+    let keep = retention_limit(store);
+    if keep == 0 {
+        return Ok(());
+    }
+    let mut terminal: Vec<Value> = load_workers(store)?
+        .into_iter()
+        .filter(|record| {
+            record.get("parentThreadId").and_then(Value::as_str) == Some(parent_thread_id)
+                && record
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .is_some_and(|status| is_terminal(status))
+        })
+        .collect();
+    terminal.sort_by(|a, b| {
+        let ca = a.get("createdAt").and_then(Value::as_f64).unwrap_or(0.0);
+        let cb = b.get("createdAt").and_then(Value::as_f64).unwrap_or(0.0);
+        cb.partial_cmp(&ca)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                let ia = a.get("id").and_then(Value::as_str).unwrap_or("");
+                let ib = b.get("id").and_then(Value::as_str).unwrap_or("");
+                ib.cmp(ia)
+            })
+    });
+    for record in terminal.iter().skip(keep) {
+        if let Some(id) = record.get("id").and_then(Value::as_str) {
+            store.worker_delete(id)?;
+        }
+    }
+    Ok(())
 }
 
 pub fn load_workers(store: &Store) -> Result<Vec<Value>> {
@@ -224,7 +275,7 @@ pub fn load_workers(store: &Store) -> Result<Vec<Value>> {
     records.sort_by(|a, b| {
         let ca = a.get("createdAt").and_then(Value::as_f64).unwrap_or(0.0);
         let cb = b.get("createdAt").and_then(Value::as_f64).unwrap_or(0.0);
-        ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
+        cb.partial_cmp(&ca).unwrap_or(std::cmp::Ordering::Equal)
     });
     Ok(records)
 }
@@ -591,5 +642,127 @@ mod tests {
         let truncated_wide = truncate_worker_text(&wide);
         assert!(truncated_wide.starts_with(&"é".repeat(MAX_WORKER_RESULT_CHARS)));
         assert!(truncated_wide.contains("truncated"));
+    }
+
+    #[test]
+    fn retention_limit_defaults_to_fifty_and_reads_settings() {
+        use crate::store::Store;
+        let directory = tempfile::tempdir().unwrap();
+        let mut store = Store::open(&directory.path().join("data.sqlite")).unwrap();
+        assert_eq!(retention_limit(&store), 50);
+        store
+            .save_document("settings.json", &json!({"workerRetentionCount": 7}))
+            .unwrap();
+        assert_eq!(retention_limit(&store), 7);
+        store
+            .save_document("settings.json", &json!({"workerRetentionCount": 0}))
+            .unwrap();
+        assert_eq!(retention_limit(&store), 0);
+    }
+
+    #[test]
+    fn retention_prunes_oldest_terminal_records_per_parent_and_keeps_running() {
+        use crate::store::Store;
+        let directory = tempfile::tempdir().unwrap();
+        let mut store = Store::open(&directory.path().join("data.sqlite")).unwrap();
+        store
+            .save_document("settings.json", &json!({"workerRetentionCount": 2}))
+            .unwrap();
+        let parent = "parent-thread";
+        let seed = |store: &mut Store, id: &str, parent: &str, status: &str, created_at: f64| {
+            let request = SpawnRequest {
+                name: format!("worker-{id}"),
+                task: "Do the thing.".to_owned(),
+                target_files: Vec::new(),
+                parent_thread_id: parent.to_owned(),
+            };
+            let mut record =
+                worker_record_json(id, &request, "child-thread", "codex", 0, created_at);
+            record["status"] = json!(status);
+            store.worker_upsert(id, &record).unwrap();
+        };
+        seed(&mut store, "old-terminal", parent, "completed", 1.0);
+        seed(&mut store, "older-terminal", parent, "failed", 2.0);
+        seed(&mut store, "new-terminal", parent, "cancelled", 3.0);
+        seed(&mut store, "newest-terminal", parent, "completed", 4.0);
+        seed(&mut store, "running", parent, "running", 0.5);
+        seed(&mut store, "other-parent-terminal", "other-parent", "completed", 5.0);
+        let request = SpawnRequest {
+            name: "fresh".to_owned(),
+            task: "Do the thing.".to_owned(),
+            target_files: Vec::new(),
+            parent_thread_id: parent.to_owned(),
+        };
+        insert_record(&mut store, &request, "child-thread", "codex", 0).unwrap();
+        let ids: Vec<String> = load_workers(&store)
+            .unwrap()
+            .into_iter()
+            .filter_map(|record| {
+                record
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .collect();
+        assert_eq!(ids.len(), 5);
+        assert!(!ids.contains(&"old-terminal".to_owned()));
+        assert!(!ids.contains(&"older-terminal".to_owned()));
+        assert!(ids.contains(&"new-terminal".to_owned()));
+        assert!(ids.contains(&"newest-terminal".to_owned()));
+        assert!(ids.contains(&"running".to_owned()));
+        assert!(ids.contains(&"other-parent-terminal".to_owned()));
+        let newest_pos = ids.iter().position(|id| id == "newest-terminal").unwrap();
+        let new_pos = ids.iter().position(|id| id == "new-terminal").unwrap();
+        assert!(newest_pos < new_pos);
+    }
+
+    #[test]
+    fn retention_zero_keeps_every_terminal_record() {
+        use crate::store::Store;
+        let directory = tempfile::tempdir().unwrap();
+        let mut store = Store::open(&directory.path().join("data.sqlite")).unwrap();
+        store
+            .save_document("settings.json", &json!({"workerRetentionCount": 0}))
+            .unwrap();
+        let parent = "parent-thread";
+        for (index, id) in ["first", "second", "third"].iter().enumerate() {
+            let request = SpawnRequest {
+                name: format!("worker-{id}"),
+                task: "Do the thing.".to_owned(),
+                target_files: Vec::new(),
+                parent_thread_id: parent.to_owned(),
+            };
+            let mut record = worker_record_json(
+                id,
+                &request,
+                "child-thread",
+                "codex",
+                0,
+                index as f64 + 1.0,
+            );
+            record["status"] = json!("completed");
+            store.worker_upsert(id, &record).unwrap();
+        }
+        let request = SpawnRequest {
+            name: "fresh".to_owned(),
+            task: "Do the thing.".to_owned(),
+            target_files: Vec::new(),
+            parent_thread_id: parent.to_owned(),
+        };
+        insert_record(&mut store, &request, "child-thread", "codex", 0).unwrap();
+        let ids: Vec<String> = load_workers(&store)
+            .unwrap()
+            .into_iter()
+            .filter_map(|record| {
+                record
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .collect();
+        assert_eq!(ids.len(), 4);
+        assert!(ids.contains(&"first".to_owned()));
+        assert!(ids.contains(&"second".to_owned()));
+        assert!(ids.contains(&"third".to_owned()));
     }
 }

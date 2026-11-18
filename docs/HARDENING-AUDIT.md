@@ -1928,18 +1928,100 @@ backfilled by Slice 152 as
 Xcode build as usual; no new Mac-gate surface beyond the test
 correction.
 
+## Slice W5 — Workers/subagents UX + retention default (4 fixes, 3 tests)
+
+**Fixed (4):**
+
+1. **Worker thread is tappable.** The worker detail used to show the
+   child thread as a raw UUID string with no action
+   (`WorkersInspectorView.swift`, detail line). It is now a button
+   labelled with the worker thread's own title, `Worker: <name>`
+   (the title `spawn_one_worker` gives the child thread in
+   `workers_api.rs`), which selects that thread through the existing
+   `appModel.selectThread(_:)` pattern, the same call the sidebar
+   uses. The raw UUID is no longer shown.
+2. **Newest-first worker order.** `load_workers`
+   (`worker_store.rs`) sorted ascending by `createdAt`, so the oldest
+   worker sat at the top and `workers.list` (`workers_api.rs`, which
+   returns `load_workers` order) and the inspector rendered oldest
+   first. The sort is now descending, so the newest worker is at the
+   top in the list response and in the inspector, which renders the
+   returned order.
+3. **N/32 cap indicator.** `MAX_WORKERS_PER_PARENT` is 32
+   (`worker_store.rs:11`) and spawn fails at the cap, but nothing
+   surfaced the count until then. The inspector header now shows
+   `N/32 running` in the Current Thread scope (always, including
+   `0/32`), turning warning-coloured at 32; the All Workers scope
+   keeps the plain `N running` label, since the cap is per parent
+   thread and a cross-parent total against 32 would mislead.
+4. **Worker-record retention, default 50.** `worker_records` was
+   append-only with no delete or prune path (recorded as open since
+   Slice 77 in [Documented, not fixed](#documented-not-fixed)). A new
+   `Store::worker_delete(id)` (`store.rs`) deletes one record row,
+   and `worker_store::insert_record` now prunes after every spawn:
+   per parent thread, only terminal (completed/failed/cancelled)
+   records older than the newest N are deleted; all running records
+   are kept, records of other parents are untouched, and only record
+   rows are deleted — the child thread itself is never touched. The
+   limit comes from the new `settings.json` key
+   `workerRetentionCount` (Int, default 50, 0 keeps everything),
+   read by `worker_store::retention_limit` with a float-tolerant
+   parse, since the Settings stepper writes it as a JSON number. The
+   key is described in the settings snapshot and accepted by the
+   change allowlist (`adapter_bridge.rs`, new Workers section on the
+   General page, 0–500 step 1, unit "records"), and the Mac General
+   pane now renders `.number` rows as a Stepper
+   (`GeneralSettingsPane.swift`), which previously dropped them. The
+   phone Settings UI already rendered `.number` rows as a Stepper
+   (`MacSettingsViews.swift:95`), so the row surfaces there too.
+   **The 50 is a default this slice chose, not Dylan's decision:**
+   he can change it in Settings › General › Workers, or set 0 to
+   keep everything.
+
+**Tests added (3):** in `worker_store.rs` —
+`retention_limit_defaults_to_fifty_and_reads_settings`,
+`retention_prunes_oldest_terminal_records_per_parent_and_keeps_running`
+(keeps the newest 2 terminal records for the parent, keeps the
+running record, leaves another parent's records alone, and confirms
+newest-first order), and
+`retention_zero_keeps_every_terminal_record`. No manual
+`workers.delete`/`clear` route and no retry/respawn were added; both
+remain out of scope for this slice.
+
+**Verification:** static only (no Swift toolchain, no cargo in this
+environment, as for every slice in this record). Full diff read —
+only the intended files, only the intended hunks; brace balance
+re-checked on all changed files; zero new `//` comments; no secrets;
+no registry definition, param, or description changed; updater,
+Privacy URL, and `remote_protocol.rs:655` untouched. The local
+pre-push commit SHA and tree are in the slice's push report.
+
+**Mac-gate checks owed:** Xcode build + `swift test` + `cargo test`
+as usual; the new worker retention tests; the inspector tap-to-open,
+`N/32` header, and retention stepper exercised live, including a
+spawn past 50 finished workers for one parent confirming the oldest
+terminal record disappears while its child thread remains.
+
 ## Documented, not fixed
 
 Items the audits found, recorded, and deliberately left open. None of
 these is a silent known-bad state: each was an explicit decision, a
 limitation of the audited component, or a question owed to Dylan.
 
-- **Worker-record count is unbounded.** One record is created per worker
-  spawn and there is no per-record delete or prune path in
-  `worker_store.rs` / `workers_api.rs` (verified: no delete/prune function
-  there; the only worker-related delete in `store.rs:255,275` removes the
-  whole `workers.json` document). Needs Dylan's retention-policy decision
-  (Slice 77).
+- **Worker-record count was unbounded — now bounded by a retention
+  default (Slice W5).** One record is created per worker spawn and
+  there was no per-record delete or prune path in
+  `worker_store.rs` / `workers_api.rs` (verified: no delete/prune
+  function there; the only worker-related delete in `store.rs:255,275`
+  removes the whole `workers.json` document). Slice W5 added
+  `Store::worker_delete(id)` plus pruning in
+  `worker_store::insert_record`: per parent thread the newest 50
+  terminal records are kept (default; `workerRetentionCount` in
+  `settings.json`, 0 keeps everything), running records are always
+  kept, and only record rows are deleted, never the child thread. The
+  50 is a default this slice chose, not Dylan's decision — he can
+  change it in Settings › General › Workers. Still open: no manual
+  `workers.delete`/`clear` route and no retry/respawn.
 - **MCP server is a sequential loop.** `main.rs` reads and dispatches one
   stdio frame at a time, so a slow `tools/call` blocks all other requests;
   there is no tools/call-level timeout (verified: no `timeout` in `main.rs`

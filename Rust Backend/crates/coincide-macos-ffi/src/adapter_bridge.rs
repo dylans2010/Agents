@@ -976,6 +976,14 @@ fn build_remote_settings_snapshot(runtime: &CoincideMacOSRuntime) -> Result<Valu
         .unwrap_or(true);
     let checkpoints = settings["checkpointsEnabled"].as_bool().unwrap_or(true);
     let cli_control = settings["commandLineControl"].as_bool().unwrap_or(true);
+    let worker_retention = settings["workerRetentionCount"]
+        .as_u64()
+        .or_else(|| {
+            settings["workerRetentionCount"]
+                .as_f64()
+                .map(|value| value.max(0.0) as u64)
+        })
+        .unwrap_or(50);
 
     let pages = json!([
         {
@@ -1041,6 +1049,24 @@ fn build_remote_settings_snapshot(runtime: &CoincideMacOSRuntime) -> Result<Valu
                             "value": cli_control
                         }
                     ]
+                },
+                {
+                    "id": "workers",
+                    "title": "Workers",
+                    "footer": "Finished workers are kept per parent thread. 0 keeps every finished worker record.",
+                    "rows": [
+                        {
+                            "id": "workerRetentionCount",
+                            "kind": "number",
+                            "title": "Keep Finished Workers",
+                            "detail": "Most recent finished worker records kept per parent thread",
+                            "value": worker_retention,
+                            "minimum": 0,
+                            "maximum": 500,
+                            "step": 1,
+                            "unit": "records"
+                        }
+                    ]
                 }
             ]
         }
@@ -1069,6 +1095,7 @@ fn handle_change_setting(
             | "checkpointsEnabled"
             | "confirmBeforeDeletingThreads"
             | "commandLineControl"
+            | "workerRetentionCount"
             | "sendOnReturn"
     ) {
         return Err(RemoteError::new(

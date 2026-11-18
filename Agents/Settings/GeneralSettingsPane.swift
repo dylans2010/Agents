@@ -36,6 +36,8 @@ public struct GeneralSettingsPane: View {
                         return false
                     }
                     return true
+                case .number:
+                    return true
                 default:
                     return false
                 }
@@ -250,6 +252,32 @@ public struct GeneralSettingsPane: View {
             ) {
                 ForEach(options) { opt in
                     Text(opt.title).tag(opt.id)
+                }
+            }
+            .disabled(row.isEnabled == false)
+
+        case .number:
+            let current = Int(row.value?.number ?? row.minimum ?? 0)
+            let minimum = Int(row.minimum ?? 0)
+            let maximum = Int(row.maximum ?? 500)
+            let step = max(1, Int(row.step ?? 1))
+            Stepper(
+                value: Binding(
+                    get: { current },
+                    set: { newValue in
+                        Task { await updateEngineSetting(id: row.id, value: .number(Double(newValue))) }
+                    }
+                ),
+                in: minimum...maximum,
+                step: step
+            ) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(row.title): \(current)")
+                    if let detail = row.detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                    }
                 }
             }
             .disabled(row.isEnabled == false)

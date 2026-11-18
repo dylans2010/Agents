@@ -54,6 +54,16 @@ struct WorkersInspectorView: View {
         filteredWorkers.filter(\.isRunning).count
     }
 
+    private var runningCapLabel: String {
+        scopeFilter == .currentThread ? "\(runningCount)/32 running" : "\(runningCount) running"
+    }
+
+    private var runningCapAccessibilityLabel: String {
+        scopeFilter == .currentThread
+            ? "\(runningCount) of 32 worker slots running"
+            : "\(runningCount) workers running"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             workersToolbar
@@ -124,11 +134,11 @@ struct WorkersInspectorView: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 220)
                 Spacer(minLength: 4)
-                if runningCount > 0 {
-                    Text("\(runningCount) running")
+                if scopeFilter == .currentThread || runningCount > 0 {
+                    Text(runningCapLabel)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppTheme.accent)
-                        .accessibilityLabel("\(runningCount) workers running")
+                        .foregroundStyle(scopeFilter == .currentThread && runningCount >= 32 ? AppTheme.warning : AppTheme.accent)
+                        .accessibilityLabel(runningCapAccessibilityLabel)
                 }
                 Button {
                     Task { await loadWorkers() }
@@ -380,9 +390,18 @@ struct WorkersInspectorView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
-                Text("Provider: \(worker.provider) · Thread: \(worker.threadId) · Elapsed: \(elapsedLabel(worker.elapsedSeconds)) · Updates: \(worker.transcriptItems)")
+                Text("Provider: \(worker.provider) · Elapsed: \(elapsedLabel(worker.elapsedSeconds)) · Updates: \(worker.transcriptItems)")
                     .font(.system(size: 10.5))
                     .foregroundStyle(AppTheme.secondaryLabel)
+                Button {
+                    appModel.selectThread(worker.threadId)
+                } label: {
+                    Label("Worker: \(worker.name)", systemImage: "arrow.turn.down.right")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.borderless)
+                .help("Open the worker thread")
+                .accessibilityLabel("Open worker thread \(worker.name)")
                 if let result = worker.result, !result.isEmpty {
                     Text("Result")
                         .font(.system(size: 11, weight: .semibold))
