@@ -1571,7 +1571,14 @@ implemented, and why:
   names stored in the list are ignored, never surfaced. The same gate is
   mirrored in Swift `SystemToolRegistry.execute()` through
   `definition(named:for:allowedTools:)` for the test path only; it is not
-  an enforcement point. Worker turns are covered automatically: a worker
+  an enforcement point. Sub-dispatch through `use_app` is gated the same
+  way: the inner computer-use tool an `action` maps to (`click` for the
+  `click` action, `get_desktop_state` for `take_screenshot`) is checked
+  against the same allowed list before it runs, in both the MCP server
+  and the Swift `execute()` mirror, so allowing `use_app` while denying
+  `click` does not let the model click through `use_app`. An unknown
+  inner action keeps its existing error instead of an `UnknownTool`
+  rejection. Worker turns are covered automatically: a worker
   child thread inherits the parent's `allowedTools` (`workers_api.rs`), and
   its MCP server is bound to the child thread, so it reads the child's
   restricted list. A thread read that fails is a hard failure (list returns

@@ -385,6 +385,55 @@ struct ToolsetTests {
         await client.close()
     }
 
+    @Test("execute() gates use_app inner actions against allowedTools")
+    func executeGatesUseAppInnerActions() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let threadID = try await client.newThread()
+        let turnedOn = try await client.computerUseSetEnabled(true)
+        #expect(turnedOn.enabled == true)
+        let listed = try await SystemToolRegistry.execute(
+            "use_app",
+            arguments: ["threadId": .string(threadID.uuidString), "action": .string("list_applications")],
+            toolset: .system, runtime: client, allowedTools: ["use_app", "list_apps"]
+        )
+        #expect(listed["action"]?.stringValue == "list_applications")
+        #expect(listed["tool"]?.stringValue == "list_apps")
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "use_app",
+                arguments: ["threadId": .string(threadID.uuidString), "action": .string("click")],
+                toolset: .system, runtime: client, allowedTools: ["use_app"]
+            )
+            Issue.record("Expected toolNotActive error for click reached through use_app")
+        } catch let error as SystemToolError {
+            #expect(error == .toolNotActive(tool: "click", toolset: .system))
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "use_app",
+                arguments: ["threadId": .string(threadID.uuidString), "action": .string("click")],
+                toolset: .system, runtime: client, allowedTools: ["click"]
+            )
+            Issue.record("Expected toolNotActive error for disallowed use_app")
+        } catch let error as SystemToolError {
+            #expect(error == .toolNotActive(tool: "use_app", toolset: .system))
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "use_app", message: "use_app action no_such_action is not a known action.")) {
+            try await SystemToolRegistry.execute(
+                "use_app",
+                arguments: ["threadId": .string(threadID.uuidString), "action": .string("no_such_action")],
+                toolset: .system, runtime: client, allowedTools: ["use_app"]
+            )
+        }
+        _ = try await client.computerUseSetEnabled(false)
+        await client.close()
+    }
+
     @Test("Executing a system tool without required arguments fails before any runtime call")
     func missingArgumentRefused() async throws {
         let (client, tempRoot) = try Self.makeClient()

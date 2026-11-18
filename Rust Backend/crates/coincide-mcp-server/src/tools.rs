@@ -16815,6 +16815,30 @@ fn g6_misc_call(
     }
 }
 
+fn g6_use_app_inner_tool(action: &str) -> Option<&'static str> {
+    match action {
+        "list_applications" => Some("list_apps"),
+        "inspect_application" => Some("list_windows"),
+        "launch" => Some("launch_app"),
+        "list_windows" => Some("list_windows"),
+        "inspect_ui" | "get_accessibility_tree" => Some("get_window_state"),
+        "click" | "activate_element" => Some("click"),
+        "double_click" => Some("double_click"),
+        "right_click" => Some("right_click"),
+        "move_pointer" => Some("move_cursor"),
+        "drag" => Some("drag"),
+        "scroll" => Some("scroll"),
+        "type_text" => Some("type_text"),
+        "press_key" => Some("press_key"),
+        "press_shortcut" => Some("hotkey"),
+        "set_element_value" => Some("set_value"),
+        "select_menu" => Some("invoke_menu"),
+        "verify" => Some("verify_state"),
+        "take_screenshot" => Some("get_desktop_state"),
+        _ => None,
+    }
+}
+
 fn g6_use_app(
     state: &crate::ServerState,
     name: &str,
@@ -16838,38 +16862,22 @@ fn g6_use_app(
             "{name} action {action} has no engine tool; the capability is not implemented."
         )));
     }
-    let mapped: &str = match action.as_str() {
-        "list_applications" => "list_apps",
-        "inspect_application" => "list_windows",
-        "launch" => "launch_app",
-        "list_windows" => "list_windows",
-        "inspect_ui" | "get_accessibility_tree" => "get_window_state",
-        "click" | "activate_element" => "click",
-        "double_click" => "double_click",
-        "right_click" => "right_click",
-        "move_pointer" => "move_cursor",
-        "drag" => "drag",
-        "scroll" => "scroll",
-        "type_text" => "type_text",
-        "press_key" => "press_key",
-        "press_shortcut" => "hotkey",
-        "set_element_value" => "set_value",
-        "select_menu" => "invoke_menu",
-        "verify" => "verify_state",
-        "take_screenshot" => {
-            return run_computer_use_named(
-                state,
-                "get_desktop_state",
-                "get_desktop_state",
-                &json!({"threadId": thread_id, "include_screenshot": true}),
-            );
-        }
-        _ => {
-            return Err(failed(format!(
-                "{name} action {action} is not a known action."
-            )));
-        }
+    let Some(mapped) = g6_use_app_inner_tool(&action) else {
+        return Err(failed(format!(
+            "{name} action {action} is not a known action."
+        )));
     };
+    let allowed = crate::assets::stored_allowed_tools(state)
+        .map_err(|error| failed(error.to_string()))?;
+    ensure_allowed(mapped, allowed.as_deref())?;
+    if action == "take_screenshot" {
+        return run_computer_use_named(
+            state,
+            mapped,
+            mapped,
+            &json!({"threadId": thread_id, "include_screenshot": true}),
+        );
+    }
     let mut mapped_args = args.clone();
     if action == "inspect_application" {
         if mapped_args.get("pid").is_none() {
@@ -21505,6 +21513,46 @@ mod tests {
             Ok(()) => panic!("disallowed tool must be rejected"),
             Err(CallError::Failed(message)) => {
                 panic!("disallowed tool must not report Failed: {message}")
+            }
+        }
+    }
+
+    #[test]
+    fn use_app_inner_action_gate() {
+        assert_eq!(g6_use_app_inner_tool("list_applications"), Some("list_apps"));
+        assert_eq!(g6_use_app_inner_tool("inspect_application"), Some("list_windows"));
+        assert_eq!(g6_use_app_inner_tool("launch"), Some("launch_app"));
+        assert_eq!(g6_use_app_inner_tool("inspect_ui"), Some("get_window_state"));
+        assert_eq!(
+            g6_use_app_inner_tool("get_accessibility_tree"),
+            Some("get_window_state")
+        );
+        assert_eq!(g6_use_app_inner_tool("click"), Some("click"));
+        assert_eq!(g6_use_app_inner_tool("activate_element"), Some("click"));
+        assert_eq!(g6_use_app_inner_tool("press_shortcut"), Some("hotkey"));
+        assert_eq!(g6_use_app_inner_tool("take_screenshot"), Some("get_desktop_state"));
+        assert_eq!(g6_use_app_inner_tool("verify"), Some("verify_state"));
+        assert_eq!(g6_use_app_inner_tool("activate"), None);
+        assert_eq!(g6_use_app_inner_tool("no_such_action"), None);
+        let inner = g6_use_app_inner_tool("click").expect("click maps to an inner tool");
+        assert!(ensure_allowed(inner, None).is_ok());
+        assert!(ensure_allowed(
+            inner,
+            Some(&["use_app".to_owned(), "click".to_owned()])
+        )
+        .is_ok());
+        match ensure_allowed(inner, Some(&["use_app".to_owned()])) {
+            Err(CallError::UnknownTool(name)) => assert_eq!(name, "click"),
+            Ok(()) => panic!("disallowed inner tool must be rejected"),
+            Err(CallError::Failed(message)) => {
+                panic!("disallowed inner tool must not report Failed: {message}")
+            }
+        }
+        match ensure_allowed("use_app", Some(&["click".to_owned()])) {
+            Err(CallError::UnknownTool(name)) => assert_eq!(name, "use_app"),
+            Ok(()) => panic!("disallowed use_app must be rejected at the outer gate"),
+            Err(CallError::Failed(message)) => {
+                panic!("disallowed use_app must not report Failed: {message}")
             }
         }
     }

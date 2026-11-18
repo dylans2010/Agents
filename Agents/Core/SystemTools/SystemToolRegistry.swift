@@ -7083,7 +7083,7 @@ public nonisolated enum SystemToolRegistry {
                 "answers": .object(answersObject),
             ])
         case "use_app":
-            return try await Self.runG6UseApp(tool: name, arguments: arguments, runtime: runtime)
+            return try await Self.runG6UseApp(tool: name, arguments: arguments, runtime: runtime, toolset: toolset, allowedTools: allowedTools)
         case "preflight_checks":
             let threadId = try requiredString(arguments, "threadId", tool: name)
             let cwd = try requiredString(arguments, "cwd", tool: name)
@@ -9874,19 +9874,45 @@ public nonisolated enum SystemToolRegistry {
         }
     }
 
-    private static func runG6UseApp(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
+    private static func g6UseAppInnerTool(action: String) -> String? {
+        switch action {
+        case "list_applications": return "list_apps"
+        case "inspect_application", "list_windows": return "list_windows"
+        case "launch": return "launch_app"
+        case "inspect_ui", "get_accessibility_tree": return "get_window_state"
+        case "take_screenshot": return "get_desktop_state"
+        case "click", "activate_element": return "click"
+        case "double_click": return "double_click"
+        case "right_click": return "right_click"
+        case "move_pointer": return "move_cursor"
+        case "drag": return "drag"
+        case "scroll": return "scroll"
+        case "type_text": return "type_text"
+        case "press_key": return "press_key"
+        case "press_shortcut": return "hotkey"
+        case "set_element_value": return "set_value"
+        case "select_menu": return "invoke_menu"
+        case "verify": return "verify_state"
+        default: return nil
+        }
+    }
+
+    private static func runG6UseApp(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient, toolset: AgentToolset, allowedTools: [String]?) async throws -> JSONValue {
         let threadId = try requiredString(arguments, "threadId", tool: tool)
         let action = try requiredString(arguments, "action", tool: tool)
         let missing: Set<String> = ["activate", "close_application", "select_window", "get_focused_element", "select_all", "copy", "paste", "wait_for_element", "wait_for_window"]
         if missing.contains(action) {
             throw SystemToolError.executionFailed(tool: tool, message: "use_app action \(action) has no engine tool; the capability is not implemented.")
         }
-        let mapped: String
+        guard let mapped = Self.g6UseAppInnerTool(action: action) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "use_app action \(action) is not a known action.")
+        }
+        if let allowedTools, !allowedTools.isEmpty, !allowedTools.contains(mapped) {
+            throw SystemToolError.toolNotActive(tool: mapped, toolset: toolset)
+        }
         var mappedArguments = arguments
         switch action {
-        case "list_applications": mapped = "list_apps"
         case "inspect_application":
-            mapped = "list_windows"
             if mappedArguments["pid"] == nil, let appName = optionalString(arguments, "app_name") {
                 let apps = try await runComputerUseTool(tool: "list_apps", threadId: threadId, arguments: [:], runtime: runtime)
                 guard let pid = Self.g6FindPid(apps, name: appName) else {
@@ -9895,28 +9921,13 @@ public nonisolated enum SystemToolRegistry {
                 mappedArguments["pid"] = .int(Int64(pid))
             }
         case "launch":
-            mapped = "launch_app"
             if mappedArguments["bundle_id"] == nil, let identifier = optionalString(arguments, "app_identifier") {
                 mappedArguments["bundle_id"] = .string(identifier)
             }
-        case "list_windows": mapped = "list_windows"
-        case "inspect_ui", "get_accessibility_tree": mapped = "get_window_state"
         case "take_screenshot":
             return try await runComputerUseTool(tool: "get_desktop_state", threadId: threadId, arguments: ["include_screenshot": .bool(true)], runtime: runtime)
-        case "click", "activate_element": mapped = "click"
-        case "double_click": mapped = "double_click"
-        case "right_click": mapped = "right_click"
-        case "move_pointer": mapped = "move_cursor"
-        case "drag": mapped = "drag"
-        case "scroll": mapped = "scroll"
-        case "type_text": mapped = "type_text"
-        case "press_key": mapped = "press_key"
-        case "press_shortcut": mapped = "hotkey"
-        case "set_element_value": mapped = "set_value"
-        case "select_menu": mapped = "invoke_menu"
-        case "verify": mapped = "verify_state"
         default:
-            throw SystemToolError.executionFailed(tool: tool, message: "use_app action \(action) is not a known action.")
+            break
         }
         guard let target = Self.definition(named: mapped, for: .system) else {
             throw SystemToolError.unknownTool(mapped)
