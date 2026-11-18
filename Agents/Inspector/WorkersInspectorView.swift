@@ -20,7 +20,31 @@ struct WorkersInspectorView: View {
         }
     }
 
+    enum StatusFilter: String, CaseIterable, Identifiable {
+        case all
+        case running
+        case completed
+        case failed
+        case cancelled
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .all: "All"
+            case .running: "Running"
+            case .completed: "Completed"
+            case .failed: "Failed"
+            case .cancelled: "Cancelled"
+            }
+        }
+    }
+
+    private static let pausedUpdatesNote = "Worker updates paused — will retry"
+
     @State private var scopeFilter: ScopeFilter = .currentThread
+    @State private var statusFilter: StatusFilter = .all
+    @State private var consecutiveFailures = 0
     @State private var workers: [WorkerRecord] = []
     @State private var selectedWorkerID: String?
     @State private var isLoading: Bool = false
@@ -40,12 +64,25 @@ struct WorkersInspectorView: View {
     @State private var retryingIDs: Set<String> = []
 
     private var filteredWorkers: [WorkerRecord] {
+        let scoped: [WorkerRecord]
         switch scopeFilter {
         case .allWorkers:
-            return workers
+            scoped = workers
         case .currentThread:
             guard let tid = appModel.selectedThreadUUID else { return [] }
-            return workers.filter { $0.parentThreadId.lowercased() == tid.uuidString.lowercased() }
+            scoped = workers.filter { $0.parentThreadId.lowercased() == tid.uuidString.lowercased() }
+        }
+        switch statusFilter {
+        case .all:
+            return scoped
+        case .running:
+            return scoped.filter(\.isRunning)
+        case .completed:
+            return scoped.filter { $0.status == "completed" }
+        case .failed:
+            return scoped.filter { $0.status == "failed" }
+        case .cancelled:
+            return scoped.filter { $0.status == "cancelled" }
         }
     }
 
@@ -118,11 +155,25 @@ struct WorkersInspectorView: View {
         .task(id: refreshToken) {
             await loadWorkers()
             while !Task.isCancelled {
-                let interval: Duration = filteredWorkers.contains(where: \.isRunning) ? .seconds(3) : .seconds(10)
-                try? await Task.sleep(for: interval)
+                let baseSeconds: Int = filteredWorkers.contains(where: \.isRunning) ? 3 : 10
+                let multiplier = min(1 << consecutiveFailures, 8)
+                try? await Task.sleep(for: .seconds(baseSeconds * multiplier))
                 if Task.isCancelled { break }
-                await loadWorkers(silent: true)
+                if await loadWorkers(silent: true) {
+                    consecutiveFailures = 0
+                    if errorText == Self.pausedUpdatesNote {
+                        errorText = nil
+                    }
+                } else {
+                    consecutiveFailures += 1
+                    if consecutiveFailures >= 3 {
+                        errorText = Self.pausedUpdatesNote
+                    }
+                }
             }
+        }
+        .onChange(of: scopeFilter) { _, _ in
+            consecutiveFailures = 0
         }
         .confirmationDialog(
             "Delete Worker Record?",
@@ -162,7 +213,10 @@ struct WorkersInspectorView: View {
                         .accessibilityLabel(runningCapAccessibilityLabel)
                 }
                 Button {
-                    Task { await loadWorkers() }
+                    Task {
+                        consecutiveFailures = 0
+                        await loadWorkers()
+                    }
                 } label: {
                     if isLoading {
                         ProgressView()
@@ -178,6 +232,16 @@ struct WorkersInspectorView: View {
                 .disabled(isLoading)
                 .help("Refresh workers")
                 .accessibilityLabel("Refresh workers")
+            }
+            HStack(spacing: 8) {
+                Picker("Status", selection: $statusFilter) {
+                    ForEach(StatusFilter.allCases) { status in
+                        Text(status.title).tag(status)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 220)
+                Spacer(minLength: 4)
             }
             HStack(spacing: 8) {
                 Button {
@@ -507,8 +571,9 @@ struct WorkersInspectorView: View {
         return "\(total / 60)m \(total % 60)s"
     }
 
-    private func loadWorkers(silent: Bool = false) async {
-        guard let client = appModel.runtime else { return }
+    @discardableResult
+    private func loadWorkers(silent: Bool = false) async -> Bool {
+        guard let client = appModel.runtime else { return false }
         if !silent {
             isLoading = true
         }
@@ -523,10 +588,12 @@ struct WorkersInspectorView: View {
             if !Task.isCancelled {
                 workers = loaded
             }
+            return true
         } catch {
             if !Task.isCancelled && !silent {
                 errorText = error.localizedDescription
             }
+            return false
         }
     }
 
