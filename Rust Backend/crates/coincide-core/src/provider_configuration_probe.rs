@@ -242,6 +242,128 @@ impl Probe {
         Ok(report)
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AntigravityProbeState {
+    BinaryMissing,
+    NotApproved,
+    HandshakeOk,
+    Authenticated,
+    AuthRejected,
+    Unreachable,
+}
+impl AntigravityProbeState {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::BinaryMissing => "binaryMissing",
+            Self::NotApproved => "notApproved",
+            Self::HandshakeOk => "handshakeOk",
+            Self::Authenticated => "authenticated",
+            Self::AuthRejected => "authRejected",
+            Self::Unreachable => "unreachable",
+        }
+    }
+}
+pub struct AntigravityProbe {
+    pub(crate) executable: Option<PathBuf>,
+    pub(crate) unapproved_candidate: bool,
+    pub(crate) configuration: Option<LaunchConfiguration>,
+    pub(crate) account_id: Option<String>,
+    pub(crate) key_revision: Option<String>,
+    pub(crate) invalid_key: bool,
+    pub(crate) data_dir: PathBuf,
+}
+pub struct AntigravityProbeReport {
+    pub(crate) state: AntigravityProbeState,
+    pub(crate) mode: &'static str,
+    pub(crate) executable: Option<PathBuf>,
+    pub(crate) account_id: Option<String>,
+    pub(crate) key_revision: Option<String>,
+    pub(crate) used_key: bool,
+    pub(crate) protocol_version: Option<u64>,
+    pub(crate) auth_methods: Vec<String>,
+    pub(crate) server_name: Option<String>,
+    pub(crate) server_version: Option<String>,
+    pub(crate) authenticate_result_keys: Vec<String>,
+    pub(crate) error_code: Option<i64>,
+    pub(crate) detail: Option<String>,
+    pub(crate) checked_at_unix: u64,
+    pub(crate) duration_ms: u64,
+}
+impl AntigravityProbeReport {
+    pub fn to_json(&self) -> Value {
+        json!({
+            "state": self.state.as_str(),
+            "mode": self.mode,
+            "executable": self.executable.as_ref().map(|path| path.to_string_lossy().to_string()),
+            "accountId": self.account_id,
+            "keyRevision": self.key_revision,
+            "usedKey": self.used_key,
+            "protocolVersion": self.protocol_version,
+            "authMethods": self.auth_methods,
+            "serverName": self.server_name,
+            "serverVersion": self.server_version,
+            "authenticateResultKeys": self.authenticate_result_keys,
+            "errorCode": self.error_code,
+            "detail": self.detail,
+            "checkedAtUnix": self.checked_at_unix,
+            "durationMs": self.duration_ms,
+        })
+    }
+}
+impl Engine {
+    pub fn prepare_antigravity_probe(
+        &self,
+        executable: Option<PathBuf>,
+        unapproved_candidate: bool,
+        account_id: Option<&str>,
+        invalid_key: bool,
+    ) -> Result<AntigravityProbe> {
+        self.require_admissions()?;
+        self.require_provider_enabled("antigravity")?;
+        let (account_id, key_revision, configuration) = if invalid_key {
+            (
+                None,
+                None,
+                self.provider_launch_configuration("antigravity")?,
+            )
+        } else if let Some(id) = account_id {
+            let account = self
+                .native_key_accounts("antigravity")?
+                .into_iter()
+                .find(|account| account.id == id)
+                .context("Antigravity API key account not found")?;
+            ensure!(
+                account.has_key,
+                "Antigravity API key account has no stored key"
+            );
+            let key_revision = account.revision.clone();
+            let configuration = Some(
+                self.native_account_configuration_mode("antigravity", id, false)?,
+            );
+            (Some(id.to_owned()), Some(key_revision), configuration)
+        } else {
+            (
+                None,
+                None,
+                self.provider_launch_configuration("antigravity")?,
+            )
+        };
+        Ok(AntigravityProbe {
+            executable,
+            unapproved_candidate,
+            configuration,
+            account_id,
+            key_revision,
+            invalid_key,
+            data_dir: self.store.data_directory()?,
+        })
+    }
+}
+impl AntigravityProbe {
+    pub fn run(&self) -> AntigravityProbeReport {
+        crate::agent::antigravity_probe::run(self)
+    }
+}
 // Swift CursorModels.parseModelsCommand uses the CLI's "id - name" rows.
 // These remain display metadata, never an ACP model/options capability grant.
 fn codex_report(
@@ -490,5 +612,54 @@ mod tests {
         assert_eq!(version(b"Claude Code 2.1.42\n"), Some("2.1.42".into()));
         assert_eq!(version(b"Logged in with fixture-not-a-real-key"), None);
         assert_eq!(bounded_text(&json!("bad\nfixture")), None);
+    }
+
+    #[test]
+    fn antigravity_probe_without_runtime_reports_binary_missing() {
+        crate::provider_configuration::tests::with_native_key_configuration(
+            "antigravity",
+            |engine, _home| {
+                let probe = engine
+                    .prepare_antigravity_probe(None, false, None, false)
+                    .unwrap();
+                let report = probe.run();
+                assert_eq!(report.state, AntigravityProbeState::BinaryMissing);
+                assert_eq!(report.mode, "handshake");
+                assert!(!report.used_key);
+                assert_eq!(report.to_json()["state"], "binaryMissing");
+            },
+        );
+    }
+
+    #[test]
+    fn antigravity_probe_with_unapproved_candidate_refuses_to_execute() {
+        crate::provider_configuration::tests::with_native_key_configuration(
+            "antigravity",
+            |engine, _home| {
+                let probe = engine
+                    .prepare_antigravity_probe(None, true, None, false)
+                    .unwrap();
+                let report = probe.run();
+                assert_eq!(report.state, AntigravityProbeState::NotApproved);
+                assert_eq!(report.to_json()["state"], "notApproved");
+            },
+        );
+    }
+
+    #[test]
+    fn antigravity_probe_with_unknown_account_is_a_prepare_error() {
+        crate::provider_configuration::tests::with_native_key_configuration(
+            "antigravity",
+            |engine, _home| {
+                assert!(engine
+                    .prepare_antigravity_probe(
+                        None,
+                        false,
+                        Some("3f2b8c1e-9d4a-4b6f-8e2d-1c0a9b8f7e6d"),
+                        false
+                    )
+                    .is_err());
+            },
+        );
     }
 }

@@ -44,6 +44,8 @@ mod images;
 pub(crate) mod key_enrollment_process;
 #[path = "provider_metadata_capture.rs"]
 pub(crate) mod metadata_capture;
+#[path = "provider_antigravity_probe.rs"]
+pub(crate) mod antigravity_probe;
 #[path = "native_instruction_git_process.rs"]
 pub mod native_instruction_git;
 #[path = "provider_opencode.rs"]

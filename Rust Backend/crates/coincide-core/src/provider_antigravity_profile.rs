@@ -7,7 +7,7 @@ use std::{
     path::{Component, Path},
 };
 
-pub(super) struct Profile {
+pub(crate) struct Profile {
     pub directory: PathBuf,
     _lock: File,
     temporary: PathBuf,
@@ -18,9 +18,26 @@ impl Profile {
         original: Option<&Path>,
         session: Option<&str>,
     ) -> Result<Self> {
+        Self::prepare_inner(directory, original, session, true)
+    }
+    pub fn prepare_probe(directory: &Path) -> Result<Self> {
+        Self::prepare_inner(directory, None, None, false)
+    }
+    fn prepare_inner(
+        directory: &Path,
+        original: Option<&Path>,
+        session: Option<&str>,
+        require_key: bool,
+    ) -> Result<Self> {
         ensure!(
-            original.is_none() && crate::provider_configuration::native_key_profile("antigravity"),
+            !require_key
+                || (original.is_none()
+                    && crate::provider_configuration::native_key_profile("antigravity")),
             "Antigravity requires a selected Gemini API-key account; Google-account login is unavailable"
+        );
+        ensure!(
+            original.is_none(),
+            "Antigravity probe profiles never import another profile"
         );
         ensure!(
             directory.is_absolute(),
@@ -234,7 +251,7 @@ fn require_existing_session(directory: &Path, id: &str) -> Result<()> {
         "Antigravity native session is missing from this API-key account; no replacement was created"
     )
 }
-pub(super) fn removed_environment() -> Vec<String> {
+pub(crate) fn removed_environment() -> Vec<String> {
     const KEYS: &[&str] = &[
         "GEMINI_API_KEY",
         "GOOGLE_API_KEY",

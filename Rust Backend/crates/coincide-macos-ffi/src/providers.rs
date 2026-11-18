@@ -349,6 +349,9 @@ pub fn check_provider(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<
         .map(str::to_owned);
 
     if provider == "antigravity" {
+        if params.get("probe").and_then(Value::as_bool) == Some(true) {
+            return probe_antigravity(runtime, params);
+        }
         let mut engine = runtime
             .engine
             .lock()
@@ -424,8 +427,46 @@ pub fn check_provider(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<
     }))
 }
 
-pub fn create_key_account(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
-    let provider = req_str(params, &["provider"], "provider")?;
+fn probe_antigravity(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let account_id = str_param(params, &["accountId", "accountID"])
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && *s != "default")
+        .map(str::to_owned);
+    let invalid_key = params.get("probeKey").and_then(Value::as_str) == Some("invalid");
+    let probe = {
+        let engine = runtime
+            .engine
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Engine lock poisoned"))?;
+        let snap = engine.native_provider_configuration("antigravity")?;
+        let candidates = discover_antigravity_binaries(&runtime.data_dir);
+        let executable = if snap.approved {
+            snap.executable.clone()
+        } else {
+            None
+        };
+        let unapproved_candidate = snap.executable.is_some() || !candidates.is_empty();
+        let account = if invalid_key {
+            None
+        } else {
+            account_id.as_deref()
+        };
+        engine.prepare_antigravity_probe(executable, unapproved_candidate, account, invalid_key)?
+    };
+    let report = probe.run().to_json();
+    let mut engine = runtime
+        .engine
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Engine lock poisoned"))?;
+    let status = engine.record_antigravity_probe(&report)?;
+    Ok(json!({
+        "provider": "antigravity",
+        "probe": report,
+        "antigravityStatus": status,
+    }))
+}
+
+pub fn create_key_account(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {    let provider = req_str(params, &["provider"], "provider")?;
     let name = req_str(params, &["name"], "name")?;
     let api_key = req_str(params, &["apiKey", "key"], "apiKey")?;
 

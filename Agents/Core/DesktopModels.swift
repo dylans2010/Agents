@@ -600,6 +600,9 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
     public var accountSummary: String?
     public var message: String?
     public var modelsCount: Int?
+    public var probeState: String?
+    public var probeMode: String?
+    public var probeDetail: String?
 
     public init(
         provider: String,
@@ -611,7 +614,10 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
         authenticated: Bool? = nil,
         accountSummary: String? = nil,
         message: String? = nil,
-        modelsCount: Int? = nil
+        modelsCount: Int? = nil,
+        probeState: String? = nil,
+        probeMode: String? = nil,
+        probeDetail: String? = nil
     ) {
         self.provider = provider
         self.ok = ok
@@ -623,6 +629,9 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
         self.accountSummary = accountSummary
         self.message = message
         self.modelsCount = modelsCount
+        self.probeState = probeState
+        self.probeMode = probeMode
+        self.probeDetail = probeDetail
     }
 
     public init(from decoder: Decoder) throws {
@@ -640,8 +649,30 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
         } else {
             self.modelsCount = c.int("modelsCount", "modelCount")
         }
-        self.ok = c.bool("ok", "ready", "installed", "valid")
-            ?? (self.executablePath != nil && c.string("error") == nil)
+        if let probe = c.decodeValue([String: JSONValue].self, keys: "probe") {
+            self.probeState = probe["state"]?.stringValue
+            self.probeMode = probe["mode"]?.stringValue
+            self.probeDetail = probe["detail"]?.stringValue
+            if self.executablePath == nil {
+                self.executablePath = probe["executable"]?.stringValue
+            }
+            if self.probeState == "authenticated" {
+                self.authenticated = true
+            }
+            if self.message == nil {
+                self.message = self.probeDetail
+            }
+        } else {
+            self.probeState = nil
+            self.probeMode = nil
+            self.probeDetail = nil
+        }
+        if let probeState = self.probeState {
+            self.ok = probeState == "handshakeOk" || probeState == "authenticated"
+        } else {
+            self.ok = c.bool("ok", "ready", "installed", "valid")
+                ?? (self.executablePath != nil && c.string("error") == nil)
+        }
     }
 }
 

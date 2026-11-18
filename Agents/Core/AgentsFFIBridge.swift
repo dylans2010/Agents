@@ -933,10 +933,16 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         return try await desktopCall(action: "providers.save_config", params: params, as: JSONValue.self)
     }
 
-    public func checkProvider(provider: String, accountID: String? = nil) async throws -> ProviderProbeResult {
+    public func checkProvider(provider: String, accountID: String? = nil, probe: Bool = false, probeKey: String? = nil) async throws -> ProviderProbeResult {
         var params: [String: JSONValue] = ["provider": .string(provider)]
         if let accountID, !accountID.isEmpty {
             params["accountId"] = .string(accountID)
+        }
+        if probe {
+            params["probe"] = .bool(true)
+        }
+        if let probeKey, !probeKey.isEmpty {
+            params["probeKey"] = .string(probeKey)
         }
         return try await desktopCall(action: "providers.check", params: params, as: ProviderProbeResult.self)
     }

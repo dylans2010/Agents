@@ -73,9 +73,147 @@ The "Verify Runtime" button in Settings runs a local file check only:
 the server binary is present, the companion helper is present, the
 runtime is approved, and a key account with a stored key exists. It does
 not contact Gemini, and its result must never be presented as verified
-authentication. The status endpoint reports `authenticationVerified:
-false` for exactly this reason. Authentication is verified only when a
-turn's `authenticate` RPC succeeds against Gemini.
+authentication. Authentication is verified only when a turn's
+`authenticate` RPC succeeds against Gemini, or when the verification
+probe below reports `authenticated` for the same approved runtime and
+the same key account.
+
+## Verification probe
+
+`providers.check` with `{"provider": "antigravity", "probe": true}`
+runs a real handshake against the approved runtime and records the
+result in `rust-antigravity-probe.json`. The probe spawns the approved
+`agy_acp_server.par` inside a fresh single-use private profile
+(`providers/antigravity/probe/<uuid>`, `0700`, seeded
+`settings.json` with `{"auth":{"type":"gemini-api-key"}}` and the
+browser-suppression shim, exactly like a turn), sends ACP
+`initialize`, and, depending on the mode, `authenticate` with
+`methodId` `gemini-api-key`. The probe profile directory is deleted
+when the probe finishes, whether it succeeds or fails. The probe
+never writes a key anywhere: the key reaches the child process only
+through its environment, and the recorded result contains no key
+material, no raw frames, and no server output beyond a truncated
+error message.
+
+### Modes
+
+- `handshake` (no `accountId`): `initialize` only, no key is
+  presented to the server at all. Proves the runtime binary speaks
+  ACP 1.x and offers `gemini-api-key` authentication. Proves
+  nothing about any key.
+- `authenticate` (`accountId` set): `initialize` +
+  `authenticate` with the selected account's stored Gemini API key,
+  read from Keychain through the same launch configuration a turn
+  uses. Proves that key is accepted by Gemini through this runtime.
+- `invalid-key` (`probeKey: "invalid"`): `initialize` +
+  `authenticate` with the fixed placeholder key
+  `coincide-probe-invalid-key`. The server is expected to reject it;
+  this mode proves the probe can tell rejection apart from success,
+  without risking a real key.
+
+The probe refuses to execute a binary that is not approved, and
+refuses to run with an unknown account or an account that has no
+stored key. It has a 60-second total deadline.
+
+### States
+
+The probe reports exactly one state, recorded with the mode, the
+approved executable path, the account id and key revision (when a
+key was used), the protocol version and auth methods the server
+advertised, the server name/version when the server reports them,
+the top-level keys of the `authenticate` result when one came back,
+and a truncated detail string:
+
+- `binaryMissing`: no approved runtime and no candidate binary was
+  found. Nothing was spawned.
+- `notApproved`: a candidate binary was found but is not approved.
+  Nothing was spawned.
+- `handshakeOk`: `initialize` succeeded (ACP protocol version 1,
+  `gemini-api-key` offered). The runtime is real and reachable. No
+  key was presented, so this never means the account is
+  authenticated.
+- `authenticated`: `authenticate` returned a result for the
+  presented key. The key is accepted by Gemini through this runtime.
+- `authRejected`: the server rejected `authenticate`, did not offer
+  `gemini-api-key`, or asked for interactive sign-in (the browser
+  shim was triggered). The detail carries the server's error code
+  and message, truncated to 500 characters.
+- `unreachable`: the runtime could not be launched, exited before
+  answering, answered with invalid frames, or did not answer within
+  60 seconds. The detail says which.
+
+### What the status endpoint reports
+
+`providers.antigravity.status` includes the last recorded probe and
+two derived flags:
+
+- `handshakeVerified` is true only when the last probe reported
+  `handshakeOk` or `authenticated` for the executable that is
+  currently approved. Approving a different binary clears it.
+- `authenticationVerified` is true only when the last probe
+  reported `authenticated` with a key, for the currently approved
+  executable, and the probe's account id and key revision still
+  match a key account that has a stored key. Deleting the account
+  or saving a new key for it clears it. A successful turn does not
+  set either flag; only a probe does.
+
+The UI must keep the two states visually distinct: "Runtime
+Handshake Verified" means the binary answered `initialize`; it is
+not authentication. "Authenticated" means a probe with a key
+succeeded. Before any probe has run, both flags are false.
+
+### What the probe cannot prove
+
+- It does not prove a turn will succeed: model availability,
+  quota, and subscription eligibility are learned at session setup
+  and during turns, not by the probe.
+- It does not prove the key will stay valid: a key can be revoked
+  after the probe runs, which is why the status flags go stale when
+  the account or its key revision changes.
+- It does not list models: real models are learned from the server
+  at session setup, so the UI must not promise a model list before
+  a turn exists.
+- It does not contact Google sign-in in any form. OAuth stays
+  disabled; the browser shim still suppresses any sign-in attempt.
+
+### Probe status in this environment
+
+The probe was implemented in this slice but **not executed here**:
+no `agy_acp_server.par` binary exists anywhere on this machine
+(a full filesystem search found none), and the slice does not
+download runtimes, so every probe run here would report
+`binaryMissing`. The probe code paths are covered by tests written
+in this slice (fake ACP servers answering `initialize` and
+`authenticate` over stdio), but those tests were not executed here
+either. The Mac gate below is the first real execution.
+
+### Mac gate: running the probe for real
+
+1. On the Mac, install Google Antigravity (or pin a supplied
+   `agy_acp_server.par` plus its sibling `localharness_external`
+   helper) and approve the runtime in Settings › Antigravity.
+2. Add a Gemini API key account in Settings › Antigravity.
+3. Handshake first, with no key: call `checkProvider(provider:
+   "antigravity", probe: true)` and confirm the result reports
+   `handshakeOk`, `protocolVersion` 1, and `authMethods`
+   containing `gemini-api-key`. Confirm Settings shows "Runtime
+   Handshake Verified" and does NOT show "Authenticated".
+4. Authenticate with the real key: call `checkProvider(provider:
+   "antigravity", probe: true, accountID: <the account id>)` and
+   confirm the result reports `authenticated` with `usedKey` true
+   and the account id in the result. Confirm Settings shows
+   "Authenticated".
+5. Negative control: call `checkProvider(provider:
+   "antigravity", probe: true, probeKey: "invalid")` and confirm
+   the result reports `authRejected` with the server's rejection
+   message. Confirm Settings no longer shows "Authenticated" if a
+   previous `authenticated` result was recorded for a different
+   probe (the invalid-key probe records its own result).
+6. Run the Rust tests (`cargo test -p coincide-core
+   antigravity`) and the Swift tests
+   (`AntigravityProbeStatusTests`) and confirm they pass.
+7. Start a real Antigravity turn and confirm it still works
+   end to end; the probe must not change turn behavior.
 
 ## Models
 
@@ -90,5 +228,3 @@ not promise a model list before a turn exists.
 - Quota display: the status endpoint lists `quota_display` under
   `remaining` work; no quota is shown anywhere.
 - Model list before a turn: see "Models" above.
-- A real verification probe that contacts Gemini: a later slice adds it.
-  Until then, the settings banner states exactly what was checked.

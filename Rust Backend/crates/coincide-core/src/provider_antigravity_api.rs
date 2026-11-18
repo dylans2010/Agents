@@ -17,23 +17,86 @@ fn account_id(value: &Value) -> Result<String> {
     Ok(id.into())
 }
 
+fn probe_verification(
+    probe: &Value,
+    accounts: &[provider_configuration::NativeKeyAccount],
+    approved_executable: Option<&str>,
+) -> (bool, bool) {
+    let state = probe["state"].as_str().unwrap_or("");
+    let executable_matches = probe["executable"]
+        .as_str()
+        .is_some_and(|path| approved_executable == Some(path));
+    let handshake_verified = matches!(state, "handshakeOk" | "authenticated") && executable_matches;
+    let authentication_verified = state == "authenticated"
+        && probe["usedKey"] == true
+        && executable_matches
+        && probe["accountId"].as_str().is_some_and(|id| {
+            accounts.iter().any(|account| {
+                account.id == id
+                    && account.has_key
+                    && probe["keyRevision"].as_str() == Some(account.revision.as_str())
+            })
+        });
+    (handshake_verified, authentication_verified)
+}
+
 impl Engine {
+    pub fn record_antigravity_probe(&mut self, report: &Value) -> Result<Value> {
+        let state = report["state"].as_str().unwrap_or("");
+        ensure!(
+            matches!(
+                state,
+                "binaryMissing"
+                    | "notApproved"
+                    | "handshakeOk"
+                    | "authenticated"
+                    | "authRejected"
+                    | "unreachable"
+            ),
+            "Antigravity probe state is invalid"
+        );
+        self.store
+            .save_document("rust-antigravity-probe.json", report)?;
+        self.revision += 1;
+        self.antigravity_command("providers.antigravity.status", &json!({}))
+    }
+
     pub(super) fn antigravity_command(&mut self, method: &str, _p: &Value) -> Result<Value> {
         match method {
             "providers.antigravity.status" => {
-                let accounts = self
-                    .native_key_accounts("antigravity")?
-                    .into_iter()
+                let key_accounts = self.native_key_accounts("antigravity")?;
+                let accounts = key_accounts
+                    .iter()
                     .map(|account| {
                         (
-                            account.id,
+                            account.id.clone(),
                             json!({"name":account.name,"auth":"apiKey","hasKey":account.has_key}),
                         )
                     })
                     .collect::<serde_json::Map<String, Value>>();
+                let probe = self
+                    .store
+                    .local_document("rust-antigravity-probe.json")?
+                    .unwrap_or(Value::Null);
+                let approved_executable = self
+                    .native_provider_configuration("antigravity")
+                    .ok()
+                    .and_then(|snapshot| {
+                        if snapshot.approved {
+                            snapshot
+                                .executable
+                                .map(|path| path.to_string_lossy().into_owned())
+                        } else {
+                            None
+                        }
+                    });
+                let (handshake_verified, authentication_verified) =
+                    probe_verification(&probe, &key_accounts, approved_executable.as_deref());
                 Ok(json!({
                     "authentication":"gemini_api_key_only",
-                    "authenticationVerified":false,
+                    "authenticationVerified":authentication_verified,
+                    "handshakeVerified":handshake_verified,
+                    "probe":probe,
                     "accounts":accounts,
                     "termsURL":"https://antigravity.google/docs/ide/extensions/acp",
                     "remaining":["quota_display","windows_runtime"]
@@ -162,5 +225,61 @@ mod tests {
             Some(legacy)
         );
         assert!(engine.runs.is_empty());
+    }
+
+    #[test]
+    fn recorded_probe_verifies_only_matching_runtime_and_account() {
+        crate::provider_configuration::tests::with_native_key_configuration(
+            "antigravity",
+            |engine, _home| {
+                let snapshot = engine.native_provider_configuration("antigravity").unwrap();
+                let executable = snapshot.executable.unwrap().to_string_lossy().into_owned();
+                let account = engine.native_key_accounts("antigravity").unwrap().remove(0);
+                let report = |state: &str,
+                              account_id: Option<&str>,
+                              key_revision: Option<&str>,
+                              used_key: bool| {
+                    json!({"state": state, "mode": "authenticate", "executable": executable.clone(), "accountId": account_id, "keyRevision": key_revision, "usedKey": used_key, "protocolVersion": 1, "authMethods": ["gemini-api-key"], "serverName": null, "serverVersion": null, "authenticateResultKeys": [], "errorCode": null, "detail": null, "checkedAtUnix": 1, "durationMs": 1})
+                };
+                let status = engine
+                    .record_antigravity_probe(&report("handshakeOk", None, None, false))
+                    .unwrap();
+                assert_eq!(status["handshakeVerified"], true);
+                assert_eq!(status["authenticationVerified"], false);
+                assert_eq!(status["probe"]["state"], "handshakeOk");
+                let status = engine
+                    .record_antigravity_probe(&report(
+                        "authenticated",
+                        Some(&account.id),
+                        Some(&account.revision),
+                        true,
+                    ))
+                    .unwrap();
+                assert_eq!(status["handshakeVerified"], true);
+                assert_eq!(status["authenticationVerified"], true);
+                let status = engine
+                    .record_antigravity_probe(&report(
+                        "authenticated",
+                        Some("3f2b8c1e-9d4a-4b6f-8e2d-1c0a9b8f7e6d"),
+                        Some(&account.revision),
+                        true,
+                    ))
+                    .unwrap();
+                assert_eq!(status["handshakeVerified"], true);
+                assert_eq!(status["authenticationVerified"], false);
+                let status = engine
+                    .record_antigravity_probe(&report(
+                        "authenticated",
+                        Some(&account.id),
+                        Some("stale-revision"),
+                        true,
+                    ))
+                    .unwrap();
+                assert_eq!(status["authenticationVerified"], false);
+                assert!(engine
+                    .record_antigravity_probe(&json!({"state": "claimed"}))
+                    .is_err());
+            },
+        );
     }
 }

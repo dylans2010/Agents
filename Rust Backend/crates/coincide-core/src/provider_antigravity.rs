@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[path = "provider_antigravity_files.rs"]
 mod files;
 #[path = "provider_antigravity_profile.rs"]
-mod profile;
+pub(crate) mod profile;
 pub(super) const AUTH_FAILURE: &str = "The Gemini API key could not be used. Check the selected API-key account in Settings; no Google sign-in was started";
 
 enum Pending {

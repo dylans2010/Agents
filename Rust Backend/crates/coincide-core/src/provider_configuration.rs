@@ -2091,4 +2091,6 @@ pub(crate) mod tests {
 
 #[path = "provider_configuration_probe.rs"]
 mod probe;
-pub use probe::{Probe, ProbeReport};
+pub use probe::{
+    AntigravityProbe, AntigravityProbeReport, AntigravityProbeState, Probe, ProbeReport,
+};
