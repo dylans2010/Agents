@@ -406,7 +406,7 @@ public struct CommandPaletteSheet: View {
             .padding(.vertical, 6.5)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                    .fill(isHighlighted ? Color.accentColor.opacity(0.16) : Color.clear)
+                    .fill(isHighlighted ? AppTheme.accent.opacity(0.16) : Color.clear)
             )
             .contentShape(Rectangle())
         }
@@ -518,7 +518,7 @@ public struct CommandPaletteSheet: View {
                 title: "New Thread",
                 subtitle: appModel.selectedProject.flatMap { $0.isChats ? nil : "In \($0.name)" },
                 shortcutHint: "⌘N",
-                icon: .symbol("square.and.pencil", Color.accentColor),
+                icon: .symbol("square.and.pencil", AppTheme.accent),
                 score: 100
             ) {
                 Task { _ = await appModel.createNewThread() }

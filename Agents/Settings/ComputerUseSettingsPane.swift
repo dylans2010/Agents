@@ -58,15 +58,15 @@ public struct ComputerUseSettingsPane: View {
             .disabled(status == nil || controller.isBusy)
             if let status, !status.nativeCompiled {
                 Text("The native computer-use executor is not compiled into this build. Computer Use cannot run here.")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AppTheme.danger)
             }
             if let error = status?.error {
                 Text(error)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AppTheme.danger)
             }
             if let message = controller.lastError {
                 Text(message)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AppTheme.danger)
             }
         }
     }

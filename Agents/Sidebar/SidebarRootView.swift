@@ -248,7 +248,7 @@ public struct SidebarRootView: View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "arrow.down.doc.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(AppTheme.accent)
                     .padding(.top, 1)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -689,7 +689,7 @@ public struct SidebarRootView: View {
             } label: {
                 Image(systemName: appModel.showArchivedThreads ? "archivebox.fill" : "archivebox")
                     .font(.system(size: 13))
-                    .foregroundStyle(appModel.showArchivedThreads ? Color.accentColor : AppTheme.secondaryLabel)
+                    .foregroundStyle(appModel.showArchivedThreads ? AppTheme.accent : AppTheme.secondaryLabel)
             }
             .buttonStyle(.borderless)
             .help(appModel.showArchivedThreads ? "Hide Archived Threads (⌥⌘A)" : "Show Archived Threads (⌥⌘A)")

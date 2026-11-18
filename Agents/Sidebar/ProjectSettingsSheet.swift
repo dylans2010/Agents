@@ -150,7 +150,7 @@ public struct ProjectSettingsSheet: View {
         HStack(spacing: 12) {
             Image(systemName: "folder.fill.badge.gearshape")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(AppTheme.accent)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(project.name) — Defaults & Scripts")

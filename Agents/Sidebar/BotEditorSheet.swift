@@ -243,7 +243,7 @@ public struct BotEditorSheet: View {
                                 .overlay(
                                     RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
                                         .strokeBorder(
-                                            isSelected ? Color.accentColor : AppTheme.separator,
+                                            isSelected ? AppTheme.accent : AppTheme.separator,
                                             lineWidth: isSelected ? 2 : 1
                                         )
                                 )
@@ -283,6 +283,9 @@ public struct BotEditorSheet: View {
                                         Circle()
                                             .strokeBorder(AppTheme.primaryLabel, lineWidth: 2)
                                             .frame(width: 32, height: 32)
+                                        Circle()
+                                            .fill(Color.black.opacity(0.55))
+                                            .frame(width: 16, height: 16)
                                         Image(systemName: "checkmark")
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundStyle(.white)
@@ -342,7 +345,7 @@ public struct BotEditorSheet: View {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: activePreset.symbol)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(AppTheme.accent)
                             .padding(.top, 2)
 
                         VStack(alignment: .leading, spacing: 3) {
@@ -406,7 +409,7 @@ public struct BotEditorSheet: View {
             HStack(spacing: 6) {
                 Image(systemName: symbol)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(isSelected ? Color.accentColor : AppTheme.secondaryLabel)
+                    .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.secondaryLabel)
                 Text(title)
                     .font(.system(size: 11.5, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? AppTheme.primaryLabel : AppTheme.secondaryLabel)
@@ -417,11 +420,11 @@ public struct BotEditorSheet: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                    .fill(isSelected ? Color.accentColor.opacity(0.13) : AppTheme.controlBackground)
+                    .fill(isSelected ? AppTheme.accent.opacity(0.13) : AppTheme.controlBackground)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                    .strokeBorder(isSelected ? Color.accentColor : AppTheme.separator, lineWidth: isSelected ? 1.5 : 1)
+                    .strokeBorder(isSelected ? AppTheme.accent : AppTheme.separator, lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)

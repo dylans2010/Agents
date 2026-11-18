@@ -68,7 +68,11 @@ public enum AppTheme {
 
     // Brand & Semantic Accents
     public static var accent: Color { Color("AccentColor") }
-    public static var onAccent: Color { .white }
+    public static var onAccent: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .black : .white
+        })
+    }
     public static var success: Color { Color(nsColor: .systemGreen) }
     public static var warning: Color { Color(nsColor: .systemOrange) }
     public static var danger: Color { Color(nsColor: .systemRed) }
