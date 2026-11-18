@@ -154,11 +154,10 @@ public struct CommandPaletteSheet: View {
 
         // 4. Bots
         for bot in appModel.workspace.bots ?? [] {
-            let subtitle = bot.persona?.trimmingCharacters(in: .whitespacesAndNewlines)
             if q.isEmpty {
-                items.append(makeBotItem(bot, subtitle: subtitle, score: 25))
-            } else if let s = Self.matchScore(query: q, primary: bot.name, secondary: subtitle) {
-                items.append(makeBotItem(bot, subtitle: subtitle, score: s + 20))
+                items.append(makeBotItem(bot, subtitle: nil, score: 25))
+            } else if let s = Self.matchScore(query: q, primary: bot.name, secondary: nil) {
+                items.append(makeBotItem(bot, subtitle: nil, score: s + 20))
             }
         }
 

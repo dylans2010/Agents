@@ -72,12 +72,9 @@ public struct AssistantLibraryDetailView: View {
 
     private var capabilityText: String {
         if let tools = definition.allowedTools {
-            if tools.isEmpty {
-                return "No tools"
-            }
-            return tools.joined(separator: ", ")
+            return "\(tools.count) tools"
         }
-        return "All system tools"
+        return "\(SystemToolRegistry.systemTools.count) tools"
     }
 
     public var body: some View {
@@ -87,7 +84,7 @@ public struct AssistantLibraryDetailView: View {
                 launchSection
                 actionsSection
                 Divider()
-                systemPromptSection
+                summarySection
                 if !definition.intendedTasks.isEmpty {
                     detailSection(title: "Intended Tasks", systemImage: "checklist") {
                         VStack(alignment: .leading, spacing: 4) {
@@ -335,22 +332,36 @@ public struct AssistantLibraryDetailView: View {
         }
     }
 
-    private var systemPromptSection: some View {
-        detailSection(title: "System Prompt", systemImage: "doc.text") {
-            ScrollView {
-                Text(definition.systemPrompt)
-                    .font(AppTheme.codeFont())
-                    .foregroundStyle(AppTheme.primaryLabel)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
+    private var summarySection: some View {
+        detailSection(title: "Summary", systemImage: "doc.text") {
+            VStack(alignment: .leading, spacing: 4) {
+                summaryRow(label: "Category", value: definition.category.displayName)
+                summaryRow(label: "Permissions", value: permissionProfileText)
+                summaryRow(label: "Capabilities", value: capabilityText)
+                summaryRow(label: "Input requirements", value: inputRequirementsText)
+                summaryRow(label: "Version", value: "Version \(definition.version)")
             }
-            .frame(maxHeight: 320)
-            .background(AppTheme.textBackground, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                    .strokeBorder(AppTheme.separator, lineWidth: 1)
-            )
+        }
+    }
+
+    private var inputRequirementsText: String {
+        let count = definition.inputRequirements?.count ?? 0
+        if count == 0 {
+            return "None"
+        }
+        return "\(count) requirement\(count == 1 ? "" : "s")"
+    }
+
+    private func summaryRow(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label)
+                .font(AppTheme.bodyFont())
+                .foregroundStyle(AppTheme.secondaryLabel)
+                .frame(width: 128, alignment: .leading)
+            Text(value)
+                .font(AppTheme.bodyFont())
+                .foregroundStyle(AppTheme.primaryLabel)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

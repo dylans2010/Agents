@@ -312,7 +312,7 @@ public struct AssistantEditorView: View {
             if tools.isEmpty {
                 return "No tools enabled. The assistant can answer from its instructions only."
             }
-            return "\(tools.count) tools enabled: \(tools.joined(separator: ", "))"
+            return "\(tools.count) tools enabled."
         }
         return "No tool restriction. The assistant can use all \(SystemToolRegistry.systemTools.count) system tools."
     }
@@ -609,26 +609,7 @@ public struct AssistantEditorView: View {
                 .font(.system(size: 11.5))
                 .foregroundStyle(AppTheme.secondaryLabel)
                 .fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("System prompt that would be used")
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(AppTheme.primaryLabel)
-                ScrollView {
-                    Text(preview.systemPrompt.isEmpty ? "No system prompt yet." : preview.systemPrompt)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(preview.systemPrompt.isEmpty ? AppTheme.tertiaryLabel : AppTheme.primaryLabel)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                        .padding(8)
-                }
-                .frame(minHeight: 64, maxHeight: 140)
-                .background(AppTheme.controlBackground, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
-                        .strokeBorder(AppTheme.separator, lineWidth: 1)
-                )
-            }
-            Text("This is a preview of the configuration, not a run. The runtime wraps the prompt in the system prompt template when the assistant launches.")
+            Text("The runtime composes the final instructions internally.")
                 .font(.system(size: 11.5))
                 .foregroundStyle(AppTheme.secondaryLabel)
                 .fixedSize(horizontal: false, vertical: true)

@@ -531,13 +531,6 @@ struct WelcomeWorkspaceView: View {
                                             .font(.system(size: 12.5, weight: .semibold))
                                             .foregroundStyle(AppTheme.primaryLabel)
                                             .lineLimit(1)
-                                        if let persona = bot.persona, !persona.isEmpty {
-                                            Text(persona)
-                                                .font(.system(size: 11))
-                                                .foregroundStyle(AppTheme.secondaryLabel)
-                                                .lineLimit(1)
-                                                .frame(maxWidth: 180, alignment: .leading)
-                                        }
                                     }
                                 }
                                 .padding(.horizontal, 12)

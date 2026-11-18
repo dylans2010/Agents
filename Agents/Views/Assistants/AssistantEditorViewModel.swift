@@ -489,7 +489,7 @@ public final class AssistantEditorViewModel {
         }
         let toolsDescription: String
         if let tools = allowedTools {
-            toolsDescription = "\(tools.count) tools: \(tools.joined(separator: ", "))"
+            toolsDescription = "\(tools.count) tools"
         } else {
             toolsDescription = "All \(SystemToolRegistry.systemTools.count) system tools, no restriction"
         }

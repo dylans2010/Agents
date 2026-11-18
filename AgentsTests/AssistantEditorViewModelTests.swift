@@ -405,7 +405,8 @@ struct AssistantEditorViewModelTests {
         #expect(preview.providerDescription == "Claude")
         #expect(preview.modelDescription == "claude-sonnet-4")
         #expect(preview.systemPrompt == "Do the job.")
-        #expect(preview.toolsDescription.contains("create_terminal"))
+        #expect(preview.toolsDescription == "17 tools")
+        #expect(!preview.toolsDescription.contains("create_terminal"))
         #expect(preview.permissionDescription == "Read-only")
         #expect(preview.toolsetNote.contains("System Tools"))
     }

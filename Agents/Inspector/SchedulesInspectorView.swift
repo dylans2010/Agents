@@ -82,6 +82,7 @@ struct SchedulesInspectorView: View {
                                     ScheduledTaskCard(
                                         task: task,
                                         targetSummary: targetDescription(for: task),
+                                        botName: botName(for: task),
                                         isBusy: busyTaskIDs.contains(task.id),
                                         onApprove: {
                                             Task { await approve(task) }
@@ -253,6 +254,11 @@ struct SchedulesInspectorView: View {
         .padding(.horizontal, 2)
     }
 
+    private func botName(for task: RemoteScheduledTask) -> String? {
+        guard let botID = task.botID else { return nil }
+        return appModel.workspace.bots?.first(where: { $0.id == botID })?.name
+    }
+
     private func targetDescription(for task: RemoteScheduledTask) -> String {
         let projectName = appModel.workspace.projects.first(where: { $0.id == task.projectID })?.name ?? "Workspace"
         if let tid = task.threadID {
@@ -292,6 +298,7 @@ struct SchedulesInspectorView: View {
 private struct ScheduledTaskCard: View {
     let task: RemoteScheduledTask
     let targetSummary: String
+    let botName: String?
     let isBusy: Bool
     let onApprove: () -> Void
     let onRunNow: () -> Void
@@ -408,12 +415,17 @@ private struct ScheduledTaskCard: View {
                     .background(Capsule().fill(stateTint.opacity(0.12)))
             }
 
-            // Prompt Preview
-            if !task.prompt.isEmpty {
-                Text(task.prompt)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(AppTheme.secondaryLabel)
-                    .lineLimit(2)
+            if let botName {
+                HStack(spacing: 5) {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.tertiaryLabel)
+                        .frame(width: 12)
+                    Text("Assistant: \(botName)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                        .lineLimit(1)
+                }
             }
 
             // Recurrence, Next Run & Target Metadata
