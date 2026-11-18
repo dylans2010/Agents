@@ -15,6 +15,8 @@ Reconstruction of Coincide as the native macOS app Agents: SwiftUI + AppKit UI o
 
 ## 0.1.0
 
+Historical note: this section records the upstream 0.1.0 release as shipped. Agents → Check for Updates does not exist in the current app — the updater is dead in the shipped native app (see [docs/updater-audit.md](docs/updater-audit.md)).
+
 The first public release of Agents, a native macOS app for the coding agents you already pay for.
 
 - **Every agent, one window:** Claude Code, Codex, Cursor, Grok Build, OpenCode and Antigravity, each through its own command-line tool and your existing sign-in, with one model picker across them.

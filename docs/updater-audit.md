@@ -39,7 +39,7 @@ here instead, with recommendations at the end.
   shipped app is `com.apoorvdarshan.coincide` / `Agents.app`. The desktop
   mount additionally requires the running executable to be exactly
   `Coincide Rust.app/Contents/MacOS/coincide-rust`
-  (`Rust Backend/crates/coincide-desktop/src/updater_mount.rs:120-131`).
+  (`Rust Backend/crates/coincide-desktop/src/updater_mount.rs:89-92`).
 - Even inside `coincide-desktop`, the channel is off unless all of
   `COINCIDE_RUST_UPDATE_FEED`, `COINCIDE_RUST_UPDATE_ARTIFACT_BASE`, and
   `COINCIDE_RUST_UPDATE_ANCHOR` are set
