@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 pub const MAX_WORKER_NAME_CHARS: usize = 128;
 pub const MAX_TASK_CHARS: usize = 500;
+pub const MAX_SYSTEM_PROMPT_BYTES: usize = 64 * 1024;
 pub const MAX_TARGET_FILES: usize = 64;
 pub const MAX_PLAN_STEPS: usize = 16;
 pub const MAX_WORKERS_PER_PARENT: usize = 32;
@@ -111,6 +112,25 @@ pub struct SpawnRequest {
     pub target_files: Vec<String>,
     pub parent_thread_id: String,
     pub assistant_id: Option<String>,
+    pub system_prompt: Option<String>,
+}
+
+pub fn validate_system_prompt(raw: Option<String>) -> Result<Option<String>> {
+    let Some(prompt) = raw else {
+        return Ok(None);
+    };
+    if prompt.trim().is_empty() {
+        return Ok(None);
+    }
+    ensure!(
+        prompt.len() <= MAX_SYSTEM_PROMPT_BYTES,
+        "System prompt exceeds 64 KiB"
+    );
+    ensure!(
+        !prompt.contains('\0'),
+        "System prompt cannot contain NUL"
+    );
+    Ok(Some(prompt))
 }
 
 pub fn parse_spawn_request(params: &Value) -> Result<SpawnRequest> {
@@ -130,12 +150,22 @@ pub fn parse_spawn_request(params: &Value) -> Result<SpawnRequest> {
             )
         }
     };
+    let system_prompt = match params.get("systemPrompt") {
+        None | Some(Value::Null) => None,
+        Some(value) => Some(
+            value
+                .as_str()
+                .context("System prompt must be text")?
+                .to_owned(),
+        ),
+    };
     Ok(SpawnRequest {
         name: validate_worker_name(&req_str(params, "name")?)?,
         task: validate_task(&req_str(params, "task")?)?,
         target_files: validate_target_files(opt_string_array(params, "targetFiles"))?,
         parent_thread_id,
         assistant_id,
+        system_prompt: validate_system_prompt(system_prompt)?,
     })
 }
 
@@ -695,6 +725,7 @@ mod tests {
                 target_files: Vec::new(),
                 parent_thread_id: parent.to_owned(),
                 assistant_id: None,
+                system_prompt: None,
             };
             let mut record =
                 worker_record_json(id, &request, "child-thread", "codex", 0, created_at);
@@ -713,6 +744,7 @@ mod tests {
             target_files: Vec::new(),
             parent_thread_id: parent.to_owned(),
             assistant_id: None,
+            system_prompt: None,
         };
         insert_record(&mut store, &request, "child-thread", "codex", 0).unwrap();
         let ids: Vec<String> = load_workers(&store)
@@ -753,6 +785,7 @@ mod tests {
                 target_files: Vec::new(),
                 parent_thread_id: parent.to_owned(),
                 assistant_id: None,
+                system_prompt: None,
             };
             let mut record = worker_record_json(
                 id,
@@ -771,6 +804,7 @@ mod tests {
             target_files: Vec::new(),
             parent_thread_id: parent.to_owned(),
             assistant_id: None,
+            system_prompt: None,
         };
         insert_record(&mut store, &request, "child-thread", "codex", 0).unwrap();
         let ids: Vec<String> = load_workers(&store)
@@ -787,5 +821,62 @@ mod tests {
         assert!(ids.contains(&"first".to_owned()));
         assert!(ids.contains(&"second".to_owned()));
         assert!(ids.contains(&"third".to_owned()));
+    }
+
+    #[test]
+    fn parse_spawn_request_accepts_supplied_system_prompt() {
+        let request = parse_spawn_request(&json!({
+            "parentThreadId": "parent-thread",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "systemPrompt": "Composed baseline plus role text.",
+        }))
+        .unwrap();
+        assert_eq!(
+            request.system_prompt.as_deref(),
+            Some("Composed baseline plus role text.")
+        );
+    }
+
+    #[test]
+    fn parse_spawn_request_treats_missing_and_blank_system_prompt_as_absent() {
+        let missing = parse_spawn_request(&json!({
+            "parentThreadId": "parent-thread",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+        }))
+        .unwrap();
+        assert_eq!(missing.system_prompt, None);
+        let blank = parse_spawn_request(&json!({
+            "parentThreadId": "parent-thread",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "systemPrompt": "   ",
+        }))
+        .unwrap();
+        assert_eq!(blank.system_prompt, None);
+    }
+
+    #[test]
+    fn parse_spawn_request_rejects_non_string_and_oversize_system_prompt() {
+        let non_string = parse_spawn_request(&json!({
+            "parentThreadId": "parent-thread",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "systemPrompt": 7,
+        }));
+        assert!(non_string.is_err());
+        let oversize = parse_spawn_request(&json!({
+            "parentThreadId": "parent-thread",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "systemPrompt": "x".repeat(MAX_SYSTEM_PROMPT_BYTES + 1),
+        }));
+        assert!(oversize.is_err());
     }
 }

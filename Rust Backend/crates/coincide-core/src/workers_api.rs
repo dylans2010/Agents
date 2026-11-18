@@ -136,8 +136,15 @@ impl Engine {
                 child_params[key] = parent[key].clone();
             }
         }
+        let supplied_prompt = request.system_prompt.clone();
+        let parent_prompt = parent["systemPrompt"]
+            .as_str()
+            .filter(|prompt| !prompt.trim().is_empty())
+            .map(str::to_owned);
+        if let Some(prompt) = supplied_prompt.or(parent_prompt) {
+            child_params["systemPrompt"] = json!(prompt);
+        }
         if let Some(assistant) = &assistant {
-            child_params["systemPrompt"] = json!(assistant.system_prompt);
             let assistant_tools = assistant
                 .allowed_tools
                 .as_ref()
@@ -208,9 +215,6 @@ impl Engine {
                 }
             }
         } else {
-            if !parent["systemPrompt"].is_null() {
-                child_params["systemPrompt"] = parent["systemPrompt"].clone();
-            }
             if !parent["toolset"].is_null() {
                 child_params["toolset"] = parent["toolset"].clone();
             }
@@ -856,13 +860,131 @@ mod tests {
         let child_doc = engine.store.thread(&child.id).unwrap();
         assert_eq!(child_doc["selection"]["provider"], "claude");
         assert_eq!(child_doc["selection"]["modelID"], "sonnet");
-        assert_eq!(
-            child_doc["systemPrompt"],
-            "Review the diff for security issues."
-        );
+        assert_eq!(child_doc["systemPrompt"], "Parent prompt.");
         assert_eq!(child_doc["toolset"], "system");
         assert_eq!(child_doc["allowedTools"], json!(["read_file"]));
         assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_with_assistant_id_uses_supplied_composed_prompt() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant(&mut engine);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+            "systemPrompt": "Composed baseline plus Reviewer role text.",
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(
+            child_doc["systemPrompt"],
+            "Composed baseline plus Reviewer role text."
+        );
+    }
+
+    #[test]
+    fn spawn_with_assistant_id_without_parent_prompt_leaves_child_without_raw_prompt() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant(&mut engine);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert!(child_doc["systemPrompt"].is_null());
+        assert_ne!(
+            child_doc["systemPrompt"].as_str().unwrap_or(""),
+            "Review the diff for security issues."
+        );
+    }
+
+    #[test]
+    fn spawn_rejects_oversize_supplied_system_prompt_without_creating_a_child() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant(&mut engine);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+            "systemPrompt": "x".repeat(worker_store::MAX_SYSTEM_PROMPT_BYTES + 1),
+        });
+        assert!(engine.workers_spawn(&request).is_err());
+        let children = engine.store.summaries("", true).unwrap();
+        assert!(children
+            .iter()
+            .all(|summary| summary.title != "Worker: alpha"));
+    }
+
+    #[test]
+    fn spawned_child_receives_task_only_and_no_parent_history() {
+        let mut engine = test_engine();
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        parent_doc["items"] = json!([
+            {"id": "marker-user", "kind": "user", "text": "Parent-only marker history text"},
+            {"id": "marker-assistant", "kind": "assistant", "text": "Parent-only marker reply"},
+        ]);
+        engine.store.save(&parent_doc).unwrap();
+        let _ = engine.workers_spawn(&spawn_request(&parent, "alpha", "Do the thing."));
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["systemPrompt"], "Parent prompt.");
+        let items = child_doc["items"].as_array().unwrap();
+        assert!(items.len() <= 1);
+        for item in items {
+            let item_text = item.get("text").and_then(Value::as_str).unwrap_or("");
+            assert!(!item_text.contains("Parent-only marker"));
+            assert!(item_text.contains("Do the thing."));
+        }
     }
 
     #[test]

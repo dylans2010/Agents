@@ -1359,12 +1359,14 @@ public nonisolated struct WorkerSpawnRequest: Codable, Hashable, Sendable {
     public var task: String
     public var targetFiles: [String]
     public var assistantId: String? = nil
+    public var systemPrompt: String? = nil
 
-    public init(name: String, task: String, targetFiles: [String], assistantId: String? = nil) {
+    public init(name: String, task: String, targetFiles: [String], assistantId: String? = nil, systemPrompt: String? = nil) {
         self.name = name
         self.task = task
         self.targetFiles = targetFiles
         self.assistantId = assistantId
+        self.systemPrompt = systemPrompt
     }
 }
 

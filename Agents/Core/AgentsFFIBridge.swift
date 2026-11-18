@@ -1546,6 +1546,15 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
     }
 
     public func spawnWorkers(parentThreadId: String, workers: [WorkerSpawnRequest]) async throws -> JSONValue {
+        let needsComposition = workers.contains { $0.systemPrompt == nil }
+        var parent: RemoteThreadSummary?
+        var assistants: [RemoteAssistant] = []
+        if needsComposition {
+            if let workspace = try? await fetchWorkspace(), let parentID = UUID(uuidString: parentThreadId) {
+                parent = workspace.threads.first { $0.id == parentID }
+            }
+            assistants = (try? await listAssistants())?.assistants ?? []
+        }
         let workerValues: [JSONValue] = try workers.map { worker in
             var object: [String: JSONValue] = [
                 "name": .string(worker.name),
@@ -1557,6 +1566,20 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
                     throw AgentsRuntimeError.desktopFailure("Assistant ID must be a UUID")
                 }
                 object["assistantId"] = .string(assistantId)
+            }
+            let supplied = worker.systemPrompt.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+            let assistant = worker.assistantId
+                .flatMap { UUID(uuidString: $0) }
+                .flatMap { id in assistants.first { $0.id == id } }
+            let composed = supplied ?? WorkerPromptComposer.composedPrompt(
+                task: worker.task,
+                assistant: assistant,
+                parentProvider: parent?.selection.provider,
+                parentModel: parent?.selection.modelID,
+                parentToolset: parent?.toolset
+            )
+            if let composed {
+                object["systemPrompt"] = .string(composed)
             }
             return .object(object)
         }

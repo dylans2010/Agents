@@ -141,6 +141,7 @@ public final class AppModel {
     @ObservationIgnored private var toastUndoHandler: (@MainActor () -> Void)?
     @ObservationIgnored private var daemonReconnectInFlight = false
     @ObservationIgnored private var bootstrapDataDir: String?
+    @ObservationIgnored private var systemPromptCache = SystemPromptCache()
     @ObservationIgnored private var lastObservedRevision: UInt64 = 0
     @ObservationIgnored private var lastObservedRunningIDs: Set<String> = []
     @ObservationIgnored private var lastObservedAttentionCount: Int = 0
@@ -557,8 +558,45 @@ public final class AppModel {
     }
 
     public var systemPromptForSelectedThread: SystemPrompt {
-        let selection = selectedThread?.selection
-        return systemAssets.systemPrompt(for: nil, provider: selection?.provider, model: selection?.modelID)
+        systemPrompt(for: selectedThread)
+    }
+
+    public func invalidateSystemPromptCache(for threadID: UUID? = nil) {
+        if let threadID {
+            systemPromptCache.invalidate(threadID: threadID)
+        } else {
+            systemPromptCache.invalidateAll()
+        }
+    }
+
+    private func assistantDescriptor(for thread: RemoteThreadSummary) -> AssistantPromptDescriptor? {
+        guard let assistantId = thread.assistantId, let id = UUID(uuidString: assistantId) else {
+            return nil
+        }
+        return assistants.first { $0.id == id }.map { AssistantPromptDescriptor($0) }
+    }
+
+    private func systemPromptCacheKey(for thread: RemoteThreadSummary) -> SystemPromptCacheKey? {
+        let descriptor: AssistantPromptDescriptor?
+        if thread.assistantId != nil {
+            guard let resolved = assistantDescriptor(for: thread) else {
+                return nil
+            }
+            descriptor = resolved
+        } else {
+            descriptor = nil
+        }
+        return SystemPromptCacheKey(
+            threadID: thread.id,
+            assistantID: thread.assistantId,
+            assistantRoleText: descriptor?.systemPrompt ?? "",
+            assistantExtraAssetFileNames: descriptor?.extraAssetFileNames ?? [],
+            provider: thread.selection.provider,
+            model: thread.selection.modelID,
+            toolset: thread.toolset,
+            allowedTools: (thread.allowedTools ?? []).sorted(),
+            indexVersion: systemAssets.indexHealth.indexVersion
+        )
     }
 
     public func toolset(for thread: RemoteThreadSummary?) -> AgentToolset {
@@ -566,7 +604,15 @@ public final class AppModel {
     }
 
     public func systemPrompt(for thread: RemoteThreadSummary?) -> SystemPrompt {
-        systemAssets.systemPrompt(for: nil, provider: thread?.selection.provider, model: thread?.selection.modelID)
+        guard let thread, let key = systemPromptCacheKey(for: thread) else {
+            return systemAssets.systemPrompt(for: nil, provider: thread?.selection.provider, model: thread?.selection.modelID)
+        }
+        if let cached = systemPromptCache.prompt(for: key) {
+            return cached
+        }
+        let prompt = systemPrompt(for: nil, provider: thread.selection.provider, model: thread.selection.modelID, assistant: assistantDescriptor(for: thread))
+        systemPromptCache.store(prompt, for: key)
+        return prompt
     }
 
     public func promptAddProjectFolder() {
@@ -646,6 +692,7 @@ public final class AppModel {
         guard let client = runtime else { return }
         do {
             try await client.updateStoredPrompt(threadID: threadID, prompt: prompt, allowedTools: allowedTools)
+            systemPromptCache.invalidate(threadID: threadID)
             await refreshWorkspace()
             if selectedThreadUUID == threadID {
                 await handleSelectedThreadChanged()
@@ -660,6 +707,9 @@ public final class AppModel {
         do {
             let wasSelected = selectedThreadID?.caseInsensitiveCompare(threadID) == .orderedSame
             let undoID = try await client.deleteThreadPermanently(threadID: threadID)
+            if let uuid = UUID(uuidString: threadID) {
+                systemPromptCache.invalidate(threadID: uuid)
+            }
             await refreshWorkspace()
             if wasSelected {
                 selectThread(workspace.threads.first(where: { !$0.isArchived })?.id)
@@ -731,12 +781,13 @@ public final class AppModel {
             let resolvedConfig = (modelConfig ?? AssistantModelConfig(provider: assistant.provider, model: assistant.model))
                 .resolvingCurrent(provider: selectedThread?.selection.provider, model: selectedThread?.selection.modelID)
             let selection = resolvedConfig.selectionOverride
-            let prompt = systemPrompt(
+            let composed = systemPrompt(
                 for: nil,
                 provider: resolvedConfig.provider,
                 model: resolvedConfig.model,
                 assistant: AssistantPromptDescriptor(assistant)
-            ).text
+            )
+            let prompt = composed.text
             let threadID = try await client.newThread(
                 projectID: projectID,
                 systemPrompt: prompt,
@@ -747,6 +798,9 @@ public final class AppModel {
             )
             await refreshWorkspace()
             selectThread(threadID)
+            if let summary = workspace.threads.first(where: { $0.id == threadID }), let key = systemPromptCacheKey(for: summary) {
+                systemPromptCache.store(composed, for: key)
+            }
             if let ledger = assistantChangeLedger {
                 try? await ledger.beginRun(runId: threadID.uuidString, assistantId: assistant.id.uuidString, permissionProfile: assistant.permissionProfile)
             }

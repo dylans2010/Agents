@@ -977,7 +977,7 @@ struct WorkersInspectorView: View {
         do {
             let result = try await client.spawnWorkers(
                 parentThreadId: worker.parentThreadId,
-                workers: [WorkerSpawnRequest(name: worker.name, task: worker.task, targetFiles: worker.targetFiles)]
+                workers: [WorkerSpawnRequest(name: worker.name, task: worker.task, targetFiles: worker.targetFiles, assistantId: worker.assistantId)]
             )
             let spawned = result["workers"]?.arrayValue ?? []
             if let first = spawned.first, let id = first["id"]?.stringValue {
