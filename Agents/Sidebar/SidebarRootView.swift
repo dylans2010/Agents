@@ -57,7 +57,7 @@ public struct SidebarRootView: View {
     }
 
     private var libraryRecentCount: Int {
-        UserDefaults.standard.stringArray(forKey: AssistantLibraryViewModel.recentIDsDefaultsKey)?.count ?? 0
+        AssistantLibraryViewModel.prunedRecentIDs(in: .standard, catalog: appModel.assistantCatalog).count
     }
 
     private var searchDisplayQuery: String {
@@ -378,9 +378,7 @@ public struct SidebarRootView: View {
         let favoriteCount = catalog.allDefinitions.filter {
             AssistantLibraryViewModel.isFavorite($0, in: catalog)
         }.count
-        let counts = catalog.allDefinitions.reduce(into: [AssistantCategory: Int]()) { partial, definition in
-            partial[definition.category, default: 0] += 1
-        }
+        let counts = AssistantLibraryViewModel.countsByCategory(in: catalog)
         Section {
             SidebarLibraryRow(
                 title: "All Assistants",

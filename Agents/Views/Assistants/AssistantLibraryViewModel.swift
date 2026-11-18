@@ -121,9 +121,14 @@ public final class AssistantLibraryViewModel {
         self.store = store
         self.defaults = defaults
         self.onAddToAutomation = onAddToAutomation
-        let storedIDs = defaults.stringArray(forKey: Self.recentIDsDefaultsKey) ?? []
-        self.recentStableIDs = storedIDs.filter { id in catalog.definition(forStableID: id) != nil }
+        self.recentStableIDs = Self.prunedRecentIDs(in: defaults, catalog: catalog)
+        defaults.set(recentStableIDs, forKey: Self.recentIDsDefaultsKey)
         applySidebarSelection(initialSelection)
+    }
+
+    public static func prunedRecentIDs(in defaults: UserDefaults, catalog: AssistantCatalog) -> [String] {
+        let storedIDs = defaults.stringArray(forKey: Self.recentIDsDefaultsKey) ?? []
+        return storedIDs.filter { id in catalog.definition(forStableID: id) != nil }
     }
 
     public var allDefinitions: [AssistantDefinition] {
@@ -172,8 +177,12 @@ public final class AssistantLibraryViewModel {
     }
 
     public var countsByCategory: [AssistantCategory: Int] {
+        Self.countsByCategory(in: catalog)
+    }
+
+    public static func countsByCategory(in catalog: AssistantCatalog) -> [AssistantCategory: Int] {
         var counts: [AssistantCategory: Int] = [:]
-        for definition in allDefinitions {
+        for definition in catalog.allDefinitions {
             counts[definition.category, default: 0] += 1
         }
         return counts
@@ -294,8 +303,7 @@ public final class AssistantLibraryViewModel {
         guard definition.isBuiltIn,
               let record = catalog.overrideRecord(forBuiltinID: definition.id)
         else { return nil }
-        var copy = catalog
-        guard let preset = copy.restoreDefaults(builtinID: definition.id) else { return nil }
+        guard let preset = catalog.restoreDefaults(builtinID: definition.id) else { return nil }
         await store.deleteRecord(record)
         return preset
     }

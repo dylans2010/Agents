@@ -39,11 +39,13 @@ struct AssistantLibraryViewModelTests {
     private func makeHarness(
         builtIns: [AssistantDefinition],
         stored: [RemoteAssistant] = [],
+        seededRecentIDs: [String] = [],
         initialSelection: AssistantLibrarySidebarSelection? = nil,
         onAddToAutomation: AssistantAutomationRequestHandler? = nil
     ) -> Harness {
         let suiteName = "com.apoorvdarshan.coincide.tests.assistantLibrary.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.set(seededRecentIDs, forKey: AssistantLibraryViewModel.recentIDsDefaultsKey)
         let store = RecordingStore()
         let viewModel = AssistantLibraryViewModel(
             catalog: AssistantCatalog(builtIns: builtIns, stored: stored),
@@ -269,9 +271,9 @@ struct AssistantLibraryViewModelTests {
         #expect(draft.category == tidy.category.remote)
     }
 
-    @Test("Toggling a favorite twice flips the flag back")
+    @Test("Toggling a favorited assistant saves a draft with the flag off")
     @MainActor
-    func toggleFavoriteTwiceRestoresOriginal() async {
+    func toggleFavoriteFromFavoriteSavesDraftWithFlagOff() async {
         let record = Self.customRecord(name: "My Helper", isFavorite: true)
         let harness = makeHarness(builtIns: [Self.preset()], stored: [record])
         defer { harness.defaults.removePersistentDomain(forName: harness.suiteName) }
@@ -365,6 +367,52 @@ struct AssistantLibraryViewModelTests {
         let preset = await harness.viewModel.restoreDefaults(tidy)
         #expect(preset == nil)
         #expect(harness.store.deletedRecords.isEmpty)
+    }
+
+    @Test("Restore defaults updates the local catalog immediately")
+    @MainActor
+    func restoreDefaultsUpdatesLocalCatalogImmediately() async {
+        let tidy = Self.preset()
+        let override = Self.overrideRecord(for: tidy, name: "My Tidy Imports")
+        let harness = makeHarness(builtIns: [tidy], stored: [override])
+        defer { harness.defaults.removePersistentDomain(forName: harness.suiteName) }
+        let resolved = harness.viewModel.catalog.builtInDefinitions.first!
+        #expect(resolved.customized == true)
+        let preset = await harness.viewModel.restoreDefaults(resolved)
+        #expect(preset?.name == "Tidy Imports")
+        #expect(harness.viewModel.catalog.builtInDefinitions.first?.customized == false)
+        #expect(harness.viewModel.catalog.builtInDefinitions.first?.name == "Tidy Imports")
+        #expect(harness.viewModel.catalog.overrideRecord(forBuiltinID: tidy.id) == nil)
+        #expect(harness.viewModel.canRestoreDefaults(tidy) == false)
+    }
+
+    @Test("Sidebar category counts match the ViewModel counts")
+    @MainActor
+    func sidebarCategoryCountsMatchViewModelCounts() {
+        let harness = makeHarness(builtIns: [
+            Self.preset(),
+            Self.preset(slug: "review-pr", name: "Review PR", description: "Reviews pull requests", category: .codeReviewSecurity, intendedTasks: ["Find bugs"], allowedTools: ["read_file"]),
+            Self.preset(slug: "fix-build", name: "Fix Build", description: "Fixes broken builds", category: .buildingFixing, intendedTasks: ["Find the failure"], allowedTools: ["read_file"]),
+        ])
+        defer { harness.defaults.removePersistentDomain(forName: harness.suiteName) }
+        let sidebarCounts = AssistantLibraryViewModel.countsByCategory(in: harness.viewModel.catalog)
+        #expect(sidebarCounts == harness.viewModel.countsByCategory)
+        #expect(sidebarCounts[.codeMaintenance] == 1)
+        #expect(sidebarCounts[.codeReviewSecurity] == 1)
+        #expect(sidebarCounts[.buildingFixing] == 1)
+        #expect(sidebarCounts[.gitWorkflowAutomation] == nil)
+    }
+
+    @Test("Recents badge excludes stale IDs and init writes the pruned list back")
+    @MainActor
+    func recentsBadgeExcludesStaleIDs() {
+        let tidy = Self.preset()
+        let staleID = "assistant.custom.deleted-assistant"
+        let harness = makeHarness(builtIns: [tidy], seededRecentIDs: [staleID, tidy.id])
+        defer { harness.defaults.removePersistentDomain(forName: harness.suiteName) }
+        #expect(harness.viewModel.recentDefinitions.map(\.id) == [tidy.id])
+        #expect(AssistantLibraryViewModel.prunedRecentIDs(in: harness.defaults, catalog: harness.viewModel.catalog) == [tidy.id])
+        #expect(harness.defaults.stringArray(forKey: AssistantLibraryViewModel.recentIDsDefaultsKey) == [tidy.id])
     }
 
     @Test("Recent use caps at ten entries and moves repeats to the front")
