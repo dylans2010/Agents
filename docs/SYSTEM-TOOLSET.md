@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 166 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 200 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -51,9 +51,9 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
 
-## The 166-tool registry
+## The 200-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 166 tools, 53 distinct actions: several tools share one action (`workspace.write_file` x32, `computer_use.request` x21, `terminal.create` x16, `workspace.read_file` x15, `workspace.read_dir` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `workspace.search_regex` x3, `workspace.files` x2, `workspace.search` x2, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.store` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, plus 30 single-tool actions).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 200 tools, 54 distinct actions: several tools share one action (`workspace.write_file` x32, `computer_use.request` x21, `terminal.create` x49, `workspace.read_file` x15, `workspace.read_dir` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `workspace.search_regex` x3, `workspace.files` x2, `workspace.search` x2, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.store` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, plus 31 single-tool actions).
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -223,6 +223,40 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `extract_code_symbols` | `workspace.read_file` | desktop | Swift composition over the FFI `workspace.read_file` arm |
 | `find_duplicate_files` | `workspace.read_file` | desktop | FFI `workspace.read_dir` arm + FileManager bytes + CryptoKit SHA-256, grouped by hash |
 | `env_capture_logs` | `memory.snapshot` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::snapshot_context` |
+| `project_build` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `project_test` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `compiler_diagnostics_engine` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `dependency_resolution_engine` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `generate_xcodeproj` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `project_scheme_list` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `project_target_list` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `project_build_settings` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `project_clean` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `project_archive` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `test_run_single` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `test_coverage_report` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `test_coverage_reporter` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `performance_benchmark` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `docc_build` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `xcode_scheme_manager` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `xcode_build_settings_inspector` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `xcode_device_destination_finder` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `simulator_list` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `simulator_boot` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `simulator_controller` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `device_list` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `provisioning_check` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `swift_package_manager` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `package_dependency_update` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `code_signing_diagnose` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `xcode_toolchain_info` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `xcresult_parser` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `mach_o_binary_analyzer` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `signing_certificate_inspector` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `provisioning_profile_reader` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `swift_ast_inspector` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `binary_size_report` | `terminal.create` | engine | Terminal RPC: `terminal.create` runs the real CLI in the thread workspace and returns real output + exit code |
+| `git_review_diff` | `git.review.diff` | engine | Engine `git.review.diff` -> `coincide_core::workspace_api::workspace_diff::review` |
 
 ### Slice 10: Git completion, snapshots, and aliases
 
@@ -342,6 +376,65 @@ No G4 tool was left unimplemented.
   now counts 166 definitions, 166 closers, 166 parameter-array closes,
   and the cross-check passes exactly.
 
+### Slice 12: G3 build/test/Xcode/devices
+
+34 new tools, taking the registry from 166 to 200 tools and 53 to 54
+distinct actions (the one new action is `git.review.diff`). All 33 G3
+tools landed; none was left unimplemented.
+
+- G3 family: `project_build`, `project_test`, `compiler_diagnostics_engine`
+  (parses real xcodebuild/swift build output into diagnostics),
+  `dependency_resolution_engine`, `generate_xcodeproj` (runs the real
+  `xcodegen` CLI; errors honestly when it is not installed),
+  `project_scheme_list` (`xcodebuild -list -json`, parsed),
+  `project_target_list`, `project_build_settings` (read half only, see
+  below), `project_clean` (requires `confirm=true`), `project_archive`,
+  `test_run_single` (`xcodebuild test -only-testing:`),
+  `test_coverage_report`, `test_coverage_reporter`, `performance_benchmark`
+  (allow-listed only, see below), `docc_build`, `xcode_scheme_manager`,
+  `xcode_build_settings_inspector`, `xcode_device_destination_finder`,
+  `simulator_list`, `simulator_boot`, `simulator_controller` (real `xcrun
+  simctl`), `device_list` (`xcrun devicectl`, with `xcrun xctrace list
+  devices` fallback only when devicectl is missing), `provisioning_check`
+  (`security cms -D`), `swift_package_manager`, `package_dependency_update`
+  (`swift package`), `code_signing_diagnose` (`codesign`),
+  `xcode_toolchain_info` (`xcodebuild -version`), `xcresult_parser`
+  (`xcrun xcresulttool`), `mach_o_binary_analyzer` (`otool`/`file`),
+  `signing_certificate_inspector`, `provisioning_profile_reader`
+  (`security`), `swift_ast_inspector` (`swiftc -dump-ast`),
+  `binary_size_report` (`read_dir` + `du` under `build/`). Every G3 tool
+  runs its CLI through the real terminal RPC with a fixed argv template,
+  validated arguments, and a parser that reports the real result (counts,
+  diagnostics, lists). A missing CLI is a real error, never a fake result.
+- `project_build_settings` set half is NONE: no pbxproj writer exists in
+  this repo, so no setter is registered and none is planned until a writer
+  exists. The tool reads only.
+- `performance_benchmark` allow-list: exactly `xcodebuild-build`,
+  `xcodebuild-test`, `swift-build`, `swift-test`, and
+  `xcodebuild-clean-build`. Anything else is refused before any command
+  runs. A `scheme` is accepted only for the xcodebuild benchmarks.
+- Newly wired engine methods: `git.review.diff` (workspace API, exposed as
+  the `git_review_diff` tool; `scope` is `uncommitted` or `branch`) and
+  `git.worktrees.useExisting` (the Worktrees card in Inspector > Git now
+  has a Switch button on every non-current worktree, gated on
+  `canChangeWorkspace`, wired through `RemoteCheckoutAction
+  .useExistingWorktree(path:branch:)` and the FFI `handle_change_checkout`
+  arm).
+- Swift-vs-Rust mechanism split: the Rust MCP arms mirror the Swift
+  parsers. Provisioning arms pipe `security cms -D -i <path> | plutil
+  -convert json -o - -` (Swift uses PropertyListSerialization in-process);
+  `simulator_controller` openurl validation is a scheme check in Swift and
+  a `://` check in Rust; `binary_size_report` counts files with
+  `read_dir_entries` in Rust and the workspace directory reader in Swift.
+- Pre-existing repair found by the cross-check: `version_control_operator`
+  in the Swift registry described itself as running git "by action: ...",
+  which the naive Rust cross-check parser read as the tool's action field;
+  the Rust table carried the same corruption, so the two bugs cancelled
+  out and the test passed. This slice rewrites the description on both
+  sides and sets the Rust action to the real `git.rollback`. The MCP
+  integration test asserted 41 tools (stale since the registry passed 41);
+  it now asserts 200 with the full name list.
+
 ## The MCP server
 
 `Rust Backend/crates/coincide-mcp-server/` is a standalone stdio binary
@@ -360,7 +453,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 166-tool registry, with the same names, descriptions,
+- `tools/list` — the real 200-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -681,7 +774,7 @@ What is enforced for real in this slice:
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 11, 166 tools are real. These catalog tools are NOT
+registry. After slice 12, 200 tools are real. These catalog tools are NOT
 implemented, and why:
 
 - Memory (`manage_memory`, `conversation_context_manager`):

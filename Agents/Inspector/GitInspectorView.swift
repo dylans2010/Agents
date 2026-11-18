@@ -728,7 +728,8 @@ struct GitInspectorView: View {
     }
 
     private var worktreesCard: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        let checkout = appModel.activeCheckout
+        return VStack(alignment: .leading, spacing: 9) {
             HStack {
                 Label("Worktrees", systemImage: "square.split.2x1")
                     .font(.system(size: 12, weight: .semibold))
@@ -762,6 +763,16 @@ struct GitInspectorView: View {
                                     .lineLimit(1)
                             }
                             Spacer()
+                            if worktree.path != canonicalRepoRoot, checkout?.canChangeWorkspace == true {
+                                Button {
+                                    Task { await performCheckoutChange(.useExistingWorktree(path: worktree.path, branch: worktree.branch)) }
+                                } label: {
+                                    Text("Switch")
+                                        .font(.system(size: 11, weight: .medium))
+                                }
+                                .controlSize(.small)
+                                .disabled(isChangingCheckout || checkout?.isBusy == true)
+                            }
                             if worktree.path == canonicalRepoRoot {
                                 badgePill("Current", tint: AppTheme.success)
                             } else if worktree.isMain {
@@ -776,7 +787,7 @@ struct GitInspectorView: View {
                         )
                     }
                 }
-                Text("Start a new isolated worktree, or return to the local folder, from the branch card above. Switching to another existing worktree is not available yet.")
+                Text("Switch to another existing worktree before the first message. Start a new isolated worktree, or return to the local folder, from the branch card above.")
                     .font(.system(size: 10))
                     .foregroundStyle(AppTheme.tertiaryLabel)
             }

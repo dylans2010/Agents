@@ -81,12 +81,13 @@ public enum RemoteCheckoutAction: Codable, Hashable, Sendable {
     case useNewWorktree
     /// The worktree it used before (before the first message).
     case usePreviousWorktree
+    case useExistingWorktree(path: String, branch: String?)
     /// In the project's folder, switch to a branch; for a new worktree, start it from that branch.
     case pickBranch(String)
     /// In the project's folder, make a branch and switch to it.
     case createBranch(String)
 
-    private enum CodingKeys: String, CodingKey { case type, branch }
+    private enum CodingKeys: String, CodingKey { case type, branch, path }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -94,6 +95,7 @@ public enum RemoteCheckoutAction: Codable, Hashable, Sendable {
         case "useLocal": self = .useLocal
         case "useNewWorktree": self = .useNewWorktree
         case "usePreviousWorktree": self = .usePreviousWorktree
+        case "useExistingWorktree": self = .useExistingWorktree(path: try container.decode(String.self, forKey: .path), branch: try container.decodeIfPresent(String.self, forKey: .branch))
         case "pickBranch": self = .pickBranch(try container.decode(String.self, forKey: .branch))
         case "createBranch": self = .createBranch(try container.decode(String.self, forKey: .branch))
         case let other: throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Unknown action \(other)")
@@ -106,6 +108,10 @@ public enum RemoteCheckoutAction: Codable, Hashable, Sendable {
         case .useLocal: try container.encode("useLocal", forKey: .type)
         case .useNewWorktree: try container.encode("useNewWorktree", forKey: .type)
         case .usePreviousWorktree: try container.encode("usePreviousWorktree", forKey: .type)
+        case .useExistingWorktree(let path, let branch):
+            try container.encode("useExistingWorktree", forKey: .type)
+            try container.encode(path, forKey: .path)
+            try container.encodeIfPresent(branch, forKey: .branch)
         case .pickBranch(let branch):
             try container.encode("pickBranch", forKey: .type)
             try container.encode(branch, forKey: .branch)

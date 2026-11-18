@@ -1416,6 +1416,20 @@ fn handle_change_checkout(
                 }),
             )?
         }
+        "useExistingWorktree" => {
+            let path = action["path"]
+                .as_str()
+                .ok_or_else(RemoteError::bad_request)?;
+            engine_call(
+                runtime,
+                "git.worktrees.useExisting",
+                json!({
+                    "threadId": thread_id,
+                    "path": path,
+                    "branch": action["branch"],
+                }),
+            )?
+        }
         "pickBranch" => {
             let branch = action["branch"]
                 .as_str()

@@ -2279,9 +2279,8 @@ pub static DEFINITIONS: &[ToolDef] = &[
     },
     ToolDef {
         name: "version_control_operator",
-        description: "Run git by action: status, commit, branch, diff, or rollback. Rollback resets hard to HEAD, HEAD~N, HEAD^N, or a full SHA and requires confirm=true.",
-        action: ",
-            action: ",
+        description: "Run git with an action of status, commit, branch, diff, or rollback. Rollback resets hard to HEAD, HEAD~N, HEAD^N, or a full SHA and requires confirm=true.",
+        action: "git.rollback",
         channel: "engine",
         params: &[
             ToolParam {
@@ -3600,6 +3599,1004 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 kind: "integer",
                 required: false,
                 description: "Maximum entries to capture.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_build",
+        description: "Build the thread project with xcodebuild and return the real diagnostics, exit code, and output.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to build.",
+            },
+            ToolParam {
+                name: "configuration",
+                kind: "string",
+                required: false,
+                description: "Build configuration, such as Debug or Release.",
+            },
+            ToolParam {
+                name: "destination",
+                kind: "string",
+                required: false,
+                description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_test",
+        description: "Run the thread project tests with xcodebuild test and return the real test summary, diagnostics, exit code, and output.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to test.",
+            },
+            ToolParam {
+                name: "configuration",
+                kind: "string",
+                required: false,
+                description: "Build configuration, such as Debug or Release.",
+            },
+            ToolParam {
+                name: "destination",
+                kind: "string",
+                required: false,
+                description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "compiler_diagnostics_engine",
+        description: "Run a real build and return only its parsed compiler diagnostics with error and warning counts.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "kind",
+                kind: "string",
+                required: false,
+                description: "xcodebuild or swiftpm. Defaults to xcodebuild.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to build.",
+            },
+            ToolParam {
+                name: "destination",
+                kind: "string",
+                required: false,
+                description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "dependency_resolution_engine",
+        description: "Resolve the thread project package dependencies with swift package resolve or xcodebuild and return the real result.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "kind",
+                kind: "string",
+                required: false,
+                description: "swiftpm or xcode. Defaults to swiftpm.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme for xcode dependency resolution.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "generate_xcodeproj",
+        description: "Generate the Xcode project from project.yml with the xcodegen CLI; errors honestly when xcodegen is not installed.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_scheme_list",
+        description: "List the thread project schemes, targets, and configurations from xcodebuild -list -json.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_target_list",
+        description: "List the thread project targets from xcodebuild -list -json.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_build_settings",
+        description: "Read the thread project build settings with xcodebuild -showBuildSettings and return them parsed by target. Read only; there is no setter.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to read settings for.",
+            },
+            ToolParam {
+                name: "configuration",
+                kind: "string",
+                required: false,
+                description: "Build configuration, such as Debug or Release.",
+            },
+            ToolParam {
+                name: "target",
+                kind: "string",
+                required: false,
+                description: "Target to read settings for.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_clean",
+        description: "Clean the thread project build products with xcodebuild clean. Requires confirm=true.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to clean.",
+            },
+            ToolParam {
+                name: "configuration",
+                kind: "string",
+                required: false,
+                description: "Build configuration, such as Debug or Release.",
+            },
+            ToolParam {
+                name: "confirm",
+                kind: "boolean",
+                required: true,
+                description: "Must be true. Cleaning removes build products.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_archive",
+        description: "Archive the thread project with xcodebuild archive into the given archive path.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: true,
+                description: "Scheme to archive.",
+            },
+            ToolParam {
+                name: "archivePath",
+                kind: "string",
+                required: true,
+                description: "Archive path relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "configuration",
+                kind: "string",
+                required: false,
+                description: "Build configuration, such as Debug or Release.",
+            },
+            ToolParam {
+                name: "destination",
+                kind: "string",
+                required: false,
+                description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "test_run_single",
+        description: "Run one test with xcodebuild test -only-testing and return the real test summary and output.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "testIdentifier",
+                kind: "string",
+                required: true,
+                description: "Test identifier for -only-testing, such as Target/Class/testMethod.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to test.",
+            },
+            ToolParam {
+                name: "destination",
+                kind: "string",
+                required: false,
+                description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "test_coverage_report",
+        description: "Report line coverage totals from an xcresult bundle with xcrun xccov view --report --json.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "xcresultPath",
+                kind: "string",
+                required: true,
+                description: "Path to the xcresult bundle, relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "test_coverage_reporter",
+        description: "Render a full coverage report from an xcresult bundle with xcrun xccov, as JSON or text.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "xcresultPath",
+                kind: "string",
+                required: true,
+                description: "Path to the xcresult bundle, relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "format",
+                kind: "string",
+                required: false,
+                description: "json or text. Defaults to text.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "performance_benchmark",
+        description: "Run one allow-listed build or test command and report its real wall time, exit code, and output.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "benchmark",
+                kind: "string",
+                required: true,
+                description: "Allow-listed benchmark: xcodebuild-build, xcodebuild-test, swift-build, swift-test, or xcodebuild-clean-build.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme for xcodebuild benchmarks.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "docc_build",
+        description: "Build the thread project documentation with xcodebuild docbuild and return the real result.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: true,
+                description: "Scheme to document.",
+            },
+            ToolParam {
+                name: "destination",
+                kind: "string",
+                required: false,
+                description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "xcode_scheme_manager",
+        description: "List the thread project schemes, or validate one scheme by reading its build settings.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "list or validate.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to validate.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "xcode_build_settings_inspector",
+        description: "Read one named build setting across the thread project targets with xcodebuild -showBuildSettings.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: true,
+                description: "Build setting name, such as PRODUCT_BUNDLE_IDENTIFIER.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to read settings for.",
+            },
+            ToolParam {
+                name: "configuration",
+                kind: "string",
+                required: false,
+                description: "Build configuration, such as Debug or Release.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "xcode_device_destination_finder",
+        description: "Find the real run destinations for the thread project scheme with xcodebuild -showdestinations.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to find destinations for.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "simulator_list",
+        description: "List the simulators on the machine from xcrun simctl list -j devices, parsed by runtime.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "simulator_boot",
+        description: "Boot a simulator with xcrun simctl boot and return the real result.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "device",
+                kind: "string",
+                required: true,
+                description: "Simulator UDID or name.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "simulator_controller",
+        description: "Control a simulator with xcrun simctl: boot, shutdown, erase, openurl, or status.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "boot, shutdown, erase, openurl, or status.",
+            },
+            ToolParam {
+                name: "device",
+                kind: "string",
+                required: true,
+                description: "Simulator UDID or name.",
+            },
+            ToolParam {
+                name: "url",
+                kind: "string",
+                required: false,
+                description: "URL to open for openurl.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "device_list",
+        description: "List the connected devices with xcrun devicectl, falling back to xcrun xctrace list devices when devicectl is unavailable.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "provisioning_check",
+        description: "Check one provisioning profile with security cms -D and return its name, UUID, team, entitlements, and expiry.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "profilePath",
+                kind: "string",
+                required: true,
+                description: "Path to the provisioning profile, relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "swift_package_manager",
+        description: "Run a Swift Package Manager command on the thread package: describe, resolve, clean, or reset.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "describe, resolve, clean, or reset.",
+            },
+            ToolParam {
+                name: "confirm",
+                kind: "boolean",
+                required: false,
+                description: "Must be true for reset.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "package_dependency_update",
+        description: "Update the thread package dependencies with swift package update, optionally for one package.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "package",
+                kind: "string",
+                required: false,
+                description: "Package name to update; updates all packages when omitted.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "code_signing_diagnose",
+        description: "Diagnose the code signature of a file with codesign --verify and codesign -dv and return the parsed result.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: true,
+                description: "Path to the file to diagnose, relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "xcode_toolchain_info",
+        description: "Report the Xcode version, build, and developer directory from xcodebuild -version and xcode-select -p.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "xcresult_parser",
+        description: "Read an xcresult bundle with xcrun xcresulttool get --format json and return the parsed result.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: true,
+                description: "Path to the xcresult bundle, relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "mach_o_binary_analyzer",
+        description: "Analyze a Mach-O binary with file, otool -L, and otool -hv and return its type, libraries, and header.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: true,
+                description: "Path to the binary, relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "signing_certificate_inspector",
+        description: "List the code signing identities on the machine from security find-identity -v -p codesigning.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "provisioning_profile_reader",
+        description: "Read one provisioning profile with security cms -D and return its full parsed property list.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "profilePath",
+                kind: "string",
+                required: true,
+                description: "Path to the provisioning profile, relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "swift_ast_inspector",
+        description: "Dump the Swift AST of one file with swiftc -dump-ast and return declaration counts.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: true,
+                description: "Path to the Swift source file, relative to the thread working directory.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "binary_size_report",
+        description: "Report the sizes of files under a build directory from a real directory read plus du, largest first.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to report, relative to the thread working directory. Defaults to build.",
+            },
+            ToolParam {
+                name: "top",
+                kind: "integer",
+                required: false,
+                description: "Largest files to return, 1-100. Defaults to 20.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Seconds to wait for the command.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "git_review_diff",
+        description: "Read the review diff for the thread working directory: staged, unstaged, and untracked changes against HEAD or the branch base.",
+        action: "git.review.diff",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: false,
+                description: "uncommitted or branch. Defaults to uncommitted.",
+            },
+            ToolParam {
+                name: "ignoreWhitespace",
+                kind: "boolean",
+                required: false,
+                description: "Ignore whitespace changes in the diff.",
             },
         ],
     },
@@ -4971,6 +5968,482 @@ fn yaml_parse_list(lines: &[YamlLine], index: &mut usize, indent: usize) -> Resu
         }
     }
     Ok(Value::Array(items))
+}
+
+fn g3_command(argv: &[String]) -> String {
+    argv.iter()
+        .map(|arg| shell_quote(arg))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn g3_run(
+    state: &crate::ServerState,
+    thread_id: &str,
+    cwd: &str,
+    argv: &[String],
+    timeout_seconds: u64,
+) -> Result<(i64, String), CallError> {
+    run_shell_status(state, thread_id, cwd, &g3_command(argv), timeout_seconds)
+}
+
+fn g3_missing_cli(cli: &str, exit_code: i64, output: &str) -> Result<(), CallError> {
+    if exit_code == 127
+        || output.contains("command not found")
+        || output.contains("unable to find utility")
+    {
+        return Err(failed(format!("{cli} is not installed on this machine.")));
+    }
+    Ok(())
+}
+
+fn g3_token(value: &str, field: &str, tool: &str) -> Result<(), CallError> {
+    if value.is_empty()
+        || value.contains('\n')
+        || value.contains('\r')
+        || value.starts_with('-')
+    {
+        return Err(failed(format!(
+            "Tool \"{tool}\" {field} must be a non-empty value without newlines or a leading dash."
+        )));
+    }
+    Ok(())
+}
+
+fn g3_identifier(value: &str, field: &str, tool: &str) -> Result<(), CallError> {
+    if value.is_empty()
+        || !value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.' || c == '-')
+    {
+        return Err(failed(format!(
+            "Tool \"{tool}\" {field} must use only letters, digits, underscore, dot, or dash."
+        )));
+    }
+    Ok(())
+}
+
+fn g3_test_identifier(value: &str, tool: &str) -> Result<(), CallError> {
+    let ok = !value.is_empty()
+        && !value.starts_with('-')
+        && !value.contains('\n')
+        && !value.contains('\r')
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '/' | '-'))
+        && value
+            .split('/')
+            .all(|part| !part.is_empty() && part != "." && part != "..");
+    if !ok {
+        return Err(failed(format!(
+            "Tool \"{tool}\" testIdentifier must be a slash-separated test path using letters, digits, underscore, dot, dash, or slash."
+        )));
+    }
+    Ok(())
+}
+
+fn g3_relative_path(path: &str, tool: &str) -> Result<(), CallError> {
+    if path.is_empty()
+        || path.starts_with('/')
+        || path.split('/').any(|part| part == ".." || part == ".")
+    {
+        return Err(failed(format!(
+            "Tool \"{tool}\" path must be relative without dot or parent components."
+        )));
+    }
+    Ok(())
+}
+
+fn g3_json_text(output: &str) -> &str {
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('{') || trimmed.starts_with('[') {
+            if let Some(at) = output.find(trimmed) {
+                return &output[at..];
+            }
+        }
+    }
+    output
+}
+
+fn g3_parse_json(output: &str, tool: &str) -> Result<Value, CallError> {
+    serde_json::from_str(g3_json_text(output))
+        .map_err(|error| failed(format!("Tool \"{tool}\" command output was not valid JSON: {error}")))
+}
+
+fn g3_diagnostics(output: &str) -> Vec<Value> {
+    let mut diagnostics: Vec<Value> = Vec::new();
+    for raw_line in output.lines() {
+        let line = raw_line.trim();
+        let mut matched = false;
+        for severity in ["error", "warning", "note"] {
+            let marker = format!(": {severity}: ");
+            if let Some(at) = line.find(&marker) {
+                let head = &line[..at];
+                let message = &line[at + marker.len()..];
+                let parts: Vec<&str> = head.split(':').collect();
+                let mut path = head.to_owned();
+                let mut line_number = 0i64;
+                let mut column = 0i64;
+                if parts.len() >= 3 {
+                    if let (Ok(parsed_line), Ok(parsed_column)) = (
+                        parts[parts.len() - 2].parse::<i64>(),
+                        parts[parts.len() - 1].parse::<i64>(),
+                    ) {
+                        line_number = parsed_line;
+                        column = parsed_column;
+                        path = parts[..parts.len() - 2].join(":");
+                    }
+                } else if parts.len() >= 2 {
+                    if let Ok(parsed_line) = parts[parts.len() - 1].parse::<i64>() {
+                        line_number = parsed_line;
+                        path = parts[..parts.len() - 1].join(":");
+                    }
+                }
+                diagnostics.push(json!({"path": path, "line": line_number, "column": column, "severity": severity, "message": message}));
+                matched = true;
+                break;
+            }
+        }
+        if matched {
+            continue;
+        }
+        for severity in ["error", "warning", "note"] {
+            let prefix = format!("{severity}: ");
+            if let Some(message) = line.strip_prefix(&prefix) {
+                diagnostics.push(json!({"path": "", "line": 0, "column": 0, "severity": severity, "message": message}));
+                break;
+            }
+        }
+    }
+    diagnostics
+}
+
+fn g3_test_summary(output: &str) -> (i64, i64, i64, i64) {
+    let mut executed = 0i64;
+    let mut failed = 0i64;
+    let mut suites_passed = 0i64;
+    let mut suites_failed = 0i64;
+    for raw_line in output.lines() {
+        let line = raw_line.trim();
+        if let Some(rest) = line.strip_prefix("Executed ") {
+            let fields: Vec<&str> = rest.split(' ').collect();
+            if fields.len() >= 2 {
+                if let Ok(count) = fields[1].parse::<i64>() {
+                    executed += count;
+                }
+            }
+            if let Some(with_at) = line.find("with ") {
+                if let Some(fail_at) = line.find(" failures") {
+                    let count_text = line[with_at + "with ".len()..fail_at].trim();
+                    if let Ok(count) = count_text.parse::<i64>() {
+                        failed += count;
+                    }
+                }
+            }
+        } else if line.starts_with("Test Suite '") {
+            if line.contains("' passed at ") {
+                suites_passed += 1;
+            } else if line.contains("' failed at ") {
+                suites_failed += 1;
+            }
+        }
+    }
+    (executed, failed, suites_passed, suites_failed)
+}
+
+fn g3_build_settings(output: &str) -> Vec<Value> {
+    let mut sections: Vec<Value> = Vec::new();
+    let mut current_target = String::new();
+    let mut current: serde_json::Map<String, Value> = serde_json::Map::new();
+    let mut current_key: Option<String> = None;
+    for line in output.lines() {
+        if line.starts_with("Build settings for action ") {
+            if !current.is_empty() {
+                sections.push(json!({"target": current_target, "settings": current}));
+                current = serde_json::Map::new();
+            }
+            current_key = None;
+            if let Some(start) = line.find("target \"") {
+                let rest = &line[start + "target \"".len()..];
+                current_target = rest.split('"').next().unwrap_or("").to_owned();
+            } else {
+                current_target = String::new();
+            }
+            continue;
+        }
+        if line.starts_with("    ") && !line.starts_with("     ") {
+            let stripped = line.trim();
+            if let Some(eq) = stripped.find(" = ") {
+                let key = stripped[..eq].to_owned();
+                let value = stripped[eq + " = ".len()..].to_owned();
+                current.insert(key.clone(), json!(value));
+                current_key = Some(key);
+                continue;
+            }
+        }
+        if let Some(key) = &current_key {
+            if line.starts_with(' ') || line.starts_with('\t') {
+                let stripped = line.trim();
+                if !stripped.is_empty() {
+                    let existing = current
+                        .get(key)
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_owned();
+                    current.insert(key.clone(), json!(format!("{existing} {stripped}")));
+                }
+            }
+        }
+    }
+    if !current.is_empty() {
+        sections.push(json!({"target": current_target, "settings": current}));
+    }
+    sections
+}
+
+fn g3_xcodebuild_list(value: &Value) -> (Vec<String>, Vec<String>, Vec<String>, String) {
+    let project = &value["project"];
+    let strings = |key: &str| -> Vec<String> {
+        project[key]
+            .as_array()
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    (
+        strings("schemes"),
+        strings("targets"),
+        strings("configurations"),
+        project["name"].as_str().unwrap_or("").to_owned(),
+    )
+}
+
+fn g3_coverage(value: &Value) -> Vec<Value> {
+    let mut targets: Vec<Value> = Vec::new();
+    for target in value["targets"].as_array().cloned().unwrap_or_default() {
+        let mut entry = serde_json::Map::new();
+        if let Some(name) = target["name"].as_str() {
+            entry.insert("name".to_owned(), json!(name));
+        }
+        if let Some(coverage) = target["lineCoverage"].as_f64() {
+            entry.insert("lineCoverage".to_owned(), json!(coverage));
+        }
+        if let Some(covered) = target["coveredLines"].as_i64() {
+            entry.insert("coveredLines".to_owned(), json!(covered));
+        }
+        if let Some(executable) = target["executableLines"].as_i64() {
+            entry.insert("executableLines".to_owned(), json!(executable));
+        }
+        if !entry.is_empty() {
+            targets.push(Value::Object(entry));
+        }
+    }
+    targets
+}
+
+fn g3_destinations(output: &str) -> Vec<Value> {
+    let mut destinations: Vec<Value> = Vec::new();
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('{') || !trimmed.ends_with('}') {
+            continue;
+        }
+        let inner = &trimmed[1..trimmed.len() - 1];
+        let mut fields: Vec<String> = Vec::new();
+        let mut depth = 0i64;
+        let mut current = String::new();
+        for ch in inner.chars() {
+            if ch == '[' {
+                depth += 1;
+            }
+            if ch == ']' {
+                depth -= 1;
+            }
+            if ch == ',' && depth == 0 {
+                fields.push(std::mem::take(&mut current));
+            } else {
+                current.push(ch);
+            }
+        }
+        if !current.trim().is_empty() {
+            fields.push(current);
+        }
+        let mut record = serde_json::Map::new();
+        for field in fields {
+            if let Some((key, value)) = field.split_once(':') {
+                let key = key.trim();
+                let value = value.trim();
+                if !key.is_empty() {
+                    record.insert(key.to_owned(), json!(value));
+                }
+            }
+        }
+        if !record.is_empty() {
+            destinations.push(Value::Object(record));
+        }
+    }
+    destinations
+}
+
+fn g3_simctl_devices(value: &Value) -> Vec<Value> {
+    let mut devices: Vec<Value> = Vec::new();
+    let Some(runtimes) = value["devices"].as_object() else {
+        return devices;
+    };
+    let mut keys: Vec<&String> = runtimes.keys().collect();
+    keys.sort();
+    for runtime in keys {
+        for device in runtimes[runtime.as_str()].as_array().cloned().unwrap_or_default() {
+            let mut entry = serde_json::Map::new();
+            entry.insert("udid".to_owned(), json!(device["udid"].as_str().unwrap_or("")));
+            entry.insert("name".to_owned(), json!(device["name"].as_str().unwrap_or("")));
+            entry.insert("state".to_owned(), json!(device["state"].as_str().unwrap_or("")));
+            entry.insert("runtime".to_owned(), json!(runtime));
+            entry.insert(
+                "isAvailable".to_owned(),
+                json!(device["isAvailable"].as_bool().unwrap_or(false)),
+            );
+            if let Some(type_id) = device["deviceTypeIdentifier"].as_str() {
+                entry.insert("deviceTypeIdentifier".to_owned(), json!(type_id));
+            }
+            devices.push(Value::Object(entry));
+        }
+    }
+    devices
+}
+
+fn g3_xcode_version(output: &str) -> (String, String) {
+    let mut version = String::new();
+    let mut build = String::new();
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("Xcode ") {
+            version = rest.to_owned();
+        }
+        if let Some(rest) = trimmed.strip_prefix("Build version ") {
+            build = rest.to_owned();
+        }
+    }
+    (version, build)
+}
+
+fn g3_codesign(output: &str) -> Value {
+    let mut details = serde_json::Map::new();
+    let mut authorities: Vec<Value> = Vec::new();
+    for line in output.lines() {
+        if let Some((key, value)) = line.split_once('=') {
+            let key = key.trim();
+            let value = value.trim();
+            if key.is_empty() || value.is_empty() {
+                continue;
+            }
+            if key == "Authority" {
+                authorities.push(json!(value));
+            } else {
+                details.insert(key.to_owned(), json!(value));
+            }
+        }
+    }
+    if !authorities.is_empty() {
+        details.insert("Authority".to_owned(), json!(authorities));
+    }
+    Value::Object(details)
+}
+
+fn g3_otool_libraries(output: &str) -> Vec<String> {
+    let mut libraries: Vec<String> = Vec::new();
+    for line in output.lines().skip(1) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Some((path, _)) = trimmed.split_once('(') {
+            libraries.push(path.trim().to_owned());
+        } else {
+            libraries.push(trimmed.to_owned());
+        }
+    }
+    libraries
+}
+
+fn g3_mach_headers(output: &str) -> Vec<Value> {
+    let mut headers: Vec<Value> = Vec::new();
+    let mut saw_header = false;
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed == "Mach header" || trimmed.starts_with("magic ") {
+            saw_header = true;
+            continue;
+        }
+        if saw_header {
+            let fields: Vec<&str> = trimmed
+                .split(' ')
+                .filter(|part| !part.is_empty())
+                .collect();
+            if fields.len() >= 5 {
+                headers.push(json!({"magic": fields[0], "cputype": fields[1], "filetype": fields[4]}));
+            }
+            saw_header = false;
+        }
+    }
+    headers
+}
+
+fn g3_identities(output: &str) -> Vec<Value> {
+    let mut identities: Vec<Value> = Vec::new();
+    for line in output.lines() {
+        let trimmed = line.trim();
+        let Some((index_text, rest)) = trimmed.split_once(')') else {
+            continue;
+        };
+        let Ok(index) = index_text.trim().parse::<i64>() else {
+            continue;
+        };
+        let rest = rest.trim();
+        let Some((hash, name)) = rest.split_once(' ') else {
+            continue;
+        };
+        let name = name.trim().trim_matches('"');
+        identities.push(json!({"index": index, "hash": hash, "name": name}));
+    }
+    identities
+}
+
+fn g3_ast_decl_counts(output: &str) -> (serde_json::Map<String, Value>, i64) {
+    let mut counts: serde_json::Map<String, Value> = serde_json::Map::new();
+    let mut total = 0i64;
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('(') {
+            continue;
+        }
+        let name = trimmed[1..].split(' ').next().unwrap_or("");
+        if !name.ends_with("_decl") {
+            continue;
+        }
+        let entry = counts.entry(name.to_owned()).or_insert(json!(0));
+        *entry = json!(entry.as_i64().unwrap_or(0) + 1);
+        total += 1;
+    }
+    (counts, total)
+}
+
+fn g3_du_sizes(output: &str) -> Vec<(String, i64)> {
+    let mut sizes: Vec<(String, i64)> = Vec::new();
+    for line in output.lines() {
+        if let Some((size_text, path)) = line.split_once('\t') {
+            if let Ok(size) = size_text.trim().parse::<i64>() {
+                sizes.push((path.to_owned(), size));
+            }
+        }
+    }
+    sizes
 }
 
 pub fn call(
@@ -7722,6 +9195,1139 @@ pub fn call(
             }
             engine_request(state, "memory.snapshot", params)
         }
+        "project_build" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let mut argv: Vec<String> = vec!["xcodebuild".to_owned(), "build".to_owned()];
+            if let Some(scheme) = opt_str(&args, "scheme") {
+                g3_token(&scheme, "scheme", name)?;
+                argv.push("-scheme".to_owned());
+                argv.push(scheme);
+            }
+            if let Some(configuration) = opt_str(&args, "configuration") {
+                g3_token(&configuration, "configuration", name)?;
+                argv.push("-configuration".to_owned());
+                argv.push(configuration);
+            }
+            if let Some(destination) = opt_str(&args, "destination") {
+                g3_token(&destination, "destination", name)?;
+                argv.push("-destination".to_owned());
+                argv.push(destination);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(600);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            let diagnostics = g3_diagnostics(&output);
+            let errors = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("error"))
+                .count();
+            let warnings = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("warning"))
+                .count();
+            Ok(json!({"succeeded": exit_code == 0, "exitCode": exit_code, "errors": errors, "warnings": warnings, "diagnostics": diagnostics, "output": output}))
+        }
+        "project_test" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let mut argv: Vec<String> = vec!["xcodebuild".to_owned(), "test".to_owned()];
+            if let Some(scheme) = opt_str(&args, "scheme") {
+                g3_token(&scheme, "scheme", name)?;
+                argv.push("-scheme".to_owned());
+                argv.push(scheme);
+            }
+            if let Some(configuration) = opt_str(&args, "configuration") {
+                g3_token(&configuration, "configuration", name)?;
+                argv.push("-configuration".to_owned());
+                argv.push(configuration);
+            }
+            if let Some(destination) = opt_str(&args, "destination") {
+                g3_token(&destination, "destination", name)?;
+                argv.push("-destination".to_owned());
+                argv.push(destination);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(600);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            let diagnostics = g3_diagnostics(&output);
+            let errors = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("error"))
+                .count();
+            let warnings = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("warning"))
+                .count();
+            let (executed, failed, suites_passed, suites_failed) = g3_test_summary(&output);
+            Ok(json!({"succeeded": exit_code == 0, "exitCode": exit_code, "testsExecuted": executed, "testsFailed": failed, "suitesPassed": suites_passed, "suitesFailed": suites_failed, "errors": errors, "warnings": warnings, "diagnostics": diagnostics, "output": output}))
+        }
+        "compiler_diagnostics_engine" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let kind = opt_str(&args, "kind").unwrap_or_else(|| "xcodebuild".to_owned());
+            let mut argv: Vec<String> = Vec::new();
+            let mut cli = "xcodebuild";
+            match kind.as_str() {
+                "xcodebuild" => {
+                    argv = vec!["xcodebuild".to_owned(), "build".to_owned()];
+                    if let Some(scheme) = opt_str(&args, "scheme") {
+                        g3_token(&scheme, "scheme", name)?;
+                        argv.push("-scheme".to_owned());
+                        argv.push(scheme);
+                    }
+                    if let Some(destination) = opt_str(&args, "destination") {
+                        g3_token(&destination, "destination", name)?;
+                        argv.push("-destination".to_owned());
+                        argv.push(destination);
+                    }
+                }
+                "swiftpm" => {
+                    argv = vec!["swift".to_owned(), "build".to_owned()];
+                    cli = "swift";
+                }
+                _ => {
+                    return Err(failed(
+                        "compiler_diagnostics_engine kind must be xcodebuild or swiftpm.",
+                    ));
+                }
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(600);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli(cli, exit_code, &output)?;
+            let diagnostics = g3_diagnostics(&output);
+            let errors = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("error"))
+                .count();
+            let warnings = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("warning"))
+                .count();
+            Ok(json!({"exitCode": exit_code, "errors": errors, "warnings": warnings, "diagnostics": diagnostics, "output": output}))
+        }
+        "dependency_resolution_engine" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let kind = opt_str(&args, "kind").unwrap_or_else(|| "swiftpm".to_owned());
+            let mut argv: Vec<String> = Vec::new();
+            let mut cli = "swift";
+            match kind.as_str() {
+                "swiftpm" => {
+                    argv = vec![
+                        "swift".to_owned(),
+                        "package".to_owned(),
+                        "resolve".to_owned(),
+                    ];
+                }
+                "xcode" => {
+                    let scheme = match opt_str(&args, "scheme") {
+                        Some(scheme) => scheme,
+                        None => {
+                            return Err(failed(
+                                "Tool \"dependency_resolution_engine\" is missing required argument \"scheme\".",
+                            ));
+                        }
+                    };
+                    g3_token(&scheme, "scheme", name)?;
+                    argv = vec![
+                        "xcodebuild".to_owned(),
+                        "-resolvePackageDependencies".to_owned(),
+                        "-scheme".to_owned(),
+                        scheme,
+                    ];
+                    cli = "xcodebuild";
+                }
+                _ => {
+                    return Err(failed(
+                        "dependency_resolution_engine kind must be swiftpm or xcode.",
+                    ));
+                }
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(300);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli(cli, exit_code, &output)?;
+            Ok(json!({"resolved": exit_code == 0, "exitCode": exit_code, "output": output}))
+        }
+        "generate_xcodeproj" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &["xcodegen".to_owned(), "generate".to_owned()],
+                timeout,
+            )?;
+            g3_missing_cli("xcodegen", exit_code, &output)?;
+            Ok(json!({"generated": exit_code == 0, "exitCode": exit_code, "output": output}))
+        }
+        "project_scheme_list" | "project_target_list" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "xcodebuild".to_owned(),
+                    "-list".to_owned(),
+                    "-json".to_owned(),
+                ],
+                timeout,
+            )?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            if exit_code != 0 {
+                if name == "project_target_list" {
+                    return Ok(json!({"targets": [], "exitCode": exit_code, "output": output}));
+                }
+                return Ok(json!({"name": "", "schemes": [], "targets": [], "configurations": [], "exitCode": exit_code, "output": output}));
+            }
+            let listed = g3_parse_json(&output, name)?;
+            let (schemes, targets, configurations, project_name) = g3_xcodebuild_list(&listed);
+            if name == "project_target_list" {
+                return Ok(json!({"targets": targets, "exitCode": exit_code, "output": output}));
+            }
+            Ok(json!({"name": project_name, "schemes": schemes, "targets": targets, "configurations": configurations, "exitCode": exit_code, "output": output}))
+        }
+        "project_build_settings" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let mut argv: Vec<String> =
+                vec!["xcodebuild".to_owned(), "-showBuildSettings".to_owned()];
+            if let Some(scheme) = opt_str(&args, "scheme") {
+                g3_token(&scheme, "scheme", name)?;
+                argv.push("-scheme".to_owned());
+                argv.push(scheme);
+            }
+            if let Some(configuration) = opt_str(&args, "configuration") {
+                g3_token(&configuration, "configuration", name)?;
+                argv.push("-configuration".to_owned());
+                argv.push(configuration);
+            }
+            if let Some(target) = opt_str(&args, "target") {
+                g3_token(&target, "target", name)?;
+                argv.push("-target".to_owned());
+                argv.push(target);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            let settings = g3_build_settings(&output);
+            Ok(json!({"settings": settings, "exitCode": exit_code, "output": output}))
+        }
+        "project_clean" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            if !opt_bool(&args, "confirm").unwrap_or(false) {
+                return Err(failed(
+                    "project_clean removes build products; pass confirm=true.",
+                ));
+            }
+            let mut argv: Vec<String> = vec!["xcodebuild".to_owned(), "clean".to_owned()];
+            if let Some(scheme) = opt_str(&args, "scheme") {
+                g3_token(&scheme, "scheme", name)?;
+                argv.push("-scheme".to_owned());
+                argv.push(scheme);
+            }
+            if let Some(configuration) = opt_str(&args, "configuration") {
+                g3_token(&configuration, "configuration", name)?;
+                argv.push("-configuration".to_owned());
+                argv.push(configuration);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(300);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            Ok(json!({"cleaned": exit_code == 0, "exitCode": exit_code, "output": output}))
+        }
+        "project_archive" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let scheme = req_str(&args, "scheme", name)?;
+            g3_token(&scheme, "scheme", name)?;
+            let archive_path = req_str(&args, "archivePath", name)?;
+            g3_relative_path(&archive_path, name)?;
+            let mut argv: Vec<String> = vec![
+                "xcodebuild".to_owned(),
+                "archive".to_owned(),
+                "-scheme".to_owned(),
+                scheme,
+                "-archivePath".to_owned(),
+                archive_path.clone(),
+            ];
+            if let Some(configuration) = opt_str(&args, "configuration") {
+                g3_token(&configuration, "configuration", name)?;
+                argv.push("-configuration".to_owned());
+                argv.push(configuration);
+            }
+            if let Some(destination) = opt_str(&args, "destination") {
+                g3_token(&destination, "destination", name)?;
+                argv.push("-destination".to_owned());
+                argv.push(destination);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(1800);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            let diagnostics = g3_diagnostics(&output);
+            let errors = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("error"))
+                .count();
+            let warnings = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("warning"))
+                .count();
+            Ok(json!({"archived": exit_code == 0, "archivePath": archive_path, "exitCode": exit_code, "errors": errors, "warnings": warnings, "diagnostics": diagnostics, "output": output}))
+        }
+        "test_run_single" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let test_identifier = req_str(&args, "testIdentifier", name)?;
+            g3_test_identifier(&test_identifier, name)?;
+            let mut argv: Vec<String> = vec![
+                "xcodebuild".to_owned(),
+                "test".to_owned(),
+                format!("-only-testing:{test_identifier}"),
+            ];
+            if let Some(scheme) = opt_str(&args, "scheme") {
+                g3_token(&scheme, "scheme", name)?;
+                argv.push("-scheme".to_owned());
+                argv.push(scheme);
+            }
+            if let Some(destination) = opt_str(&args, "destination") {
+                g3_token(&destination, "destination", name)?;
+                argv.push("-destination".to_owned());
+                argv.push(destination);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(600);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            let diagnostics = g3_diagnostics(&output);
+            let errors = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("error"))
+                .count();
+            let warnings = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("warning"))
+                .count();
+            let (executed, failed, suites_passed, suites_failed) = g3_test_summary(&output);
+            Ok(json!({"succeeded": exit_code == 0, "testIdentifier": test_identifier, "exitCode": exit_code, "testsExecuted": executed, "testsFailed": failed, "suitesPassed": suites_passed, "suitesFailed": suites_failed, "errors": errors, "warnings": warnings, "diagnostics": diagnostics, "output": output}))
+        }
+        "test_coverage_report" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let xcresult_path = req_str(&args, "xcresultPath", name)?;
+            g3_relative_path(&xcresult_path, name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(300);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "xcrun".to_owned(),
+                    "xccov".to_owned(),
+                    "view".to_owned(),
+                    "--report".to_owned(),
+                    "--json".to_owned(),
+                    xcresult_path,
+                ],
+                timeout,
+            )?;
+            g3_missing_cli("xcrun", exit_code, &output)?;
+            if exit_code != 0 {
+                return Ok(json!({"lineCoverage": Value::Null, "targets": [], "exitCode": exit_code, "output": output}));
+            }
+            let coverage = g3_parse_json(&output, name)?;
+            let targets = g3_coverage(&coverage);
+            Ok(json!({"lineCoverage": coverage["lineCoverage"], "targets": targets, "exitCode": exit_code, "output": output}))
+        }
+        "test_coverage_reporter" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let xcresult_path = req_str(&args, "xcresultPath", name)?;
+            g3_relative_path(&xcresult_path, name)?;
+            let format = opt_str(&args, "format").unwrap_or_else(|| "text".to_owned());
+            if format != "json" && format != "text" {
+                return Err(failed("test_coverage_reporter format must be json or text."));
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(300);
+            let mut argv: Vec<String> = vec![
+                "xcrun".to_owned(),
+                "xccov".to_owned(),
+                "view".to_owned(),
+                "--report".to_owned(),
+            ];
+            if format == "json" {
+                argv.push("--json".to_owned());
+            }
+            argv.push(xcresult_path);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcrun", exit_code, &output)?;
+            if format == "json" {
+                if exit_code != 0 {
+                    return Ok(json!({"format": format, "report": Value::Null, "exitCode": exit_code, "output": output}));
+                }
+                let report = g3_parse_json(&output, name)?;
+                return Ok(json!({"format": format, "report": report, "exitCode": exit_code, "output": output}));
+            }
+            Ok(json!({"format": format, "report": output, "exitCode": exit_code, "output": output}))
+        }
+        "performance_benchmark" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let benchmark = req_str(&args, "benchmark", name)?;
+            let base: &[&str] = match benchmark.as_str() {
+                "xcodebuild-build" => &["xcodebuild", "build"],
+                "xcodebuild-test" => &["xcodebuild", "test"],
+                "swift-build" => &["swift", "build"],
+                "swift-test" => &["swift", "test"],
+                "xcodebuild-clean-build" => &["xcodebuild", "clean", "build"],
+                _ => {
+                    return Err(failed(
+                        "performance_benchmark benchmark must be xcodebuild-build, xcodebuild-test, swift-build, swift-test, or xcodebuild-clean-build.",
+                    ));
+                }
+            };
+            let is_xcodebuild = benchmark.starts_with("xcodebuild");
+            let mut argv: Vec<String> = base.iter().map(|part| part.to_string()).collect();
+            if let Some(scheme) = opt_str(&args, "scheme") {
+                if !is_xcodebuild {
+                    return Err(failed(
+                        "performance_benchmark scheme applies only to xcodebuild benchmarks.",
+                    ));
+                }
+                g3_token(&scheme, "scheme", name)?;
+                argv.push("-scheme".to_owned());
+                argv.push(scheme);
+            }
+            let cli = argv[0].clone();
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(600);
+            let started = std::time::Instant::now();
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            let elapsed = started.elapsed().as_secs_f64();
+            g3_missing_cli(&cli, exit_code, &output)?;
+            Ok(json!({"benchmark": benchmark, "elapsedSeconds": elapsed, "exitCode": exit_code, "output": output}))
+        }
+        "docc_build" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let scheme = req_str(&args, "scheme", name)?;
+            g3_token(&scheme, "scheme", name)?;
+            let mut argv: Vec<String> = vec![
+                "xcodebuild".to_owned(),
+                "docbuild".to_owned(),
+                "-scheme".to_owned(),
+                scheme,
+            ];
+            if let Some(destination) = opt_str(&args, "destination") {
+                g3_token(&destination, "destination", name)?;
+                argv.push("-destination".to_owned());
+                argv.push(destination);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(600);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            let diagnostics = g3_diagnostics(&output);
+            let errors = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("error"))
+                .count();
+            let warnings = diagnostics
+                .iter()
+                .filter(|d| d["severity"].as_str() == Some("warning"))
+                .count();
+            Ok(json!({"succeeded": exit_code == 0, "exitCode": exit_code, "errors": errors, "warnings": warnings, "diagnostics": diagnostics, "output": output}))
+        }
+        "xcode_scheme_manager" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let action = req_str(&args, "action", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            match action.as_str() {
+                "list" => {
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "xcodebuild".to_owned(),
+                            "-list".to_owned(),
+                            "-json".to_owned(),
+                        ],
+                        timeout,
+                    )?;
+                    g3_missing_cli("xcodebuild", exit_code, &output)?;
+                    if exit_code != 0 {
+                        return Ok(json!({"action": action, "schemes": [], "exitCode": exit_code, "output": output}));
+                    }
+                    let listed = g3_parse_json(&output, name)?;
+                    let (schemes, _, _, _) = g3_xcodebuild_list(&listed);
+                    Ok(json!({"action": action, "schemes": schemes, "exitCode": exit_code, "output": output}))
+                }
+                "validate" => {
+                    let scheme = match opt_str(&args, "scheme") {
+                        Some(scheme) => scheme,
+                        None => {
+                            return Err(failed(
+                                "Tool \"xcode_scheme_manager\" is missing required argument \"scheme\".",
+                            ));
+                        }
+                    };
+                    g3_token(&scheme, "scheme", name)?;
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "xcodebuild".to_owned(),
+                            "-scheme".to_owned(),
+                            scheme.clone(),
+                            "-showBuildSettings".to_owned(),
+                        ],
+                        timeout,
+                    )?;
+                    g3_missing_cli("xcodebuild", exit_code, &output)?;
+                    let settings = g3_build_settings(&output);
+                    let settings_count: usize = settings
+                        .iter()
+                        .map(|section| {
+                            section["settings"]
+                                .as_object()
+                                .map(|object| object.len())
+                                .unwrap_or(0)
+                        })
+                        .sum();
+                    Ok(json!({"action": action, "scheme": scheme, "valid": exit_code == 0, "settingsCount": settings_count, "exitCode": exit_code, "output": output}))
+                }
+                _ => Err(failed("xcode_scheme_manager action must be list or validate.")),
+            }
+        }
+        "xcode_build_settings_inspector" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let key = req_str(&args, "key", name)?;
+            g3_token(&key, "key", name)?;
+            let mut argv: Vec<String> =
+                vec!["xcodebuild".to_owned(), "-showBuildSettings".to_owned()];
+            if let Some(scheme) = opt_str(&args, "scheme") {
+                g3_token(&scheme, "scheme", name)?;
+                argv.push("-scheme".to_owned());
+                argv.push(scheme);
+            }
+            if let Some(configuration) = opt_str(&args, "configuration") {
+                g3_token(&configuration, "configuration", name)?;
+                argv.push("-configuration".to_owned());
+                argv.push(configuration);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            let sections = g3_build_settings(&output);
+            let mut values: Vec<Value> = Vec::new();
+            for section in sections {
+                if let Some(value) = section["settings"][key.as_str()].as_str() {
+                    values.push(json!({"target": section["target"].as_str().unwrap_or(""), "value": value}));
+                }
+            }
+            let found = !values.is_empty();
+            Ok(json!({"key": key, "values": values, "found": found, "exitCode": exit_code, "output": output}))
+        }
+        "xcode_device_destination_finder" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let mut argv: Vec<String> =
+                vec!["xcodebuild".to_owned(), "-showdestinations".to_owned()];
+            if let Some(scheme) = opt_str(&args, "scheme") {
+                g3_token(&scheme, "scheme", name)?;
+                argv.push("-scheme".to_owned());
+                argv.push(scheme);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("xcodebuild", exit_code, &output)?;
+            let destinations = g3_destinations(&output);
+            Ok(json!({"destinations": destinations, "exitCode": exit_code, "output": output}))
+        }
+        "simulator_list" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "xcrun".to_owned(),
+                    "simctl".to_owned(),
+                    "list".to_owned(),
+                    "-j".to_owned(),
+                    "devices".to_owned(),
+                ],
+                timeout,
+            )?;
+            g3_missing_cli("simctl", exit_code, &output)?;
+            if exit_code != 0 {
+                return Ok(json!({"devices": [], "runtimes": [], "exitCode": exit_code, "output": output}));
+            }
+            let listed = g3_parse_json(&output, name)?;
+            let devices = g3_simctl_devices(&listed);
+            let mut runtimes: Vec<String> = devices
+                .iter()
+                .filter_map(|d| d["runtime"].as_str().map(str::to_owned))
+                .collect();
+            runtimes.sort();
+            runtimes.dedup();
+            Ok(json!({"devices": devices, "runtimes": runtimes, "exitCode": exit_code, "output": output}))
+        }
+        "simulator_boot" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let device = req_str(&args, "device", name)?;
+            g3_token(&device, "device", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "xcrun".to_owned(),
+                    "simctl".to_owned(),
+                    "boot".to_owned(),
+                    device.clone(),
+                ],
+                timeout,
+            )?;
+            g3_missing_cli("simctl", exit_code, &output)?;
+            Ok(json!({"booted": exit_code == 0, "device": device, "exitCode": exit_code, "output": output}))
+        }
+        "simulator_controller" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let action = req_str(&args, "action", name)?;
+            let device = req_str(&args, "device", name)?;
+            g3_token(&device, "device", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            match action.as_str() {
+                "boot" | "shutdown" | "erase" => {
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "xcrun".to_owned(),
+                            "simctl".to_owned(),
+                            action.clone(),
+                            device.clone(),
+                        ],
+                        timeout,
+                    )?;
+                    g3_missing_cli("simctl", exit_code, &output)?;
+                    Ok(json!({"action": action, "device": device, "succeeded": exit_code == 0, "exitCode": exit_code, "output": output}))
+                }
+                "openurl" => {
+                    let url = match opt_str(&args, "url") {
+                        Some(url) => url,
+                        None => {
+                            return Err(failed(
+                                "simulator_controller openurl requires a url with a scheme.",
+                            ));
+                        }
+                    };
+                    let has_scheme = url.contains("://") || url.contains(':');
+                    if !has_scheme {
+                        return Err(failed(
+                            "simulator_controller openurl requires a url with a scheme.",
+                        ));
+                    }
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "xcrun".to_owned(),
+                            "simctl".to_owned(),
+                            "openurl".to_owned(),
+                            device.clone(),
+                            url,
+                        ],
+                        timeout,
+                    )?;
+                    g3_missing_cli("simctl", exit_code, &output)?;
+                    Ok(json!({"action": action, "device": device, "opened": exit_code == 0, "exitCode": exit_code, "output": output}))
+                }
+                "status" => {
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "xcrun".to_owned(),
+                            "simctl".to_owned(),
+                            "list".to_owned(),
+                            "-j".to_owned(),
+                            "devices".to_owned(),
+                        ],
+                        timeout,
+                    )?;
+                    g3_missing_cli("simctl", exit_code, &output)?;
+                    if exit_code != 0 {
+                        return Ok(json!({"action": action, "device": device, "state": Value::Null, "found": false, "exitCode": exit_code, "output": output}));
+                    }
+                    let listed = g3_parse_json(&output, name)?;
+                    let devices = g3_simctl_devices(&listed);
+                    let found = devices.iter().find(|d| {
+                        d["udid"].as_str() == Some(device.as_str())
+                            || d["name"].as_str() == Some(device.as_str())
+                    });
+                    Ok(json!({"action": action, "device": device, "state": found.map(|d| d["state"].clone()).unwrap_or(Value::Null), "found": found.is_some(), "exitCode": exit_code, "output": output}))
+                }
+                _ => Err(failed(
+                    "simulator_controller action must be boot, shutdown, erase, openurl, or status.",
+                )),
+            }
+        }
+        "device_list" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let (devicectl_exit, devicectl_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "xcrun".to_owned(),
+                    "devicectl".to_owned(),
+                    "list".to_owned(),
+                    "devices".to_owned(),
+                ],
+                timeout,
+            )?;
+            let mut source = "devicectl";
+            let mut exit_code = devicectl_exit;
+            let mut output = devicectl_output;
+            if devicectl_exit == 127
+                || output.contains("command not found")
+                || output.contains("unable to find utility")
+            {
+                source = "xctrace";
+                let (xctrace_exit, xctrace_output) = g3_run(
+                    state,
+                    &thread_id,
+                    &cwd,
+                    &[
+                        "xcrun".to_owned(),
+                        "xctrace".to_owned(),
+                        "list".to_owned(),
+                        "devices".to_owned(),
+                    ],
+                    timeout,
+                )?;
+                g3_missing_cli("xctrace", xctrace_exit, &xctrace_output)?;
+                exit_code = xctrace_exit;
+                output = xctrace_output;
+            }
+            let line_count = output.lines().filter(|line| !line.trim().is_empty()).count();
+            Ok(json!({"source": source, "exitCode": exit_code, "lineCount": line_count, "output": output}))
+        }
+        "provisioning_check" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let profile_path = req_str(&args, "profilePath", name)?;
+            g3_relative_path(&profile_path, name)?;
+            if !profile_path.ends_with(".mobileprovision")
+                && !profile_path.ends_with(".provisionprofile")
+            {
+                return Err(failed(
+                    "provisioning_check profilePath must end in .mobileprovision or .provisionprofile.",
+                ));
+            }
+            if !workspace_file_exists(&cwd, &profile_path)? {
+                return Err(failed(format!("No such file: {profile_path}.")));
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let command = format!(
+                "security cms -D -i {} | plutil -convert json -o - -",
+                shell_quote(&profile_path)
+            );
+            let (exit_code, output) =
+                run_shell_status(state, &thread_id, &cwd, &command, timeout)?;
+            g3_missing_cli("security", exit_code, &output)?;
+            if exit_code != 0 {
+                return Ok(json!({"valid": false, "exitCode": exit_code, "output": output}));
+            }
+            let profile = g3_parse_json(&output, name)?;
+            let (_, now_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "date".to_owned(),
+                    "-u".to_owned(),
+                    "+%Y-%m-%dT%H:%M:%SZ".to_owned(),
+                ],
+                30,
+            )?;
+            let now = now_output.trim().to_owned();
+            let expiration = profile["ExpirationDate"].as_str().unwrap_or("").to_owned();
+            let expired = !expiration.is_empty() && !now.is_empty() && expiration.as_str() < now.as_str();
+            let entitlement_keys: Vec<String> = profile["Entitlements"]
+                .as_object()
+                .map(|object| {
+                    let mut keys: Vec<String> = object.keys().cloned().collect();
+                    keys.sort();
+                    keys
+                })
+                .unwrap_or_default();
+            Ok(json!({"valid": true, "name": profile["Name"].as_str().unwrap_or(""), "uuid": profile["UUID"].as_str().unwrap_or(""), "teamIdentifier": profile["TeamIdentifier"].as_array().and_then(|items| items.first()).and_then(Value::as_str).unwrap_or(""), "expirationDate": expiration, "expired": expired, "entitlementKeys": entitlement_keys, "exitCode": exit_code}))
+        }
+        "swift_package_manager" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let action = req_str(&args, "action", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(300);
+            match action.as_str() {
+                "describe" => {
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "swift".to_owned(),
+                            "package".to_owned(),
+                            "describe".to_owned(),
+                            "--type".to_owned(),
+                            "json".to_owned(),
+                        ],
+                        timeout,
+                    )?;
+                    g3_missing_cli("swift", exit_code, &output)?;
+                    if exit_code != 0 {
+                        return Ok(json!({"action": action, "description": Value::Null, "exitCode": exit_code, "output": output}));
+                    }
+                    let described = g3_parse_json(&output, name)?;
+                    Ok(json!({"action": action, "description": described, "exitCode": exit_code, "output": output}))
+                }
+                "resolve" => {
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &["swift".to_owned(), "package".to_owned(), "resolve".to_owned()],
+                        timeout,
+                    )?;
+                    g3_missing_cli("swift", exit_code, &output)?;
+                    Ok(json!({"action": action, "resolved": exit_code == 0, "exitCode": exit_code, "output": output}))
+                }
+                "clean" => {
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &["swift".to_owned(), "package".to_owned(), "clean".to_owned()],
+                        timeout,
+                    )?;
+                    g3_missing_cli("swift", exit_code, &output)?;
+                    Ok(json!({"action": action, "cleaned": exit_code == 0, "exitCode": exit_code, "output": output}))
+                }
+                "reset" => {
+                    if !opt_bool(&args, "confirm").unwrap_or(false) {
+                        return Err(failed(
+                            "swift_package_manager reset removes the package build state; pass confirm=true.",
+                        ));
+                    }
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &["swift".to_owned(), "package".to_owned(), "reset".to_owned()],
+                        timeout,
+                    )?;
+                    g3_missing_cli("swift", exit_code, &output)?;
+                    Ok(json!({"action": action, "reset": exit_code == 0, "exitCode": exit_code, "output": output}))
+                }
+                _ => Err(failed(
+                    "swift_package_manager action must be describe, resolve, clean, or reset.",
+                )),
+            }
+        }
+        "package_dependency_update" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let mut argv: Vec<String> =
+                vec!["swift".to_owned(), "package".to_owned(), "update".to_owned()];
+            if let Some(package) = opt_str(&args, "package") {
+                g3_identifier(&package, "package", name)?;
+                argv.push(package);
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(300);
+            let (exit_code, output) = g3_run(state, &thread_id, &cwd, &argv, timeout)?;
+            g3_missing_cli("swift", exit_code, &output)?;
+            let package = opt_str(&args, "package")
+                .map(Value::String)
+                .unwrap_or(Value::Null);
+            Ok(json!({"updated": exit_code == 0, "package": package, "exitCode": exit_code, "output": output}))
+        }
+        "code_signing_diagnose" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let path = req_str(&args, "path", name)?;
+            g3_relative_path(&path, name)?;
+            if !workspace_file_exists(&cwd, &path)? {
+                return Err(failed(format!("No such file: {path}.")));
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let (verify_exit, verify_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "codesign".to_owned(),
+                    "--verify".to_owned(),
+                    "--verbose".to_owned(),
+                    path.clone(),
+                ],
+                timeout,
+            )?;
+            g3_missing_cli("codesign", verify_exit, &verify_output)?;
+            let (dv_exit, dv_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "codesign".to_owned(),
+                    "-dv".to_owned(),
+                    "--verbose=4".to_owned(),
+                    path.clone(),
+                ],
+                timeout,
+            )?;
+            let details = g3_codesign(&dv_output);
+            Ok(json!({"path": path, "verified": verify_exit == 0, "verifyExitCode": verify_exit, "verifyOutput": verify_output, "details": details, "exitCode": dv_exit}))
+        }
+        "xcode_toolchain_info" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let (version_exit, version_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &["xcodebuild".to_owned(), "-version".to_owned()],
+                timeout,
+            )?;
+            g3_missing_cli("xcodebuild", version_exit, &version_output)?;
+            let (xcode_version, xcode_build) = g3_xcode_version(&version_output);
+            let (select_exit, select_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &["xcode-select".to_owned(), "-p".to_owned()],
+                timeout,
+            )?;
+            Ok(json!({"xcodeVersion": xcode_version, "xcodeBuild": xcode_build, "developerDir": select_output.trim(), "exitCode": version_exit, "selectExitCode": select_exit}))
+        }
+        "xcresult_parser" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let path = req_str(&args, "path", name)?;
+            g3_relative_path(&path, name)?;
+            if !path.ends_with(".xcresult") {
+                return Err(failed("xcresult_parser path must end in .xcresult."));
+            }
+            if !workspace_file_exists(&cwd, &path)? {
+                return Err(failed(format!("No such file: {path}.")));
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "xcrun".to_owned(),
+                    "xcresulttool".to_owned(),
+                    "get".to_owned(),
+                    "--format".to_owned(),
+                    "json".to_owned(),
+                    "--path".to_owned(),
+                    path.clone(),
+                ],
+                timeout,
+            )?;
+            g3_missing_cli("xcrun", exit_code, &output)?;
+            if exit_code != 0 {
+                return Ok(json!({"path": path, "result": Value::Null, "topLevelKeys": [], "exitCode": exit_code, "output": output}));
+            }
+            let result = g3_parse_json(&output, name)?;
+            let mut keys: Vec<String> = result
+                .as_object()
+                .map(|object| object.keys().cloned().collect())
+                .unwrap_or_default();
+            keys.sort();
+            Ok(json!({"path": path, "result": result, "topLevelKeys": keys, "exitCode": exit_code, "output": output}))
+        }
+        "mach_o_binary_analyzer" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let path = req_str(&args, "path", name)?;
+            g3_relative_path(&path, name)?;
+            if !workspace_file_exists(&cwd, &path)? {
+                return Err(failed(format!("No such file: {path}.")));
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let (file_exit, file_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &["file".to_owned(), path.clone()],
+                timeout,
+            )?;
+            g3_missing_cli("file", file_exit, &file_output)?;
+            let (otool_exit, otool_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &["otool".to_owned(), "-L".to_owned(), path.clone()],
+                timeout,
+            )?;
+            g3_missing_cli("otool", otool_exit, &otool_output)?;
+            let (hv_exit, hv_output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &["otool".to_owned(), "-hv".to_owned(), path.clone()],
+                timeout,
+            )?;
+            let libraries = g3_otool_libraries(&otool_output);
+            let headers = g3_mach_headers(&hv_output);
+            let file_line = file_output.lines().next().unwrap_or("").trim().to_owned();
+            Ok(json!({"path": path, "file": file_line, "fileOutput": file_output, "libraries": libraries, "headers": headers, "exitCode": otool_exit, "hvExitCode": hv_exit}))
+        }
+        "signing_certificate_inspector" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &[
+                    "security".to_owned(),
+                    "find-identity".to_owned(),
+                    "-v".to_owned(),
+                    "-p".to_owned(),
+                    "codesigning".to_owned(),
+                ],
+                timeout,
+            )?;
+            g3_missing_cli("security", exit_code, &output)?;
+            let identities = g3_identities(&output);
+            let count = identities.len();
+            Ok(json!({"identities": identities, "count": count, "exitCode": exit_code, "output": output}))
+        }
+        "provisioning_profile_reader" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let profile_path = req_str(&args, "profilePath", name)?;
+            g3_relative_path(&profile_path, name)?;
+            if !profile_path.ends_with(".mobileprovision")
+                && !profile_path.ends_with(".provisionprofile")
+            {
+                return Err(failed(
+                    "provisioning_profile_reader profilePath must end in .mobileprovision or .provisionprofile.",
+                ));
+            }
+            if !workspace_file_exists(&cwd, &profile_path)? {
+                return Err(failed(format!("No such file: {profile_path}.")));
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            let command = format!(
+                "security cms -D -i {} | plutil -convert json -o - -",
+                shell_quote(&profile_path)
+            );
+            let (exit_code, output) =
+                run_shell_status(state, &thread_id, &cwd, &command, timeout)?;
+            g3_missing_cli("security", exit_code, &output)?;
+            if exit_code != 0 {
+                return Ok(json!({"profile": Value::Null, "exitCode": exit_code, "output": output}));
+            }
+            let profile = g3_parse_json(&output, name)?;
+            Ok(json!({"profile": profile, "exitCode": exit_code}))
+        }
+        "swift_ast_inspector" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let path = req_str(&args, "path", name)?;
+            g3_relative_path(&path, name)?;
+            if !path.ends_with(".swift") {
+                return Err(failed("swift_ast_inspector path must end in .swift."));
+            }
+            if !workspace_file_exists(&cwd, &path)? {
+                return Err(failed(format!("No such file: {path}.")));
+            }
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &["swiftc".to_owned(), "-dump-ast".to_owned(), path.clone()],
+                timeout,
+            )?;
+            g3_missing_cli("swiftc", exit_code, &output)?;
+            let (decl_counts, total) = g3_ast_decl_counts(&output);
+            let line_count = output.lines().count();
+            Ok(json!({"path": path, "declCounts": decl_counts, "totalDecls": total, "lineCount": line_count, "exitCode": exit_code, "output": output}))
+        }
+        "binary_size_report" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let path = opt_str(&args, "path").unwrap_or_else(|| "build".to_owned());
+            g3_relative_path(&path, name)?;
+            let top = opt_u64(&args, "top").unwrap_or(20).clamp(1, 100) as usize;
+            let entries = read_dir_entries(&cwd, &path, true)?;
+            let file_count = entries
+                .iter()
+                .filter(|entry| entry["isDirectory"].as_bool() != Some(true))
+                .count();
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(120);
+            let (exit_code, output) = g3_run(
+                state,
+                &thread_id,
+                &cwd,
+                &["du".to_owned(), "-ak".to_owned(), path.clone()],
+                timeout,
+            )?;
+            g3_missing_cli("du", exit_code, &output)?;
+            let mut files: Vec<(String, i64)> = g3_du_sizes(&output)
+                .into_iter()
+                .filter(|(file_path, _)| file_path != &path)
+                .collect();
+            files.sort_by(|a, b| b.1.cmp(&a.1));
+            let total: i64 = files.iter().map(|(_, size)| size).sum();
+            let largest: Vec<Value> = files
+                .iter()
+                .take(top)
+                .map(|(file_path, size)| json!({"path": file_path, "kilobytes": size}))
+                .collect();
+            Ok(json!({"path": path, "fileCount": file_count, "totalKilobytes": total, "largest": largest, "exitCode": exit_code}))
+        }
+        "git_review_diff" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let root = session_expected_root(state)?;
+            let scope = opt_str(&args, "scope").unwrap_or_else(|| "uncommitted".to_owned());
+            if scope != "uncommitted" && scope != "branch" {
+                return Err(failed("git_review_diff scope must be uncommitted or branch."));
+            }
+            let ignore_whitespace = opt_bool(&args, "ignoreWhitespace").unwrap_or(false);
+            run_workspace_api_operation(
+                state,
+                "git.review.diff",
+                &thread_id,
+                json!({"expectedRoot": root, "scope": scope, "ignoreWhitespace": ignore_whitespace}),
+            )
+        }
         _ => Err(CallError::UnknownTool(name.to_owned())),
     }
 }
@@ -7840,7 +10446,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 166, "Swift registry must hold 166 tools");
+        assert_eq!(swift.len(), 200, "Swift registry must hold 200 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");

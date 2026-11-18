@@ -1150,7 +1150,7 @@ public nonisolated enum SystemToolRegistry {
         ),
         SystemToolDefinition(
             name: "version_control_operator",
-            description: "Run git by action: status, commit, branch, diff, or rollback. Rollback resets hard to HEAD, HEAD~N, HEAD^N, or a full SHA and requires confirm=true.",
+            description: "Run git with an action of status, commit, branch, diff, or rollback. Rollback resets hard to HEAD, HEAD~N, HEAD^N, or a full SHA and requires confirm=true.",
             action: "git.rollback",
             channel: .engine,
             parameters: [
@@ -1906,6 +1906,399 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
                 SystemToolParameter(name: "query", type: "string", required: false, description: "Keyword substring filter over keys and values."),
                 SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum entries to capture."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_build",
+            description: "Build the thread project with xcodebuild and return the real diagnostics, exit code, and output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to build."),
+                SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
+                SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_test",
+            description: "Run the thread project tests with xcodebuild test and return the real test summary, diagnostics, exit code, and output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to test."),
+                SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
+                SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "compiler_diagnostics_engine",
+            description: "Run a real build and return only its parsed compiler diagnostics with error and warning counts.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "kind", type: "string", required: false, description: "xcodebuild or swiftpm. Defaults to xcodebuild."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to build."),
+                SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dependency_resolution_engine",
+            description: "Resolve the thread project package dependencies with swift package resolve or xcodebuild and return the real result.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "kind", type: "string", required: false, description: "swiftpm or xcode. Defaults to swiftpm."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme for xcode dependency resolution."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "generate_xcodeproj",
+            description: "Generate the Xcode project from project.yml with the xcodegen CLI; errors honestly when xcodegen is not installed.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_scheme_list",
+            description: "List the thread project schemes, targets, and configurations from xcodebuild -list -json.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_target_list",
+            description: "List the thread project targets from xcodebuild -list -json.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_build_settings",
+            description: "Read the thread project build settings with xcodebuild -showBuildSettings and return them parsed by target. Read only; there is no setter.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to read settings for."),
+                SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
+                SystemToolParameter(name: "target", type: "string", required: false, description: "Target to read settings for."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_clean",
+            description: "Clean the thread project build products with xcodebuild clean. Requires confirm=true.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to clean."),
+                SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Cleaning removes build products."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_archive",
+            description: "Archive the thread project with xcodebuild archive into the given archive path.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "scheme", type: "string", required: true, description: "Scheme to archive."),
+                SystemToolParameter(name: "archivePath", type: "string", required: true, description: "Archive path relative to the thread working directory."),
+                SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
+                SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "test_run_single",
+            description: "Run one test with xcodebuild test -only-testing and return the real test summary and output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "testIdentifier", type: "string", required: true, description: "Test identifier for -only-testing, such as Target/Class/testMethod."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to test."),
+                SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "test_coverage_report",
+            description: "Report line coverage totals from an xcresult bundle with xcrun xccov view --report --json.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "xcresultPath", type: "string", required: true, description: "Path to the xcresult bundle, relative to the thread working directory."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "test_coverage_reporter",
+            description: "Render a full coverage report from an xcresult bundle with xcrun xccov, as JSON or text.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "xcresultPath", type: "string", required: true, description: "Path to the xcresult bundle, relative to the thread working directory."),
+                SystemToolParameter(name: "format", type: "string", required: false, description: "json or text. Defaults to text."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "performance_benchmark",
+            description: "Run one allow-listed build or test command and report its real wall time, exit code, and output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "benchmark", type: "string", required: true, description: "Allow-listed benchmark: xcodebuild-build, xcodebuild-test, swift-build, swift-test, or xcodebuild-clean-build."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme for xcodebuild benchmarks."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "docc_build",
+            description: "Build the thread project documentation with xcodebuild docbuild and return the real result.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "scheme", type: "string", required: true, description: "Scheme to document."),
+                SystemToolParameter(name: "destination", type: "string", required: false, description: "Destination specifier, such as platform=iOS Simulator,name=iPhone 16."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "xcode_scheme_manager",
+            description: "List the thread project schemes, or validate one scheme by reading its build settings.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "list or validate."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to validate."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "xcode_build_settings_inspector",
+            description: "Read one named build setting across the thread project targets with xcodebuild -showBuildSettings.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Build setting name, such as PRODUCT_BUNDLE_IDENTIFIER."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to read settings for."),
+                SystemToolParameter(name: "configuration", type: "string", required: false, description: "Build configuration, such as Debug or Release."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "xcode_device_destination_finder",
+            description: "Find the real run destinations for the thread project scheme with xcodebuild -showdestinations.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to find destinations for."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "simulator_list",
+            description: "List the simulators on the machine from xcrun simctl list -j devices, parsed by runtime.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "simulator_boot",
+            description: "Boot a simulator with xcrun simctl boot and return the real result.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "device", type: "string", required: true, description: "Simulator UDID or name."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "simulator_controller",
+            description: "Control a simulator with xcrun simctl: boot, shutdown, erase, openurl, or status.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "boot, shutdown, erase, openurl, or status."),
+                SystemToolParameter(name: "device", type: "string", required: true, description: "Simulator UDID or name."),
+                SystemToolParameter(name: "url", type: "string", required: false, description: "URL to open for openurl."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "device_list",
+            description: "List the connected devices with xcrun devicectl, falling back to xcrun xctrace list devices when devicectl is unavailable.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "provisioning_check",
+            description: "Check one provisioning profile with security cms -D and return its name, UUID, team, entitlements, and expiry.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "profilePath", type: "string", required: true, description: "Path to the provisioning profile, relative to the thread working directory."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "swift_package_manager",
+            description: "Run a Swift Package Manager command on the thread package: describe, resolve, clean, or reset.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "describe, resolve, clean, or reset."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Must be true for reset."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "package_dependency_update",
+            description: "Update the thread package dependencies with swift package update, optionally for one package.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "package", type: "string", required: false, description: "Package name to update; updates all packages when omitted."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_signing_diagnose",
+            description: "Diagnose the code signature of a file with codesign --verify and codesign -dv and return the parsed result.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path to the file to diagnose, relative to the thread working directory."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "xcode_toolchain_info",
+            description: "Report the Xcode version, build, and developer directory from xcodebuild -version and xcode-select -p.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "xcresult_parser",
+            description: "Read an xcresult bundle with xcrun xcresulttool get --format json and return the parsed result.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path to the xcresult bundle, relative to the thread working directory."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "mach_o_binary_analyzer",
+            description: "Analyze a Mach-O binary with file, otool -L, and otool -hv and return its type, libraries, and header.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path to the binary, relative to the thread working directory."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "signing_certificate_inspector",
+            description: "List the code signing identities on the machine from security find-identity -v -p codesigning.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "provisioning_profile_reader",
+            description: "Read one provisioning profile with security cms -D and return its full parsed property list.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "profilePath", type: "string", required: true, description: "Path to the provisioning profile, relative to the thread working directory."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "swift_ast_inspector",
+            description: "Dump the Swift AST of one file with swiftc -dump-ast and return declaration counts.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path to the Swift source file, relative to the thread working directory."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "binary_size_report",
+            description: "Report the sizes of files under a build directory from a real directory read plus du, largest first.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to report, relative to the thread working directory. Defaults to build."),
+                SystemToolParameter(name: "top", type: "integer", required: false, description: "Largest files to return, 1-100. Defaults to 20."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_review_diff",
+            description: "Read the review diff for the thread working directory: staged, unstaged, and untracked changes against HEAD or the branch base.",
+            action: "git.review.diff",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "uncommitted or branch. Defaults to uncommitted."),
+                SystemToolParameter(name: "ignoreWhitespace", type: "boolean", required: false, description: "Ignore whitespace changes in the diff."),
             ]
         ),
     ]
@@ -3915,6 +4308,883 @@ public nonisolated enum SystemToolRegistry {
             return .object(["path": .string(path), "groups": .array(groups.map { .object($0) }), "count": .int(Int64(groups.count)), "skipped": .int(Int64(skipped))])
         case "env_capture_logs":
             return try await runtime.memorySnapshot(scope: optionalString(arguments, "scope"), query: optionalString(arguments, "query"), limit: optionalInt(arguments, "limit") ?? 50)
+        case "project_build":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            var buildArgv = ["xcodebuild", "build"]
+            if let scheme = optionalString(arguments, "scheme") {
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                buildArgv += ["-scheme", scheme]
+            }
+            if let configuration = optionalString(arguments, "configuration") {
+                try Self.g3Token(configuration, field: "configuration", tool: name)
+                buildArgv += ["-configuration", configuration]
+            }
+            if let destination = optionalString(arguments, "destination") {
+                try Self.g3Token(destination, field: "destination", tool: name)
+                buildArgv += ["-destination", destination]
+            }
+            let buildTimeout = optionalInt(arguments, "timeoutSeconds") ?? 600
+            let (buildExit, buildOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: buildArgv, timeoutSeconds: buildTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: buildExit, output: buildOutput)
+            let buildDiagnostics = Self.parseG3Diagnostics(buildOutput)
+            return .object([
+                "succeeded": .bool(buildExit == 0),
+                "exitCode": .int(Int64(buildExit)),
+                "errors": .int(Int64(buildDiagnostics.filter { $0["severity"]?.stringValue == "error" }.count)),
+                "warnings": .int(Int64(buildDiagnostics.filter { $0["severity"]?.stringValue == "warning" }.count)),
+                "diagnostics": .array(buildDiagnostics.map { .object($0) }),
+                "output": .string(buildOutput),
+            ])
+        case "project_test":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            var testArgv = ["xcodebuild", "test"]
+            if let scheme = optionalString(arguments, "scheme") {
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                testArgv += ["-scheme", scheme]
+            }
+            if let configuration = optionalString(arguments, "configuration") {
+                try Self.g3Token(configuration, field: "configuration", tool: name)
+                testArgv += ["-configuration", configuration]
+            }
+            if let destination = optionalString(arguments, "destination") {
+                try Self.g3Token(destination, field: "destination", tool: name)
+                testArgv += ["-destination", destination]
+            }
+            let testTimeout = optionalInt(arguments, "timeoutSeconds") ?? 600
+            let (testExit, testOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: testArgv, timeoutSeconds: testTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: testExit, output: testOutput)
+            let testDiagnostics = Self.parseG3Diagnostics(testOutput)
+            let testSummary = Self.parseG3TestSummary(testOutput)
+            return .object([
+                "succeeded": .bool(testExit == 0),
+                "exitCode": .int(Int64(testExit)),
+                "testsExecuted": .int(Int64(testSummary.executed)),
+                "testsFailed": .int(Int64(testSummary.failed)),
+                "suitesPassed": .int(Int64(testSummary.suitesPassed)),
+                "suitesFailed": .int(Int64(testSummary.suitesFailed)),
+                "errors": .int(Int64(testDiagnostics.filter { $0["severity"]?.stringValue == "error" }.count)),
+                "warnings": .int(Int64(testDiagnostics.filter { $0["severity"]?.stringValue == "warning" }.count)),
+                "diagnostics": .array(testDiagnostics.map { .object($0) }),
+                "output": .string(testOutput),
+            ])
+        case "compiler_diagnostics_engine":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let kind = optionalString(arguments, "kind") ?? "xcodebuild"
+            var diagnosticsArgv: [String] = []
+            var diagnosticsCLI = "xcodebuild"
+            switch kind {
+            case "xcodebuild":
+                diagnosticsArgv = ["xcodebuild", "build"]
+                if let scheme = optionalString(arguments, "scheme") {
+                    try Self.g3Token(scheme, field: "scheme", tool: name)
+                    diagnosticsArgv += ["-scheme", scheme]
+                }
+                if let destination = optionalString(arguments, "destination") {
+                    try Self.g3Token(destination, field: "destination", tool: name)
+                    diagnosticsArgv += ["-destination", destination]
+                }
+            case "swiftpm":
+                diagnosticsArgv = ["swift", "build"]
+                diagnosticsCLI = "swift"
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "compiler_diagnostics_engine kind must be xcodebuild or swiftpm.")
+            }
+            let diagnosticsTimeout = optionalInt(arguments, "timeoutSeconds") ?? 600
+            let (diagnosticsExit, diagnosticsOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: diagnosticsArgv, timeoutSeconds: diagnosticsTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: diagnosticsCLI, exitCode: diagnosticsExit, output: diagnosticsOutput)
+            let diagnostics = Self.parseG3Diagnostics(diagnosticsOutput)
+            return .object([
+                "exitCode": .int(Int64(diagnosticsExit)),
+                "errors": .int(Int64(diagnostics.filter { $0["severity"]?.stringValue == "error" }.count)),
+                "warnings": .int(Int64(diagnostics.filter { $0["severity"]?.stringValue == "warning" }.count)),
+                "diagnostics": .array(diagnostics.map { .object($0) }),
+                "output": .string(diagnosticsOutput),
+            ])
+        case "dependency_resolution_engine":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let kind = optionalString(arguments, "kind") ?? "swiftpm"
+            var resolveArgv: [String] = []
+            var resolveCLI = "swift"
+            switch kind {
+            case "swiftpm":
+                resolveArgv = ["swift", "package", "resolve"]
+            case "xcode":
+                guard let scheme = optionalString(arguments, "scheme") else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "scheme")
+                }
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                resolveArgv = ["xcodebuild", "-resolvePackageDependencies", "-scheme", scheme]
+                resolveCLI = "xcodebuild"
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "dependency_resolution_engine kind must be swiftpm or xcode.")
+            }
+            let resolveTimeout = optionalInt(arguments, "timeoutSeconds") ?? 300
+            let (resolveExit, resolveOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: resolveArgv, timeoutSeconds: resolveTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: resolveCLI, exitCode: resolveExit, output: resolveOutput)
+            return .object([
+                "resolved": .bool(resolveExit == 0),
+                "exitCode": .int(Int64(resolveExit)),
+                "output": .string(resolveOutput),
+            ])
+        case "generate_xcodeproj":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 120
+            let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcodegen", "generate"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodegen", exitCode: exitCode, output: output)
+            return .object([
+                "generated": .bool(exitCode == 0),
+                "exitCode": .int(Int64(exitCode)),
+                "output": .string(output),
+            ])
+        case "project_scheme_list", "project_target_list":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcodebuild", "-list", "-json"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: exitCode, output: output)
+            if exitCode != 0 {
+                if name == "project_target_list" {
+                    return .object([
+                        "targets": .array([]),
+                        "exitCode": .int(Int64(exitCode)),
+                        "output": .string(output),
+                    ])
+                }
+                return .object([
+                    "name": .string(""),
+                    "schemes": .array([]),
+                    "targets": .array([]),
+                    "configurations": .array([]),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            }
+            let listed = try Self.g3JSONValue(output, tool: name)
+            let (schemes, targets, configurations, projectName) = Self.parseG3XcodebuildList(listed)
+            if name == "project_target_list" {
+                return .object([
+                    "targets": .array(targets.map { .string($0) }),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            }
+            return .object([
+                "name": .string(projectName),
+                "schemes": .array(schemes.map { .string($0) }),
+                "targets": .array(targets.map { .string($0) }),
+                "configurations": .array(configurations.map { .string($0) }),
+                "exitCode": .int(Int64(exitCode)),
+                "output": .string(output),
+            ])
+        case "project_build_settings":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            var settingsArgv = ["xcodebuild", "-showBuildSettings"]
+            if let scheme = optionalString(arguments, "scheme") {
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                settingsArgv += ["-scheme", scheme]
+            }
+            if let configuration = optionalString(arguments, "configuration") {
+                try Self.g3Token(configuration, field: "configuration", tool: name)
+                settingsArgv += ["-configuration", configuration]
+            }
+            if let target = optionalString(arguments, "target") {
+                try Self.g3Token(target, field: "target", tool: name)
+                settingsArgv += ["-target", target]
+            }
+            let settingsTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
+            let (settingsExit, settingsOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: settingsArgv, timeoutSeconds: settingsTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: settingsExit, output: settingsOutput)
+            let settings = Self.parseG3BuildSettings(settingsOutput)
+            return .object([
+                "settings": .array(settings.map { .object($0) }),
+                "exitCode": .int(Int64(settingsExit)),
+                "output": .string(settingsOutput),
+            ])
+        case "project_clean":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            try Self.requireConfirm(arguments, tool: name, message: "project_clean removes build products; pass confirm=true.")
+            var cleanArgv = ["xcodebuild", "clean"]
+            if let scheme = optionalString(arguments, "scheme") {
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                cleanArgv += ["-scheme", scheme]
+            }
+            if let configuration = optionalString(arguments, "configuration") {
+                try Self.g3Token(configuration, field: "configuration", tool: name)
+                cleanArgv += ["-configuration", configuration]
+            }
+            let cleanTimeout = optionalInt(arguments, "timeoutSeconds") ?? 300
+            let (cleanExit, cleanOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: cleanArgv, timeoutSeconds: cleanTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: cleanExit, output: cleanOutput)
+            return .object([
+                "cleaned": .bool(cleanExit == 0),
+                "exitCode": .int(Int64(cleanExit)),
+                "output": .string(cleanOutput),
+            ])
+        case "project_archive":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let scheme = try requiredString(arguments, "scheme", tool: name)
+            try Self.g3Token(scheme, field: "scheme", tool: name)
+            let archivePath = try requiredString(arguments, "archivePath", tool: name)
+            try Self.validateRelativePath(archivePath, tool: name)
+            var archiveArgv = ["xcodebuild", "archive", "-scheme", scheme, "-archivePath", archivePath]
+            if let configuration = optionalString(arguments, "configuration") {
+                try Self.g3Token(configuration, field: "configuration", tool: name)
+                archiveArgv += ["-configuration", configuration]
+            }
+            if let destination = optionalString(arguments, "destination") {
+                try Self.g3Token(destination, field: "destination", tool: name)
+                archiveArgv += ["-destination", destination]
+            }
+            let archiveTimeout = optionalInt(arguments, "timeoutSeconds") ?? 1800
+            let (archiveExit, archiveOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: archiveArgv, timeoutSeconds: archiveTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: archiveExit, output: archiveOutput)
+            let archiveDiagnostics = Self.parseG3Diagnostics(archiveOutput)
+            return .object([
+                "archived": .bool(archiveExit == 0),
+                "archivePath": .string(archivePath),
+                "exitCode": .int(Int64(archiveExit)),
+                "errors": .int(Int64(archiveDiagnostics.filter { $0["severity"]?.stringValue == "error" }.count)),
+                "warnings": .int(Int64(archiveDiagnostics.filter { $0["severity"]?.stringValue == "warning" }.count)),
+                "diagnostics": .array(archiveDiagnostics.map { .object($0) }),
+                "output": .string(archiveOutput),
+            ])
+        case "test_run_single":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let testIdentifier = try requiredString(arguments, "testIdentifier", tool: name)
+            try Self.g3TestIdentifier(testIdentifier, tool: name)
+            var singleArgv = ["xcodebuild", "test", "-only-testing:" + testIdentifier]
+            if let scheme = optionalString(arguments, "scheme") {
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                singleArgv += ["-scheme", scheme]
+            }
+            if let destination = optionalString(arguments, "destination") {
+                try Self.g3Token(destination, field: "destination", tool: name)
+                singleArgv += ["-destination", destination]
+            }
+            let singleTimeout = optionalInt(arguments, "timeoutSeconds") ?? 600
+            let (singleExit, singleOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: singleArgv, timeoutSeconds: singleTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: singleExit, output: singleOutput)
+            let singleDiagnostics = Self.parseG3Diagnostics(singleOutput)
+            let singleSummary = Self.parseG3TestSummary(singleOutput)
+            return .object([
+                "succeeded": .bool(singleExit == 0),
+                "testIdentifier": .string(testIdentifier),
+                "exitCode": .int(Int64(singleExit)),
+                "testsExecuted": .int(Int64(singleSummary.executed)),
+                "testsFailed": .int(Int64(singleSummary.failed)),
+                "suitesPassed": .int(Int64(singleSummary.suitesPassed)),
+                "suitesFailed": .int(Int64(singleSummary.suitesFailed)),
+                "errors": .int(Int64(singleDiagnostics.filter { $0["severity"]?.stringValue == "error" }.count)),
+                "warnings": .int(Int64(singleDiagnostics.filter { $0["severity"]?.stringValue == "warning" }.count)),
+                "diagnostics": .array(singleDiagnostics.map { .object($0) }),
+                "output": .string(singleOutput),
+            ])
+        case "test_coverage_report":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let xcresultPath = try requiredString(arguments, "xcresultPath", tool: name)
+            try Self.validateRelativePath(xcresultPath, tool: name)
+            let coverageTimeout = optionalInt(arguments, "timeoutSeconds") ?? 300
+            let (coverageExit, coverageOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "xccov", "view", "--report", "--json", xcresultPath], timeoutSeconds: coverageTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcrun", exitCode: coverageExit, output: coverageOutput)
+            if coverageExit != 0 {
+                return .object([
+                    "lineCoverage": .null,
+                    "targets": .array([]),
+                    "exitCode": .int(Int64(coverageExit)),
+                    "output": .string(coverageOutput),
+                ])
+            }
+            let coverage = try Self.g3JSONValue(coverageOutput, tool: name)
+            return .object([
+                "lineCoverage": coverage["lineCoverage"] ?? .null,
+                "targets": .array(Self.parseG3Coverage(coverage).map { .object($0) }),
+                "exitCode": .int(Int64(coverageExit)),
+                "output": .string(coverageOutput),
+            ])
+        case "test_coverage_reporter":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let xcresultPath = try requiredString(arguments, "xcresultPath", tool: name)
+            try Self.validateRelativePath(xcresultPath, tool: name)
+            let format = optionalString(arguments, "format") ?? "text"
+            guard format == "json" || format == "text" else {
+                throw SystemToolError.executionFailed(tool: name, message: "test_coverage_reporter format must be json or text.")
+            }
+            let reporterTimeout = optionalInt(arguments, "timeoutSeconds") ?? 300
+            var reporterArgv = ["xcrun", "xccov", "view", "--report"]
+            if format == "json" {
+                reporterArgv += ["--json"]
+            }
+            reporterArgv += [xcresultPath]
+            let (reporterExit, reporterOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: reporterArgv, timeoutSeconds: reporterTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcrun", exitCode: reporterExit, output: reporterOutput)
+            if format == "json" {
+                if reporterExit != 0 {
+                    return .object([
+                        "format": .string(format),
+                        "report": .null,
+                        "exitCode": .int(Int64(reporterExit)),
+                        "output": .string(reporterOutput),
+                    ])
+                }
+                let report = try Self.g3JSONValue(reporterOutput, tool: name)
+                return .object([
+                    "format": .string(format),
+                    "report": report,
+                    "exitCode": .int(Int64(reporterExit)),
+                    "output": .string(reporterOutput),
+                ])
+            }
+            return .object([
+                "format": .string(format),
+                "report": .string(reporterOutput),
+                "exitCode": .int(Int64(reporterExit)),
+                "output": .string(reporterOutput),
+            ])
+        case "performance_benchmark":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let benchmark = try requiredString(arguments, "benchmark", tool: name)
+            let benchmarks: [String: [String]] = [
+                "xcodebuild-build": ["xcodebuild", "build"],
+                "xcodebuild-test": ["xcodebuild", "test"],
+                "swift-build": ["swift", "build"],
+                "swift-test": ["swift", "test"],
+                "xcodebuild-clean-build": ["xcodebuild", "clean", "build"],
+            ]
+            guard var benchmarkArgv = benchmarks[benchmark] else {
+                throw SystemToolError.executionFailed(tool: name, message: "performance_benchmark benchmark must be xcodebuild-build, xcodebuild-test, swift-build, swift-test, or xcodebuild-clean-build.")
+            }
+            let isXcodebuild = benchmark.hasPrefix("xcodebuild")
+            if let scheme = optionalString(arguments, "scheme") {
+                guard isXcodebuild else {
+                    throw SystemToolError.executionFailed(tool: name, message: "performance_benchmark scheme applies only to xcodebuild benchmarks.")
+                }
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                benchmarkArgv += ["-scheme", scheme]
+            }
+            let benchmarkCLI = benchmarkArgv[0]
+            let benchmarkTimeout = optionalInt(arguments, "timeoutSeconds") ?? 600
+            let benchmarkStarted = Date()
+            let (benchmarkExit, benchmarkOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: benchmarkArgv, timeoutSeconds: benchmarkTimeout, runtime: runtime)
+            let elapsed = Date().timeIntervalSince(benchmarkStarted)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: benchmarkCLI, exitCode: benchmarkExit, output: benchmarkOutput)
+            return .object([
+                "benchmark": .string(benchmark),
+                "elapsedSeconds": .double(elapsed),
+                "exitCode": .int(Int64(benchmarkExit)),
+                "output": .string(benchmarkOutput),
+            ])
+        case "docc_build":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let scheme = try requiredString(arguments, "scheme", tool: name)
+            try Self.g3Token(scheme, field: "scheme", tool: name)
+            var doccArgv = ["xcodebuild", "docbuild", "-scheme", scheme]
+            if let destination = optionalString(arguments, "destination") {
+                try Self.g3Token(destination, field: "destination", tool: name)
+                doccArgv += ["-destination", destination]
+            }
+            let doccTimeout = optionalInt(arguments, "timeoutSeconds") ?? 600
+            let (doccExit, doccOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: doccArgv, timeoutSeconds: doccTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: doccExit, output: doccOutput)
+            let doccDiagnostics = Self.parseG3Diagnostics(doccOutput)
+            return .object([
+                "succeeded": .bool(doccExit == 0),
+                "exitCode": .int(Int64(doccExit)),
+                "errors": .int(Int64(doccDiagnostics.filter { $0["severity"]?.stringValue == "error" }.count)),
+                "warnings": .int(Int64(doccDiagnostics.filter { $0["severity"]?.stringValue == "warning" }.count)),
+                "diagnostics": .array(doccDiagnostics.map { .object($0) }),
+                "output": .string(doccOutput),
+            ])
+        case "xcode_scheme_manager":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let action = try requiredString(arguments, "action", tool: name)
+            let managerTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
+            switch action {
+            case "list":
+                let (listExit, listOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcodebuild", "-list", "-json"], timeoutSeconds: managerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: listExit, output: listOutput)
+                if listExit != 0 {
+                    return .object([
+                        "action": .string(action),
+                        "schemes": .array([]),
+                        "exitCode": .int(Int64(listExit)),
+                        "output": .string(listOutput),
+                    ])
+                }
+                let listed = try Self.g3JSONValue(listOutput, tool: name)
+                let (schemes, _, _, _) = Self.parseG3XcodebuildList(listed)
+                return .object([
+                    "action": .string(action),
+                    "schemes": .array(schemes.map { .string($0) }),
+                    "exitCode": .int(Int64(listExit)),
+                    "output": .string(listOutput),
+                ])
+            case "validate":
+                guard let scheme = optionalString(arguments, "scheme") else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "scheme")
+                }
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                let (validateExit, validateOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcodebuild", "-scheme", scheme, "-showBuildSettings"], timeoutSeconds: managerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: validateExit, output: validateOutput)
+                let validateSettings = Self.parseG3BuildSettings(validateOutput)
+                let settingsCount = validateSettings.reduce(0) { $0 + ($1["settings"]?.objectValue?.count ?? 0) }
+                return .object([
+                    "action": .string(action),
+                    "scheme": .string(scheme),
+                    "valid": .bool(validateExit == 0),
+                    "settingsCount": .int(Int64(settingsCount)),
+                    "exitCode": .int(Int64(validateExit)),
+                    "output": .string(validateOutput),
+                ])
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "xcode_scheme_manager action must be list or validate.")
+            }
+        case "xcode_build_settings_inspector":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let key = try requiredString(arguments, "key", tool: name)
+            try Self.g3Token(key, field: "key", tool: name)
+            var inspectorArgv = ["xcodebuild", "-showBuildSettings"]
+            if let scheme = optionalString(arguments, "scheme") {
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                inspectorArgv += ["-scheme", scheme]
+            }
+            if let configuration = optionalString(arguments, "configuration") {
+                try Self.g3Token(configuration, field: "configuration", tool: name)
+                inspectorArgv += ["-configuration", configuration]
+            }
+            let inspectorTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
+            let (inspectorExit, inspectorOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: inspectorArgv, timeoutSeconds: inspectorTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: inspectorExit, output: inspectorOutput)
+            let sections = Self.parseG3BuildSettings(inspectorOutput)
+            var values: [[String: JSONValue]] = []
+            for section in sections {
+                if let value = section["settings"]?.objectValue?[key]?.stringValue {
+                    values.append(["target": .string(section["target"]?.stringValue ?? ""), "value": .string(value)])
+                }
+            }
+            return .object([
+                "key": .string(key),
+                "values": .array(values.map { .object($0) }),
+                "found": .bool(!values.isEmpty),
+                "exitCode": .int(Int64(inspectorExit)),
+                "output": .string(inspectorOutput),
+            ])
+        case "xcode_device_destination_finder":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            var destinationsArgv = ["xcodebuild", "-showdestinations"]
+            if let scheme = optionalString(arguments, "scheme") {
+                try Self.g3Token(scheme, field: "scheme", tool: name)
+                destinationsArgv += ["-scheme", scheme]
+            }
+            let destinationsTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
+            let (destinationsExit, destinationsOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: destinationsArgv, timeoutSeconds: destinationsTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: destinationsExit, output: destinationsOutput)
+            let destinations = Self.parseG3Destinations(destinationsOutput)
+            return .object([
+                "destinations": .array(destinations.map { .object($0) }),
+                "exitCode": .int(Int64(destinationsExit)),
+                "output": .string(destinationsOutput),
+            ])
+        case "simulator_list":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "simctl", "list", "-j", "devices"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "simctl", exitCode: exitCode, output: output)
+            if exitCode != 0 {
+                return .object([
+                    "devices": .array([]),
+                    "runtimes": .array([]),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            }
+            let listed = try Self.g3JSONValue(output, tool: name)
+            let devices = Self.parseG3SimctlDevices(listed)
+            let runtimes = Set(devices.compactMap { $0["runtime"]?.stringValue }).sorted()
+            return .object([
+                "devices": .array(devices.map { .object($0) }),
+                "runtimes": .array(runtimes.map { .string($0) }),
+                "exitCode": .int(Int64(exitCode)),
+                "output": .string(output),
+            ])
+        case "simulator_boot":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let device = try requiredString(arguments, "device", tool: name)
+            try Self.g3Token(device, field: "device", tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 120
+            let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "simctl", "boot", device], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "simctl", exitCode: exitCode, output: output)
+            return .object([
+                "booted": .bool(exitCode == 0),
+                "device": .string(device),
+                "exitCode": .int(Int64(exitCode)),
+                "output": .string(output),
+            ])
+        case "simulator_controller":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let action = try requiredString(arguments, "action", tool: name)
+            let device = try requiredString(arguments, "device", tool: name)
+            try Self.g3Token(device, field: "device", tool: name)
+            let controllerTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
+            switch action {
+            case "boot", "shutdown", "erase":
+                let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "simctl", action, device], timeoutSeconds: controllerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "simctl", exitCode: exitCode, output: output)
+                return .object([
+                    "action": .string(action),
+                    "device": .string(device),
+                    "succeeded": .bool(exitCode == 0),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            case "openurl":
+                guard let url = optionalString(arguments, "url"), let parsed = URL(string: url), parsed.scheme != nil else {
+                    throw SystemToolError.executionFailed(tool: name, message: "simulator_controller openurl requires a url with a scheme.")
+                }
+                let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "simctl", "openurl", device, url], timeoutSeconds: controllerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "simctl", exitCode: exitCode, output: output)
+                return .object([
+                    "action": .string(action),
+                    "device": .string(device),
+                    "opened": .bool(exitCode == 0),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            case "status":
+                let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "simctl", "list", "-j", "devices"], timeoutSeconds: controllerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "simctl", exitCode: exitCode, output: output)
+                if exitCode != 0 {
+                    return .object([
+                        "action": .string(action),
+                        "device": .string(device),
+                        "state": .null,
+                        "found": .bool(false),
+                        "exitCode": .int(Int64(exitCode)),
+                        "output": .string(output),
+                    ])
+                }
+                let listed = try Self.g3JSONValue(output, tool: name)
+                let devices = Self.parseG3SimctlDevices(listed)
+                let match = devices.first { $0["udid"]?.stringValue == device || $0["name"]?.stringValue == device }
+                return .object([
+                    "action": .string(action),
+                    "device": .string(device),
+                    "state": match?["state"] ?? .null,
+                    "found": .bool(match != nil),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "simulator_controller action must be boot, shutdown, erase, openurl, or status.")
+            }
+        case "device_list":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (devicectlExit, devicectlOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "devicectl", "list", "devices"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            var source = "devicectl"
+            var exitCode = devicectlExit
+            var output = devicectlOutput
+            if devicectlExit == 127 || devicectlOutput.contains("command not found") || devicectlOutput.contains("unable to find utility") {
+                source = "xctrace"
+                let (xctraceExit, xctraceOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "xctrace", "list", "devices"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "xctrace", exitCode: xctraceExit, output: xctraceOutput)
+                exitCode = xctraceExit
+                output = xctraceOutput
+            }
+            let lineCount = output.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
+            return .object([
+                "source": .string(source),
+                "exitCode": .int(Int64(exitCode)),
+                "lineCount": .int(Int64(lineCount)),
+                "output": .string(output),
+            ])
+        case "provisioning_check":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let profilePath = try requiredString(arguments, "profilePath", tool: name)
+            try Self.validateRelativePath(profilePath, tool: name)
+            guard profilePath.hasSuffix(".mobileprovision") || profilePath.hasSuffix(".provisionprofile") else {
+                throw SystemToolError.executionFailed(tool: name, message: "provisioning_check profilePath must end in .mobileprovision or .provisionprofile.")
+            }
+            guard try await Self.g3FileExists(tool: name, threadId: threadId, path: profilePath, runtime: runtime) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(profilePath)")
+            }
+            let checkTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (checkExit, checkOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["security", "cms", "-D", "-i", profilePath], timeoutSeconds: checkTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "security", exitCode: checkExit, output: checkOutput)
+            if checkExit != 0 {
+                return .object([
+                    "valid": .bool(false),
+                    "exitCode": .int(Int64(checkExit)),
+                    "output": .string(checkOutput),
+                ])
+            }
+            let profile = try Self.g3PlistObject(checkOutput, tool: name)
+            guard let dict = profile as? [String: Any] else {
+                throw SystemToolError.executionFailed(tool: name, message: "Provisioning profile did not decode as a property list dictionary.")
+            }
+            let expiration = dict["ExpirationDate"] as? Date
+            let entitlements = (dict["Entitlements"] as? [String: Any])?.keys.sorted() ?? []
+            return .object([
+                "valid": .bool(true),
+                "name": .string(dict["Name"] as? String ?? ""),
+                "uuid": .string(dict["UUID"] as? String ?? ""),
+                "teamIdentifier": .string((dict["TeamIdentifier"] as? [String])?.first ?? ""),
+                "expirationDate": .string(expiration.map { ISO8601DateFormatter().string(from: $0) } ?? ""),
+                "expired": .bool(expiration.map { $0 < Date() } ?? false),
+                "entitlementKeys": .array(entitlements.map { .string($0) }),
+                "exitCode": .int(Int64(checkExit)),
+            ])
+        case "swift_package_manager":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let action = try requiredString(arguments, "action", tool: name)
+            let managerTimeout = optionalInt(arguments, "timeoutSeconds") ?? 300
+            switch action {
+            case "describe":
+                let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["swift", "package", "describe", "--type", "json"], timeoutSeconds: managerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "swift", exitCode: exitCode, output: output)
+                if exitCode != 0 {
+                    return .object([
+                        "action": .string(action),
+                        "description": .null,
+                        "exitCode": .int(Int64(exitCode)),
+                        "output": .string(output),
+                    ])
+                }
+                let described = try Self.g3JSONValue(output, tool: name)
+                return .object([
+                    "action": .string(action),
+                    "description": described,
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            case "resolve":
+                let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["swift", "package", "resolve"], timeoutSeconds: managerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "swift", exitCode: exitCode, output: output)
+                return .object([
+                    "action": .string(action),
+                    "resolved": .bool(exitCode == 0),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            case "clean":
+                let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["swift", "package", "clean"], timeoutSeconds: managerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "swift", exitCode: exitCode, output: output)
+                return .object([
+                    "action": .string(action),
+                    "cleaned": .bool(exitCode == 0),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            case "reset":
+                try Self.requireConfirm(arguments, tool: name, message: "swift_package_manager reset removes the package build state; pass confirm=true.")
+                let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["swift", "package", "reset"], timeoutSeconds: managerTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "swift", exitCode: exitCode, output: output)
+                return .object([
+                    "action": .string(action),
+                    "reset": .bool(exitCode == 0),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "swift_package_manager action must be describe, resolve, clean, or reset.")
+            }
+        case "package_dependency_update":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            var updateArgv = ["swift", "package", "update"]
+            if let package = optionalString(arguments, "package") {
+                try Self.g3Identifier(package, field: "package", tool: name)
+                updateArgv += [package]
+            }
+            let updateTimeout = optionalInt(arguments, "timeoutSeconds") ?? 300
+            let (updateExit, updateOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: updateArgv, timeoutSeconds: updateTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "swift", exitCode: updateExit, output: updateOutput)
+            return .object([
+                "updated": .bool(updateExit == 0),
+                "package": optionalString(arguments, "package").map { .string($0) } ?? .null,
+                "exitCode": .int(Int64(updateExit)),
+                "output": .string(updateOutput),
+            ])
+        case "code_signing_diagnose":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            try Self.validateRelativePath(path, tool: name)
+            guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+            }
+            let diagnoseTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (verifyExit, verifyOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["codesign", "--verify", "--verbose", path], timeoutSeconds: diagnoseTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "codesign", exitCode: verifyExit, output: verifyOutput)
+            let (dvExit, dvOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["codesign", "-dv", "--verbose=4", path], timeoutSeconds: diagnoseTimeout, runtime: runtime)
+            let details = Self.parseG3Codesign(dvOutput)
+            return .object([
+                "path": .string(path),
+                "verified": .bool(verifyExit == 0),
+                "verifyExitCode": .int(Int64(verifyExit)),
+                "verifyOutput": .string(verifyOutput),
+                "details": .object(details),
+                "exitCode": .int(Int64(dvExit)),
+            ])
+        case "xcode_toolchain_info":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let infoTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (versionExit, versionOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcodebuild", "-version"], timeoutSeconds: infoTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: versionExit, output: versionOutput)
+            let (xcodeVersion, xcodeBuild) = Self.parseG3XcodeVersion(versionOutput)
+            let (selectExit, selectOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcode-select", "-p"], timeoutSeconds: infoTimeout, runtime: runtime)
+            return .object([
+                "xcodeVersion": .string(xcodeVersion),
+                "xcodeBuild": .string(xcodeBuild),
+                "developerDir": .string(selectOutput.trimmingCharacters(in: .whitespacesAndNewlines)),
+                "exitCode": .int(Int64(versionExit)),
+                "selectExitCode": .int(Int64(selectExit)),
+            ])
+        case "xcresult_parser":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            try Self.validateRelativePath(path, tool: name)
+            guard path.hasSuffix(".xcresult") else {
+                throw SystemToolError.executionFailed(tool: name, message: "xcresult_parser path must end in .xcresult.")
+            }
+            guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+            }
+            let parserTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
+            let (parserExit, parserOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "xcresulttool", "get", "--format", "json", "--path", path], timeoutSeconds: parserTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcrun", exitCode: parserExit, output: parserOutput)
+            if parserExit != 0 {
+                return .object([
+                    "path": .string(path),
+                    "result": .null,
+                    "topLevelKeys": .array([]),
+                    "exitCode": .int(Int64(parserExit)),
+                    "output": .string(parserOutput),
+                ])
+            }
+            let result = try Self.g3JSONValue(parserOutput, tool: name)
+            let keys = (result.objectValue?.keys.sorted() ?? []).map { .string($0) }
+            return .object([
+                "path": .string(path),
+                "result": result,
+                "topLevelKeys": .array(keys),
+                "exitCode": .int(Int64(parserExit)),
+                "output": .string(parserOutput),
+            ])
+        case "mach_o_binary_analyzer":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            try Self.validateRelativePath(path, tool: name)
+            guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+            }
+            let analyzerTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (fileExit, fileOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["file", path], timeoutSeconds: analyzerTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "file", exitCode: fileExit, output: fileOutput)
+            let (otoolExit, otoolOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["otool", "-L", path], timeoutSeconds: analyzerTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "otool", exitCode: otoolExit, output: otoolOutput)
+            let (hvExit, hvOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["otool", "-hv", path], timeoutSeconds: analyzerTimeout, runtime: runtime)
+            let libraries = Self.parseG3OtoolLibraries(otoolOutput)
+            let headers = Self.parseG3MachHeader(hvOutput)
+            return .object([
+                "path": .string(path),
+                "file": .string(fileOutput.components(separatedBy: "\n").first?.trimmingCharacters(in: .whitespaces) ?? ""),
+                "fileOutput": .string(fileOutput),
+                "libraries": .array(libraries.map { .string($0) }),
+                "headers": .array(headers.map { .object($0) }),
+                "exitCode": .int(Int64(otoolExit)),
+                "hvExitCode": .int(Int64(hvExit)),
+            ])
+        case "signing_certificate_inspector":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["security", "find-identity", "-v", "-p", "codesigning"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "security", exitCode: exitCode, output: output)
+            let identities = Self.parseG3Identities(output)
+            return .object([
+                "identities": .array(identities.map { .object($0) }),
+                "count": .int(Int64(identities.count)),
+                "exitCode": .int(Int64(exitCode)),
+                "output": .string(output),
+            ])
+        case "provisioning_profile_reader":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let profilePath = try requiredString(arguments, "profilePath", tool: name)
+            try Self.validateRelativePath(profilePath, tool: name)
+            guard profilePath.hasSuffix(".mobileprovision") || profilePath.hasSuffix(".provisionprofile") else {
+                throw SystemToolError.executionFailed(tool: name, message: "provisioning_profile_reader profilePath must end in .mobileprovision or .provisionprofile.")
+            }
+            guard try await Self.g3FileExists(tool: name, threadId: threadId, path: profilePath, runtime: runtime) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(profilePath)")
+            }
+            let readerTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (readerExit, readerOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["security", "cms", "-D", "-i", profilePath], timeoutSeconds: readerTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "security", exitCode: readerExit, output: readerOutput)
+            if readerExit != 0 {
+                return .object([
+                    "profile": .null,
+                    "exitCode": .int(Int64(readerExit)),
+                    "output": .string(readerOutput),
+                ])
+            }
+            let profile = try Self.g3PlistObject(readerOutput, tool: name)
+            return .object([
+                "profile": Self.plistJSONValue(profile),
+                "exitCode": .int(Int64(readerExit)),
+            ])
+        case "swift_ast_inspector":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            try Self.validateRelativePath(path, tool: name)
+            guard path.hasSuffix(".swift") else {
+                throw SystemToolError.executionFailed(tool: name, message: "swift_ast_inspector path must end in .swift.")
+            }
+            guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+            }
+            let astTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
+            let (astExit, astOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["swiftc", "-dump-ast", path], timeoutSeconds: astTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "swiftc", exitCode: astExit, output: astOutput)
+            let counts = Self.parseG3ASTDeclCounts(astOutput)
+            let total = counts["total"] ?? 0
+            var declCounts: [String: JSONValue] = [:]
+            for key in counts.keys.sorted() where key != "total" {
+                declCounts[key] = .int(Int64(counts[key] ?? 0))
+            }
+            return .object([
+                "path": .string(path),
+                "declCounts": .object(declCounts),
+                "totalDecls": .int(Int64(total)),
+                "lineCount": .int(Int64(astOutput.components(separatedBy: "\n").count)),
+                "exitCode": .int(Int64(astExit)),
+                "output": .string(astOutput),
+            ])
+        case "binary_size_report":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let path = optionalString(arguments, "path") ?? "build"
+            try Self.validateRelativePath(path, tool: name)
+            let top = min(max(optionalInt(arguments, "top") ?? 20, 1), 100)
+            let root = try await Self.resolveThreadRoot(threadId: threadId, tool: name, runtime: runtime)
+            let entries = try await runtime.readWorkspaceDirectory(cwd: root, path: path, recursive: true)
+            let reportTimeout = optionalInt(arguments, "timeoutSeconds") ?? 120
+            let (reportExit, reportOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["du", "-ak", path], timeoutSeconds: reportTimeout, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "du", exitCode: reportExit, output: reportOutput)
+            let sizes = Self.parseG3DuSizes(reportOutput)
+            let files = sizes.filter { $0.path != path }
+            let sorted = files.sorted { $0.kilobytes > $1.kilobytes }
+            let total = files.reduce(0) { $0 + $1.kilobytes }
+            return .object([
+                "path": .string(path),
+                "fileCount": .int(Int64(entries.filter { !$0.isDirectory }.count)),
+                "totalKilobytes": .int(Int64(total)),
+                "largest": .array(sorted.prefix(top).map { .object(["path": .string($0.path), "kilobytes": .int(Int64($0.kilobytes))]) }),
+                "exitCode": .int(Int64(reportExit)),
+            ])
+        case "git_review_diff":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let scope = optionalString(arguments, "scope") ?? "uncommitted"
+            guard scope == "uncommitted" || scope == "branch" else {
+                throw SystemToolError.executionFailed(tool: name, message: "git_review_diff scope must be uncommitted or branch.")
+            }
+            let ignoreWhitespace = optionalBool(arguments, "ignoreWhitespace") ?? false
+            let root = try await Self.resolveThreadRoot(threadId: threadId, tool: name, runtime: runtime)
+            return try await runWorkspaceApiOperation(method: "git.review.diff", threadId: threadId, params: ["expectedRoot": .string(root), "scope": .string(scope), "ignoreWhitespace": .bool(ignoreWhitespace)], tool: name, timeoutSeconds: 120, runtime: runtime)
         default:
             throw SystemToolError.unknownTool(name)
         }
@@ -5165,5 +6435,405 @@ public nonisolated enum SystemToolRegistry {
             }
         }
         return slug.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+    private static func g3Run(
+        tool: String,
+        threadId: String,
+        argv: [String],
+        timeoutSeconds: Int,
+        runtime: AgentsRuntimeClient
+    ) async throws -> (exitCode: Int, output: String) {
+        let command = argv.map { shellQuoted($0) }.joined(separator: " ")
+        let result = try await runTerminalCommand(tool: tool, threadId: threadId, command: command, timeoutSeconds: timeoutSeconds, runtime: runtime)
+        if result["timedOut"]?.boolValue == true {
+            throw SystemToolError.operationTimeout(tool: tool)
+        }
+        let exitCode = result["exitCode"]?.intValue ?? -1
+        return (exitCode, cleanTerminalOutput(result["output"]?.stringValue ?? ""))
+    }
+
+    private static func g3ThrowIfMissingCLI(tool: String, cli: String, exitCode: Int, output: String) throws {
+        if exitCode == 127 || output.contains("command not found") || output.contains("unable to find utility") {
+            throw SystemToolError.executionFailed(tool: tool, message: "\(cli) is not installed on this machine.")
+        }
+    }
+
+    private static func g3Token(_ value: String, field: String, tool: String) throws {
+        guard !value.isEmpty, !value.contains("\n"), !value.contains("\r"), !value.hasPrefix("-") else {
+            throw SystemToolError.executionFailed(tool: tool, message: "\(field) must be a non-empty value without newlines or a leading dash.")
+        }
+    }
+
+    private static func g3Identifier(_ value: String, field: String, tool: String) throws {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "_.-")
+        guard !value.isEmpty, value.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "\(field) must use only letters, digits, underscore, dot, or dash.")
+        }
+    }
+
+    private static func g3TestIdentifier(_ value: String, tool: String) throws {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "_./-")
+        let segments = value.split(separator: "/")
+        guard !value.isEmpty, !value.hasPrefix("-"), !value.contains("\n"), !value.contains("\r"), value.unicodeScalars.allSatisfy({ allowed.contains($0) }), !segments.isEmpty, segments.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "testIdentifier must be a slash-separated test path using letters, digits, underscore, dot, dash, or slash.")
+        }
+    }
+
+    private static func g3JSONText(_ output: String) -> String {
+        let lines = output.components(separatedBy: "\n")
+        guard let start = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("{") || $0.trimmingCharacters(in: .whitespaces).hasPrefix("[") }) else {
+            return output
+        }
+        return lines[start...].joined(separator: "\n")
+    }
+
+    private static func g3PlistText(_ output: String) -> String {
+        let lines = output.components(separatedBy: "\n")
+        guard let start = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("<?xml") || $0.trimmingCharacters(in: .whitespaces).hasPrefix("<plist") }) else {
+            return output
+        }
+        return lines[start...].joined(separator: "\n")
+    }
+
+    private static func g3JSONValue(_ text: String, tool: String) throws -> JSONValue {
+        guard let data = g3JSONText(text).data(using: .utf8) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Command output was not valid UTF-8.")
+        }
+        do {
+            return try JSONDecoder().decode(JSONValue.self, from: data)
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "Command output was not valid JSON: \(error.localizedDescription)")
+        }
+    }
+
+    private static func g3PlistObject(_ text: String, tool: String) throws -> Any {
+        guard let data = g3PlistText(text).data(using: .utf8) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Command output was not valid UTF-8.")
+        }
+        var format = PropertyListSerialization.PropertyListFormat.xml
+        do {
+            return try PropertyListSerialization.propertyList(from: data, options: [], format: &format)
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "Command output was not a valid property list: \(error.localizedDescription)")
+        }
+    }
+
+    private static func g3FileExists(tool: String, threadId: String, path: String, runtime: AgentsRuntimeClient) async throws -> Bool {
+        let root = try await Self.resolveThreadRoot(threadId: threadId, tool: tool, runtime: runtime)
+        let target = URL(fileURLWithPath: root).appendingPathComponent(path).standardized
+        guard target.path == root || target.path.hasPrefix(root + "/") else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Path escapes the working directory.")
+        }
+        return FileManager.default.fileExists(atPath: target.path)
+    }
+
+    static func parseG3Diagnostics(_ output: String) -> [[String: JSONValue]] {
+        var diagnostics: [[String: JSONValue]] = []
+        for rawLine in output.components(separatedBy: "\n") {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            var matched = false
+            for severity in ["error", "warning", "note"] {
+                let marker = ": \(severity): "
+                guard let range = line.range(of: marker) else { continue }
+                let head = String(line[..<range.lowerBound])
+                let message = String(line[range.upperBound...])
+                let parts = head.split(separator: ":")
+                var path = head
+                var lineNumber = 0
+                var column = 0
+                if parts.count >= 3, let parsedLine = Int(parts[parts.count - 2]), let parsedColumn = Int(parts[parts.count - 1]) {
+                    lineNumber = parsedLine
+                    column = parsedColumn
+                    path = parts.dropLast(2).joined(separator: ":")
+                } else if parts.count >= 2, let parsedLine = Int(parts[parts.count - 1]) {
+                    lineNumber = parsedLine
+                    path = parts.dropLast().joined(separator: ":")
+                }
+                diagnostics.append([
+                    "path": .string(path),
+                    "line": .int(Int64(lineNumber)),
+                    "column": .int(Int64(column)),
+                    "severity": .string(severity),
+                    "message": .string(message),
+                ])
+                matched = true
+                break
+            }
+            if matched { continue }
+            for severity in ["error", "warning", "note"] {
+                let prefix = "\(severity): "
+                if line.hasPrefix(prefix) {
+                    diagnostics.append([
+                        "path": .string(""),
+                        "line": .int(0),
+                        "column": .int(0),
+                        "severity": .string(severity),
+                        "message": .string(String(line.dropFirst(prefix.count))),
+                    ])
+                    break
+                }
+            }
+        }
+        return diagnostics
+    }
+
+    static func parseG3TestSummary(_ output: String) -> (executed: Int, failed: Int, suitesPassed: Int, suitesFailed: Int) {
+        var executed = 0
+        var failed = 0
+        var suitesPassed = 0
+        var suitesFailed = 0
+        for rawLine in output.components(separatedBy: "\n") {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("Executed ") {
+                let fields = line.split(separator: " ")
+                if fields.count >= 2, let count = Int(fields[1]) {
+                    executed += count
+                }
+                if let withRange = line.range(of: "with "), let failuresRange = line.range(of: " failures") {
+                    let countText = line[withRange.upperBound..<failuresRange.lowerBound].trimmingCharacters(in: .whitespaces)
+                    if let count = Int(countText) {
+                        failed += count
+                    }
+                }
+            } else if line.hasPrefix("Test Suite '") {
+                if line.contains("' passed at ") {
+                    suitesPassed += 1
+                } else if line.contains("' failed at ") {
+                    suitesFailed += 1
+                }
+            }
+        }
+        return (executed, failed, suitesPassed, suitesFailed)
+    }
+
+    static func parseG3BuildSettings(_ output: String) -> [[String: JSONValue]] {
+        var sections: [[String: JSONValue]] = []
+        var currentTarget = ""
+        var current: [String: String] = [:]
+        var currentKey: String?
+        for line in output.components(separatedBy: "\n") {
+            if line.hasPrefix("Build settings for action ") {
+                if !current.isEmpty {
+                    sections.append(["target": .string(currentTarget), "settings": .object(current.mapValues { .string($0) })])
+                }
+                current = [:]
+                currentKey = nil
+                if let start = line.range(of: "target \"") {
+                    let rest = line[start.upperBound...]
+                    currentTarget = rest.split(separator: "\"").first.map(String.init) ?? ""
+                } else {
+                    currentTarget = ""
+                }
+                continue
+            }
+            if line.hasPrefix("    "), !line.hasPrefix("     ") {
+                let stripped = line.trimmingCharacters(in: .whitespaces)
+                if let eq = stripped.range(of: " = ") {
+                    let key = String(stripped[..<eq.lowerBound])
+                    let value = String(stripped[eq.upperBound...])
+                    current[key] = value
+                    currentKey = key
+                    continue
+                }
+            }
+            if let key = currentKey, line.hasPrefix(" ") || line.hasPrefix("\t") {
+                let stripped = line.trimmingCharacters(in: .whitespaces)
+                if !stripped.isEmpty {
+                    current[key] = (current[key] ?? "") + " " + stripped
+                }
+            }
+        }
+        if !current.isEmpty {
+            sections.append(["target": .string(currentTarget), "settings": .object(current.mapValues { .string($0) })])
+        }
+        return sections
+    }
+
+    static func parseG3XcodebuildList(_ value: JSONValue) -> (schemes: [String], targets: [String], configurations: [String], name: String) {
+        let project = value["project"]
+        return (
+            schemes: project?["schemes"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+            targets: project?["targets"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+            configurations: project?["configurations"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+            name: project?["name"]?.stringValue ?? ""
+        )
+    }
+
+    static func parseG3Coverage(_ value: JSONValue) -> [[String: JSONValue]] {
+        var targets: [[String: JSONValue]] = []
+        for target in value["targets"]?.arrayValue ?? [] {
+            var entry: [String: JSONValue] = [:]
+            if let name = target["name"]?.stringValue { entry["name"] = .string(name) }
+            if let coverage = target["lineCoverage"]?.doubleValue { entry["lineCoverage"] = .double(coverage) }
+            if let covered = target["coveredLines"]?.intValue { entry["coveredLines"] = .int(Int64(covered)) }
+            if let executable = target["executableLines"]?.intValue { entry["executableLines"] = .int(Int64(executable)) }
+            if !entry.isEmpty { targets.append(entry) }
+        }
+        return targets
+    }
+
+    static func parseG3Destinations(_ output: String) -> [[String: JSONValue]] {
+        var destinations: [[String: JSONValue]] = []
+        for line in output.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("{"), trimmed.hasSuffix("}") else { continue }
+            let inner = String(trimmed.dropFirst().dropLast())
+            var fields: [String] = []
+            var depth = 0
+            var current = ""
+            for char in inner {
+                if char == "[" { depth += 1 }
+                if char == "]" { depth -= 1 }
+                if char == "," && depth == 0 {
+                    fields.append(current)
+                    current = ""
+                } else {
+                    current.append(char)
+                }
+            }
+            if !current.trimmingCharacters(in: .whitespaces).isEmpty { fields.append(current) }
+            var record: [String: JSONValue] = [:]
+            for field in fields {
+                let parts = field.split(separator: ":", maxSplits: 1)
+                guard parts.count == 2 else { continue }
+                let key = parts[0].trimmingCharacters(in: .whitespaces)
+                let value = parts[1].trimmingCharacters(in: .whitespaces)
+                if !key.isEmpty { record[key] = .string(value) }
+            }
+            if !record.isEmpty { destinations.append(record) }
+        }
+        return destinations
+    }
+
+    static func parseG3SimctlDevices(_ value: JSONValue) -> [[String: JSONValue]] {
+        var devices: [[String: JSONValue]] = []
+        guard let runtimes = value["devices"]?.objectValue else { return devices }
+        for runtime in runtimes.keys.sorted() {
+            for device in runtimes[runtime]?.arrayValue ?? [] {
+                var entry: [String: JSONValue] = [
+                    "udid": .string(device["udid"]?.stringValue ?? ""),
+                    "name": .string(device["name"]?.stringValue ?? ""),
+                    "state": .string(device["state"]?.stringValue ?? ""),
+                    "runtime": .string(runtime),
+                    "isAvailable": .bool(device["isAvailable"]?.boolValue ?? false),
+                ]
+                if let typeId = device["deviceTypeIdentifier"]?.stringValue { entry["deviceTypeIdentifier"] = .string(typeId) }
+                devices.append(entry)
+            }
+        }
+        return devices
+    }
+
+    static func parseG3XcodeVersion(_ output: String) -> (version: String, build: String) {
+        var version = ""
+        var build = ""
+        for line in output.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("Xcode ") { version = String(trimmed.dropFirst("Xcode ".count)) }
+            if trimmed.hasPrefix("Build version ") { build = String(trimmed.dropFirst("Build version ".count)) }
+        }
+        return (version, build)
+    }
+
+    static func parseG3Codesign(_ output: String) -> [String: JSONValue] {
+        var details: [String: JSONValue] = [:]
+        var authorities: [String] = []
+        for line in output.components(separatedBy: "\n") {
+            guard let eq = line.firstIndex(of: "=") else { continue }
+            let key = String(line[..<eq]).trimmingCharacters(in: .whitespaces)
+            let value = String(line[line.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+            guard !key.isEmpty, !value.isEmpty else { continue }
+            if key == "Authority" {
+                authorities.append(value)
+            } else {
+                details[key] = .string(value)
+            }
+        }
+        if !authorities.isEmpty { details["Authority"] = .array(authorities.map { .string($0) }) }
+        return details
+    }
+
+    static func parseG3OtoolLibraries(_ output: String) -> [String] {
+        var libraries: [String] = []
+        for line in output.components(separatedBy: "\n").dropFirst() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { continue }
+            if let paren = trimmed.firstIndex(of: "(") {
+                libraries.append(String(trimmed[..<paren]).trimmingCharacters(in: .whitespaces))
+            } else {
+                libraries.append(trimmed)
+            }
+        }
+        return libraries
+    }
+
+    static func parseG3MachHeader(_ output: String) -> [[String: JSONValue]] {
+        var headers: [[String: JSONValue]] = []
+        var sawHeader = false
+        for line in output.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "Mach header" || trimmed.hasPrefix("magic ") {
+                sawHeader = true
+                continue
+            }
+            if sawHeader {
+                let fields = trimmed.split(separator: " ").map(String.init)
+                if fields.count >= 5 {
+                    headers.append([
+                        "magic": .string(fields[0]),
+                        "cputype": .string(fields[1]),
+                        "filetype": .string(fields[4]),
+                    ])
+                }
+                sawHeader = false
+            }
+        }
+        return headers
+    }
+
+    static func parseG3Identities(_ output: String) -> [[String: JSONValue]] {
+        var identities: [[String: JSONValue]] = []
+        for line in output.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let parts = trimmed.split(separator: ")", maxSplits: 1)
+            guard parts.count == 2, let index = Int(parts[0].trimmingCharacters(in: .whitespaces)) else { continue }
+            let rest = parts[1].trimmingCharacters(in: .whitespaces)
+            let fields = rest.split(separator: " ", maxSplits: 1)
+            guard fields.count == 2 else { continue }
+            let hash = String(fields[0])
+            var name = String(fields[1]).trimmingCharacters(in: .whitespaces)
+            if name.hasPrefix("\""), name.hasSuffix("\""), name.count >= 2 {
+                name = String(name.dropFirst().dropLast())
+            }
+            identities.append(["index": .int(Int64(index)), "hash": .string(hash), "name": .string(name)])
+        }
+        return identities
+    }
+
+    static func parseG3ASTDeclCounts(_ output: String) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        var total = 0
+        for line in output.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("(") else { continue }
+            let name = trimmed.dropFirst().split(separator: " ").first.map(String.init) ?? ""
+            guard name.hasSuffix("_decl") else { continue }
+            counts[name, default: 0] += 1
+            total += 1
+        }
+        counts["total"] = total
+        return counts
+    }
+
+    static func parseG3DuSizes(_ output: String) -> [(path: String, kilobytes: Int)] {
+        var sizes: [(path: String, kilobytes: Int)] = []
+        for line in output.components(separatedBy: "\n") {
+            let parts = line.split(separator: "\t", maxSplits: 1)
+            guard parts.count == 2, let size = Int(parts[0].trimmingCharacters(in: .whitespaces)) else { continue }
+            sizes.append((path: String(parts[1]), kilobytes: size))
+        }
+        return sizes
     }
 }

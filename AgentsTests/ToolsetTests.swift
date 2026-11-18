@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 166)
+        #expect(tools.count == 200)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -86,7 +86,7 @@ struct ToolsetTests {
             "system.open_in_finder", "system.reveal_in_finder",
             "mcp.tools", "git.stash", "git.blame", "git.bisect", "git.cherry_pick",
             "git.rollback", "git.checkpoints.create", "git.checkpoints.list",
-            "git.checkpoints.restore",
+            "git.checkpoints.restore", "git.review.diff",
         ])
         #expect(tools.allSatisfy { !$0.parameters.isEmpty })
         let allOptionalTools: Set<String> = [
@@ -1067,4 +1067,247 @@ struct ToolsetTests {
         }
         await client.close()
     }
+    @Test("Slice 12 tools register with their real backend actions")
+    func sliceTwelveToolsRegister() {
+        let expected: [(String, String, SystemToolChannel)] = [
+            ("project_build", "terminal.create", .engine),
+            ("project_test", "terminal.create", .engine),
+            ("compiler_diagnostics_engine", "terminal.create", .engine),
+            ("dependency_resolution_engine", "terminal.create", .engine),
+            ("generate_xcodeproj", "terminal.create", .engine),
+            ("project_scheme_list", "terminal.create", .engine),
+            ("project_target_list", "terminal.create", .engine),
+            ("project_build_settings", "terminal.create", .engine),
+            ("project_clean", "terminal.create", .engine),
+            ("project_archive", "terminal.create", .engine),
+            ("test_run_single", "terminal.create", .engine),
+            ("test_coverage_report", "terminal.create", .engine),
+            ("test_coverage_reporter", "terminal.create", .engine),
+            ("performance_benchmark", "terminal.create", .engine),
+            ("docc_build", "terminal.create", .engine),
+            ("xcode_scheme_manager", "terminal.create", .engine),
+            ("xcode_build_settings_inspector", "terminal.create", .engine),
+            ("xcode_device_destination_finder", "terminal.create", .engine),
+            ("simulator_list", "terminal.create", .engine),
+            ("simulator_boot", "terminal.create", .engine),
+            ("simulator_controller", "terminal.create", .engine),
+            ("device_list", "terminal.create", .engine),
+            ("provisioning_check", "terminal.create", .engine),
+            ("swift_package_manager", "terminal.create", .engine),
+            ("package_dependency_update", "terminal.create", .engine),
+            ("code_signing_diagnose", "terminal.create", .engine),
+            ("xcode_toolchain_info", "terminal.create", .engine),
+            ("xcresult_parser", "terminal.create", .engine),
+            ("mach_o_binary_analyzer", "terminal.create", .engine),
+            ("signing_certificate_inspector", "terminal.create", .engine),
+            ("provisioning_profile_reader", "terminal.create", .engine),
+            ("swift_ast_inspector", "terminal.create", .engine),
+            ("binary_size_report", "terminal.create", .engine),
+            ("git_review_diff", "git.review.diff", .engine),
+        ]
+        #expect(expected.count == 34)
+        for (name, action, channel) in expected {
+            guard let definition = SystemToolRegistry.definition(named: name, for: .system) else {
+                Issue.record("Missing system tool \(name)")
+                continue
+            }
+            #expect(definition.action == action)
+            #expect(definition.channel == channel)
+            #expect(definition.parameters.contains { $0.required })
+            #expect(definition.parameters.first?.name == "threadId")
+        }
+        #expect(SystemToolRegistry.definition(named: "project_archive", for: .system)?.parameters.map(\.name) == ["threadId", "scheme", "archivePath", "configuration", "destination", "timeoutSeconds"])
+        #expect(SystemToolRegistry.definition(named: "performance_benchmark", for: .system)?.parameters.map(\.name) == ["threadId", "benchmark", "scheme", "timeoutSeconds"])
+        #expect(SystemToolRegistry.definition(named: "git_review_diff", for: .system)?.parameters.map(\.name) == ["threadId", "scope", "ignoreWhitespace"])
+        #expect(SystemToolRegistry.definition(named: "project_build_settings", for: .system)?.parameters.map(\.name).contains("target") == true)
+        #expect(SystemToolRegistry.definition(named: "project_clean", for: .system)?.parameters.map(\.name).contains("confirm") == true)
+        #expect(SystemToolRegistry.definition(named: "binary_size_report", for: .system)?.parameters.map(\.name).contains("top") == true)
+    }
+
+    @Test("Slice 12 parsers read real CLI output shapes")
+    func sliceTwelveParsersParseRealCLIOutput() throws {
+        let diagnostics = SystemToolRegistry.parseG3Diagnostics("/Users/dylan/Projects/MyApp/Sources/App.swift:12:7: error: cannot find 'missing' in scope\n/Users/dylan/Projects/MyApp/Sources/App.swift:20:3: warning: variable 'x' was never used\n/Users/dylan/Projects/MyApp/Sources/App.swift:33:1: note: did you mean 'other'?\nerror: unable to load standard library for target 'arm64-apple-macosx14.0'\n** BUILD FAILED **\n")
+        #expect(diagnostics.count == 4)
+        #expect(diagnostics[0]["path"]?.stringValue == "/Users/dylan/Projects/MyApp/Sources/App.swift")
+        #expect(diagnostics[0]["line"]?.intValue == 12)
+        #expect(diagnostics[0]["column"]?.intValue == 7)
+        #expect(diagnostics[0]["severity"]?.stringValue == "error")
+        #expect(diagnostics[0]["message"]?.stringValue == "cannot find 'missing' in scope")
+        #expect(diagnostics[1]["severity"]?.stringValue == "warning")
+        #expect(diagnostics[1]["line"]?.intValue == 20)
+        #expect(diagnostics[2]["severity"]?.stringValue == "note")
+        #expect(diagnostics[3]["path"]?.stringValue == "")
+        #expect(diagnostics[3]["message"]?.stringValue == "unable to load standard library for target 'arm64-apple-macosx14.0'")
+
+        let summary = SystemToolRegistry.parseG3TestSummary("Test Suite 'MyAppTests' started at 2026-11-18 00:00:00.000\nTest Suite 'MyAppTests' passed at 2026-11-18 00:00:01.234.\n\t Executed 42 tests, with 0 failures (0 unexpected) in 1.234 (1.567) seconds\nTest Suite 'OtherTests' failed at 2026-11-18 00:00:02.000.\n\t Executed 3 tests, with 2 failures (1 unexpected) in 0.500 (0.600) seconds\n")
+        #expect(summary.executed == 45)
+        #expect(summary.failed == 2)
+        #expect(summary.suitesPassed == 1)
+        #expect(summary.suitesFailed == 1)
+
+        let settings = SystemToolRegistry.parseG3BuildSettings("Build settings for action build and target \"MyApp\":\n    PRODUCT_NAME = MyApp\n    SWIFT_VERSION = 5.0\n    OTHER_LDFLAGS = (\n        \"-framework\",\n        \"Foundation\",\n    )\nBuild settings for action build and target \"MyAppTests\":\n    PRODUCT_NAME = MyAppTests\n")
+        #expect(settings.count == 2)
+        #expect(settings[0]["target"]?.stringValue == "MyApp")
+        #expect(settings[0]["settings"]?.objectValue?["PRODUCT_NAME"]?.stringValue == "MyApp")
+        #expect(settings[0]["settings"]?.objectValue?["SWIFT_VERSION"]?.stringValue == "5.0")
+        #expect(settings[0]["settings"]?.objectValue?["OTHER_LDFLAGS"]?.stringValue?.contains("-framework") == true)
+        #expect(settings[1]["target"]?.stringValue == "MyAppTests")
+
+        let listJSON = try JSONDecoder().decode(JSONValue.self, from: Data("{\"project\" : {\"configurations\" : [\"Debug\", \"Release\"], \"name\" : \"MyApp\", \"schemes\" : [\"MyApp\"], \"targets\" : [\"MyApp\", \"MyAppTests\"]}}".utf8))
+        let (schemes, targets, configurations, projectName) = SystemToolRegistry.parseG3XcodebuildList(listJSON)
+        #expect(projectName == "MyApp")
+        #expect(schemes == ["MyApp"])
+        #expect(targets == ["MyApp", "MyAppTests"])
+        #expect(configurations == ["Debug", "Release"])
+        let emptyList = SystemToolRegistry.parseG3XcodebuildList(.object([:]))
+        #expect(emptyList.schemes.isEmpty)
+        #expect(emptyList.name.isEmpty)
+
+        let simctlJSON = try JSONDecoder().decode(JSONValue.self, from: Data("{\"devices\" : {\"com.apple.CoreSimulator.SimRuntime.iOS-18-0\" : [{\"udid\" : \"A1B2C3D4-1111-2222-3333-444455556666\", \"name\" : \"iPhone 16\", \"state\" : \"Shutdown\", \"isAvailable\" : true, \"deviceTypeIdentifier\" : \"com.apple.CoreSimulator.SimDeviceType.iPhone-16\"}], \"com.apple.CoreSimulator.SimRuntime.iOS-17-5\" : []}}".utf8))
+        let devices = SystemToolRegistry.parseG3SimctlDevices(simctlJSON)
+        #expect(devices.count == 1)
+        #expect(devices[0]["udid"]?.stringValue == "A1B2C3D4-1111-2222-3333-444455556666")
+        #expect(devices[0]["name"]?.stringValue == "iPhone 16")
+        #expect(devices[0]["state"]?.stringValue == "Shutdown")
+        #expect(devices[0]["runtime"]?.stringValue == "com.apple.CoreSimulator.SimRuntime.iOS-18-0")
+        #expect(devices[0]["isAvailable"]?.boolValue == true)
+
+        let destinations = SystemToolRegistry.parseG3Destinations("{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00008110-001234567890, name:My Mac }\n{ platform:iOS Simulator, id:A1B2C3D4-1111-2222-3333-444455556666, name:iPhone 16, OS:18.0 }\n")
+        #expect(destinations.count == 2)
+        #expect(destinations[0]["platform"]?.stringValue == "macOS")
+        #expect(destinations[0]["variant"]?.stringValue == "Designed for [iPad,iPhone]")
+        #expect(destinations[0]["name"]?.stringValue == "My Mac")
+        #expect(destinations[1]["OS"]?.stringValue == "18.0")
+
+        let codesign = SystemToolRegistry.parseG3Codesign("Identifier=com.example.app\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=12345 flags=0x0(none) hashes=10+7 location=embedded\nSignature size=1234\nAuthority=Apple Development: Jane Appleseed (ABCDE12345)\nAuthority=Apple Worldwide Developer Relations Certification Authority\nAuthority=Apple Root CA\nTeamIdentifier=ABCDE12345\n")
+        #expect(codesign["Identifier"]?.stringValue == "com.example.app")
+        #expect(codesign["TeamIdentifier"]?.stringValue == "ABCDE12345")
+        #expect(codesign["Authority"]?.arrayValue?.count == 3)
+        #expect(codesign["Authority"]?.arrayValue?.first?.stringValue == "Apple Development: Jane Appleseed (ABCDE12345)")
+
+        let identities = SystemToolRegistry.parseG3Identities("  1) ABCDEF1234567890ABCDEF1234567890ABCDEF12 \"Apple Development: Jane Appleseed (ABCDE12345)\"\n  2) 1234567890ABCDEF1234567890ABCDEF12345678 \"Apple Distribution: Example Inc (FGHIJ67890)\"\n     2 valid identities found\n")
+        #expect(identities.count == 2)
+        #expect(identities[0]["index"]?.intValue == 1)
+        #expect(identities[0]["hash"]?.stringValue == "ABCDEF1234567890ABCDEF1234567890ABCDEF12")
+        #expect(identities[0]["name"]?.stringValue == "Apple Development: Jane Appleseed (ABCDE12345)")
+
+        let libraries = SystemToolRegistry.parseG3OtoolLibraries("/path/to/MyApp:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation (compatibility version 300.0.0, current version 2500.0.0)\n")
+        #expect(libraries == ["/usr/lib/libSystem.B.dylib", "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation"])
+
+        let headers = SystemToolRegistry.parseG3MachHeader("Mach header\n      magic cputype cpusubtype  caps    filetype ncmds sizeofcmds      flags\n 0xfeedfacf 16777228          2 0x00           2    24       2288 0x00200085\n")
+        #expect(headers.count == 1)
+        #expect(headers[0]["magic"]?.stringValue == "0xfeedfacf")
+        #expect(headers[0]["cputype"]?.stringValue == "16777228")
+        #expect(headers[0]["filetype"]?.stringValue == "2")
+
+        let (version, build) = SystemToolRegistry.parseG3XcodeVersion("Xcode 16.2\nBuild version 16C5032a\n")
+        #expect(version == "16.2")
+        #expect(build == "16C5032a")
+
+        let counts = SystemToolRegistry.parseG3ASTDeclCounts("(source_file \"Sources/App.swift\"\n  (func_decl range=[Sources/App.swift:1:1 - line:1:1] \"run()\" type='() -> ()')\n  (struct_decl range=[Sources/App.swift:5:1 - line:5:1] \"Widget\")\n  (var_decl range=[Sources/App.swift:9:3 - line:9:3] \"count\")\n  (import_decl range=[Sources/App.swift:0:1 - line:0:1]))\n")
+        #expect(counts["func_decl"] == 1)
+        #expect(counts["struct_decl"] == 1)
+        #expect(counts["var_decl"] == 1)
+        #expect(counts["import_decl"] == 1)
+        #expect(counts["total"] == 4)
+
+        let sizes = SystemToolRegistry.parseG3DuSizes("16\tbuild/MyApp.app/Contents/MacOS/MyApp\n8\tbuild/MyApp.app/Contents/Info.plist\n4\tbuild\n")
+        #expect(sizes.count == 3)
+        #expect(sizes[0].path == "build/MyApp.app/Contents/MacOS/MyApp")
+        #expect(sizes[0].kilobytes == 16)
+        #expect(sizes[2].kilobytes == 4)
+
+        let coverageJSON = try JSONDecoder().decode(JSONValue.self, from: Data("{\"lineCoverage\" : 0.85, \"targets\" : [{\"name\" : \"MyApp.app\", \"lineCoverage\" : 0.9, \"coveredLines\" : 90, \"executableLines\" : 100}, {\"name\" : \"MyAppTests.xctest\"}]}".utf8))
+        let coverage = SystemToolRegistry.parseG3Coverage(coverageJSON)
+        #expect(coverage.count == 2)
+        #expect(coverage[0]["name"]?.stringValue == "MyApp.app")
+        #expect(coverage[0]["lineCoverage"]?.doubleValue == 0.9)
+        #expect(coverage[0]["coveredLines"]?.intValue == 90)
+        #expect(coverage[0]["executableLines"]?.intValue == 100)
+        #expect(coverage[1]["name"]?.stringValue == "MyAppTests.xctest")
+        #expect(coverage[1]["lineCoverage"] == nil)
+        #expect(coverageJSON["lineCoverage"]?.doubleValue == 0.85)
+    }
+
+    @Test("Slice 12 tools refuse missing arguments and invalid values before any runtime call")
+    func sliceTwelveValidationRefused() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let missingThreadId: [String] = [
+            "project_build", "project_test", "compiler_diagnostics_engine",
+            "dependency_resolution_engine", "generate_xcodeproj", "project_scheme_list",
+            "project_target_list", "project_build_settings", "project_archive",
+            "test_run_single", "test_coverage_report", "test_coverage_reporter",
+            "performance_benchmark", "docc_build", "xcode_scheme_manager",
+            "xcode_build_settings_inspector", "xcode_device_destination_finder",
+            "simulator_list", "simulator_boot", "simulator_controller", "device_list",
+            "provisioning_check", "swift_package_manager", "package_dependency_update",
+            "code_signing_diagnose", "xcode_toolchain_info", "xcresult_parser",
+            "mach_o_binary_analyzer", "signing_certificate_inspector",
+            "provisioning_profile_reader", "swift_ast_inspector", "binary_size_report",
+            "git_review_diff",
+        ]
+        for tool in missingThreadId {
+            do {
+                _ = try await Self.run(tool, arguments: [:], client: client)
+                Issue.record("Expected missingArgument error for \(tool)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: tool, argument: "threadId"))
+            } catch {
+                Issue.record("Unexpected error for \(tool): \(error)")
+            }
+        }
+        let invalid: [(String, [String: JSONValue], SystemToolError)] = [
+            ("performance_benchmark", ["threadId": .string("t"), "benchmark": .string("rm -rf /")], .executionFailed(tool: "performance_benchmark", message: "performance_benchmark benchmark must be xcodebuild-build, xcodebuild-test, swift-build, swift-test, or xcodebuild-clean-build.")),
+            ("compiler_diagnostics_engine", ["threadId": .string("t"), "kind": .string("bogus")], .executionFailed(tool: "compiler_diagnostics_engine", message: "compiler_diagnostics_engine kind must be xcodebuild or swiftpm.")),
+            ("dependency_resolution_engine", ["threadId": .string("t"), "kind": .string("bogus")], .executionFailed(tool: "dependency_resolution_engine", message: "dependency_resolution_engine kind must be swiftpm or xcode.")),
+            ("swift_package_manager", ["threadId": .string("t"), "action": .string("bogus")], .executionFailed(tool: "swift_package_manager", message: "swift_package_manager action must be describe, resolve, clean, or reset.")),
+            ("xcode_scheme_manager", ["threadId": .string("t"), "action": .string("bogus")], .executionFailed(tool: "xcode_scheme_manager", message: "xcode_scheme_manager action must be list or validate.")),
+            ("simulator_controller", ["threadId": .string("t"), "action": .string("bogus"), "device": .string("iPhone 16")], .executionFailed(tool: "simulator_controller", message: "simulator_controller action must be boot, shutdown, erase, openurl, or status.")),
+            ("test_coverage_reporter", ["threadId": .string("t"), "xcresultPath": .string("a.xcresult"), "format": .string("bogus")], .executionFailed(tool: "test_coverage_reporter", message: "test_coverage_reporter format must be json or text.")),
+            ("git_review_diff", ["threadId": .string("t"), "scope": .string("bogus")], .executionFailed(tool: "git_review_diff", message: "git_review_diff scope must be uncommitted or branch.")),
+            ("test_run_single", ["threadId": .string("t"), "testIdentifier": .string("Target//test")], .executionFailed(tool: "test_run_single", message: "testIdentifier must be a slash-separated test path using letters, digits, underscore, dot, dash, or slash.")),
+            ("project_archive", ["threadId": .string("t"), "scheme": .string("MyApp"), "archivePath": .string("/tmp/abs.xcarchive")], .executionFailed(tool: "project_archive", message: "Path must be relative to the working directory.")),
+        ]
+        for (tool, arguments, expected) in invalid {
+            do {
+                _ = try await Self.run(tool, arguments: arguments, client: client)
+                Issue.record("Expected validation error for \(tool)")
+            } catch let error as SystemToolError {
+                #expect(error == expected)
+            } catch {
+                Issue.record("Unexpected error for \(tool): \(error)")
+            }
+        }
+        do {
+            _ = try await Self.run("project_clean", arguments: ["threadId": .string("t")], client: client)
+            Issue.record("Expected missingArgument error for project_clean without confirm")
+        } catch let error as SystemToolError {
+            #expect(error == .missingArgument(tool: "project_clean", argument: "confirm"))
+        } catch {
+            Issue.record("Unexpected error for project_clean: \(error)")
+        }
+        do {
+            _ = try await Self.run("project_clean", arguments: ["threadId": .string("t"), "confirm": .bool(false)], client: client)
+            Issue.record("Expected executionFailed error for project_clean with confirm=false")
+        } catch let error as SystemToolError {
+            #expect(error == .executionFailed(tool: "project_clean", message: "project_clean removes build products; pass confirm=true."))
+        } catch {
+            Issue.record("Unexpected error for project_clean: \(error)")
+        }
+        await client.close()
+    }
+
+    @Test("RemoteCheckoutAction useExistingWorktree round-trips through Codable")
+    func useExistingWorktreeActionRoundTrips() throws {
+        let action = RemoteCheckoutAction.useExistingWorktree(path: "/tmp/worktrees/app-feature", branch: "feature")
+        let data = try JSONEncoder().encode(action)
+        let decoded = try JSONDecoder().decode(RemoteCheckoutAction.self, from: data)
+        #expect(decoded == action)
+        let previous = try JSONDecoder().decode(RemoteCheckoutAction.self, from: Data("{\"type\":\"usePreviousWorktree\"}".utf8))
+        #expect(previous == .usePreviousWorktree)
+        let local = try JSONDecoder().decode(RemoteCheckoutAction.self, from: Data("{\"type\":\"useExistingWorktree\",\"path\":\"/tmp/wt\",\"branch\":null}".utf8))
+        #expect(local == .useExistingWorktree(path: "/tmp/wt", branch: nil))
+    }
+
 }
