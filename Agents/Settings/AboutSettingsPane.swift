@@ -172,7 +172,7 @@ public struct AboutSettingsPane: View {
                 externalLinkButton(
                     title: "GitHub Repository",
                     icon: "chevron.left.forwardslash.chevron.right",
-                    url: "https://github.com/apoorvdarshan/coincide"
+                    url: "https://github.com/dylans2010/Agents"
                 )
                 externalLinkButton(
                     title: "Antigravity ACP Docs",
@@ -182,12 +182,12 @@ public struct AboutSettingsPane: View {
                 externalLinkButton(
                     title: "Changelog",
                     icon: "clock.arrow.circlepath",
-                    url: "https://github.com/apoorvdarshan/coincide/releases"
+                    url: "https://github.com/dylans2010/Agents/releases"
                 )
                 externalLinkButton(
                     title: "License",
                     icon: "doc.plaintext",
-                    url: "https://github.com/apoorvdarshan/coincide/blob/main/LICENSE"
+                    url: "https://github.com/dylans2010/Agents/blob/main/LICENSE"
                 )
                 Spacer()
             }

@@ -132,19 +132,25 @@ Workspace members, read from `Rust Backend/Cargo.toml`:
 - `crates/coincide-mcp-server`
 
 Measured `#[test]` counts, excluding `vendor/`, counted by grep at time
-of writing (raw grep found 2,192 lines; one is a comment in
-`crates/coincide-desktop/src/diff_panel_ui_tests.rs`, so the real total
-is **2,191**):
+of writing. Raw grep finds 2,199 matching lines, but one is prose inside
+a comment — `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`,
+a `//` comment reading "The glob brings GPUI's test attribute, which
+expands to #[test] again." — not a real attribute, so the real total is
+**2,198** `#[test]` attributes. Reproduce from `Rust Backend` with
+`find crates -name '*.rs' -not -path '*/vendor/*' -exec grep -H
+'#\[test\]' {} + | wc -l` for the raw count, then subtract matching
+lines whose `#[test]` sits inside a `//` comment (exactly one, the
+line above):
 
 | Crate | `#[test]` funcs |
 | --- | --- |
-| coincide-core | 1,803 |
+| coincide-core | 1,810 |
 | coincide-desktop | 367 |
 | coincide-awake-helper | 9 |
 | coincide-macos-ffi | 2 |
 | coincide-mcp-server | 10 |
 | coincide-native-host-tests | 0 |
-| **Total** | **2,191** |
+| **Total** | **2,198** |
 
 Run the workspace suite from `Rust Backend`:
 
@@ -419,7 +425,7 @@ reason. A step that was not run is unchecked, not passed.
 - [ ] Step 3 — Agents Swift tests pass (AgentsTests, 105 `@Test`)
 - [ ] Step 4 — Coincide Remote tests pass (CoincideRemoteTests, 19
   `@Test`; UI tests ran, not skipped)
-- [ ] Step 5 — Rust tests pass (2,199 `#[test]` excl. vendor, incl.
+- [ ] Step 5 — Rust tests pass (2,198 `#[test]` excl. vendor, incl.
   `coincide-mcp-server` and `coincide-macos-ffi`); `cargo fmt --check`
   and clippy clean
 - [ ] Step 6 — CI green on the tested commit (`agents-app`,
