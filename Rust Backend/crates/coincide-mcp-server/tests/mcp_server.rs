@@ -718,3 +718,68 @@ fn resources_ignore_symlinked_asset_files() {
     assert_eq!(read["error"]["code"], -32602);
     session.close();
 }
+
+#[test]
+fn derived_data_locate_flags_deep_tree_truncation() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let root = workspace.path().join("derived");
+    let mut deep = root.join("Deep");
+    std::fs::create_dir_all(&deep).unwrap();
+    for level in 0..40 {
+        deep = deep.join(format!("d{level}"));
+        std::fs::create_dir(&deep).unwrap();
+    }
+    std::fs::write(deep.join("leaf.txt"), "leaf").unwrap();
+    let shallow = root.join("Shallow");
+    std::fs::create_dir_all(&shallow).unwrap();
+    std::fs::write(shallow.join("top.txt"), "top").unwrap();
+    let mut session = Session::spawn(workspace.path(), None);
+    initialize(&mut session);
+    let result = call(
+        &mut session,
+        "derived_data_locate",
+        json!({"path": root.to_string_lossy()}),
+    );
+    assert_eq!(result["isError"], false, "derived_data_locate failed: {result}");
+    let text = result["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(parsed["truncated"], true, "deep tree not flagged: {text}");
+    let directories = parsed["directories"].as_array().unwrap();
+    let deep_entry = directories
+        .iter()
+        .find(|entry| entry["name"] == "Deep")
+        .expect("Deep directory missing");
+    assert_eq!(deep_entry["truncated"], true, "Deep entry not flagged: {text}");
+    let shallow_entry = directories
+        .iter()
+        .find(|entry| entry["name"] == "Shallow")
+        .expect("Shallow directory missing");
+    assert_eq!(
+        shallow_entry["truncated"], false,
+        "Shallow entry wrongly flagged: {text}"
+    );
+    assert_eq!(shallow_entry["bytes"], 3);
+    assert_eq!(shallow_entry["files"], 1);
+    session.close();
+}
+
+#[test]
+fn resources_read_rejects_an_asset_over_the_size_limit() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let assets = asset_fixtures();
+    let huge = vec![b'a'; 16 * 1024 * 1024 + 1];
+    std::fs::write(assets.path().join("Huge.md"), &huge).unwrap();
+    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    initialize(&mut session);
+    let read = session.request(
+        "resources/read",
+        json!({"uri": "agents-asset://Huge.md"}),
+    );
+    assert_eq!(read["error"]["code"], -32602);
+    let message = read["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("exceeds the 16 MiB limit"),
+        "unexpected oversize error: {message}"
+    );
+    session.close();
+}

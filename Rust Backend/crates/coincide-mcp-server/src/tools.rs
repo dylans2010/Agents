@@ -12820,14 +12820,15 @@ fn g6_privacy_audit(tool: &str, path: &str, plist: &Value) -> Value {
     })
 }
 
-fn g6_dir_size_recursive(dir: &Path, depth: usize) -> (i64, usize) {
+fn g6_dir_size_recursive(dir: &Path, depth: usize) -> (i64, usize, bool) {
     if depth > 32 {
-        return (0, 0);
+        return (0, 0, true);
     }
     let mut bytes: i64 = 0;
     let mut files: usize = 0;
+    let mut truncated = false;
     let Ok(entries) = std::fs::read_dir(dir) else {
-        return (0, 0);
+        return (0, 0, false);
     };
     for entry in entries.flatten() {
         let path = entry.path();
@@ -12835,9 +12836,11 @@ fn g6_dir_size_recursive(dir: &Path, depth: usize) -> (i64, usize) {
             continue;
         };
         if kind.is_dir() {
-            let (child_bytes, child_files) = g6_dir_size_recursive(&path, depth + 1);
+            let (child_bytes, child_files, child_truncated) =
+                g6_dir_size_recursive(&path, depth + 1);
             bytes += child_bytes;
             files += child_files;
+            truncated = truncated || child_truncated;
         } else if kind.is_file() {
             if let Ok(metadata) = entry.metadata() {
                 bytes += metadata.len() as i64;
@@ -12845,7 +12848,7 @@ fn g6_dir_size_recursive(dir: &Path, depth: usize) -> (i64, usize) {
             }
         }
     }
-    (bytes, files)
+    (bytes, files, truncated)
 }
 
 fn g6_derived_data(tool: &str, path: Option<&str>, limit: usize) -> Value {
@@ -12876,12 +12879,13 @@ fn g6_derived_data(tool: &str, path: Option<&str>, limit: usize) -> Value {
             if !dir.is_dir() {
                 continue;
             }
-            let (bytes, files) = g6_dir_size_recursive(&dir, 0);
+            let (bytes, files, truncated) = g6_dir_size_recursive(&dir, 0);
             directories.push(json!({
                 "path": dir.to_string_lossy(),
                 "name": name,
                 "bytes": bytes,
                 "files": files,
+                "truncated": truncated,
             }));
         }
     }
@@ -12895,6 +12899,9 @@ fn g6_derived_data(tool: &str, path: Option<&str>, limit: usize) -> Value {
         .iter()
         .map(|dir| dir["bytes"].as_i64().unwrap_or(0))
         .sum();
+    let truncated_any = directories
+        .iter()
+        .any(|dir| dir["truncated"].as_bool().unwrap_or(false));
     let shown: Vec<Value> = directories.into_iter().take(limit).collect();
     json!({
         "tool": tool,
@@ -12902,6 +12909,7 @@ fn g6_derived_data(tool: &str, path: Option<&str>, limit: usize) -> Value {
         "exists": exists,
         "directories": shown,
         "totalBytes": total_bytes,
+        "truncated": truncated_any,
     })
 }
 

@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 pub const PROMPT_NAME: &str = "agents-system-prompt";
@@ -92,15 +93,17 @@ pub fn read_asset_text(dir: &Path, name: &str) -> Result<String> {
         canonical_file.starts_with(&canonical_dir),
         "SystemAsset \"{name}\" resolves outside the SystemAssets directory"
     );
-    let size = std::fs::metadata(&canonical_file)
-        .with_context(|| format!("Cannot stat SystemAsset \"{name}\""))?
-        .len();
+    let file = std::fs::File::open(&canonical_file)
+        .with_context(|| format!("Cannot read SystemAsset \"{name}\""))?;
+    let mut text = String::new();
+    file.take(MAX_ASSET_BYTES + 1)
+        .read_to_string(&mut text)
+        .with_context(|| format!("Cannot read SystemAsset \"{name}\""))?;
     ensure!(
-        size <= MAX_ASSET_BYTES,
+        (text.len() as u64) <= MAX_ASSET_BYTES,
         "SystemAsset \"{name}\" exceeds the 16 MiB limit"
     );
-    std::fs::read_to_string(&canonical_file)
-        .with_context(|| format!("Cannot read SystemAsset \"{name}\""))
+    Ok(text)
 }
 
 pub fn read_asset(dir: &Path, uri: &str) -> Result<Value> {
