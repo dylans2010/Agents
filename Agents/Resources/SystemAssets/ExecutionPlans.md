@@ -146,7 +146,7 @@ Present a decision question when:
 3. Choosing between breaking changes or mutually exclusive feature configurations.
 
 ### What to Avoid
-- Do NOT use decision prompts for standard tool execution approval (terminal approval flows handle shell commands).
+- Do NOT use decision prompts for standard tool execution approval. There is no tool-layer approval flow for shell commands — tool-driven terminal execution never prompts; provider-initiated approval requests surface separately as approval cards.
 - Do NOT use decision prompts for questions that can be answered by inspecting project code or configuration.
 
 ---

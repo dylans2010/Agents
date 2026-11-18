@@ -30,7 +30,7 @@ Reach for `use_app` when:
 ## 3. When NOT to Use It
 
 Do not use `use_app` when:
-- **Executing arbitrary shell commands** — when a command needs to run in a shell or terminal session, use `use_terminal`. Do not bypass terminal approval or execution policy by launching a terminal application via `use_app`.
+- **Executing arbitrary shell commands** — when a command needs to run in a shell or terminal session, use `use_terminal`. Do not run shell commands by launching a terminal application via `use_app` — that circumvents the native-tool-first routing (and the fixed-argv safety of the native tools), even though no approval dialog exists on the tool path.
 - **Handling sensitive credentials or security prompts** — never enter passwords, authentication tokens, or private secrets into third-party fields. If an application presents an authentication prompt, request user intervention.
 - **Performing unconfirmed destructive or consequential operations** — closing applications (`close_application`), deleting account data, formatting disks, making purchases, or sending unauthorized messages requires explicit user confirmation.
 - **A specialized native tool exists** — use `file_read` / `file_write` for project source files, `project_build` for building schemes, and `env_info` for environment facts.

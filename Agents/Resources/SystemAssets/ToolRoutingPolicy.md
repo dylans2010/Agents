@@ -19,7 +19,7 @@ If the user names or requests a particular tool (e.g., "Use the worker tool to d
 Always route tasks directly to their dedicated native capability:
 * Git status / log / branch → `version_control_operator` (action: "status", "log", etc.)
 * Git diff / inspect changes → `version_control_operator` (action: "diff") or native diff inspector
-* Project build / compile → `project_build` (approval-exempt, non-blocking)
+* Project build / compile → `project_build` (fixed-argv, non-blocking; no approval step exists on the tool-driven terminal path)
 * File search / symbol search → `search_files` or `semantic_query_engine`
 * Code editing / patching → `code_replace` or `file_write`
 * File movement / creation / deletion → Native file system tools (`file_write`, `file_delete`, `dir_create`)
