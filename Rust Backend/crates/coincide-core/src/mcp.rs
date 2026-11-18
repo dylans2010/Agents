@@ -195,6 +195,49 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
+    fn claude_config_symlink_is_refused_and_target_untouched() {
+        struct RestoreEnv(Option<std::ffi::OsString>);
+        impl Drop for RestoreEnv {
+            fn drop(&mut self) {
+                match &self.0 {
+                    Some(value) => std::env::set_var(SERVER_ENV_OVERRIDE, value),
+                    None => std::env::remove_var(SERVER_ENV_OVERRIDE),
+                }
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let binary = dir.path().join("coincide-mcp-server");
+        std::fs::write(&binary, "#!/bin/sh\nexit 0\n").unwrap();
+        std::fs::set_permissions(
+            &binary,
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::Permissions::from_mode(0o700)
+            },
+        )
+        .unwrap();
+        let _restore = RestoreEnv(std::env::var_os(SERVER_ENV_OVERRIDE));
+        std::env::set_var(SERVER_ENV_OVERRIDE, &binary);
+        let mount = McpMount {
+            thread_id: "thread-1".to_owned(),
+            data_dir: dir.path().to_path_buf(),
+        };
+        let target = dir.path().join("sentinel.txt");
+        std::fs::write(&target, "sentinel").unwrap();
+        let config_dir = dir.path().join("mcp");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        let link = config_dir.join("claude-thread-1.json");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        assert!(claude_config_path(&mount, dir.path()).is_err());
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "sentinel");
+        assert!(std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+    }
+
+    #[test]
     fn session_entry_shape_is_acp_stdio_entry() {
         let entry = session_entry(
             Path::new("/Applications/Agents.app/Contents/MacOS/coincide-mcp-server"),
