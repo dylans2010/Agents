@@ -83,11 +83,13 @@ public final class AssistantLaunchViewModel {
         assistant: AssistantDefinition,
         projectID: UUID? = nil,
         branches: [RemoteBranch] = [],
+        task: String = "",
         launcher: @escaping Launcher
     ) {
         self.assistant = assistant
         self.projectID = projectID
         self.branches = branches
+        self.task = task
         self.launcher = launcher
         var seenKinds: [AssistantLaunchFieldKind: Int] = [:]
         self.fields = (assistant.inputRequirements ?? []).enumerated().map { index, requirement in

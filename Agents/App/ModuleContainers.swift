@@ -159,6 +159,7 @@ public struct AssistantLaunchContainerSheet: View {
                 assistant: definition,
                 appModel: appModel,
                 prefillPaths: appModel.launchingAssistantPaths,
+                prefillTask: appModel.launchingAssistantTask,
                 onLaunch: { _ in appModel.closeAssistantLaunch() }
             )
         }

@@ -14,6 +14,7 @@ public struct AssistantLaunchView: View {
         assistant: AssistantDefinition,
         appModel: AppModel,
         prefillPaths: [String] = [],
+        prefillTask: String = "",
         onLaunch: @escaping (UUID) -> Void = { _ in }
     ) {
         self.assistant = assistant
@@ -23,6 +24,7 @@ public struct AssistantLaunchView: View {
             assistant: assistant,
             projectID: appModel.selectedProject?.id,
             branches: appModel.activeCheckout?.branches ?? [],
+            task: prefillTask,
             launcher: AssistantLaunchViewModel.appModelLauncher(appModel: appModel)
         )
         if !prefillPaths.isEmpty {

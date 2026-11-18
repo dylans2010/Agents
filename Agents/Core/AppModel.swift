@@ -62,6 +62,7 @@ public final class AppModel {
     public var showAssistantEditor: Bool = false
     public var launchingAssistantDefinition: AssistantDefinition?
     public var launchingAssistantPaths: [String] = []
+    public var launchingAssistantTask: String = ""
     public var showAssistantLaunch: Bool = false
     public var assistantResultReport: AssistantReport?
     public var showAssistantResult: Bool = false
@@ -1099,9 +1100,10 @@ public final class AppModel {
         showAssistantTasks = false
     }
 
-    public func openAssistantLaunch(for definition: AssistantDefinition, paths: [String] = []) {
+    public func openAssistantLaunch(for definition: AssistantDefinition, paths: [String] = [], task: String = "") {
         launchingAssistantDefinition = definition
         launchingAssistantPaths = paths
+        launchingAssistantTask = task
         showAssistantLaunch = true
     }
 
@@ -1109,6 +1111,7 @@ public final class AppModel {
         showAssistantLaunch = false
         launchingAssistantDefinition = nil
         launchingAssistantPaths = []
+        launchingAssistantTask = ""
     }
 
     public func dismissAssistantResult() {

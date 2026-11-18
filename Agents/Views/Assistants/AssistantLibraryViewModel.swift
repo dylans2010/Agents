@@ -3,7 +3,7 @@ import Foundation
 import Observation
 
 public typealias AssistantAutomationRequestHandler = @MainActor (AssistantDefinition) -> Void
-public typealias AssistantLaunchRequestHandler = @MainActor (AssistantDefinition) -> Void
+public typealias AssistantLaunchRequestHandler = @MainActor (AssistantDefinition, String) -> Void
 
 public enum AssistantLibraryScope: String, CaseIterable, Sendable {
     case all
@@ -351,8 +351,8 @@ public final class AssistantLibraryViewModel {
         onAddToAutomation?(definition)
     }
 
-    public func requestLaunch(_ definition: AssistantDefinition) {
-        onLaunch?(definition)
+    public func requestLaunch(_ definition: AssistantDefinition, task: String = "") {
+        onLaunch?(definition, task.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     public static func draft(

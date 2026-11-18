@@ -532,7 +532,7 @@ struct AssistantLibraryViewModelTests {
     func launchRequestRoutesThroughCallback() {
         let tidy = Self.preset()
         var received: [AssistantDefinition] = []
-        let harness = makeHarness(builtIns: [tidy], onLaunch: { definition in
+        let harness = makeHarness(builtIns: [tidy], onLaunch: { definition, _ in
             received.append(definition)
         })
         defer { harness.defaults.removePersistentDomain(forName: harness.suiteName) }
@@ -542,6 +542,29 @@ struct AssistantLibraryViewModelTests {
         let harnessWithoutCallback = makeHarness(builtIns: [tidy])
         defer { harnessWithoutCallback.defaults.removePersistentDomain(forName: harnessWithoutCallback.suiteName) }
         harnessWithoutCallback.viewModel.requestLaunch(tidy)
+        #expect(harnessWithoutCallback.store.launched.isEmpty)
+    }
+
+    @Test("Launch request carries the detail view task text to the callback")
+    @MainActor
+    func launchRequestCarriesTaskTextToCallback() {
+        let tidy = Self.preset()
+        var received: [(AssistantDefinition, String)] = []
+        let harness = makeHarness(builtIns: [tidy], onLaunch: { definition, task in
+            received.append((definition, task))
+        })
+        defer { harness.defaults.removePersistentDomain(forName: harness.suiteName) }
+        harness.viewModel.requestLaunch(tidy, task: "Tidy the imports in Sources")
+        #expect(received.count == 1)
+        #expect(received[0].0.id == tidy.id)
+        #expect(received[0].1 == "Tidy the imports in Sources")
+        #expect(harness.store.launched.isEmpty)
+        harness.viewModel.requestLaunch(tidy, task: "  Tidy the imports in Sources  ")
+        #expect(received.count == 2)
+        #expect(received[1].1 == "Tidy the imports in Sources")
+        let harnessWithoutCallback = makeHarness(builtIns: [tidy])
+        defer { harnessWithoutCallback.defaults.removePersistentDomain(forName: harnessWithoutCallback.suiteName) }
+        harnessWithoutCallback.viewModel.requestLaunch(tidy, task: "Tidy the imports in Sources")
         #expect(harnessWithoutCallback.store.launched.isEmpty)
     }
 

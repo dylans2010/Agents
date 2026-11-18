@@ -17,7 +17,7 @@ public struct AssistantLibraryView: View {
     ) {
         self.appModel = appModel
         self.onEdit = onEdit
-        self.onLaunch = onLaunch ?? { definition in appModel.openAssistantLaunch(for: definition) }
+        self.onLaunch = onLaunch ?? { definition, task in appModel.openAssistantLaunch(for: definition, task: task) }
         self.initialSelection = initialSelection
         _viewModel = State(initialValue: AssistantLibraryViewModel(
             catalog: appModel.assistantCatalog,
@@ -193,8 +193,8 @@ public struct AssistantLibraryView: View {
                         onAddToAutomation: {
                             viewModel.requestAddToAutomation(definition)
                         },
-                        onLaunch: { _ in
-                            viewModel.requestLaunch(definition)
+                        onLaunch: { task in
+                            viewModel.requestLaunch(definition, task: task)
                         }
                     )
                 } else {
