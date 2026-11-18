@@ -682,6 +682,21 @@ pub fn create_branch(raw: &str, cwd: &Path, checkout_after: bool) -> Result<Stri
     Ok(name)
 }
 
+pub fn delete_branch(name: &str, cwd: &Path, force: bool) -> Result<String> {
+    validate_branch_name(name, cwd)?;
+    if current_branch(cwd).as_deref() == Some(name) {
+        return fail(format!("Cannot delete the checked-out branch “{name}”."));
+    }
+    let flag = if force { "-D" } else { "-d" };
+    checked(
+        &format!("Could not delete branch “{name}”."),
+        cwd,
+        &["branch", flag, "--", name],
+        NORMAL,
+    )?;
+    Ok(name.to_owned())
+}
+
 /// Renames a branch, adding `-1`, `-2`… when the name is taken.
 pub fn rename_branch(old: &str, new: &str, cwd: &Path) -> Result<String> {
     if old == new {

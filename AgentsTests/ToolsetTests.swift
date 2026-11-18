@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 65)
+        #expect(tools.count == 107)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -83,6 +83,9 @@ struct ToolsetTests {
             "workers.spawn", "workers.list", "workers.status", "workers.result",
             "workers.cancel", "workers.plan", "workers.breakdown", "workers.execution_plan",
             "computer_use.request",
+            "mcp.tools", "git.stash", "git.blame", "git.bisect", "git.cherry_pick",
+            "git.rollback", "git.checkpoints.create", "git.checkpoints.list",
+            "git.checkpoints.restore",
         ])
         #expect(tools.allSatisfy { !$0.parameters.isEmpty })
         #expect(tools.allSatisfy { $0.parameters.contains { $0.required } })
@@ -146,6 +149,130 @@ struct ToolsetTests {
         #expect(SystemToolRegistry.definition(named: "git_show", for: .system)?.parameters.map(\.name) == ["threadId", "sha"])
         #expect(SystemToolRegistry.definition(named: "git_diff_range", for: .system)?.parameters.map(\.name) == ["threadId", "from", "to"])
         #expect(SystemToolRegistry.definition(named: "git_diff_branch", for: .system)?.parameters.map(\.name) == ["threadId"])
+    }
+
+    @Test("Slice 10 tools register with their real backend actions")
+    func sliceTenToolsRegister() {
+        let expected: [(String, String, SystemToolChannel)] = [
+            ("file_read", "workspace.read_file", .desktop),
+            ("view_file", "workspace.read_file", .desktop),
+            ("file_write", "workspace.write_file", .desktop),
+            ("create_file", "workspace.write_file", .desktop),
+            ("file_create", "workspace.write_file", .desktop),
+            ("file_append", "workspace.write_file", .desktop),
+            ("file_delete", "workspace.delete_file", .desktop),
+            ("dir_delete", "workspace.delete_directory", .desktop),
+            ("file_move", "workspace.move_file", .desktop),
+            ("file_rename", "workspace.move_file", .desktop),
+            ("file_copy", "workspace.copy_file", .desktop),
+            ("dir_create", "workspace.create_dir", .desktop),
+            ("dir_read", "workspace.read_dir", .desktop),
+            ("list_directory", "workspace.read_dir", .desktop),
+            ("tree_view", "workspace.read_dir", .desktop),
+            ("search_directory", "workspace.files", .desktop),
+            ("search_text", "workspace.search", .desktop),
+            ("code_replace", "workspace.edit_file", .desktop),
+            ("code_insert", "workspace.write_file", .desktop),
+            ("code_multi_edit", "workspace.edit_file", .desktop),
+            ("use_terminal", "terminal.create", .engine),
+            ("run_command", "terminal.create", .engine),
+            ("git_log_viewer", "git.log", .engine),
+            ("git_branch_compare", "git.diff.range", .engine),
+            ("project_diff", "git.diff", .engine),
+            ("git_branch_manager", "git.branches.list", .engine),
+            ("save_to_memory", "memory.store", .engine),
+            ("use_mcp", "mcp.tools", .engine),
+            ("take_screenshot", "computer_use.request", .engine),
+            ("start_subagent", "workers.spawn", .engine),
+            ("git_stash_operator", "git.stash", .engine),
+            ("git_blame_inspector", "git.blame", .engine),
+            ("git_bisect", "git.bisect", .engine),
+            ("git_cherry_pick", "git.cherry_pick", .engine),
+            ("version_control_operator", "git.rollback", .engine),
+            ("git_pr_summary", "git.log", .engine),
+            ("git_conflict_resolver", "workspace.search_regex", .desktop),
+            ("project_snapshot", "git.checkpoints.create", .engine),
+            ("project_changelog", "git.checkpoints.list", .engine),
+            ("project_restore", "git.checkpoints.restore", .engine),
+            ("safe_undo", "git.checkpoints.restore", .engine),
+            ("safe_validate_changes", "workspace.search_regex", .desktop),
+        ]
+        #expect(expected.count == 42)
+        for (name, action, channel) in expected {
+            guard let definition = SystemToolRegistry.definition(named: name, for: .system) else {
+                Issue.record("Missing system tool \(name)")
+                continue
+            }
+            #expect(definition.action == action)
+            #expect(definition.channel == channel)
+            #expect(definition.parameters.contains { $0.required })
+        }
+        #expect(SystemToolRegistry.definition(named: "file_rename", for: .system)?.parameters.map(\.name) == ["cwd", "path", "newName"])
+        #expect(SystemToolRegistry.definition(named: "git_stash_operator", for: .system)?.parameters.map(\.name).contains("action") == true)
+        #expect(SystemToolRegistry.definition(named: "use_mcp", for: .system)?.parameters.map(\.name) == ["serverName", "toolName", "arguments"])
+        #expect(SystemToolRegistry.definition(named: "project_restore", for: .system)?.parameters.map(\.name).contains("confirm") == true)
+        #expect(SystemToolRegistry.definition(named: "code_insert", for: .system)?.parameters.map(\.name).contains("mode") == true)
+        #expect(SystemToolRegistry.definition(named: "edit_file", for: .system) != nil)
+    }
+
+    @Test("Slice 10 destructive tools refuse without confirm before any runtime call")
+    func sliceTenConfirmationRefused() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let missingConfirm: [(String, [String: JSONValue])] = [
+            ("git_cherry_pick", ["threadId": .string("t"), "sha": .string("0123456789abcdef0123456789abcdef01234567")]),
+            ("git_branch_manager", ["threadId": .string("t"), "action": .string("delete"), "name": .string("spare")]),
+            ("version_control_operator", ["threadId": .string("t"), "action": .string("rollback")]),
+            ("project_restore", ["threadId": .string("t"), "checkpointId": .string("abc")]),
+            ("safe_undo", ["threadId": .string("t")]),
+            ("git_stash_operator", ["threadId": .string("t"), "action": .string("pop")]),
+            ("git_stash_operator", ["threadId": .string("t"), "action": .string("drop")]),
+        ]
+        for (tool, arguments) in missingConfirm {
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    tool, arguments: arguments, toolset: .system, runtime: client
+                )
+                Issue.record("Expected missingArgument error for \(tool)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: tool, argument: "confirm"))
+            } catch {
+                Issue.record("Unexpected error for \(tool): \(error)")
+            }
+        }
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "git_cherry_pick",
+                arguments: [
+                    "threadId": .string("t"),
+                    "sha": .string("0123456789abcdef0123456789abcdef01234567"),
+                    "confirm": .bool(false),
+                ],
+                toolset: .system, runtime: client
+            )
+            Issue.record("Expected executionFailed error for cherry-pick with confirm=false")
+        } catch let error as SystemToolError {
+            #expect(error == .executionFailed(tool: "git_cherry_pick", message: "Cherry-pick changes the working tree; pass confirm=true."))
+        } catch {
+            Issue.record("Unexpected error for cherry-pick with confirm=false: \(error)")
+        }
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "file_rename",
+                arguments: [
+                    "cwd": .string("/tmp"),
+                    "path": .string("a.txt"),
+                    "newName": .string("sub/b.txt"),
+                ],
+                toolset: .system, runtime: client
+            )
+            Issue.record("Expected executionFailed error for file_rename with a path newName")
+        } catch let error as SystemToolError {
+            #expect(error == .executionFailed(tool: "file_rename", message: "newName must be a single file name, not a path."))
+        } catch {
+            Issue.record("Unexpected error for file_rename: \(error)")
+        }
+        await client.close()
     }
 
     @Test("Provider Tools mode registers no system tools")
@@ -335,6 +462,7 @@ struct ToolsetTests {
             "verify_state", "zoom", "click", "double_click", "right_click", "set_value",
             "type_text", "press_key", "hotkey", "scroll", "drag", "move_cursor",
             "click_point", "invoke_menu", "launch_app", "set_window_frame",
+            "take_screenshot",
         ]
         for name in expected {
             guard let definition = SystemToolRegistry.definition(named: name, for: .system) else {
@@ -353,7 +481,6 @@ struct ToolsetTests {
         #expect(SystemToolRegistry.definition(named: "get_window_state", for: .system)?.parameters.first { $0.name == "window_id" }?.required == true)
         #expect(SystemToolRegistry.definition(named: "launch_app", for: .system)?.parameters.first { $0.name == "bundle_id" }?.required == true)
         #expect(SystemToolRegistry.definition(named: "take_screenrecord", for: .system) == nil)
-        #expect(SystemToolRegistry.definition(named: "take_screenshot", for: .system) == nil)
         #expect(SystemToolRegistry.definition(named: "use_app", for: .system) == nil)
     }
 

@@ -772,10 +772,20 @@ impl Engine {
                 self.launch_schedule(&job)?;
                 Ok(json!({"task":crate::schedule_service::ScheduleService::new(&mut self.store).list()?.into_iter().find(|v|v["id"]==id)}))
             }
-            "git.status" | "git.diff" | "git.log" | "git.show" | "git.diff.range" | "git.diff.branch" | "files.list" | "files.read" => {
+            "git.status" | "git.diff" | "git.log" | "git.show" | "git.diff.range" | "git.diff.branch" | "git.stash" | "git.blame" | "git.bisect" | "git.cherry_pick" | "git.rollback" | "files.list" | "files.read" => {
                 self.require_background_admission()?;
                 ensure!(self.workspace_pending.len()<32,"Too many workspace operations; collect results first");
                 let thread=required(p,"threadId")?;
+                let git_mutating = match method {
+                    "git.stash" => matches!(p["action"].as_str(), Some("push" | "pop" | "drop")),
+                    "git.bisect" => matches!(p["action"].as_str(), Some("start" | "good" | "bad" | "skip" | "reset")),
+                    "git.cherry_pick" | "git.rollback" => true,
+                    _ => false,
+                };
+                if git_mutating {
+                    ensure!(!self.runs.contains_key(thread),"Stop the thread's active turn before changing Git state");
+                    ensure!(!self.store.is_imported(thread)?,"Fork an imported thread before changing Git state");
+                }
                 let cwd=self.working_directory(&self.store.thread(thread)?)?;
                 let id=Uuid::new_v4().to_string();
                 self.workspace_pending.insert(id.clone(),(thread.into(),Instant::now()));
@@ -791,6 +801,11 @@ impl Engine {
                             "git.show"=>crate::workspace::commit_detail(&cwd,required(&params,"sha")?),
                             "git.diff.range"=>crate::workspace::diff_range(&cwd,required(&params,"from")?,required(&params,"to")?),
                             "git.diff.branch"=>crate::workspace::branch_diff(&cwd),
+                            "git.stash"=>crate::workspace_git::stash(&cwd,required(&params,"action")?,params["message"].as_str(),params["includeUntracked"].as_bool().unwrap_or(false),params["reference"].as_str(),params["confirm"].as_bool().unwrap_or(false),params["paths"].as_array().map(|paths|paths.iter().filter_map(|value|value.as_str().map(str::to_owned)).collect())),
+                            "git.blame"=>crate::workspace_git::blame(&cwd,required(&params,"path")?,params["start"].as_u64().map(|value|value as usize),params["end"].as_u64().map(|value|value as usize)),
+                            "git.bisect"=>crate::workspace_git::bisect(&cwd,required(&params,"action")?,params["reference"].as_str(),params["good"].as_str(),params["bad"].as_str()),
+                            "git.cherry_pick"=>crate::workspace_git::cherry_pick(&cwd,required(&params,"sha")?,params["noCommit"].as_bool().unwrap_or(false),params["confirm"].as_bool().unwrap_or(false)),
+                            "git.rollback"=>crate::workspace_git::rollback(&cwd,required(&params,"ref")?,params["confirm"].as_bool().unwrap_or(false)),
                             "files.list"=>crate::workspace::files(&cwd,params["query"].as_str().unwrap_or(""),params["limit"].as_u64().unwrap_or(200) as usize),
                             "files.read"=>crate::workspace::read_file(&cwd,required(&params,"path")?,params["lineOffset"].as_u64().unwrap_or(0) as usize,params["lineLimit"].as_u64().unwrap_or(200) as usize),
                             _=>unreachable!(),
@@ -934,7 +949,7 @@ impl Engine {
             "app.capabilities" => {
                 let mut methods = vec![
                 "app.status", "app.quit", "app.activate", "terminal.create", "terminal.list", "terminal.read", "terminal.prompt_marks", "terminal.scroll", "terminal.selection", "terminal.input", "terminal.write", "terminal.clear", "terminal.resize", "terminal.close",
-                "app.capabilities", "notifications.status", "host.awake.status", "host.awake.configure", "providers.list", "providers.antigravity.status", "browser.request", "browser.result", "browser.bookmarks.list", "browser.bookmarks.import", "browser.bookmarks.open", "browser.settings.read", "browser.settings.patch", "git.status", "git.diff", "git.log", "git.show", "git.diff.range", "git.diff.branch", "files.list", "files.read", "workspace.result", "attachments.add", "attachments.remove",
+                "app.capabilities", "notifications.status", "host.awake.status", "host.awake.configure", "providers.list", "providers.antigravity.status", "browser.request", "browser.result", "browser.bookmarks.list", "browser.bookmarks.import", "browser.bookmarks.open", "browser.settings.read", "browser.settings.patch", "git.status", "git.diff", "git.log", "git.show", "git.diff.range", "git.diff.branch", "git.stash", "git.blame", "git.bisect", "git.cherry_pick", "git.rollback", "files.list", "files.read", "workspace.result", "attachments.add", "attachments.remove",
                 "schedules.list", "schedules.create", "schedules.patch", "schedules.pause", "schedules.resume", "schedules.delete", "schedules.run-now",
                 "projects.list", "projects.create", "projects.patch", "settings.read", "settings.patch",
                 "threads.list", "threads.resolve_id",

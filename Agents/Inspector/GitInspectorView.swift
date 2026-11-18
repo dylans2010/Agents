@@ -40,6 +40,7 @@ struct GitInspectorView: View {
     @State private var worktreesList: [GitWorktreeEntry] = []
 
     @State private var pendingRestoreTurn: TurnGitCheckpoint?
+    @State private var pendingManualRestore: ManualGitCheckpoint?
 
     var body: some View {
         Group {
@@ -105,6 +106,24 @@ struct GitInspectorView: View {
             }
         } message: { turn in
             Text("This rewinds the conversation to before “\(turnTitle(for: turn.userItemID))” and restores workspace files to that checkpoint. Messages after it are removed.")
+        }
+        .confirmationDialog(
+            "Restore Files to This Checkpoint?",
+            isPresented: Binding(
+                get: { pendingManualRestore != nil },
+                set: { if !$0 { pendingManualRestore = nil } }
+            ),
+            presenting: pendingManualRestore
+        ) { cp in
+            Button("Rewind & Restore Files", role: .destructive) {
+                pendingManualRestore = nil
+                Task { await restoreManualCheckpoint(cp) }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingManualRestore = nil
+            }
+        } message: { cp in
+            Text("This resets the working tree to checkpoint \(String(cp.id.prefix(8))) and removes untracked and ignored files. Uncommitted changes are discarded.")
         }
         .confirmationDialog(
             "Push Directly to Default Branch?",
@@ -857,6 +876,11 @@ struct GitInspectorView: View {
                             }
                             .controlSize(.mini)
 
+                            Button("Restore") {
+                                pendingManualRestore = cp
+                            }
+                            .controlSize(.mini)
+
                             Button {
                                 NSPasteboard.general.clearContents()
                                 NSPasteboard.general.setString(cp.commit, forType: .string)
@@ -1362,6 +1386,32 @@ struct GitInspectorView: View {
                 rawPatch: rawPatch,
                 parsedDiff: parsed
             )
+        } catch {
+            appModel.presentError(error)
+        }
+    }
+
+    private func restoreManualCheckpoint(_ cp: ManualGitCheckpoint) async {
+        guard let client = appModel.runtime,
+              let tid = appModel.selectedThreadUUID,
+              let root = canonicalRepoRoot
+        else { return }
+
+        do {
+            _ = try await runEngineWorkspaceOperation(
+                client: client,
+                method: "git.checkpoints.restore",
+                params: [
+                    "threadId": .string(tid.uuidString.lowercased()),
+                    "expectedRoot": .string(root),
+                    "checkpointId": .string(cp.id),
+                    "confirm": .bool(true),
+                ],
+                resultMethod: "git.workspace.result"
+            )
+            appModel.presentToast("Restored Checkpoint", detail: String(cp.id.prefix(8)), style: .info)
+            await loadCheckpointsAndPorcelain()
+            await appModel.refreshDiff()
         } catch {
             appModel.presentError(error)
         }

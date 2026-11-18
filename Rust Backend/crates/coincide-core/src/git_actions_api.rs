@@ -16,6 +16,7 @@ pub(super) const METHODS: &[&str] = &[
     "git.branches.list",
     "git.branches.checkout",
     "git.branches.create",
+    "git.branches.delete",
     "git.toolbar.state",
     "git.worktrees.useCheckout",
     "git.worktrees.useNew",
@@ -248,6 +249,7 @@ impl Engine {
             "git.actions.run" => &["threadId", "action", "message", "paths", "featureBranch"],
             "git.branches.list" => &["threadId", "scope"],
             "git.branches.checkout" | "git.branches.create" => &["threadId", "name"],
+            "git.branches.delete" => &["threadId", "name", "force", "confirm"],
             "git.worktrees.useNew" => &["threadId", "baseBranch"],
             "git.worktrees.useExisting" => &["threadId", "path", "branch"],
             "git.actions.result" => &["threadId", "operationId"],
@@ -364,6 +366,22 @@ impl Engine {
                         ops::checkout(&branch, &cwd)?
                     };
                     Ok(json!({"branch": branch}))
+                })
+            }
+            "git.branches.delete" => {
+                ensure!(
+                    !self.runs.contains_key(&owner),
+                    "Stop the thread's active turn before changing its branch"
+                );
+                ensure!(
+                    p["confirm"].as_bool().unwrap_or(false),
+                    "Deleting a branch is irreversible; pass confirm=true"
+                );
+                let branch = name(p, "name")?;
+                let force = p["force"].as_bool().unwrap_or(false);
+                self.spawn_git(&owner, true, Completion::None, move |_| {
+                    let deleted = ops::delete_branch(&branch, &cwd, force)?;
+                    Ok(json!({"deleted": deleted, "force": force}))
                 })
             }
             "git.worktrees.useCheckout" => self.use_project_checkout(&owner, &thread),

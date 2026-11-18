@@ -315,3 +315,70 @@ fn elapsed_time_does_not_release_an_unfinished_git_mutation() {
     assert!(!engine.git_actions.pending.contains_key(&id));
     assert!(!engine.git_actions.mutating.contains(&owner));
 }
+
+#[test]
+fn branch_delete_requires_confirmation_and_refuses_the_checked_out_branch() {
+    let (_dir, mut engine, owner, _, _root) = fixture();
+    let created = run(
+        &mut engine,
+        &owner,
+        "git.branches.create",
+        json!({"name": "spare"}),
+    );
+    assert_eq!(created["branch"], "spare");
+    let refused = engine.dispatch(json!({"method":"git.branches.delete","params":{"threadId":owner,"name":"spare"}}));
+    assert_eq!(
+        refused["error"]["message"],
+        "Deleting a branch is irreversible; pass confirm=true"
+    );
+    let back = run(
+        &mut engine,
+        &owner,
+        "git.branches.checkout",
+        json!({"name": "main"}),
+    );
+    assert_eq!(back["branch"], "main");
+    let current = run(
+        &mut engine,
+        &owner,
+        "git.branches.delete",
+        json!({"name": "main", "confirm": true}),
+    );
+    assert_eq!(
+        current["error"],
+        "Cannot delete the checked-out branch “main”."
+    );
+    let deleted = run(
+        &mut engine,
+        &owner,
+        "git.branches.delete",
+        json!({"name": "spare", "confirm": true}),
+    );
+    assert!(deleted["error"].is_null(), "{deleted}");
+    assert_eq!(deleted["deleted"], "spare");
+    assert_eq!(deleted["force"], false);
+    let listed = run(
+        &mut engine,
+        &owner,
+        "git.branches.list",
+        json!({"scope": "thread"}),
+    );
+    let names: Vec<&str> = listed["branches"]["branches"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|branch| branch["name"].as_str())
+        .collect();
+    assert!(!names.contains(&"spare"));
+    assert!(names.contains(&"main"));
+    let missing = run(
+        &mut engine,
+        &owner,
+        "git.branches.delete",
+        json!({"name": "spare", "confirm": true}),
+    );
+    assert!(missing["error"]
+        .as_str()
+        .unwrap()
+        .contains("Could not delete branch"));
+}

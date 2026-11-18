@@ -760,7 +760,480 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "y", type: "number", required: true, description: "Frame y in screen points."),
                 SystemToolParameter(name: "width", type: "number", required: true, description: "Frame width in screen points."),
                 SystemToolParameter(name: "height", type: "number", required: true, description: "Frame height in screen points."),
+                SystemToolDefinition(
+            name: "file_read",
+            description: "Read a file in the thread working directory.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
             ]
+        ),
+        SystemToolDefinition(
+            name: "view_file",
+            description: "View a file in the thread working directory.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_write",
+            description: "Write a file in the thread working directory.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "content", type: "string", required: true, description: "Full file content."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "create_file",
+            description: "Create a new file in the thread working directory. Refuses to overwrite an existing file unless overwrite is true.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "content", type: "string", required: false, description: "Initial file content. Defaults to empty."),
+                SystemToolParameter(name: "overwrite", type: "boolean", required: false, description: "Allow overwriting an existing file. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_create",
+            description: "Create a file that must not already exist, in the thread working directory. Refuses to overwrite unless overwrite is true.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "content", type: "string", required: false, description: "Initial file content. Defaults to empty."),
+                SystemToolParameter(name: "overwrite", type: "boolean", required: false, description: "Allow overwriting an existing file. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_append",
+            description: "Append content to an existing file in the thread working directory. A missing file is an error.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "content", type: "string", required: true, description: "Content to append."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_delete",
+            description: "Delete a file in the thread working directory. Refuses directories and symlinks.",
+            action: "workspace.delete_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dir_delete",
+            description: "Delete a directory in the thread working directory. Without recursive=true only an empty directory is removed.",
+            action: "workspace.delete_directory",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "recursive", type: "boolean", required: false, description: "Remove the directory and everything inside it."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_move",
+            description: "Move a file or directory inside the thread working directory. The destination must not already exist.",
+            action: "workspace.move_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "destination", type: "string", required: true, description: "Destination path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_rename",
+            description: "Rename a file within its own directory. The new name is a single file name, not a path.",
+            action: "workspace.move_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "newName", type: "string", required: true, description: "New file name, without any path separator."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_copy",
+            description: "Copy a file inside the thread working directory. The destination must not already exist.",
+            action: "workspace.copy_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "destination", type: "string", required: true, description: "Destination path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dir_create",
+            description: "Create a directory, including missing parents, in the thread working directory.",
+            action: "workspace.create_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dir_read",
+            description: "List a directory in the thread working directory, non-recursive.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory relative to the working directory; defaults to the working directory itself."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "list_directory",
+            description: "List directory entries in the thread working directory.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory relative to the working directory; defaults to the working directory itself."),
+                SystemToolParameter(name: "recursive", type: "boolean", required: false, description: "List entries recursively, up to 16 levels deep."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "tree_view",
+            description: "List a directory tree in the thread working directory, recursively up to maxDepth levels.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory relative to the working directory; defaults to the working directory itself."),
+                SystemToolParameter(name: "maxDepth", type: "integer", required: false, description: "Maximum tree depth, 1 to 10. Defaults to 3."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "search_directory",
+            description: "List files in the thread working directory matching a substring filter.",
+            action: "workspace.files",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "query", type: "string", required: false, description: "Substring filter for file paths."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum files to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "search_text",
+            description: "Search file contents literally in the thread working directory.",
+            action: "workspace.search",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "query", type: "string", required: true, description: "Text to search for."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum matches to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_replace",
+            description: "Replace exact target text with replacement text in a file. The target must match exactly once unless allowMultiple is true.",
+            action: "workspace.edit_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "target", type: "string", required: true, description: "Exact text to match."),
+                SystemToolParameter(name: "replacement", type: "string", required: true, description: "Replacement text."),
+                SystemToolParameter(name: "allowMultiple", type: "boolean", required: false, description: "Replace every occurrence instead of requiring exactly one. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_insert",
+            description: "Insert code into a file at a 1-based line, or before or after a pattern that must match exactly once.",
+            action: "workspace.edit_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "code", type: "string", required: true, description: "Code to insert."),
+                SystemToolParameter(name: "line", type: "integer", required: false, description: "1-based line to insert before, for mode line. Defaults to the end of the file."),
+                SystemToolParameter(name: "mode", type: "string", required: false, description: "line, before, or after. Defaults to line."),
+                SystemToolParameter(name: "pattern", type: "string", required: false, description: "Pattern to anchor on, required for mode before or after."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "code_multi_edit",
+            description: "Apply several anchored edits to one file, in order. Every anchor must match exactly once at the time it is applied or the whole edit fails.",
+            action: "workspace.edit_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Path relative to the working directory."),
+                SystemToolParameter(name: "edits", type: "array", required: true, description: "Edits to apply, each with oldText, newText, and an optional mode."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "use_terminal",
+            description: "Run a shell command in the thread integrated terminal and return its real output and exit code.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "command", type: "string", required: true, description: "Shell command to run."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command. Defaults to 600."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "run_command",
+            description: "Run a shell command in the thread integrated terminal and return its real output and exit code.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "command", type: "string", required: true, description: "Shell command to run."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Seconds to wait for the command. Defaults to 600."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_log_viewer",
+            description: "List git commits for a thread working directory, newest first, with author, date, message, and parents.",
+            action: "git.log",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum commits to return, 1–200. Defaults to 50."),
+                SystemToolParameter(name: "skip", type: "integer", required: false, description: "Commits to skip for pagination. Defaults to 0."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_branch_compare",
+            description: "Diff two git references for a thread working directory, comparing the merge base of the first against the second, with changed files and the full patch.",
+            action: "git.diff.range",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "from", type: "string", required: true, description: "Base reference, such as a branch name or commit SHA."),
+                SystemToolParameter(name: "to", type: "string", required: true, description: "Reference to compare against the base, such as a branch name or commit SHA."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_diff",
+            description: "Read the git diff for a thread.",
+            action: "git.diff",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Single file path to diff."),
+                SystemToolParameter(name: "staged", type: "boolean", required: false, description: "Diff staged changes instead of the worktree."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_branch_manager",
+            description: "List, create, check out, or safely delete local git branches. Delete requires confirm=true and refuses the checked-out branch.",
+            action: "git.branches.list",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "action", type: "string", required: false, description: "list, create, checkout, or delete. Defaults to list."),
+                SystemToolParameter(name: "name", type: "string", required: false, description: "Branch name for create, checkout, or delete."),
+                SystemToolParameter(name: "force", type: "boolean", required: false, description: "Delete with -D instead of -d, dropping unmerged work. Defaults to false."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Must be true to delete a branch."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "save_to_memory",
+            description: "Store a durable fact in agent memory. Storing an existing key overwrites it and reports overwritten=true.",
+            action: "memory.store",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Memory key, up to 256 characters."),
+                SystemToolParameter(name: "value", type: "string", required: true, description: "Fact to store, up to 64 KiB."),
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "use_mcp",
+            description: "Use the coincide MCP server: list its servers, list its tools, or run one of its tools by name.",
+            action: "mcp.tools",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "serverName", type: "string", required: true, description: "MCP server name, or list to list servers."),
+                SystemToolParameter(name: "toolName", type: "string", required: false, description: "Tool name to run, or list_tools to list tools."),
+                SystemToolParameter(name: "arguments", type: "string", required: false, description: "JSON object string of arguments for the tool."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "take_screenshot",
+            description: "Capture the main display as a private PNG file and return its path.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "include_screenshot", type: "boolean", required: false, description: "Save a screenshot as a private PNG file and return its path. Defaults to true."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "start_subagent",
+            description: "Spawn one or more subagent workers on the parent thread. Each worker runs a real provider turn on its own thread; worker names must be unique and targetFiles must be disjoint across workers.",
+            action: "workers.spawn",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the workers."),
+                SystemToolParameter(name: "workers", type: "array", required: true, description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_stash_operator",
+            description: "Save, pop, list, show, or drop git stashes. Pop and drop require confirm=true.",
+            action: "git.stash",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "push, pop, list, show, or drop."),
+                SystemToolParameter(name: "message", type: "string", required: false, description: "Message for stash push."),
+                SystemToolParameter(name: "includeUntracked", type: "boolean", required: false, description: "Include untracked files in a stash push. Defaults to false."),
+                SystemToolParameter(name: "reference", type: "string", required: false, description: "Stash reference such as stash@{0}, for pop, show, or drop."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Must be true to pop or drop a stash."),
+                SystemToolParameter(name: "paths", type: "array", required: false, description: "Paths to stash on push; defaults to all changes."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_blame_inspector",
+            description: "Show git blame line annotations for a file, with author, commit, and content per line.",
+            action: "git.blame",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "File path relative to the working directory."),
+                SystemToolParameter(name: "start", type: "integer", required: false, description: "First line of the range, 1-based. Requires end."),
+                SystemToolParameter(name: "end", type: "integer", required: false, description: "Last line of the range, inclusive. Requires start."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_bisect",
+            description: "Run git bisect: start, good, bad, skip, reset, or log. Start, good, bad, and skip move HEAD.",
+            action: "git.bisect",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "start, good, bad, skip, reset, or log."),
+                SystemToolParameter(name: "reference", type: "string", required: false, description: "Reference to mark good, bad, or skip. Defaults to HEAD."),
+                SystemToolParameter(name: "good", type: "string", required: false, description: "Known-good reference for start."),
+                SystemToolParameter(name: "bad", type: "string", required: false, description: "Known-bad reference for start."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_cherry_pick",
+            description: "Cherry-pick a commit by full SHA, optionally without committing. Requires confirm=true. On conflict it reports the conflicted files and never auto-aborts.",
+            action: "git.cherry_pick",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "sha", type: "string", required: true, description: "Full 40- or 64-character commit SHA."),
+                SystemToolParameter(name: "noCommit", type: "boolean", required: false, description: "Stage the cherry-pick without committing. Defaults to false."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Cherry-pick changes the working tree."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "version_control_operator",
+            description: "Run git by action: status, commit, branch, diff, or rollback. Rollback resets hard to HEAD, HEAD~N, HEAD^N, or a full SHA and requires confirm=true.",
+            action: "git.rollback",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "status, commit, branch, diff, or rollback."),
+                SystemToolParameter(name: "message", type: "string", required: false, description: "Commit message."),
+                SystemToolParameter(name: "name", type: "string", required: false, description: "Branch name for the branch action."),
+                SystemToolParameter(name: "ref", type: "string", required: false, description: "Reference to roll back to. Defaults to HEAD~1."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Must be true to roll back."),
+                SystemToolParameter(name: "paths", type: "array", required: false, description: "Paths to commit; defaults to all changes."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_pr_summary",
+            description: "Compose a local-only markdown PR summary from git log and the diff range, with no GitHub API call.",
+            action: "git.log",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "from", type: "string", required: false, description: "Base reference. Defaults to the branch base."),
+                SystemToolParameter(name: "to", type: "string", required: false, description: "Reference to compare. Defaults to the branch head."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum commits to list. Defaults to 20."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_conflict_resolver",
+            description: "Detect merge conflict markers across the workspace, or resolve them in one file with the ours, theirs, or both strategy.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "action", type: "string", required: false, description: "detect or resolve. Defaults to detect."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File path relative to the working directory, for resolve."),
+                SystemToolParameter(name: "strategy", type: "string", required: false, description: "ours, theirs, or both. Defaults to ours."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_snapshot",
+            description: "Capture a staged snapshot of the workspace and return its snapshot id for project_restore.",
+            action: "git.checkpoints.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "label", type: "string", required: false, description: "Snapshot label, stored in the checkpoint commit message."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_changelog",
+            description: "List workspace snapshot ids and commits, newest first. Labels live in the checkpoint commit message, not in the list entries.",
+            action: "git.checkpoints.list",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_restore",
+            description: "Restore the workspace to a snapshot id, resetting hard to the snapshot commit and removing untracked and ignored files. Requires confirm=true.",
+            action: "git.checkpoints.restore",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "checkpointId", type: "string", required: true, description: "Snapshot id from project_snapshot or project_changelog."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Restore discards uncommitted and untracked changes."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "safe_undo",
+            description: "Restore the second-newest snapshot. Requires at least two snapshots and confirm=true.",
+            action: "git.checkpoints.restore",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Undo discards uncommitted and untracked changes."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "safe_validate_changes",
+            description: "Check a file, or the whole workspace, for merge markers and missing trailing newlines. Returns success with issues listed.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Single file path to check; defaults to the whole workspace."),
+            ]
+        ),
+    ]
         ),
     ]
 
@@ -1076,6 +1549,507 @@ public nonisolated enum SystemToolRegistry {
             let threadId = try requiredString(arguments, "threadId", tool: name)
             let toolArguments = try Self.computerUseArguments(arguments, definition: definition, tool: name)
             return try await runComputerUseTool(tool: name, threadId: threadId, arguments: toolArguments, runtime: runtime)
+        case "file_read", "view_file":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            return .object(["path": .string(document.path), "content": .string(document.content)])
+        case "file_write":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let content = try requiredString(arguments, "content", tool: name)
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: content)
+            return .object(["path": .string(path)])
+        case "create_file", "file_create":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let content = optionalString(arguments, "content") ?? ""
+            let overwrite = optionalBool(arguments, "overwrite") ?? false
+            if !overwrite {
+                try Self.assertFileAbsent(cwd: cwd, path: path, tool: name)
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: content)
+            return .object(["path": .string(path)])
+        case "file_append":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let content = try requiredString(arguments, "content", tool: name)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: document.content + content)
+            return .object(["path": .string(path)])
+        case "file_delete":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            try await runtime.deleteWorkspaceFile(cwd: cwd, path: path)
+            return .object(["path": .string(path), "deleted": .bool(true)])
+        case "dir_delete":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let recursive = optionalBool(arguments, "recursive") ?? false
+            try await runtime.deleteWorkspaceDirectory(cwd: cwd, path: path, recursive: recursive)
+            return .object(["path": .string(path), "deleted": .bool(true), "recursive": .bool(recursive)])
+        case "file_move":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let destination = try requiredString(arguments, "destination", tool: name)
+            try await runtime.moveWorkspaceFile(cwd: cwd, path: path, destination: destination)
+            return .object(["path": .string(path), "destination": .string(destination), "moved": .bool(true)])
+        case "file_rename":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let newName = try requiredString(arguments, "newName", tool: name)
+            guard !newName.isEmpty, !newName.contains("/"), !newName.contains("\\"), newName != ".", newName != ".." else {
+                throw SystemToolError.executionFailed(tool: name, message: "newName must be a single file name, not a path.")
+            }
+            let parent = (path as NSString).deletingLastPathComponent
+            let destination = parent.isEmpty ? newName : parent + "/" + newName
+            try await runtime.moveWorkspaceFile(cwd: cwd, path: path, destination: destination)
+            return .object(["path": .string(path), "destination": .string(destination), "moved": .bool(true)])
+        case "file_copy":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let destination = try requiredString(arguments, "destination", tool: name)
+            try await runtime.copyWorkspaceFile(cwd: cwd, path: path, destination: destination)
+            return .object(["path": .string(path), "destination": .string(destination), "copied": .bool(true)])
+        case "dir_create":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            try await runtime.createWorkspaceDirectory(cwd: cwd, path: path)
+            return .object(["path": .string(path), "created": .bool(true)])
+        case "dir_read":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? ""
+            let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: false)
+            return .array(entries.map { entry in
+                .object([
+                    "path": .string(entry.path),
+                    "name": .string(entry.name),
+                    "isDirectory": .bool(entry.isDirectory),
+                ])
+            })
+        case "list_directory":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? ""
+            let recursive = optionalBool(arguments, "recursive") ?? false
+            let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: recursive)
+            return .array(entries.map { entry in
+                .object([
+                    "path": .string(entry.path),
+                    "name": .string(entry.name),
+                    "isDirectory": .bool(entry.isDirectory),
+                ])
+            })
+        case "tree_view":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? ""
+            let maxDepth = min(max(optionalInt(arguments, "maxDepth") ?? 3, 1), 10)
+            let entries = try await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: true)
+            let baseDepth = path.isEmpty || path == "." ? 0 : path.split(separator: "/").count
+            let filtered = entries.filter { entry in
+                entry.path.split(separator: "/").count - baseDepth <= maxDepth
+            }
+            return .array(filtered.map { entry in
+                .object([
+                    "path": .string(entry.path),
+                    "name": .string(entry.name),
+                    "isDirectory": .bool(entry.isDirectory),
+                ])
+            })
+        case "search_directory":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let query = optionalString(arguments, "query") ?? ""
+            let limit = optionalInt(arguments, "limit") ?? 500
+            let files = try await runtime.listWorkspaceFiles(cwd: cwd, query: query, limit: limit)
+            return .array(files.map { file in
+                .object([
+                    "path": .string(file.path),
+                    "name": .string(file.name),
+                    "isDirectory": .bool(file.isDirectory),
+                ])
+            })
+        case "search_text":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let query = try requiredString(arguments, "query", tool: name)
+            let limit = optionalInt(arguments, "limit") ?? 200
+            let hits = try await runtime.searchWorkspace(cwd: cwd, query: query, limit: limit)
+            return .array(hits.map { hit in
+                .object([
+                    "path": .string(hit.path),
+                    "lineNumber": .int(Int64(hit.lineNumber)),
+                    "column": .int(Int64(hit.column)),
+                    "lineText": .string(hit.lineText),
+                ])
+            })
+        case "code_replace":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let target = try requiredString(arguments, "target", tool: name)
+            guard let replacement = arguments["replacement"]?.stringValue else {
+                throw SystemToolError.missingArgument(tool: name, argument: "replacement")
+            }
+            let allowMultiple = optionalBool(arguments, "allowMultiple") ?? false
+            if allowMultiple {
+                let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+                guard document.content.contains(target) else {
+                    throw SystemToolError.executionFailed(tool: name, message: "Target text was not found in the file.")
+                }
+                let updated = document.content.replacingOccurrences(of: target, with: replacement)
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: updated)
+                return .object(["path": .string(path), "replaced": .bool(true)])
+            }
+            return try await runtime.editWorkspaceFile(cwd: cwd, path: path, oldText: target, newText: replacement, mode: "replace")
+        case "code_insert":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let code = try requiredString(arguments, "code", tool: name)
+            let mode = optionalString(arguments, "mode") ?? "line"
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+            let hadTrailingNewline = document.content.hasSuffix("\n")
+            var lines = document.content.components(separatedBy: "\n")
+            if hadTrailingNewline {
+                lines.removeLast()
+            }
+            switch mode {
+            case "line":
+                let line = optionalInt(arguments, "line") ?? (lines.count + 1)
+                guard line >= 1, line <= lines.count + 1 else {
+                    throw SystemToolError.executionFailed(tool: name, message: "code_insert line is out of range for the file.")
+                }
+                lines.insert(code, at: line - 1)
+            case "before", "after":
+                let pattern = try requiredString(arguments, "pattern", tool: name)
+                let matches = lines.indices.filter { lines[$0].contains(pattern) }
+                guard matches.count == 1 else {
+                    throw SystemToolError.executionFailed(tool: name, message: "code_insert pattern must match exactly one line.")
+                }
+                lines.insert(code, at: mode == "before" ? matches[0] : matches[0] + 1)
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "code_insert mode must be line, before, or after.")
+            }
+            var updated = lines.joined(separator: "\n")
+            if hadTrailingNewline {
+                updated += "\n"
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: updated)
+            return .object(["path": .string(path)])
+        case "code_multi_edit":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            guard let rawEdits = arguments["edits"]?.arrayValue, !rawEdits.isEmpty else {
+                throw SystemToolError.missingArgument(tool: name, argument: "edits")
+            }
+            let edits = try rawEdits.map { raw -> WorkspaceEdit in
+                guard let oldText = raw["oldText"]?.stringValue, !oldText.isEmpty else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "oldText")
+                }
+                guard let newText = raw["newText"]?.stringValue else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "newText")
+                }
+                return WorkspaceEdit(
+                    oldText: oldText,
+                    newText: newText,
+                    mode: raw["mode"]?.stringValue ?? "replace"
+                )
+            }
+            return try await runtime.editWorkspaceFile(cwd: cwd, path: path, edits: edits)
+        case "use_terminal", "run_command":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let command = try requiredString(arguments, "command", tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 600
+            return try await runTerminalCommand(tool: name, threadId: threadId, command: command, timeoutSeconds: timeoutSeconds, runtime: runtime)
+        case "git_log_viewer":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            var params: [String: JSONValue] = [:]
+            if let limit = optionalInt(arguments, "limit") {
+                params["limit"] = .int(Int64(limit))
+            }
+            if let skip = optionalInt(arguments, "skip") {
+                params["skip"] = .int(Int64(skip))
+            }
+            return try await runGitOperation(method: "git.log", threadId: threadId, params: params, tool: name, runtime: runtime)
+        case "git_branch_compare":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let from = try requiredString(arguments, "from", tool: name)
+            let to = try requiredString(arguments, "to", tool: name)
+            return try await runGitOperation(method: "git.diff.range", threadId: threadId, params: ["from": .string(from), "to": .string(to)], tool: name, runtime: runtime)
+        case "project_diff":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            var params: [String: JSONValue] = [:]
+            if let path = optionalString(arguments, "path") {
+                params["path"] = .string(path)
+            }
+            if let staged = optionalBool(arguments, "staged") {
+                params["staged"] = .bool(staged)
+            }
+            return try await runGitOperation(method: "git.diff", threadId: threadId, params: params, tool: name, runtime: runtime)
+        case "git_branch_manager":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let action = optionalString(arguments, "action") ?? "list"
+            switch action {
+            case "list":
+                return try await runGitActionsOperation(method: "git.branches.list", threadId: threadId, params: [:], tool: name, timeoutSeconds: 60, runtime: runtime)
+            case "create":
+                let branch = try requiredString(arguments, "name", tool: name)
+                return try await runGitActionsOperation(method: "git.branches.create", threadId: threadId, params: ["name": .string(branch)], tool: name, timeoutSeconds: 60, runtime: runtime)
+            case "checkout":
+                let branch = try requiredString(arguments, "name", tool: name)
+                return try await runGitActionsOperation(method: "git.branches.checkout", threadId: threadId, params: ["name": .string(branch)], tool: name, timeoutSeconds: 60, runtime: runtime)
+            case "delete":
+                let branch = try requiredString(arguments, "name", tool: name)
+                try Self.requireConfirm(arguments, tool: name, message: "Deleting a branch is irreversible; pass confirm=true.")
+                var params: [String: JSONValue] = ["name": .string(branch), "confirm": .bool(true)]
+                if let force = optionalBool(arguments, "force") {
+                    params["force"] = .bool(force)
+                }
+                return try await runGitActionsOperation(method: "git.branches.delete", threadId: threadId, params: params, tool: name, timeoutSeconds: 60, runtime: runtime)
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "git_branch_manager action must be list, create, checkout, or delete.")
+            }
+        case "save_to_memory":
+            let key = try requiredString(arguments, "key", tool: name)
+            let value = try requiredString(arguments, "value", tool: name)
+            return try await runtime.memoryStore(key: key, value: value, scope: optionalString(arguments, "scope"))
+        case "use_mcp":
+            let serverName = try requiredString(arguments, "serverName", tool: name)
+            if serverName == "list" {
+                return .array([.object([
+                    "serverName": .string("coincide"),
+                    "description": .string("The coincide MCP server: this app system tools, served over stdio."),
+                    "tools": .int(Int64(SystemToolRegistry.systemTools.count)),
+                ])])
+            }
+            guard serverName == "coincide" else {
+                throw SystemToolError.executionFailed(tool: name, message: "No MCP server named \(serverName) is configured; this app serves only the coincide system-tools server.")
+            }
+            guard let toolName = optionalString(arguments, "toolName") else {
+                throw SystemToolError.missingArgument(tool: name, argument: "toolName")
+            }
+            if toolName == "list_tools" {
+                return .array(SystemToolRegistry.systemTools.map { .string($0.name) })
+            }
+            guard toolName != "use_mcp" else {
+                throw SystemToolError.executionFailed(tool: name, message: "use_mcp cannot call itself.")
+            }
+            guard definition(named: toolName, for: toolset) != nil else {
+                throw SystemToolError.unknownTool(toolName)
+            }
+            let rawArguments = optionalString(arguments, "arguments") ?? "{}"
+            guard let data = rawArguments.data(using: .utf8),
+                  let parsed = try? JSONDecoder().decode(JSONValue.self, from: data),
+                  case .object(let toolArguments) = parsed else {
+                throw SystemToolError.executionFailed(tool: name, message: "arguments must be a JSON object string.")
+            }
+            return try await execute(toolName, arguments: toolArguments, toolset: toolset, runtime: runtime)
+        case "take_screenshot":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let includeScreenshot = optionalBool(arguments, "include_screenshot") ?? true
+            return try await runComputerUseTool(tool: "get_desktop_state", threadId: threadId, arguments: ["include_screenshot": .bool(includeScreenshot)], runtime: runtime)
+        case "start_subagent":
+            let parentThreadId = try requiredString(arguments, "parentThreadId", tool: name)
+            guard let rawWorkers = arguments["workers"]?.arrayValue, !rawWorkers.isEmpty else {
+                throw SystemToolError.missingArgument(tool: name, argument: "workers")
+            }
+            let workers = try rawWorkers.map { raw -> WorkerSpawnRequest in
+                guard let workerName = raw["name"]?.stringValue, !workerName.isEmpty else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "name")
+                }
+                guard let task = raw["task"]?.stringValue, !task.isEmpty else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "task")
+                }
+                return WorkerSpawnRequest(
+                    name: workerName,
+                    task: task,
+                    targetFiles: raw["targetFiles"]?.arrayValue?.compactMap(\.stringValue) ?? []
+                )
+            }
+            return try await runtime.spawnWorkers(parentThreadId: parentThreadId, workers: workers)
+        case "git_stash_operator":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let action = try requiredString(arguments, "action", tool: name)
+            if action == "pop" || action == "drop" {
+                try Self.requireConfirm(arguments, tool: name, message: "Stash pop and drop are destructive; pass confirm=true.")
+            }
+            var params: [String: JSONValue] = ["action": .string(action)]
+            if let message = optionalString(arguments, "message") {
+                params["message"] = .string(message)
+            }
+            if let includeUntracked = optionalBool(arguments, "includeUntracked") {
+                params["includeUntracked"] = .bool(includeUntracked)
+            }
+            if let reference = optionalString(arguments, "reference") {
+                params["reference"] = .string(reference)
+            }
+            if let confirm = optionalBool(arguments, "confirm") {
+                params["confirm"] = .bool(confirm)
+            }
+            if let paths = optionalStringArray(arguments, "paths") {
+                params["paths"] = .array(paths.map { .string($0) })
+            }
+            return try await runGitOperation(method: "git.stash", threadId: threadId, params: params, tool: name, runtime: runtime)
+        case "git_blame_inspector":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            var params: [String: JSONValue] = ["path": .string(path)]
+            if let start = optionalInt(arguments, "start") {
+                params["start"] = .int(Int64(start))
+            }
+            if let end = optionalInt(arguments, "end") {
+                params["end"] = .int(Int64(end))
+            }
+            return try await runGitOperation(method: "git.blame", threadId: threadId, params: params, tool: name, runtime: runtime)
+        case "git_bisect":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let action = try requiredString(arguments, "action", tool: name)
+            var params: [String: JSONValue] = ["action": .string(action)]
+            if let reference = optionalString(arguments, "reference") {
+                params["reference"] = .string(reference)
+            }
+            if let good = optionalString(arguments, "good") {
+                params["good"] = .string(good)
+            }
+            if let bad = optionalString(arguments, "bad") {
+                params["bad"] = .string(bad)
+            }
+            return try await runGitOperation(method: "git.bisect", threadId: threadId, params: params, tool: name, runtime: runtime)
+        case "git_cherry_pick":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let sha = try requiredString(arguments, "sha", tool: name)
+            try Self.requireConfirm(arguments, tool: name, message: "Cherry-pick changes the working tree; pass confirm=true.")
+            var params: [String: JSONValue] = ["sha": .string(sha), "confirm": .bool(true)]
+            if let noCommit = optionalBool(arguments, "noCommit") {
+                params["noCommit"] = .bool(noCommit)
+            }
+            return try await runGitOperation(method: "git.cherry_pick", threadId: threadId, params: params, tool: name, runtime: runtime)
+        case "version_control_operator":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let action = try requiredString(arguments, "action", tool: name)
+            switch action {
+            case "status":
+                return try await runGitOperation(method: "git.status", threadId: threadId, params: [:], tool: name, runtime: runtime)
+            case "diff":
+                var params: [String: JSONValue] = [:]
+                if let path = optionalString(arguments, "path") {
+                    params["path"] = .string(path)
+                }
+                if let staged = optionalBool(arguments, "staged") {
+                    params["staged"] = .bool(staged)
+                }
+                return try await runGitOperation(method: "git.diff", threadId: threadId, params: params, tool: name, runtime: runtime)
+            case "commit":
+                let message = try requiredString(arguments, "message", tool: name)
+                var params: [String: JSONValue] = ["action": .string("commit"), "message": .string(message)]
+                if let paths = optionalStringArray(arguments, "paths") {
+                    params["paths"] = .array(paths.map { .string($0) })
+                }
+                return try await runGitActionsOperation(method: "git.actions.run", threadId: threadId, params: params, tool: name, timeoutSeconds: 120, runtime: runtime)
+            case "branch":
+                if let branch = optionalString(arguments, "name") {
+                    return try await runGitActionsOperation(method: "git.branches.create", threadId: threadId, params: ["name": .string(branch)], tool: name, timeoutSeconds: 60, runtime: runtime)
+                }
+                return try await runGitActionsOperation(method: "git.branches.list", threadId: threadId, params: [:], tool: name, timeoutSeconds: 60, runtime: runtime)
+            case "rollback":
+                try Self.requireConfirm(arguments, tool: name, message: "Rollback discards uncommitted changes; pass confirm=true.")
+                let ref = optionalString(arguments, "ref") ?? "HEAD~1"
+                return try await runGitOperation(method: "git.rollback", threadId: threadId, params: ["ref": .string(ref), "confirm": .bool(true)], tool: name, runtime: runtime)
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "version_control_operator action must be status, commit, branch, diff, or rollback.")
+            }
+        case "git_pr_summary":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let limit = optionalInt(arguments, "limit") ?? 20
+            let from = optionalString(arguments, "from")
+            let to = optionalString(arguments, "to")
+            let log = try await runGitOperation(method: "git.log", threadId: threadId, params: ["limit": .int(Int64(limit))], tool: name, runtime: runtime)
+            if let error = log["error"]?.stringValue, !error.isEmpty {
+                throw SystemToolError.executionFailed(tool: name, message: error)
+            }
+            let diff: JSONValue
+            if let from, let to {
+                diff = try await runGitOperation(method: "git.diff.range", threadId: threadId, params: ["from": .string(from), "to": .string(to)], tool: name, runtime: runtime)
+            } else {
+                diff = try await runGitOperation(method: "git.diff.branch", threadId: threadId, params: [:], tool: name, runtime: runtime)
+            }
+            if let error = diff["error"]?.stringValue, !error.isEmpty {
+                throw SystemToolError.executionFailed(tool: name, message: error)
+            }
+            let markdown = Self.prMarkdown(log: log, diff: diff, from: from, to: to)
+            let files = diff["files"]?.arrayValue ?? diff["numstat"]?.arrayValue ?? []
+            return .object([
+                "markdown": .string(markdown),
+                "from": .string(from ?? ""),
+                "to": .string(to ?? ""),
+                "commits": .int(Int64(log["commits"]?.arrayValue?.count ?? 0)),
+                "files": .int(Int64(files.count)),
+            ])
+        case "git_conflict_resolver":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let action = optionalString(arguments, "action") ?? "detect"
+            switch action {
+            case "detect":
+                let hits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: "^(<{7}|={7}|>{7})", limit: 200)
+                var files: [String] = []
+                for hit in hits where !files.contains(hit.path) {
+                    files.append(hit.path)
+                }
+                return .object(["conflictedFiles": .array(files.map { .string($0) }), "count": .int(Int64(files.count))])
+            case "resolve":
+                let path = try requiredString(arguments, "path", tool: name)
+                let strategy = optionalString(arguments, "strategy") ?? "ours"
+                let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+                let (resolved, hunks) = try Self.resolveConflicts(content: document.content, strategy: strategy, tool: name)
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: resolved)
+                return .object(["path": .string(path), "resolved": .bool(true), "hunks": .int(Int64(hunks)), "strategy": .string(strategy)])
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "git_conflict_resolver action must be detect or resolve.")
+            }
+        case "project_snapshot":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let root = try await Self.resolveThreadRoot(threadId: threadId, tool: name, runtime: runtime)
+            let head = try await Self.threadHead(threadId: threadId, tool: name, runtime: runtime)
+            let label = optionalString(arguments, "label") ?? "Manual snapshot"
+            return try await runWorkspaceApiOperation(method: "git.checkpoints.create", threadId: threadId, params: ["expectedRoot": .string(root), "expectedHead": .string(head), "label": .string(label)], tool: name, timeoutSeconds: 120, runtime: runtime)
+        case "project_changelog":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let root = try await Self.resolveThreadRoot(threadId: threadId, tool: name, runtime: runtime)
+            return try await runWorkspaceApiOperation(method: "git.checkpoints.list", threadId: threadId, params: ["expectedRoot": .string(root)], tool: name, timeoutSeconds: 30, runtime: runtime)
+        case "project_restore":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let checkpointId = try requiredString(arguments, "checkpointId", tool: name)
+            try Self.requireConfirm(arguments, tool: name, message: "Restoring a checkpoint discards uncommitted and untracked changes; pass confirm=true.")
+            let root = try await Self.resolveThreadRoot(threadId: threadId, tool: name, runtime: runtime)
+            return try await runWorkspaceApiOperation(method: "git.checkpoints.restore", threadId: threadId, params: ["expectedRoot": .string(root), "checkpointId": .string(checkpointId), "confirm": .bool(true)], tool: name, timeoutSeconds: 120, runtime: runtime)
+        case "safe_undo":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            try Self.requireConfirm(arguments, tool: name, message: "safe_undo restores the second-newest snapshot and discards uncommitted and untracked changes; pass confirm=true.")
+            let root = try await Self.resolveThreadRoot(threadId: threadId, tool: name, runtime: runtime)
+            let listed = try await runWorkspaceApiOperation(method: "git.checkpoints.list", threadId: threadId, params: ["expectedRoot": .string(root)], tool: name, timeoutSeconds: 30, runtime: runtime)
+            let checkpoints = listed["checkpoints"]?.arrayValue ?? []
+            guard checkpoints.count >= 2 else {
+                throw SystemToolError.executionFailed(tool: name, message: "safe_undo requires at least two snapshots.")
+            }
+            guard let target = checkpoints[1]["id"]?.stringValue else {
+                throw SystemToolError.executionFailed(tool: name, message: "Snapshot list is missing checkpoint ids.")
+            }
+            let restored = try await runWorkspaceApiOperation(method: "git.checkpoints.restore", threadId: threadId, params: ["expectedRoot": .string(root), "checkpointId": .string(target), "confirm": .bool(true)], tool: name, timeoutSeconds: 120, runtime: runtime)
+            return .object(["restoredId": .string(target), "restore": restored])
+        case "safe_validate_changes":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            var issues: [[String: JSONValue]] = []
+            if let path = optionalString(arguments, "path") {
+                let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+                issues.append(contentsOf: Self.validateContent(path: path, content: document.content))
+            } else {
+                let hits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: "^(<{7}|={7}|>{7})", limit: 200)
+                var files: [String] = []
+                for hit in hits where !files.contains(hit.path) {
+                    files.append(hit.path)
+                }
+                for path in files {
+                    let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+                    issues.append(contentsOf: Self.validateContent(path: path, content: document.content))
+                }
+            }
+            return .object(["issues": .array(issues.map { .object($0) }), "count": .int(Int64(issues.count))])
         default:
             throw SystemToolError.unknownTool(name)
         }
@@ -1296,6 +2270,199 @@ public nonisolated enum SystemToolRegistry {
             "timedOut": .bool(true),
             "output": .string(lastLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)),
         ])
+    }
+
+    private static func requireConfirm(_ arguments: [String: JSONValue], tool: String, message: String) throws {
+        guard let confirm = arguments["confirm"]?.boolValue else {
+            throw SystemToolError.missingArgument(tool: tool, argument: "confirm")
+        }
+        guard confirm else {
+            throw SystemToolError.executionFailed(tool: tool, message: message)
+        }
+    }
+
+    private static func assertFileAbsent(cwd: String, path: String, tool: String) throws {
+        let base = URL(fileURLWithPath: ExternalEditorService.expandedPath(cwd)).standardized
+        let target = base.appendingPathComponent(path).standardized
+        guard target.path.hasPrefix(base.path + "/") else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Path escapes the working directory.")
+        }
+        if FileManager.default.fileExists(atPath: target.path) {
+            throw SystemToolError.executionFailed(tool: tool, message: "A file already exists at that path; use write_file to overwrite it.")
+        }
+    }
+
+    private static func resolveThreadRoot(threadId: String, tool: String, runtime: AgentsRuntimeClient) async throws -> String {
+        if let doc = try? await runtime.engineRPC(method: "threads.read", params: ["threadId": .string(threadId), "itemLimit": .int(0)]),
+           let worktree = doc["worktreePath"]?.stringValue, !worktree.isEmpty {
+            return URL(fileURLWithPath: ExternalEditorService.expandedPath(worktree)).resolvingSymlinksInPath().path
+        }
+        let workspace = try await runtime.fetchWorkspace()
+        guard let thread = workspace.threads.first(where: { $0.id.uuidString.lowercased() == threadId.lowercased() }),
+              let project = workspace.projects.first(where: { $0.id == thread.projectID }) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Could not resolve the thread working directory.")
+        }
+        return URL(fileURLWithPath: ExternalEditorService.expandedPath(project.path)).resolvingSymlinksInPath().path
+    }
+
+    private static func threadHead(threadId: String, tool: String, runtime: AgentsRuntimeClient) async throws -> String {
+        let log = try await runGitOperation(method: "git.log", threadId: threadId, params: ["limit": .int(1)], tool: tool, runtime: runtime)
+        guard let sha = log["commits"]?.arrayValue?.first?["sha"]?.stringValue, !sha.isEmpty else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Could not read the thread HEAD commit.")
+        }
+        return sha
+    }
+
+    private static func runWorkspaceApiOperation(
+        method: String,
+        threadId: String,
+        params: [String: JSONValue],
+        tool: String,
+        timeoutSeconds: Int,
+        runtime: AgentsRuntimeClient
+    ) async throws -> JSONValue {
+        var startParams = params
+        startParams["threadId"] = .string(threadId)
+        let started = try await runtime.engineRPC(method: method, params: startParams)
+        guard let operationId = started["operationId"]?.stringValue else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Workspace operation did not return an operationId.")
+        }
+        let deadline = Date().addingTimeInterval(TimeInterval(timeoutSeconds))
+        while Date() < deadline {
+            let polled = try await runtime.engineRPC(
+                method: "git.workspace.result",
+                params: ["operationId": .string(operationId), "threadId": .string(threadId)]
+            )
+            if polled["ready"]?.boolValue == true {
+                let result = polled["result"] ?? .null
+                if let error = result["error"]?.stringValue, !error.isEmpty {
+                    throw SystemToolError.executionFailed(tool: tool, message: error)
+                }
+                return result
+            }
+            try await Task.sleep(for: .milliseconds(250))
+        }
+        throw SystemToolError.operationTimeout(tool: tool)
+    }
+
+    private static func prMarkdown(log: JSONValue, diff: JSONValue, from: String?, to: String?) -> String {
+        var lines: [String] = ["# PR Summary", ""]
+        if let from, let to {
+            lines.append("Range: \(from) ... \(to)")
+        } else {
+            lines.append("Range: branch against its base")
+        }
+        lines.append("")
+        lines.append("## Commits")
+        let commits = log["commits"]?.arrayValue ?? []
+        if commits.isEmpty {
+            lines.append("No commits.")
+        } else {
+            for commit in commits {
+                let sha = commit["sha"]?.stringValue ?? ""
+                let subject = commit["subject"]?.stringValue ?? ""
+                let author = commit["authorName"]?.stringValue ?? ""
+                lines.append("- \(String(sha.prefix(8))) \(subject) (\(author))")
+            }
+        }
+        lines.append("")
+        lines.append("## Files Changed")
+        let files = diff["files"]?.arrayValue ?? diff["numstat"]?.arrayValue ?? []
+        if files.isEmpty {
+            lines.append("No files changed.")
+        } else {
+            for file in files {
+                let path = file["path"]?.stringValue ?? ""
+                let additions = file["additions"]?.intValue ?? 0
+                let deletions = file["deletions"]?.intValue ?? 0
+                lines.append("- \(path) (+\(additions)/-\(deletions))")
+            }
+        }
+        let patch = diff["diff"]?.stringValue ?? diff["patch"]?.stringValue ?? ""
+        if !patch.isEmpty {
+            lines.append("")
+            lines.append("## Diff")
+            lines.append("```diff")
+            if patch.count > 50000 {
+                lines.append(String(patch.prefix(50000)))
+                lines.append("... (diff truncated)")
+            } else {
+                lines.append(patch)
+            }
+            lines.append("```")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func resolveConflicts(content: String, strategy: String, tool: String) throws -> (String, Int) {
+        guard strategy == "ours" || strategy == "theirs" || strategy == "both" else {
+            throw SystemToolError.executionFailed(tool: tool, message: "git_conflict_resolver strategy must be ours, theirs, or both.")
+        }
+        var output: [String] = []
+        var ours: [String] = []
+        var theirs: [String] = []
+        var state = 0
+        var hunks = 0
+        for line in content.components(separatedBy: "\n") {
+            if line.hasPrefix("<<<<<<<") {
+                guard state == 0 else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Nested conflict marker in file.")
+                }
+                state = 1
+                ours = []
+                theirs = []
+                hunks += 1
+                continue
+            }
+            if line == "=======" {
+                guard state == 1 else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Conflict separator without an opening marker.")
+                }
+                state = 2
+                continue
+            }
+            if line.hasPrefix(">>>>>>>") {
+                guard state == 2 else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Conflict end marker without an opening marker.")
+                }
+                state = 0
+                if strategy == "ours" || strategy == "both" {
+                    output.append(contentsOf: ours)
+                }
+                if strategy == "theirs" || strategy == "both" {
+                    output.append(contentsOf: theirs)
+                }
+                continue
+            }
+            if state == 1 {
+                ours.append(line)
+            } else if state == 2 {
+                theirs.append(line)
+            } else {
+                output.append(line)
+            }
+        }
+        guard state == 0 else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Unclosed conflict marker in file.")
+        }
+        guard hunks > 0 else {
+            throw SystemToolError.executionFailed(tool: tool, message: "No conflict markers found in file.")
+        }
+        return (output.joined(separator: "\n"), hunks)
+    }
+
+    private static func validateContent(path: String, content: String) -> [[String: JSONValue]] {
+        var issues: [[String: JSONValue]] = []
+        let lines = content.components(separatedBy: "\n")
+        for (index, line) in lines.enumerated() {
+            if line.hasPrefix("<<<<<<<") || line.hasPrefix(">>>>>>>") || line == "=======" {
+                issues.append(["path": .string(path), "line": .int(Int64(index + 1)), "issue": .string("Merge conflict marker: \(line)")])
+            }
+        }
+        if !content.isEmpty && !content.hasSuffix("\n") {
+            issues.append(["path": .string(path), "line": .int(Int64(lines.count)), "issue": .string("File does not end with a trailing newline.")])
+        }
+        return issues
     }
 
     private static func requiredString(_ arguments: [String: JSONValue], _ name: String, tool: String) throws -> String {

@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 65 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 107 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -51,9 +51,9 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
 
-## The 65-tool registry
+## The 107-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 65 tools, 42 distinct actions: several tools share one action (`computer_use.request` x20, `terminal.create` x3, `workspace.edit_file` x2, `git.actions.run` x2).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 107 tools, 51 distinct actions: several tools share one action (`computer_use.request` x21, `terminal.create` x5, `workspace.write_file` x5, `workspace.edit_file` x4, `workspace.read_dir` x4, `workspace.search_regex` x3, `git.log` x3, `git.actions.run` x2, `workspace.read_file` x2, `workspace.move_file` x2, `git.diff.range` x2, `git.diff` x2, `git.branches.list` x2, `git.checkpoints.restore` x2, `workers.spawn` x2, `memory.store` x2, plus the remaining single-tool file aliases).
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -122,6 +122,74 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `invoke_menu` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
 | `launch_app` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
 | `set_window_frame` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `file_read` | `workspace.read_file` | desktop | FFI `workspace.read_file` arm -> `coincide_core::workspace_tools::read_file` (alias of `read_file`) |
+| `view_file` | `workspace.read_file` | desktop | Same as `file_read` |
+| `file_write` | `workspace.write_file` | desktop | FFI `workspace.write_file` arm -> `coincide_core::workspace_tools::write_file` (alias of `write_file`) |
+| `create_file` | `workspace.write_file` | desktop | Refuses when the file exists; otherwise FFI `workspace.write_file` arm |
+| `file_create` | `workspace.write_file` | desktop | Same as `create_file` |
+| `file_append` | `workspace.write_file` | desktop | Read + write composition through the FFI `workspace.read_file` / `workspace.write_file` arms; a missing file is an error |
+| `file_delete` | `workspace.delete_file` | desktop | FFI `workspace.delete_file` arm -> `coincide_core::workspace_tools::delete_file` (alias of `delete_file`) |
+| `dir_delete` | `workspace.delete_directory` | desktop | FFI `workspace.delete_directory` arm -> `coincide_core::workspace_tools::delete_directory` (alias of `delete_directory`) |
+| `file_move` | `workspace.move_file` | desktop | FFI `workspace.move_file` arm -> `coincide_core::workspace_tools::move_file` (alias of `move_file`) |
+| `file_rename` | `workspace.move_file` | desktop | FFI `workspace.move_file` arm with a same-directory destination; `newName` must be a single file name, not a path |
+| `file_copy` | `workspace.copy_file` | desktop | FFI `workspace.copy_file` arm -> `coincide_core::workspace_tools::copy_file` (alias of `copy_file`) |
+| `dir_create` | `workspace.create_dir` | desktop | FFI `workspace.create_dir` arm -> `coincide_core::workspace_tools::create_dir` (alias of `create_directory`) |
+| `dir_read` | `workspace.read_dir` | desktop | FFI `workspace.read_dir` arm -> `coincide_core::workspace_tools::read_dir`, non-recursive (alias of `read_directory`) |
+| `list_directory` | `workspace.read_dir` | desktop | FFI `workspace.read_dir` arm -> `coincide_core::workspace_tools::read_dir` (alias of `read_directory`) |
+| `tree_view` | `workspace.read_dir` | desktop | FFI `workspace.read_dir` arm -> `coincide_core::workspace_tools::read_dir`, recursive, depth-filtered client-side by `maxDepth` |
+| `search_directory` | `workspace.files` | desktop | FFI `workspace.files` arm -> `coincide_core::workspace_tools::files` (alias of `list_files`) |
+| `search_text` | `workspace.search` | desktop | FFI `workspace.search` arm -> `coincide_core::workspace_tools::search` (alias of `search_files`) |
+| `code_replace` | `workspace.edit_file` | desktop | FFI `workspace.edit_file` arm -> `coincide_core::workspace_tools::edit_file` (exactly-once anchor), or read + write when `allowMultiple` is true |
+| `code_insert` | `workspace.write_file` | desktop | Read + write composition through the FFI `workspace.read_file` / `workspace.write_file` arms; `line` / `before` / `after` modes |
+| `code_multi_edit` | `workspace.edit_file` | desktop | FFI `workspace.edit_file` arm -> `coincide_core::workspace_tools::edit_file` with `edits` (alias of `multi_edit_file`) |
+| `use_terminal` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `run_command` | `terminal.create` | engine | Same as `use_terminal` |
+| `git_log_viewer` | `git.log` | engine | Engine `git.log`, async workspace channel polled via `workspace.result` |
+| `git_branch_compare` | `git.diff.range` | engine | Engine `git.diff.range`, async workspace channel polled via `workspace.result` |
+| `project_diff` | `git.diff` | engine | Engine `git.diff`, async workspace channel polled via `workspace.result` |
+| `git_branch_manager` | `git.branches.list` | engine | Dispatches on `action`: list/create/checkout/delete via Engine `git.branches.*`, polled via `git.actions.result`; delete requires `confirm=true` |
+| `save_to_memory` | `memory.store` | engine | Engine RPC `memory.store` on the live engine |
+| `use_mcp` | `mcp.tools` | engine | Meta-tool over the live registry: `list` / `list_tools` / recursive `SystemToolRegistry.execute`; only the `coincide` server exists |
+| `take_screenshot` | `computer_use.request` | engine | Engine `computer_use.request` (`get_desktop_state` with `include_screenshot`), polled via `computer_use.result`; FFI Pump drains it into the native macOS executor |
+| `start_subagent` | `workers.spawn` | engine | Engine RPC `workers.spawn` on the live engine (alias of `use_workers`) |
+| `git_stash_operator` | `git.stash` | engine | Engine `git.stash` (`workspace_git::stash` on the hardened `git()` runner), polled via `workspace.result`; pop/drop require `confirm=true` |
+| `git_blame_inspector` | `git.blame` | engine | Engine `git.blame` (`git blame --line-porcelain`), polled via `workspace.result` |
+| `git_bisect` | `git.bisect` | engine | Engine `git.bisect` (start/good/bad/skip/reset/log), polled via `workspace.result` |
+| `git_cherry_pick` | `git.cherry_pick` | engine | Engine `git.cherry_pick` (SHA-validated), polled via `workspace.result`; requires `confirm=true`; conflicts are reported, never auto-aborted |
+| `version_control_operator` | `git.rollback` | engine | Dispatches on `action`: status/diff/commit/branch via the existing engines, rollback via Engine `git.rollback`; rollback requires `confirm=true` and only accepts `HEAD`, `HEAD~N`, `HEAD^N`, or a full OID |
+| `git_pr_summary` | `git.log` | engine | Swift composition of Engine `git.log` + `git.diff.range` / `git.diff.branch`, markdown out |
+| `git_conflict_resolver` | `workspace.search_regex` | desktop | Swift composition: `workspace.search_regex` for `<<<<<<<` / `=======` / `>>>>>>>`, read + write to resolve |
+| `project_snapshot` | `git.checkpoints.create` | engine | Engine `git.checkpoints.create` via the workspace API (`git.workspace.result`); returns the snapshot `id` |
+| `project_changelog` | `git.checkpoints.list` | engine | Engine `git.checkpoints.list` via the workspace API; the list returns only `id` + `commit`, the label lives in the commit message |
+| `project_restore` | `git.checkpoints.restore` | engine | Engine `git.checkpoints.restore` via the workspace API; `reset --hard` + `clean -fdx`; requires `confirm=true` |
+| `safe_undo` | `git.checkpoints.restore` | engine | Swift composition: list snapshots, restore the second-newest; requires `confirm=true` and at least two snapshots |
+| `safe_validate_changes` | `workspace.search_regex` | desktop | Swift-only scan: merge markers + missing trailing newline via `workspace.search_regex` / `workspace.read_file` |
+
+### Slice 10: Git completion, snapshots, and aliases
+
+- `workspace_git.rs` constraint amendment: the module header used to forbid
+  checkout, reset, and clean. `reset --hard` and `clean -fdx` are now allowed
+  ONLY inside the named, confirmation-gated functions `rollback` and
+  `restore_checkpoint`. Checkout, worktree removal, network access, and user
+  hooks remain excluded.
+- `edit_file` was already registered, so it is not registered twice. The 30th
+  new alias is `file_append` (catalog File Operations entry: append, missing
+  file is an error), keeping the registry at 107 tools with 51 distinct
+  actions.
+- Destructive operations require `confirm=true` in both the Swift registry
+  (refused before any engine call) and the Rust engine (backstop): rollback,
+  cherry-pick, stash pop/drop, branch delete (`-d` and `-D`), checkpoint
+  restore, and `safe_undo`. `git_bisect` does not require confirmation: it
+  moves HEAD but is recoverable with `bisect reset`.
+- `project_restore` resets the branch to the checkpoint commit and removes
+  untracked AND ignored files (`clean -fdx`); there is no tracked-only
+  restore. `project_changelog` returns only snapshot id and commit; the
+  label lives in the checkpoint commit message. `safe_undo` restores the
+  second-newest snapshot (the list is newest-first) and needs at least two
+  snapshots.
+- Manual staged checkpoints now have a Restore button in Inspector › Git,
+  next to Diff, behind the same confirmation pattern as turn-checkpoint
+  restore.
 
 ## The MCP server
 
@@ -141,7 +209,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 65-tool registry, with the same names, descriptions,
+- `tools/list` — the real 107-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -447,8 +515,11 @@ What is enforced for real in this slice:
     conversation to before that turn's user message and restores workspace
     files to the checkpoint, through the real `rewind` call with
     `revertFiles: true`, behind an explicit confirmation that later
-    messages are removed. Manual staged checkpoints have no restore
-    primitive: they keep Diff and Copy only.
+    messages are removed. Manual staged checkpoints have a Restore button
+    too (Slice 10): it calls `git.checkpoints.restore` through the
+    workspace API behind the same confirmation pattern, and it resets the
+    working tree with `reset --hard` plus `clean -fdx`, so untracked and
+    ignored files are removed as well.
   - File delete/rename in the Files inspector uses Slice 1's real FFI
     actions (`workspace.delete_file`, `workspace.delete_directory`,
     `workspace.move_file`) with a confirmation dialog for delete; a
@@ -459,32 +530,43 @@ What is enforced for real in this slice:
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 6, 65 tools are real. These catalog tools are NOT
+registry. After slice 10, 107 tools are real. These catalog tools are NOT
 implemented, and why:
 
-- Memory (`save_to_memory`, `manage_memory`, `conversation_context_manager`):
-  not registered as separate tools. `save_to_memory` and `manage_memory`
-  describe writing to a `UserMemory.md` file, which does not exist in this
-  repo; their real function is covered by `mem_store`, `mem_delete`, and
-  `mem_clear` against the SQLite memory store. `conversation_context_manager`
-  describes a per-conversation context file; no such file backend exists,
-  so it is unavailable. `mem_store`, `mem_retrieve`, `mem_clear`,
-  `mem_context_snapshot`, `context_persistence_store`, and `view_memory`
-  are real — see the Enforcement boundary above.
-- Workers (`start_subagent`): Cloud-mode only; there is no cloud runtime
-  here, so it is unavailable. `use_workers` is real — see the Enforcement
-  boundary above — as are `intel_plan_task`, `intel_breakdown_task`, and
-  `execution_plan` in their honest mechanical form. `list_workers`,
-  `worker_status`, `worker_result`, and `cancel_worker` have no catalog IDs;
-  they are the lifecycle tools this slice added so the parent can observe
-  and collect workers through tool calls.
-- Computer use (`use_app`, `take_screenshot`, `take_screenrecord`): those
-  IDs do not exist in the engine catalog. The real 20 catalog tools are
-  wired — see the Enforcement boundary above. `take_screenrecord` needs a
-  whole new ScreenCaptureKit recorder and is unavailable.
+- Memory (`manage_memory`, `conversation_context_manager`):
+  not registered as separate tools. `save_to_memory` is now real as
+  `memory.store`. `manage_memory` describes writing to a `UserMemory.md`
+  file, which does not exist in this repo; its real function is covered by
+  `mem_store`, `mem_delete`, and `mem_clear` against the SQLite memory
+  store. `conversation_context_manager` describes a per-conversation
+  context file; no such file backend exists, so it is unavailable.
+  `mem_store`, `mem_retrieve`, `mem_clear`, `mem_context_snapshot`,
+  `context_persistence_store`, and `view_memory` are real — see the
+  Enforcement boundary above.
+- Workers: `start_subagent` is now real as `workers.spawn` (alias of
+  `use_workers`). There is no separate cloud runtime; `use_workers` is
+  real — see the Enforcement boundary above — as are `intel_plan_task`,
+  `intel_breakdown_task`, and `execution_plan` in their honest mechanical
+  form. `list_workers`, `worker_status`, `worker_result`, and
+  `cancel_worker` have no catalog IDs; they are the lifecycle tools this
+  slice added so the parent can observe and collect workers through tool
+  calls.
+- Computer use (`use_app`, `take_screenrecord`): `take_screenshot` is now
+  real as `computer_use.request` (`get_desktop_state` with
+  `include_screenshot`). `use_app` has no engine tool. The real 21
+  computer-use tools are wired — see the Enforcement boundary above.
+  `take_screenrecord` needs a whole new ScreenCaptureKit recorder and is
+  unavailable.
 - Artboards ×8, `use_extension`, `reverse_analyze`, `use_composio`,
-  `search_skills`, `report_to_user`: whole subsystems or external services
-  that do not exist in this repo. Out of scope for the 10-hour program.
+  `report_to_user`: whole subsystems or external services that do not
+  exist in this repo. Out of scope for the 10-hour program.
+  `search_skills` is not a registered tool either: the catalog's indexed
+  skills library does not exist in this repo. What exists is the composer
+  `$` skills picker (`composer_suggestions.rs`, skills reported by agent
+  sessions) and the SystemAssets `Skills.md` discovery discipline; the
+  catalog function is reachable by `search_text` / `file_read` composition
+  over workspace `SKILL.md` files, but there is no skills-library backend,
+  so it is not claimed as implemented.
 - LLM tools (`intel_autofix`, `intel_generate_tests`, `intel_explain_code`,
   `code_review`, `task_runner`): there is no LLM client in the core. Out of
   scope.
@@ -492,17 +574,17 @@ implemented, and why:
   no pbxproj writer exists anywhere; `file_write` does not register files
   in Xcode projects. This is the riskiest missing primitive; it is not
   faked here.
-- Git gaps: `git_log_viewer` is now real as `git.log` / `git.show`, and
-  `git_branch_compare` is now real as `git.diff.range` plus the branch scope
-  — see the Enforcement boundary above. Still missing, with no engine
-  method and nothing faked: `git_stash_operator` (no stash primitive exists
-  in either git layer, and `workspace_git.rs` explicitly excludes
-  reset/clean), rollback/reset-hard, `git_blame_inspector`, `git_bisect`,
-  `git_cherry_pick`. Switching to another existing worktree is also not
-  available: the engine has `git.worktrees.useExisting`, but the Swift
-  checkout action enum exposes only local/new/previous worktrees, so the
-  Worktrees card is a read-only list until that action is wired.
-- Everything else in the catalog (~240 IDs) stays PARTIAL: reachable in
+- Git gaps: `git_stash_operator`, `git_blame_inspector`, `git_bisect`,
+  `git_cherry_pick`, and rollback (through `version_control_operator`) are
+  now real engine methods, and `git_log_viewer` is real as `git.log` /
+  `git.show`, `git_branch_compare` as `git.diff.range` plus the branch
+  scope, and `git_branch_manager` delete as `git.branches.delete` — see
+  the registry table above. Still missing, with no engine method and
+  nothing faked: switching to another existing worktree. The engine has
+  `git.worktrees.useExisting`, but the Swift checkout action enum exposes
+  only local/new/previous worktrees, so the Worktrees card is a read-only
+  list until that action is wired.
+- Everything else in the catalog (~247 IDs) stays PARTIAL: reachable in
   principle via the real terminal RPC or read/write/search composition, but
   not tool-shaped, and not claimed as implemented. In particular the
   heuristic "intelligence" tools (`complexity_analysis`,

@@ -11,6 +11,7 @@ pub(super) const METHODS: &[&str] = &[
     "git.checkpoints.create",
     "git.checkpoints.list",
     "git.checkpoints.diff",
+    "git.checkpoints.restore",
     "git.worktrees.reserve",
     "git.worktrees.list",
     "git.review.diff",
@@ -36,6 +37,7 @@ impl Engine {
         let allowed: &[&str] = match method {
             "git.checkpoints.create" => &["threadId", "expectedRoot", "expectedHead", "label"],
             "git.checkpoints.diff" => &["threadId", "expectedRoot", "checkpointId"],
+            "git.checkpoints.restore" => &["threadId", "expectedRoot", "checkpointId", "confirm"],
             "git.worktrees.reserve" => &["threadId", "expectedRoot", "base", "name", "branch"],
             "git.review.diff" => &["threadId", "expectedRoot", "scope", "ignoreWhitespace"],
             "git.workspace.result" => &["threadId", "operationId"],
@@ -83,7 +85,10 @@ impl Engine {
             self.workspace_pending.len() < 32,
             "Too many workspace operations; collect results first"
         );
-        let mutating = matches!(method, "git.checkpoints.create" | "git.worktrees.reserve");
+        let mutating = matches!(
+            method,
+            "git.checkpoints.create" | "git.checkpoints.restore" | "git.worktrees.reserve"
+        );
         if mutating {
             ensure!(
                 self.workspace_mutations.is_empty(),
@@ -133,7 +138,7 @@ impl Engine {
         } else {
             None
         };
-        let checkpoint = if method == "git.checkpoints.diff" {
+        let checkpoint = if method == "git.checkpoints.diff" || method == "git.checkpoints.restore" {
             let id = bounded(p, "checkpointId", 36)?;
             ensure!(
                 Uuid::parse_str(id).is_ok_and(|value| value.to_string() == id),
@@ -143,6 +148,12 @@ impl Engine {
         } else {
             None
         };
+        if method == "git.checkpoints.restore" {
+            ensure!(
+                p["confirm"] == true,
+                "Restoring a checkpoint requires confirm=true"
+            );
+        }
         let review = if method == "git.review.diff" {
             Some(workspace_diff::parse_request(p)?)
         } else {
@@ -182,6 +193,11 @@ impl Engine {
                     "git.checkpoints.diff" => workspace_git::checkpoint_diff(
                         &directory,
                         checkpoint.as_deref().context("Missing checkpoint")?,
+                    ),
+                    "git.checkpoints.restore" => workspace_git::restore_checkpoint(
+                        &directory,
+                        checkpoint.as_deref().context("Missing checkpoint")?,
+                        true,
                     ),
                     "git.worktrees.list" => workspace_git::worktrees(&directory),
                     "git.review.diff" => {
