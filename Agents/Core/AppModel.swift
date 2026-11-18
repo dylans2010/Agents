@@ -827,7 +827,7 @@ public final class AppModel {
             await refreshGitState()
         case .schedules:
             await refreshScheduledTasks()
-        case .pullRequests, .files:
+        case .pullRequests, .files, .workers:
             break
         }
     }

@@ -123,6 +123,8 @@ public struct WorkspaceInspectorRootView: View {
             WorkspaceFilesInspectorView(appModel: appModel, refreshToken: manualRefreshToken)
         case .schedules:
             SchedulesInspectorView(appModel: appModel, refreshToken: manualRefreshToken)
+        case .workers:
+            WorkersInspectorView(appModel: appModel, refreshToken: manualRefreshToken)
         }
     }
 
@@ -171,6 +173,8 @@ public struct WorkspaceInspectorRootView: View {
             }
             let activeCount = appModel.scheduledTasks.tasks.filter { !$0.isPaused }.count
             return activeCount > 0 ? "\(activeCount)" : nil
+        case .workers:
+            return nil
         }
     }
 

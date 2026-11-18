@@ -139,7 +139,7 @@ fn tools_list_returns_the_real_registry() {
     initialize(&mut session);
     let response = session.request("tools/list", json!({}));
     let tools = response["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 33);
+    assert_eq!(tools.len(), 41);
     let names: Vec<&str> = tools
         .iter()
         .map(|tool| tool["name"].as_str().unwrap())
@@ -178,6 +178,14 @@ fn tools_list_returns_the_real_registry() {
         "mem_clear",
         "mem_context_snapshot",
         "context_persistence_store",
+        "use_workers",
+        "list_workers",
+        "worker_status",
+        "worker_result",
+        "cancel_worker",
+        "intel_plan_task",
+        "intel_breakdown_task",
+        "execution_plan",
     ] {
         assert!(names.contains(&expected), "tools/list missing {expected}");
     }

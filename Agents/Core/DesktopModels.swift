@@ -1222,6 +1222,95 @@ public nonisolated struct MemoryEntry: Codable, Hashable, Sendable, Identifiable
     }
 }
 
+public nonisolated struct WorkerSpawnRequest: Codable, Hashable, Sendable {
+    public var name: String
+    public var task: String
+    public var targetFiles: [String]
+
+    public init(name: String, task: String, targetFiles: [String]) {
+        self.name = name
+        self.task = task
+        self.targetFiles = targetFiles
+    }
+}
+
+public nonisolated struct WorkerProgress: Codable, Hashable, Sendable {
+    public var stage: String
+    public var transcriptItems: Int
+    public var elapsedSeconds: Double
+
+    public init(stage: String, transcriptItems: Int, elapsedSeconds: Double) {
+        self.stage = stage
+        self.transcriptItems = transcriptItems
+        self.elapsedSeconds = elapsedSeconds
+    }
+}
+
+public nonisolated struct WorkerRecord: Codable, Hashable, Sendable, Identifiable {
+    public var id: String
+    public var name: String
+    public var parentThreadId: String
+    public var threadId: String
+    public var task: String
+    public var provider: String
+    public var targetFiles: [String]
+    public var status: String
+    public var cancelRequested: Bool
+    public var transcriptStart: Int
+    public var transcriptItems: Int
+    public var elapsedSeconds: Double
+    public var createdAt: Double
+    public var startedAt: Double
+    public var completedAt: Double?
+    public var error: String?
+    public var result: String?
+    public var progress: WorkerProgress?
+
+    public var isTerminal: Bool {
+        status == "completed" || status == "failed" || status == "cancelled"
+    }
+
+    public var isRunning: Bool {
+        status == "running"
+    }
+}
+
+public nonisolated struct WorkerPlanStep: Codable, Hashable, Sendable {
+    public var name: String
+    public var task: String
+    public var targetFiles: [String]
+
+    public init(name: String, task: String, targetFiles: [String]) {
+        self.name = name
+        self.task = task
+        self.targetFiles = targetFiles
+    }
+}
+
+public nonisolated struct WorkerPlan: Codable, Hashable, Sendable, Identifiable {
+    public var planId: String
+    public var parentThreadId: String
+    public var task: String
+    public var steps: [WorkerPlanStep]
+    public var createdAt: Double
+    public var objective: String?
+    public var mode: String?
+    public var markdown: String?
+    public var filesListed: Int?
+    public var relevantFiles: Int?
+    public var agentNotesPath: String?
+
+    public var id: String { planId }
+
+    public init(planId: String, parentThreadId: String, task: String, steps: [WorkerPlanStep], createdAt: Double) {
+        self.planId = planId
+        self.parentThreadId = parentThreadId
+        self.task = task
+        self.steps = steps
+        self.createdAt = createdAt
+    }
+}
+
 public nonisolated struct WorkspaceFileEntry: Codable, Hashable, Sendable, Identifiable {
     public var path: String
     public var name: String
@@ -1835,6 +1924,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
     case pullRequests
     case files
     case schedules
+    case workers
 
     public var id: String { rawValue }
 
@@ -1845,6 +1935,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
         case .pullRequests: "Pull Requests"
         case .files: "Files"
         case .schedules: "Schedules"
+        case .workers: "Workers"
         }
     }
 
@@ -1855,6 +1946,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
         case .pullRequests: "arrow.triangle.pull"
         case .files: "folder"
         case .schedules: "calendar.badge.clock"
+        case .workers: "person.2"
         }
     }
 }

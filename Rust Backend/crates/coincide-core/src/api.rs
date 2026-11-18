@@ -21,6 +21,8 @@ use uuid::Uuid;
 mod appshots_api;
 #[path = "checkpoint_api.rs"]
 mod checkpoint_api;
+#[path = "workers_api.rs"]
+mod workers_api;
 #[cfg(test)]
 #[path = "checkpoint_api_tests.rs"]
 mod checkpoint_api_tests;
@@ -608,7 +610,7 @@ impl Engine {
         if poll_before
             && !matches!(
                 method,
-                "agent.queue.pause" | "agent.queue.remove" | "agent.stop"
+                "agent.queue.pause" | "agent.queue.remove" | "agent.stop" | "workers.cancel"
             )
         {
             self.poll();
@@ -678,6 +680,9 @@ impl Engine {
         }
         if checkpoint_api::METHODS.contains(&method) {
             return self.checkpoint_command(method, p);
+        }
+        if workers_api::METHODS.contains(&method) {
+            return self.workers_command(method, p);
         }
         match method {
             "notifications.status" => Ok(self.notification_events.status()),
@@ -959,6 +964,14 @@ impl Engine {
                 methods.push("memory.clear");
                 methods.push("memory.snapshot");
                 methods.push("memory.context_store");
+                methods.push("workers.spawn");
+                methods.push("workers.list");
+                methods.push("workers.status");
+                methods.push("workers.result");
+                methods.push("workers.cancel");
+                methods.push("workers.plan");
+                methods.push("workers.breakdown");
+                methods.push("workers.execution_plan");
                 #[cfg(unix)]
                 methods.extend_from_slice(github_engine::METHODS);
                 #[cfg(unix)]

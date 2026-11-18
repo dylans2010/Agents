@@ -1318,6 +1318,92 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         return try await desktopCall(action: "memory.context_store", params: params, as: JSONValue.self)
     }
 
+    public func spawnWorkers(parentThreadId: String, workers: [WorkerSpawnRequest]) async throws -> JSONValue {
+        let workerValues: [JSONValue] = workers.map { worker in
+            .object([
+                "name": .string(worker.name),
+                "task": .string(worker.task),
+                "targetFiles": .array(worker.targetFiles.map { .string($0) }),
+            ])
+        }
+        return try await desktopCall(
+            action: "workers.spawn",
+            params: [
+                "parentThreadId": .string(parentThreadId),
+                "workers": .array(workerValues),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    private struct WorkerListEnvelope: Decodable {
+        var workers: [WorkerRecord]?
+    }
+
+    public func listWorkers(parentThreadId: String? = nil) async throws -> [WorkerRecord] {
+        var params: [String: JSONValue] = [:]
+        if let parentThreadId {
+            params["parentThreadId"] = .string(parentThreadId)
+        }
+        let env = try await desktopCall(action: "workers.list", params: params, as: WorkerListEnvelope.self)
+        return env.workers ?? []
+    }
+
+    public func workerStatus(workerId: String) async throws -> WorkerRecord {
+        try await desktopCall(
+            action: "workers.status",
+            params: ["workerId": .string(workerId)],
+            as: WorkerRecord.self
+        )
+    }
+
+    public func workerResult(workerId: String) async throws -> WorkerRecord {
+        try await desktopCall(
+            action: "workers.result",
+            params: ["workerId": .string(workerId)],
+            as: WorkerRecord.self
+        )
+    }
+
+    public func cancelWorker(workerId: String) async throws -> WorkerRecord {
+        try await desktopCall(
+            action: "workers.cancel",
+            params: ["workerId": .string(workerId)],
+            as: WorkerRecord.self
+        )
+    }
+
+    public func planTask(parentThreadId: String, task: String) async throws -> WorkerPlan {
+        try await desktopCall(
+            action: "workers.plan",
+            params: [
+                "parentThreadId": .string(parentThreadId),
+                "task": .string(task),
+            ],
+            as: WorkerPlan.self
+        )
+    }
+
+    public func breakdownTask(planId: String, parentThreadId: String? = nil) async throws -> WorkerPlan {
+        var params: [String: JSONValue] = ["planId": .string(planId)]
+        if let parentThreadId {
+            params["parentThreadId"] = .string(parentThreadId)
+        }
+        return try await desktopCall(action: "workers.breakdown", params: params, as: WorkerPlan.self)
+    }
+
+    public func executionPlan(parentThreadId: String, objective: String, mode: String) async throws -> WorkerPlan {
+        try await desktopCall(
+            action: "workers.execution_plan",
+            params: [
+                "parentThreadId": .string(parentThreadId),
+                "objective": .string(objective),
+                "mode": .string(mode),
+            ],
+            as: WorkerPlan.self
+        )
+    }
+
     // 5. Agent Instruction Files
     private struct InstructionsListEnvelope: Decodable {
         var global: [InstructionFileDescriptor]?

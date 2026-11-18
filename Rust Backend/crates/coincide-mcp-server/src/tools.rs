@@ -613,6 +613,140 @@ pub static DEFINITIONS: &[ToolDef] = &[
             },
         ],
     },
+    ToolDef {
+        name: "use_workers",
+        description: "Spawn one or more subagent workers on the parent thread. Each worker runs a real provider turn on its own thread; worker names must be unique and targetFiles must be disjoint across workers.",
+        action: "workers.spawn",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "parentThreadId",
+                kind: "string",
+                required: true,
+                description: "Parent thread ID that owns the workers.",
+            },
+            ToolParam {
+                name: "workers",
+                kind: "array",
+                required: true,
+                description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "list_workers",
+        description: "List workers spawned by a parent thread, with live status and progress.",
+        action: "workers.list",
+        channel: "desktop",
+        params: &[ToolParam {
+            name: "parentThreadId",
+            kind: "string",
+            required: false,
+            description: "Parent thread ID; lists every worker when omitted.",
+        }],
+    },
+    ToolDef {
+        name: "worker_status",
+        description: "Read one worker's live status, progress, and result if finished.",
+        action: "workers.status",
+        channel: "desktop",
+        params: &[ToolParam {
+            name: "workerId",
+            kind: "string",
+            required: true,
+            description: "Worker ID from use_workers or list_workers.",
+        }],
+    },
+    ToolDef {
+        name: "worker_result",
+        description: "Read one worker's result. Returns the worker record; result is null until the worker completes.",
+        action: "workers.result",
+        channel: "desktop",
+        params: &[ToolParam {
+            name: "workerId",
+            kind: "string",
+            required: true,
+            description: "Worker ID from use_workers or list_workers.",
+        }],
+    },
+    ToolDef {
+        name: "cancel_worker",
+        description: "Ask a running worker's provider turn to stop and mark the worker cancelled. Cancellation is a stop request, not a kill: the provider winds down on its own schedule.",
+        action: "workers.cancel",
+        channel: "desktop",
+        params: &[ToolParam {
+            name: "workerId",
+            kind: "string",
+            required: true,
+            description: "Worker ID from use_workers or list_workers.",
+        }],
+    },
+    ToolDef {
+        name: "intel_plan_task",
+        description: "Draft a plan for a complex task as worker steps. Mechanical sentence decomposition, not LLM planning; each step still needs disjoint targetFiles assigned before spawning.",
+        action: "workers.plan",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "parentThreadId",
+                kind: "string",
+                required: true,
+                description: "Parent thread ID that owns the plan.",
+            },
+            ToolParam {
+                name: "task",
+                kind: "string",
+                required: true,
+                description: "Task to decompose into worker steps.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "intel_breakdown_task",
+        description: "Expand a stored plan's steps into granular sub-steps by mechanical splitting. Requires a planId from intel_plan_task.",
+        action: "workers.breakdown",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "planId",
+                kind: "string",
+                required: true,
+                description: "Plan ID from intel_plan_task.",
+            },
+            ToolParam {
+                name: "parentThreadId",
+                kind: "string",
+                required: false,
+                description: "Parent thread ID the plan must belong to.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "execution_plan",
+        description: "Build an execution plan from the objective and live repository state, and write it to agent_notes.md in the parent working directory. The plan is a fixed mechanical template, not completed work.",
+        action: "workers.execution_plan",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "parentThreadId",
+                kind: "string",
+                required: true,
+                description: "Parent thread ID that owns the plan.",
+            },
+            ToolParam {
+                name: "objective",
+                kind: "string",
+                required: true,
+                description: "Objective to plan, at most 500 characters.",
+            },
+            ToolParam {
+                name: "mode",
+                kind: "string",
+                required: true,
+                description: "Plan mode, for example build.",
+            },
+        ],
+    },
 ];
 
 pub fn definition(name: &str) -> Option<&'static ToolDef> {
@@ -1025,8 +1159,38 @@ pub fn call(
             }
             engine_request(state, "memory.clear", args)
         }
+        "use_workers" | "intel_plan_task" | "execution_plan" => {
+            let method = match name {
+                "use_workers" => "workers.spawn",
+                "intel_plan_task" => "workers.plan",
+                _ => "workers.execution_plan",
+            };
+            let args = default_parent_thread(state, args);
+            engine_request(state, method, args)
+        }
+        "list_workers" | "worker_status" | "worker_result" | "cancel_worker" => {
+            let method = match name {
+                "list_workers" => "workers.list",
+                "worker_status" => "workers.status",
+                "worker_result" => "workers.result",
+                _ => "workers.cancel",
+            };
+            engine_request(state, method, args)
+        }
+        "intel_breakdown_task" => engine_request(state, "workers.breakdown", args),
         _ => Err(CallError::UnknownTool(name.to_owned())),
     }
+}
+
+fn default_parent_thread(state: &crate::ServerState, mut args: Value) -> Value {
+    if let Some(object) = args.as_object_mut() {
+        if !object.contains_key("parentThreadId") {
+            if let Some(thread_id) = &state.thread_id {
+                object.insert("parentThreadId".to_owned(), json!(thread_id));
+            }
+        }
+    }
+    args
 }
 
 #[cfg(test)]
@@ -1132,7 +1296,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 33, "Swift registry must hold 33 tools");
+        assert_eq!(swift.len(), 41, "Swift registry must hold 41 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");

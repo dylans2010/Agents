@@ -23,6 +23,7 @@ pub mod workspace_diff;
 
 pub mod inspector_preferences;
 pub mod memory_store;
+pub mod worker_store;
 pub mod message_queue;
 pub mod palette_search;
 pub mod schedule_presentation;

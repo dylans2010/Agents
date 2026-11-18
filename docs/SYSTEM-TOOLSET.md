@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 33 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 41 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -96,12 +96,15 @@ responses. Protocol version `2025-03-26`.
 Desktop-channel tools (file read/write/edit/delete/move/copy, search literal
 and regex, directory listing/creation) call the same core functions the FFI
 uses (`coincide_core::workspace_tools`, moved there from the FFI so both
-callers share one implementation). Engine-channel tools (terminal, git,
+callers share one implementation). Desktop-channel tools that are engine
+methods (memory, workers) and engine-channel tools (terminal, git,
 build/test) go over the control socket
 (`<data_dir>/control.sock`) to the LIVE engine — no second Engine, no
 shared-store hazard — replicating the Swift registry's polling loops
 (`workspace.result` for git status/diff, `git.actions.result` for git
-actions, the `__AGENTS_TOOL_DONE__:$?` sentinel for build/test). A tool call
+actions, the `__AGENTS_TOOL_DONE__:$?` sentinel for build/test). Worker
+spawn/plan calls that omit `parentThreadId` default to the session thread id.
+A tool call
 with no engine reachable returns a real error, never a fake success.
 
 The server is spawned with `--cwd <thread workspace>`, `--thread-id <id>`,
@@ -125,7 +128,7 @@ What is enforced for real in this slice:
 
 - The system prompt is delivered as a genuine developer/system instruction
   for Codex and Claude, never as user text.
-- `SystemToolRegistry` (Swift) registers exactly thirty-three tools, each mapped to a
+- `SystemToolRegistry` (Swift) registers exactly forty-one tools, each mapped to a
   real core action that was verified against the FFI dispatch:
   `workspace.read_file`, `workspace.write_file`, `workspace.files`,
   `workspace.search` (synchronous desktop actions) and `terminal.create`,
@@ -208,12 +211,90 @@ What is enforced for real in this slice:
       values, deletes per entry, and clears a scope only after an explicit
       confirmation toggle. Everything reads the real store through the FFI
       `memory.*` actions.
+  - Workers, as engine methods `workers.spawn` / `workers.list` /
+    `workers.status` / `workers.result` / `workers.cancel` / `workers.plan` /
+    `workers.breakdown` / `workers.execution_plan` (`use_workers`,
+    `list_workers`, `worker_status`, `worker_result`, `cancel_worker`,
+    `intel_plan_task`, `intel_breakdown_task`, `execution_plan`). Slice 4
+    added eight, all real:
+    - Worker design: a worker is a real provider turn on its own thread, not
+      a second worker system. `workers.spawn` creates a child thread with
+      `threads.create`, copying the parent's project, working directory,
+      provider selection, access mode, interaction mode, system prompt, and
+      toolset, then starts the turn with `agent.send` carrying the worker's
+      task (at most 500 characters, per the catalog) plus its target files.
+      The worker record lives in the same SQLite `documents` table as
+      memory, under `workers.json`
+      (`coincide-core/src/worker_store.rs`): id, name, parent thread id,
+      child thread id, task, provider, target files, status, cancel flag,
+      transcript start index, transcript item count, elapsed seconds,
+      created/completed timestamps, error, and the cached result. Records
+      survive restarts; the Rust and Swift round-trip tests reopen the
+      store and read plans back.
+    - Validation, per the catalog: worker names are unique among a parent's
+      running workers, tasks are at most 500 characters, and `targetFiles`
+      must be disjoint across a parent's running workers and within one
+      `use_workers` batch. A batch may spawn at most 32 workers, and a
+      parent may have at most 32 running workers. A spawn on a thread using
+      a named Codex profile is refused: a per-thread system prompt cannot
+      ride a named profile session. If the turn fails to start after the
+      child thread is created, the spawn fails and the empty child thread
+      remains as an ordinary thread; no worker record is written.
+    - Lifecycle and progress: status is refreshed on every list/status/
+      result call from the real engine state, never from a timer. A worker
+      is `running` while its child thread is in the engine's run table.
+      When the run is gone, the outcome comes from the engine's turn
+      results (`completed` / `failed` / `interrupted`), falling back to
+      the child transcript: assistant items after the spawn point mean
+      completed, an `error` item means failed. The result is the joined
+      text of the worker's assistant transcript items after the spawn
+      point, read from the real thread document — the parent collects it
+      with `worker_result`. `progress` is a stage marker, not a completion
+      percentage: stage (`running` / `completed` / `failed` / `cancelled`),
+      transcript item count since spawn, and elapsed seconds. There is no
+      per-turn percent anywhere in the engine, so none is reported.
+    - Cancellation, honestly: `cancel_worker` sends the same
+      `Control::Stop` the Stop button sends (`agent.stop` /
+      `request_provider_stop`) to the worker's provider turn, then marks
+      the record `cancelled` and stops polling it. That is a stop request,
+      not a kill: the provider winds down on its own schedule, and the
+      record stays cancelled even if the transcript gains a late item.
+      There is no safe cancellation protocol for background jobs
+      (`background_workers.rs` says so explicitly), and no worker cancel
+      claims one. Grok is the one provider whose stop kills the process
+      tree; the others interrupt the turn. Cancelling a worker that already
+      finished is a no-op returning the terminal record.
+    - Restart edge: turn results are session-only. A worker whose turn
+      finished in an earlier engine session is recovered from its
+      transcript (assistant items mean completed, an error item means
+      failed). A worker with no outcome and no transcript growth after a
+      restart is reported `failed` with the restart stated as the reason.
+    - Plans are a mechanical decomposition, not LLM planning, per the
+      catalog's own Known Limitations. `intel_plan_task` splits the task
+      into sentences, packs them into steps of at most 500 characters (at
+      most 16 steps), and stores the plan under `workers.json`.
+      `intel_breakdown_task` expands each step by splitting on `;`, then
+      `, `, capped at 3 sub-steps per step; a step with no separators stays
+      one step. A plan is a list of worker tasks the parent can spawn: each
+      step carries an empty `targetFiles` until the parent assigns disjoint
+      files. `execution_plan` builds the same mechanical plan, counts
+      listed files in the parent working directory (git-tracked plus
+      untracked, via `git ls-files`) and how many match objective keywords,
+      and writes the plan markdown to `agent_notes.md` in that directory.
+      The counts are listed files, not inspected files.
+    - UI: Inspector › Workers lists workers for the current thread or all
+      workers, with live status, provider, elapsed time, and update count;
+      a spawn form (name, task with a 500-character counter, comma-separated
+      target files); per-worker detail with the real result or error and a
+      cancel button; and a plan form (draft plan, expand steps, execution
+      plan). Everything reads the real store through the FFI `workers.*`
+      actions; there is no mock data anywhere in the view.
   No Qwen tool is imported: `AvailableTools.md` describes Qwen's tools, not this repo's.
 
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 3, 33 tools are real. These catalog tools are NOT
+registry. After slice 4, 41 tools are real. These catalog tools are NOT
 implemented, and why:
 
 - Memory (`save_to_memory`, `manage_memory`, `conversation_context_manager`):
@@ -225,9 +306,13 @@ implemented, and why:
   so it is unavailable. `mem_store`, `mem_retrieve`, `mem_clear`,
   `mem_context_snapshot`, `context_persistence_store`, and `view_memory`
   are real — see the Enforcement boundary above.
-- Workers (`use_workers`, `start_subagent`) and plans
-  (`intel_plan_task`, `intel_breakdown_task`, `execution_plan`): no
-  worker-spawn or plan-store API exists. Slice 5 owns this.
+- Workers (`start_subagent`): Cloud-mode only; there is no cloud runtime
+  here, so it is unavailable. `use_workers` is real — see the Enforcement
+  boundary above — as are `intel_plan_task`, `intel_breakdown_task`, and
+  `execution_plan` in their honest mechanical form. `list_workers`,
+  `worker_status`, `worker_result`, and `cancel_worker` have no catalog IDs;
+  they are the lifecycle tools this slice added so the parent can observe
+  and collect workers through tool calls.
 - Computer use (`use_app`, `take_screenshot`): the core broker and typed
   tool catalog exist, but no native executor is wired into the Swift app's
   FFI. `take_screenrecord` needs a whole new ScreenCaptureKit recorder.

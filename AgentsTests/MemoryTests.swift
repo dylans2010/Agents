@@ -16,7 +16,7 @@ struct MemoryTests {
     @Test("Memory tools register with their real backend actions")
     func memoryToolsRegister() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 33)
+        #expect(tools.count == 41)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let expected: [(String, String)] = [
             ("mem_store", "memory.store"),

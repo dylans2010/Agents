@@ -407,6 +407,83 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
             ]
         ),
+        SystemToolDefinition(
+            name: "use_workers",
+            description: "Spawn one or more subagent workers on the parent thread. Each worker runs a real provider turn on its own thread; worker names must be unique and targetFiles must be disjoint across workers.",
+            action: "workers.spawn",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the workers."),
+                SystemToolParameter(name: "workers", type: "array", required: true, description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "list_workers",
+            description: "List workers spawned by a parent thread, with live status and progress.",
+            action: "workers.list",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "parentThreadId", type: "string", required: false, description: "Parent thread ID; lists every worker when omitted."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "worker_status",
+            description: "Read one worker's live status, progress, and result if finished.",
+            action: "workers.status",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "workerId", type: "string", required: true, description: "Worker ID from use_workers or list_workers."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "worker_result",
+            description: "Read one worker's result. Returns the worker record; result is null until the worker completes.",
+            action: "workers.result",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "workerId", type: "string", required: true, description: "Worker ID from use_workers or list_workers."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "cancel_worker",
+            description: "Ask a running worker's provider turn to stop and mark the worker cancelled. Cancellation is a stop request, not a kill: the provider winds down on its own schedule.",
+            action: "workers.cancel",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "workerId", type: "string", required: true, description: "Worker ID from use_workers or list_workers."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "intel_plan_task",
+            description: "Draft a plan for a complex task as worker steps. Mechanical sentence decomposition, not LLM planning; each step still needs disjoint targetFiles assigned before spawning.",
+            action: "workers.plan",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the plan."),
+                SystemToolParameter(name: "task", type: "string", required: true, description: "Task to decompose into worker steps."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "intel_breakdown_task",
+            description: "Expand a stored plan's steps into granular sub-steps by mechanical splitting. Requires a planId from intel_plan_task.",
+            action: "workers.breakdown",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "planId", type: "string", required: true, description: "Plan ID from intel_plan_task."),
+                SystemToolParameter(name: "parentThreadId", type: "string", required: false, description: "Parent thread ID the plan must belong to."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "execution_plan",
+            description: "Build an execution plan from the objective and live repository state, and write it to agent_notes.md in the parent working directory. The plan is a fixed mechanical template, not completed work.",
+            action: "workers.execution_plan",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the plan."),
+                SystemToolParameter(name: "objective", type: "string", required: true, description: "Objective to plan, at most 500 characters."),
+                SystemToolParameter(name: "mode", type: "string", required: true, description: "Plan mode, for example build."),
+            ]
+        ),
     ]
 
     public static func tools(for toolset: AgentToolset) -> [SystemToolDefinition] {
@@ -649,9 +726,93 @@ public nonisolated enum SystemToolRegistry {
             let key = try requiredString(arguments, "key", tool: name)
             let action = try requiredString(arguments, "action", tool: name)
             return try await runtime.memoryContextStore(key: key, action: action, value: optionalString(arguments, "value"), scope: optionalString(arguments, "scope"))
+        case "use_workers":
+            let parentThreadId = try requiredString(arguments, "parentThreadId", tool: name)
+            guard let rawWorkers = arguments["workers"]?.arrayValue, !rawWorkers.isEmpty else {
+                throw SystemToolError.missingArgument(tool: name, argument: "workers")
+            }
+            let workers = try rawWorkers.map { raw -> WorkerSpawnRequest in
+                guard let workerName = raw["name"]?.stringValue, !workerName.isEmpty else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "name")
+                }
+                guard let task = raw["task"]?.stringValue, !task.isEmpty else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "task")
+                }
+                return WorkerSpawnRequest(
+                    name: workerName,
+                    task: task,
+                    targetFiles: raw["targetFiles"]?.arrayValue?.compactMap(\.stringValue) ?? []
+                )
+            }
+            return try await runtime.spawnWorkers(parentThreadId: parentThreadId, workers: workers)
+        case "list_workers":
+            let workers = try await runtime.listWorkers(parentThreadId: optionalString(arguments, "parentThreadId"))
+            return .array(workers.map { workerJSON($0) })
+        case "worker_status":
+            let workerId = try requiredString(arguments, "workerId", tool: name)
+            return workerJSON(try await runtime.workerStatus(workerId: workerId))
+        case "worker_result":
+            let workerId = try requiredString(arguments, "workerId", tool: name)
+            return workerJSON(try await runtime.workerResult(workerId: workerId))
+        case "cancel_worker":
+            let workerId = try requiredString(arguments, "workerId", tool: name)
+            return workerJSON(try await runtime.cancelWorker(workerId: workerId))
+        case "intel_plan_task":
+            let parentThreadId = try requiredString(arguments, "parentThreadId", tool: name)
+            let task = try requiredString(arguments, "task", tool: name)
+            return try await runtime.planTask(parentThreadId: parentThreadId, task: task)
+        case "intel_breakdown_task":
+            let planId = try requiredString(arguments, "planId", tool: name)
+            return try await runtime.breakdownTask(planId: planId, parentThreadId: optionalString(arguments, "parentThreadId"))
+        case "execution_plan":
+            let parentThreadId = try requiredString(arguments, "parentThreadId", tool: name)
+            let objective = try requiredString(arguments, "objective", tool: name)
+            let mode = try requiredString(arguments, "mode", tool: name)
+            return try await runtime.executionPlan(parentThreadId: parentThreadId, objective: objective, mode: mode)
         default:
             throw SystemToolError.unknownTool(name)
         }
+    }
+
+    private static func workerJSON(_ record: WorkerRecord) -> JSONValue {
+        var object: [String: JSONValue] = [
+            "id": .string(record.id),
+            "name": .string(record.name),
+            "parentThreadId": .string(record.parentThreadId),
+            "threadId": .string(record.threadId),
+            "task": .string(record.task),
+            "provider": .string(record.provider),
+            "targetFiles": .array(record.targetFiles.map { .string($0) }),
+            "status": .string(record.status),
+            "cancelRequested": .bool(record.cancelRequested),
+            "transcriptItems": .int(Int64(record.transcriptItems)),
+            "elapsedSeconds": .double(record.elapsedSeconds),
+            "createdAt": .double(record.createdAt),
+            "startedAt": .double(record.startedAt),
+        ]
+        if let completedAt = record.completedAt {
+            object["completedAt"] = .double(completedAt)
+        } else {
+            object["completedAt"] = .null
+        }
+        if let error = record.error {
+            object["error"] = .string(error)
+        } else {
+            object["error"] = .null
+        }
+        if let result = record.result {
+            object["result"] = .string(result)
+        } else {
+            object["result"] = .null
+        }
+        if let progress = record.progress {
+            object["progress"] = .object([
+                "stage": .string(progress.stage),
+                "transcriptItems": .int(Int64(progress.transcriptItems)),
+                "elapsedSeconds": .double(progress.elapsedSeconds),
+            ])
+        }
+        return .object(object)
     }
 
     private static func runGitOperation(

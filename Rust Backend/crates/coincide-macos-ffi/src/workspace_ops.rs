@@ -90,6 +90,14 @@ pub fn dispatch_desktop_action(runtime: &CoincideMacOSRuntime, raw_json: &str) -
         "memory.clear" => memory_clear(runtime, &params),
         "memory.snapshot" => memory_snapshot(runtime, &params),
         "memory.context_store" => memory_context_store(runtime, &params),
+        "workers.spawn" => workers_spawn(runtime, &params),
+        "workers.list" => workers_list(runtime, &params),
+        "workers.status" => workers_status(runtime, &params),
+        "workers.result" => workers_result(runtime, &params),
+        "workers.cancel" => workers_cancel(runtime, &params),
+        "workers.plan" => workers_plan(runtime, &params),
+        "workers.breakdown" => workers_breakdown(runtime, &params),
+        "workers.execution_plan" => workers_execution_plan(runtime, &params),
         "instructions.list" => instructions_list(runtime, &params),
         "instructions.read" => instructions_read(runtime, &params),
         "instructions.save" => instructions_save(runtime, &params),
@@ -428,6 +436,46 @@ fn memory_snapshot(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Val
 fn memory_context_store(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
     let mut engine = lock_engine_store(runtime)?;
     coincide_core::memory_store::context_store(&mut engine.store, params)
+}
+
+fn workers_spawn(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    engine.workers_spawn(params)
+}
+
+fn workers_list(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    engine.workers_list(params)
+}
+
+fn workers_status(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    engine.workers_status(params)
+}
+
+fn workers_result(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    engine.workers_result(params)
+}
+
+fn workers_cancel(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    engine.workers_cancel(params)
+}
+
+fn workers_plan(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    engine.workers_plan(params)
+}
+
+fn workers_breakdown(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    engine.workers_breakdown(params)
+}
+
+fn workers_execution_plan(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    engine.workers_execution_plan(params)
 }
 
 // MARK: - Instructions Discovery, Read & Save
