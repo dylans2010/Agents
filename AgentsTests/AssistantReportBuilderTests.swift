@@ -505,6 +505,15 @@ struct AssistantReportBuilderTests {
             - Critical: Hardcoded secret in Makefile:10
             - Low: Outdated step in Dockerfile:5
             - Low: Stale dependency in Gemfile:3
+            - Low: Stale task in Rakefile:7
+            - Low: Stale note in LICENSE:7
+            - Low: Stale note in CHANGELOG:7
+            - Low: Stale note in COPYING:7
+            - Low: Stale note in AUTHORS:7
+            - Low: Stale step in Vagrantfile:7
+            - Low: Stale dependency in Brewfile:7
+            - Low: Stale dependency in Podfile:7
+            - Low: Stale lane in Fastfile:7
             - Low: Timeout at 10:30 in retry logic
             - Low: Compression ratio 3:1 is too low
             """
@@ -516,13 +525,41 @@ struct AssistantReportBuilderTests {
             Issue.record("Expected a review report")
             return
         }
-        #expect(review.findings.count == 5)
+        #expect(review.findings.count == 14)
         #expect(review.findings.first { $0.file == "Makefile" }?.line == 10)
         #expect(review.findings.first { $0.file == "Dockerfile" }?.line == 5)
         #expect(review.findings.first { $0.file == "Gemfile" }?.line == 3)
+        #expect(review.findings.first { $0.file == "Rakefile" }?.line == 7)
+        #expect(review.findings.first { $0.file == "LICENSE" }?.line == 7)
+        #expect(review.findings.first { $0.file == "CHANGELOG" }?.line == 7)
+        #expect(review.findings.first { $0.file == "COPYING" }?.line == 7)
+        #expect(review.findings.first { $0.file == "AUTHORS" }?.line == 7)
+        #expect(review.findings.first { $0.file == "Vagrantfile" }?.line == 7)
+        #expect(review.findings.first { $0.file == "Brewfile" }?.line == 7)
+        #expect(review.findings.first { $0.file == "Podfile" }?.line == 7)
+        #expect(review.findings.first { $0.file == "Fastfile" }?.line == 7)
         #expect(review.findings.filter { $0.file == nil }.count == 2)
         #expect(review.findings.map(\.title).contains("Timeout at 10:30 in retry logic"))
         #expect(review.findings.map(\.title).contains("Compression ratio 3:1 is too low"))
+    }
+
+    @Test("A dotted version-like token still parses as a file ref by the accepted tradeoff")
+    func dottedVersionLikeTokenParsesAsFileRefAcceptedTradeoff() {
+        let result = """
+            ## Findings
+            - Low: See v1.2:3 for details
+            """
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(result: result),
+            definition: Self.makeDefinition(category: .codeReviewSecurity)
+        ))
+        guard case .review(let review) = report else {
+            Issue.record("Expected a review report")
+            return
+        }
+        #expect(review.findings.count == 1)
+        #expect(review.findings[0].file == "v1.2")
+        #expect(review.findings[0].line == 3)
     }
 
     @Test("Severity colors use the AppTheme semantic tokens")
