@@ -31,6 +31,9 @@ fn offers(option: &Value, value: &str) -> bool {
         })
     })
 }
+fn offers_resume(initialized: &Value) -> bool {
+    initialized["agentCapabilities"]["sessionCapabilities"]["resume"] == true
+}
 fn question(params: &Value) -> Result<Option<Value>> {
     let id = params["toolCall"]["toolCallId"].as_str().unwrap_or("");
     if !id.starts_with("interaction_") {
@@ -382,10 +385,7 @@ fn run_owned(
                 let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)?});
                 let method = if let Some(id) = &launch.session {
                     params["sessionId"] = json!(id);
-                    if initialized["agentCapabilities"]["sessionCapabilities"]
-                        .get("resume")
-                        .is_some()
-                    {
+                    if offers_resume(&initialized) {
                         "session/resume"
                     } else {
                         ensure!(
@@ -510,6 +510,25 @@ fn set_safe_mode(transport: &mut Transport, session: &Option<String>, setup: &Va
         ))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod resume_method_tests {
+    use super::*;
+
+    #[test]
+    fn resume_requires_an_enabled_capability_not_mere_presence() {
+        assert!(offers_resume(
+            &json!({"agentCapabilities":{"sessionCapabilities":{"resume":true}}})
+        ));
+        assert!(!offers_resume(
+            &json!({"agentCapabilities":{"sessionCapabilities":{"resume":false}}})
+        ));
+        assert!(!offers_resume(
+            &json!({"agentCapabilities":{"sessionCapabilities":{}}})
+        ));
+        assert!(!offers_resume(&json!({})));
+    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–109
+# Hardening Audit — Slices 71–118
 
 ## Summary
 
@@ -23,7 +23,10 @@ thread-identity description gap (`session_progress_report`, both
 registries; no behavior change, no test added). Description-only
 corrections are not counted in the defect/test totals, following the
 Slice 105 precedent, so the totals stay at **23 defects fixed and
-25 regression tests**. The remaining
+25 regression tests**. Slice 118, appended after that, audited the
+OpenCode, Grok, Cursor, and Antigravity provider integrations: 2 further
+defects fixed and 2 regression tests added — bringing the totals to
+**25 defects fixed and 27 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -581,6 +584,93 @@ record. Sweep baseline: local `main` `2a0261d8`, remote `main`
 `27dabf958a`, same tree `667422d1`. The local pre-push commit is
 `02251181` (same tree as remote `23a73f2d`).
 Slice 110 re-verified this slice; see [How to re-verify](#how-to-re-verify).
+
+## Slice 118 — OpenCode/Grok/Cursor/Antigravity provider audit (remote to-backfill)
+
+**Audited:** the four provider integrations that had never had a
+dedicated defect audit — OpenCode (`provider_opencode.rs`,
+`provider_opencode_http.rs`, `provider_opencode_forms.rs`,
+`provider_opencode_lithos.rs`, `provider_opencode_metadata.rs`), Grok
+(`provider_grok.rs` plus the shared `provider_acp.rs`
+`run_grok`/`run_flavored`), Cursor (`provider_cursor.rs`,
+`provider_cursor_questions.rs`, `provider_cursor_profile.rs`,
+`provider_cursor_auth.rs`), Antigravity (`provider_antigravity.rs`,
+`provider_antigravity_files.rs`, `provider_antigravity_profile.rs`,
+`provider_antigravity_api.rs`) — each traced session creation → MCP
+mount or explicit rejection → prompt injection → turn execution →
+stop-reason/result handling → error paths → shutdown/cleanup, plus the
+shared `provider_transport.rs` frame bounds and `mcp.rs` mount path,
+the `agent.rs` dispatch and failure path, and the Swift-side toolset
+gate. Statically verified only — no build or test run here, as for every
+slice in this record.
+
+**Defects fixed (2):**
+
+1. **OpenCode turn failure echoed provider error text**
+   (`provider_opencode.rs:503-508`). `Mapper::handle` bailed
+   `"OpenCode turn failed: {}"` with `data["error"]["message"]`
+   verbatim from the `session.execution.failed` SSE event. The error
+   becomes `Event::Failed` (`agent.rs:520`), so the provider's own
+   words — which may carry secrets, paths, or multi-line content —
+   reached the user-visible/persisted turn failure. Same defect class
+   Slice 43 fixed in Grok/Cursor stop reasons and Slice 81 fixed in
+   Claude result frames. Now a fixed string, `bail!("OpenCode turn
+   failed")` (`:503-505`); the full frame is still available in the
+   persisted raw `provider/event` record, as for every provider.
+2. **Antigravity resume treated capability presence as capability
+   enabled** (`provider_antigravity.rs:385-388`). The stage-2 resume
+   branch chose `session/resume` whenever
+   `sessionCapabilities.resume` was present
+   (`.get("resume").is_some()`), even when the agent advertised
+   `"resume": false` — unlike the adjacent `loadSession == true`
+   check. A `"resume": false` agent would then be sent
+   `session/resume`, reject it, and fail the turn loudly at stage 3
+   instead of falling back to `session/load`. Now an `offers_resume`
+   helper (`:34-36`) requires the value to be `true`, matching the
+   `loadSession` idiom.
+
+**No defects found in Grok or Cursor.** Grok:
+`validate_stop_reason` already emits fixed strings only
+(`provider_grok.rs:114-120`); `completion` pins session/prompt
+identity and validates before completing; questions are capped at 20
+with duplicate-text/ID guards; `question_params` carries the raw
+provider frame only as `providerFrame`, the established pattern.
+Cursor: `error_report` already reduces provider text to fixed
+classifications (`provider_cursor.rs:51-85`), so the held-error bail
+at `:378` carries only a classification; stop drains pending requests
+with cancelled replies; stage-2 resume pins the returned session ID;
+the private profile import is size-bounded (64 MiB) and
+symlink-checked. Shared paths also checked clean: `session_servers`
+bails loudly when the MCP binary is missing (`mcp.rs:93-97`);
+`Transport` inbound/outbound frames are capped at 32 MiB with a
+64 MiB queue (`provider_transport.rs:8-10`); OpenCode HTTP responses
+and SSE frames are capped at 8 MiB (`provider_opencode_http.rs:8`);
+the OpenCode rejection of System Tools is loud at thread creation
+(`agent.rs:722-727`, via `bot_engine.rs:180`,
+`remote_adapter.rs:1670`, `thread_defaults.rs:293`); missing provider
+binaries fail loudly at spawn (`transport.rs`, "Unable to launch
+provider"); `exit_status_text` is numeric only (`agent.rs:830-851`).
+
+**Tests added (2):**
+`execution_failure_never_carries_provider_error_text`
+(`provider_opencode.rs:1214`, drives a hostile
+`session.execution.failed` frame through `Mapper::handle` and asserts
+the exact fixed string) and
+`resume_requires_an_enabled_capability_not_mere_presence`
+(`provider_antigravity.rs:520`, `true` → resume, `false` / missing /
+empty → load). Written-not-executed, as for every slice in this
+record.
+
+**Verification:** re-read of both changed hunks; zero new `//`
+comments in added lines; registry counts unchanged at 332 tools per
+side (Swift `SystemToolDefinition(` 332; Rust `ToolDef {` 333 raw
+incl. the struct declaration at `tools.rs:14`); `git diff --stat`
+shows only the two provider files plus this record and the
+`SYSTEM-TOOLSET.md` hardening entry. Rust `#[test]` total in `Rust
+Backend/crates/` is 2,222 after this slice (was 2,220). Audit
+baseline: local `main` `d6f55594`, remote `main` `cc09b357`, same tree
+`e6d48ac26eda0705c68c361f4368aa1c8fbf7039`. The local pre-push commit
+SHA and the remote SHA are to-backfill after the push.
 
 ## Documented, not fixed
 

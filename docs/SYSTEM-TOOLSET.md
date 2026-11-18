@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–111)
+### Hardening wave (Slices 69–118)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–111 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–118 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -915,6 +915,14 @@ no entries in this file either and are not backfilled here. Full record:
   `23a73f2d`, added HARDENING-AUDIT sections for Slices 105 and 107, and
   noted Slice 110 in re-verify. Totals unchanged at 23 defects / 25
   tests.
+- **Slice 118** — OpenCode/Grok/Cursor/Antigravity provider audit:
+  2 defects fixed (OpenCode `session.execution.failed` echoed provider
+  error text into the turn failure — now a fixed string; Antigravity
+  chose `session/resume` on mere presence of the capability — now
+  requires the value to be `true`); 2 tests added. Grok and Cursor
+  clean. Registry counts unchanged at 332. Statically verified only.
+  Totals now 25 defects / 27 tests. Full record:
+  `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
 

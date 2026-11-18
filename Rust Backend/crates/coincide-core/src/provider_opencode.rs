@@ -500,12 +500,9 @@ impl Mapper {
             "session.execution.interrupted" if self.delivered || self.started => {
                 bail!("OpenCode interrupted the turn before completion")
             }
-            "session.execution.failed" if self.delivered || self.started => bail!(
-                "OpenCode turn failed: {}",
-                data["error"]["message"]
-                    .as_str()
-                    .unwrap_or("provider error")
-            ),
+            "session.execution.failed" if self.delivered || self.started => {
+                bail!("OpenCode turn failed")
+            }
             "session.deleted" => bail!("OpenCode session was deleted during the turn"),
             "session.text.delta"
             | "session.reasoning.delta"
@@ -1211,6 +1208,29 @@ mod model_reference_tests {
             &json!({"data":[]}),
             "s"
         ));
+    }
+
+    #[test]
+    fn execution_failure_never_carries_provider_error_text() {
+        let (events, _messages) = std::sync::mpsc::channel();
+        let mut mapper = super::Mapper {
+            session: "session".into(),
+            prompt: "prompt".into(),
+            delivered: true,
+            started: true,
+            children: std::collections::HashSet::new(),
+            pending: std::collections::HashMap::new(),
+            tools: std::collections::HashMap::new(),
+        };
+        let mut declined = Vec::new();
+        let error = mapper
+            .handle(
+                &json!({"type":"session.execution.failed","data":{"sessionID":"session","error":{"message":"leaked secret and /private/path"}}}),
+                &events,
+                &mut declined,
+            )
+            .unwrap_err();
+        assert_eq!(error.to_string(), "OpenCode turn failed");
     }
 
     #[test]
