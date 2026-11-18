@@ -217,9 +217,9 @@ No fix.
 - Python replication of the Rust cross-check test
   (`tool_table_matches_swift_registry` in
   `Rust Backend/crates/coincide-mcp-server/src/tools.rs:21283-21320`),
-  including per-parameter descriptions: 332 Swift tools = 332 Rust
-  tools, 1,087 parameters each side, 0 mismatches. Registry count
-  unchanged at 332; no tools registered.
+  including per-parameter descriptions: 333 Swift tools = 333 Rust
+  tools, 1,088 parameters each side, 0 mismatches. Registry count
+  now at 333 (delete_worker added by Slice W9).
 - Brace/paren/bracket balance checked on the changed file (this
   document); `git diff --check` clean; secrets sweep clean; no `//`
   comments in new code (this file is prose, no code added).

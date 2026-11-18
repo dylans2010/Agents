@@ -139,7 +139,7 @@ fn tools_list_returns_the_real_registry() {
     initialize(&mut session);
     let response = session.request("tools/list", json!({}));
     let tools = response["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 332);
+    assert_eq!(tools.len(), 333);
     let names: Vec<&str> = tools
         .iter()
         .map(|tool| tool["name"].as_str().unwrap())
@@ -187,6 +187,7 @@ fn tools_list_returns_the_real_registry() {
         "worker_status",
         "worker_result",
         "cancel_worker",
+        "delete_worker",
         "intel_plan_task",
         "intel_breakdown_task",
         "execution_plan",
