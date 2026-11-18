@@ -94,7 +94,7 @@ dir = "store/creative/ios"
 iap_route = "submission"
 
 [ios.github_release]
-# The Mac app's in-app updater, coincide.dev's download link, Homebrew and the npm installer read releases/latest, so
+# The Mac app's in-app updater and Homebrew read releases/latest, so
 # an iOS release never takes Latest from the Mac release.
 latest = "never"
 

@@ -29,8 +29,6 @@ Coincide Remote remains a separate iOS app. Generate its committed project with 
 - `Rust Backend/crates/coincide-core/`: Rust state, provider integrations and tests.
 - `Rust Backend/crates/coincide-desktop/`: GPUI interface and platform integrations.
 - `CoincideRemote/`, `CoincideRemoteKit/`, and their test folders: the iOS companion.
-- `windows/`: earlier Windows implementation and its checks.
-- `website/` and `discord/`: website and support service.
 
 Follow the existing conventions, format Rust with `cargo fmt`, and include focused regression coverage when changing behavior. Discuss new dependencies in an issue first.
 

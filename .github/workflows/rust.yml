@@ -30,9 +30,8 @@ jobs:
           persist-credentials: false
           # Cone mode includes root manifests; omit unrelated native/store media.
           sparse-checkout: |
-            crates
-            vendor
-            .cargo
+            Rust Backend/crates
+            Rust Backend/vendor
             scripts
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         id: toolchain
@@ -43,19 +42,21 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', 'Rust Backend/vendor/gpui-pre/Rust Backend/Cargo.lock', 'Rust Backend/vendor/gpui-webview/Rust Backend/Cargo.lock', '.cargo/**') }}
+            Rust Backend/target
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', 'Rust Backend/vendor/gpui-pre/Cargo.lock', 'Rust Backend/vendor/gpui-webview/Cargo.lock', '.cargo/**') }}
           # A lockfile change rebuilds changed dependencies, not the entire graph.
           # The last prefix also migrates existing caches; Cargo checks fingerprints.
           restore-keys: |
             rust-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-
             rust-${{ runner.os }}-${{ runner.arch }}-
       - run: cargo fmt --all --check
+        working-directory: Rust Backend
       - name: Test private screenshot classification with an inert DOM
         run: node scripts/test-rust-browser-screenshot-mask.js
       - name: Test browser first-paint fitting with an inert DOM
         run: node scripts/test-rust-browser-page-fit.js
       - run: cargo test -p coincide-core --locked
+        working-directory: Rust Backend
         if: runner.os != 'macOS'
         id: core_tests
       # This fixture launches several real Git subprocesses. On the macOS
@@ -63,6 +64,7 @@ jobs:
       # unrelated tests are also spawning processes. Run it on its own,
       # without dropping it or extending its deadline.
       - name: Test core and isolated GitHub fixture on macOS
+        working-directory: Rust Backend
         if: runner.os == 'macOS'
         run: |
           set -o pipefail
@@ -73,14 +75,17 @@ jobs:
           cargo test -p coincide-core --locked --doc
           cargo build -p coincide-core --locked --examples
       - name: Test Keep Awake decisions and private helper fixtures
+        working-directory: Rust Backend
         run: cargo test -p coincide-awake-helper --locked
       - name: Test first-time Keep Awake service registration
         if: runner.os == 'macOS'
         run: python3 -B scripts/test-rust-awake-service-macos.py
       - name: Diagnose Windows PTY and control tests after core failure
+        working-directory: Rust Backend
         if: ${{ failure() && runner.os == 'Windows' && steps.core_tests.outcome == 'failure' }}
         run: cargo test -p coincide-core --locked --no-fail-fast --test terminal_windows --test control_windows -- --nocapture
       - name: Test owned Windows upload reader against actual junctions, symlinks and sharing
+        working-directory: Rust Backend
         if: runner.os == 'Windows'
         shell: pwsh
         env:
@@ -90,10 +95,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/upload-sdk-tests.log" -SimpleMatch 'test result: ok. 6 passed; 0 failed; 0 ignored;')) { throw 'Expected exactly six owned Windows upload SDK tests' }
       - run: cargo clippy -p coincide-core --all-targets --locked -- -D warnings
+        working-directory: Rust Backend
         if: runner.os != 'Windows'
       - name: Test isolated preview updater helper fixtures
+        working-directory: Rust Backend
         run: cargo test -p coincide-core --locked --features preview-updater-helper updater_helper
       - name: Lint preview updater helper feature
+        working-directory: Rust Backend
         if: runner.os != 'Windows'
         run: cargo clippy -p coincide-core --all-targets --locked --features preview-updater-helper -- -D warnings
       - name: Install private Secret Service fixture dependencies
@@ -108,6 +116,7 @@ jobs:
         if: runner.os == 'Windows'
         run: python scripts/test-rust-native-secret-store.py
       - name: Test one owned Windows idle-sleep request
+        working-directory: Rust Backend
         if: runner.os == 'Windows'
         env:
           COINCIDE_WINDOWS_POWER_CI: owned-native-request
@@ -121,9 +130,8 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: |
-            crates
-            vendor
-            .cargo
+            Rust Backend/crates
+            Rust Backend/vendor
             scripts
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         id: toolchain
@@ -132,8 +140,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', 'Rust Backend/vendor/gpui-pre/Rust Backend/Cargo.lock', 'Rust Backend/vendor/gpui-webview/Rust Backend/Cargo.lock', '.cargo/**') }}
+            Rust Backend/target
+          key: rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', 'Rust Backend/vendor/gpui-pre/Cargo.lock', 'Rust Backend/vendor/gpui-webview/Cargo.lock', '.cargo/**') }}
           restore-keys: |
             rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-
             rust-desktop-${{ runner.os }}-${{ runner.arch }}-
@@ -144,11 +152,14 @@ jobs:
           xcrun clang -fobjc-arc -fblocks -framework AppKit -framework QuartzCore scripts/test-rust-usage-menubar-macos.m -o "$RUNNER_TEMP/usage-menu-test"
           "$RUNNER_TEMP/usage-menu-test"
       - run: cargo build -p coincide-desktop --locked
+        working-directory: Rust Backend
       - name: Test GPUI prepaint accessibility rollback without a native window
+        working-directory: Rust Backend
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: cargo test --manifest-path Rust Backend/vendor/gpui-pre/Rust Backend/Cargo.toml --lib --features test-support prepaint_transaction --locked -- --nocapture
       - name: Test Settings focus routing without a native window
+        working-directory: Rust Backend
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
@@ -156,6 +167,7 @@ jobs:
           cargo test --manifest-path Rust Backend/vendor/gpui-pre/Rust Backend/Cargo.toml --lib --features test-support settings_route_focus_ --locked -- --nocapture | tee "$RUNNER_TEMP/settings-route-focus-tests.log"
           grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/settings-route-focus-tests.log"
       - name: Test actual completed List geometry without a native window
+        working-directory: Rust Backend
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
@@ -163,19 +175,24 @@ jobs:
           cargo test --manifest-path Rust Backend/vendor/gpui-pre/Rust Backend/Cargo.toml --lib --features test-support completed_geometry_ --locked -- --nocapture | tee "$RUNNER_TEMP/list-completed-geometry-tests.log"
           grep -F 'test result: ok. 7 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/list-completed-geometry-tests.log"
       - name: Test actual vendored WebView release unit module
+        working-directory: Rust Backend
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
           set -o pipefail
-          cargo test --manifest-path Rust Backend/vendor/gpui-webview/Rust Backend/Cargo.toml --no-default-features --lib release::tests --config 'patch.crates-io.gpui-pre.path="Rust Backend/vendor/gpui-pre"' --locked -- --nocapture | tee "$RUNNER_TEMP/webview-release-own-tests.log"
+          cargo test --manifest-path Rust Backend/vendor/gpui-webview/Rust Backend/Cargo.toml --no-default-features --lib release::tests --config 'patch.crates-io.gpui-pre.path="vendor/gpui-pre"' --locked -- --nocapture | tee "$RUNNER_TEMP/webview-release-own-tests.log"
           grep -F 'test result: ok. 8 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/webview-release-own-tests.log"
       - name: Test synthetic desktop fixtures with notification, microphone and computer-use adapters
+        working-directory: Rust Backend
         run: cargo test -p coincide-desktop --locked --features native-notifications,native-microphone,native-computer-use
       - name: Test isolated desktop helper transport without native launch
+        working-directory: Rust Backend
         run: cargo test -p coincide-desktop --locked --features preview-updater-helper updater_helper_transport
       - name: Build synthetic private credential SDK executable
+        working-directory: Rust Backend
         run: cargo build -p coincide-desktop --example native_credential_sdk --locked
       - name: Verify native private credential channel on a fresh macOS runner
+        working-directory: Rust Backend
         timeout-minutes: 3
         env:
           COINCIDE_SYNTHETIC_FILL_SDK: '1'
@@ -184,9 +201,11 @@ jobs:
           target/debug/examples/native_credential_sdk | tee "$RUNNER_TEMP/native-fill-sdk.log"
           grep -F 'synthetic native fill: PASS' "$RUNNER_TEMP/native-fill-sdk.log"
       - name: Build synthetic native download executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_download_sdk --locked
       - name: Verify exact native downloads on a fresh macOS runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 4
         env:
@@ -196,9 +215,11 @@ jobs:
           target/debug/examples/native_download_sdk | tee "$RUNNER_TEMP/native-download-sdk.log"
           grep -F 'synthetic native downloads: PASS' "$RUNNER_TEMP/native-download-sdk.log"
       - name: Build synthetic native passkey executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_passkey_sdk --locked
       - name: Verify Bitwarden passkey sign-in in a real WKWebView on a fresh macOS runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         env:
@@ -210,9 +231,11 @@ jobs:
       # Independent native fixture: it still reports when an unrelated earlier
       # fixture in this job failed. The job result keeps every failure.
       - name: Build synthetic native browser screenshot executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_browser_screenshot --locked
       - name: Verify native browser screenshots on a fresh macOS runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 4
         env:
@@ -231,9 +254,11 @@ jobs:
             ${{ runner.temp }}/owned-synthetic-screenshot-*/screenshots/*.png
           if-no-files-found: warn
       - name: Build synthetic owned upload SDK executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_upload_sdk --locked
       - name: Verify native file attachment and chooser policy on a fresh macOS runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         env:
@@ -243,9 +268,11 @@ jobs:
           target/debug/examples/native_upload_sdk 2>&1 | tee "$RUNNER_TEMP/native-upload-sdk.log"
           grep -F 'synthetic native upload: PASS' "$RUNNER_TEMP/native-upload-sdk.log"
       - name: Build synthetic native tab shortcut executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_browser_tab_shortcuts --locked
       - name: Verify exact-view browser tab keys on a fresh macOS runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         env:
@@ -275,9 +302,8 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: |
-            crates
-            vendor
-            .cargo
+            Rust Backend/crates
+            Rust Backend/vendor
             scripts
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         id: toolchain
@@ -286,12 +312,13 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', 'Rust Backend/vendor/gpui-pre/Rust Backend/Cargo.lock', 'Rust Backend/vendor/gpui-webview/Rust Backend/Cargo.lock', '.cargo/**') }}
+            Rust Backend/target
+          key: rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', 'Rust Backend/vendor/gpui-pre/Cargo.lock', 'Rust Backend/vendor/gpui-webview/Cargo.lock', '.cargo/**') }}
           restore-keys: |
             rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-
             rust-desktop-${{ runner.os }}-${{ runner.arch }}-
       - name: Test production native host before UI compilation
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-native-host-tests --features native-computer-use --locked computer_use -- --nocapture | Tee-Object -FilePath "$env:RUNNER_TEMP/native-host-fake-tests.log"
@@ -299,6 +326,7 @@ jobs:
           if (-not (Select-String -Path "$env:RUNNER_TEMP/native-host-fake-tests.log" -Pattern 'test result: ok. [1-9][0-9]* passed; 0 failed;')) { throw 'Expected nonzero production native host fake tests' }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/native-host-fake-tests.log" -SimpleMatch 'constructor_is_inert_and_has_no_native_handles ... ok')) { throw 'Expected inert production Windows constructor' }
       - name: Test exact owned Windows fixture before UI compilation
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           $env:COINCIDE_CU_NATIVE_CI = 'owned-window-v1'
@@ -308,27 +336,33 @@ jobs:
             if (-not (Select-String -Path "$env:RUNNER_TEMP/native-host-owned-window.log" -SimpleMatch 'test result: ok. 1 passed; 0 failed; 0 ignored;')) { throw 'Expected exactly one unchanged owned-window native host test' }
           } finally { Remove-Item Env:COINCIDE_CU_NATIVE_CI -ErrorAction SilentlyContinue }
       - name: Test native Windows notification payload policy without OS calls
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-native-host-tests --features native-computer-use,native-notifications --locked notifications::windows_policy::tests -- --nocapture | Tee-Object -FilePath "$env:RUNNER_TEMP/native-host-toast-policy.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/native-host-toast-policy.log" -SimpleMatch 'test result: ok. 4 passed; 0 failed; 0 ignored;')) { throw 'Expected exactly four production toast policy tests' }
       - name: Verify actual isolated Windows toast registration delivery and clearing
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-native-host-tests --features native-computer-use,native-notifications --locked notifications::windows::tests::actual_owned_notification_registration_post_clear_and_absence -- --ignored --exact --nocapture --test-threads=1 | Tee-Object -FilePath "$env:RUNNER_TEMP/native-host-toast-owned.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/native-host-toast-owned.log" -SimpleMatch 'test result: ok. 1 passed; 0 failed; 0 ignored;')) { throw 'Expected exactly one actual owned Windows notification test' }
       - run: cargo check -p coincide-desktop --locked
+        working-directory: Rust Backend
       - name: Check opt-in desktop helper transport
+        working-directory: Rust Backend
         run: cargo check -p coincide-desktop --locked --features preview-updater-helper
       - name: Test native microphone PCM conversion without opening a device
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-desktop --bin coincide-rust microphone::samples::tests --features native-microphone --locked -- --nocapture | Tee-Object -FilePath "$env:RUNNER_TEMP/microphone-pcm-tests.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/microphone-pcm-tests.log" -SimpleMatch 'test result: ok. 2 passed; 0 failed; 0 ignored;')) { throw 'Expected exactly two native PCM conversion tests' }
       - name: Test Windows command shortcuts, menus, palette and terminal keys without a window
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-desktop --bin coincide-rust --features native-microphone --locked -- keyboard_settings::tests app_menu::tests command_palette::tests terminal_workspace::tests::prompt_jumps --nocapture | Tee-Object -FilePath "$env:RUNNER_TEMP/keyboard-menu-tests.log"
@@ -336,12 +370,14 @@ jobs:
           if (-not (Select-String -Path "$env:RUNNER_TEMP/keyboard-menu-tests.log" -Pattern 'test result: ok. [1-9][0-9]* passed; 0 failed;')) { throw 'Expected nonzero keyboard and menu tests' }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/keyboard-menu-tests.log" -SimpleMatch 'terminal_keys_follow_platform_terminal_conventions ... ok')) { throw 'Expected Windows terminal key conventions' }
       - name: Test bot avatar rendering, bot editor and App Updates logic without a window
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-desktop --bin coincide-rust --features native-microphone --locked -- bot_avatar::tests bot_settings::tests updater_settings::tests --nocapture | Tee-Object -FilePath "$env:RUNNER_TEMP/bot-editor-tests.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/bot-editor-tests.log" -SimpleMatch 'test result: ok. 15 passed; 0 failed; 0 ignored;')) { throw 'Expected exactly 15 bot avatar, bot editor and App Updates tests' }
       - name: Test the pull request panel's repository states without GitHub
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-desktop --bin coincide-rust github_review::tests --features native-microphone --locked -- --nocapture | Tee-Object -FilePath "$env:RUNNER_TEMP/pr-panel-tests.log"
@@ -350,12 +386,14 @@ jobs:
             if (-not (Select-String -Path "$env:RUNNER_TEMP/pr-panel-tests.log" -SimpleMatch "$name ... ok")) { throw "Expected $name to pass" }
           }
       - name: Test transcript link routing, plan card, changed files and rewind logic
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-desktop --bin coincide-rust --features native-microphone --locked -- transcript_links:: composer_plan_card:: turn_changes:: chat_rewind:: --nocapture | Tee-Object -FilePath "$env:RUNNER_TEMP/chat-actions-tests.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/chat-actions-tests.log" -SimpleMatch 'test result: ok. 15 passed; 0 failed; 0 ignored;')) { throw 'Expected exactly fifteen chat action logic tests' }
       - name: Test opted-in Computer Use with inert constructors and fake backends only
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           cargo test -p coincide-desktop --bin coincide-rust computer_use --features native-computer-use --locked -- --nocapture | Tee-Object -FilePath "$env:RUNNER_TEMP/computer-use-fake-tests.log"
@@ -363,6 +401,7 @@ jobs:
           if (-not (Select-String -Path "$env:RUNNER_TEMP/computer-use-fake-tests.log" -Pattern 'test result: ok. [1-9][0-9]* passed; 0 failed;')) { throw 'Expected nonzero Computer Use fake tests' }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/computer-use-fake-tests.log" -SimpleMatch 'constructor_is_inert_and_has_no_native_handles ... ok')) { throw 'Expected Windows native constructor to remain inert' }
       - name: Test actual Computer Use only against an owned synthetic Windows child
+        working-directory: Rust Backend
         shell: pwsh
         run: |
           $env:COINCIDE_CU_NATIVE_CI = 'owned-window-v1'
@@ -372,10 +411,13 @@ jobs:
             if (-not (Select-String -Path "$env:RUNNER_TEMP/computer-use-owned-window.log" -SimpleMatch 'test result: ok. 1 passed; 0 failed; 0 ignored;')) { throw 'Expected exactly one owned-window native Computer Use test' }
           } finally { Remove-Item Env:COINCIDE_CU_NATIVE_CI -ErrorAction SilentlyContinue }
       - name: Build actual Windows native application and owner-aware control CLI
+        working-directory: Rust Backend
         run: cargo build -p coincide-desktop -p coincide-core --bin coincide-rust --bin coincide-rs --features coincide-desktop/native-microphone,coincide-desktop/native-computer-use,coincide-desktop/native-notifications --locked
       - name: Build synthetic private credential SDK executable
+        working-directory: Rust Backend
         run: cargo build -p coincide-desktop --example native_credential_sdk --locked
       - name: Verify native private credential channel on a fresh Windows runner
+        working-directory: Rust Backend
         timeout-minutes: 3
         shell: pwsh
         env:
@@ -387,9 +429,11 @@ jobs:
       # Independent native fixture: it still reports when an unrelated earlier
       # fixture in this job failed. The job result keeps every failure.
       - name: Build synthetic native browser screenshot executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_browser_screenshot --locked
       - name: Verify native browser screenshots on a fresh Windows runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 4
         shell: pwsh
@@ -410,11 +454,13 @@ jobs:
           if-no-files-found: warn
       - name: Attempt actual Windows native render input and private Store restart
         shell: pwsh
-        run: ./scripts/test-rust-native-ui-windows.ps1 -Binary target/debug/coincide-rust.exe -Client target/debug/coincide-rs.exe -Artifacts "$env:RUNNER_TEMP/windows-native-ui"
+        run: ./scripts/test-rust-native-ui-windows.ps1 -Binary "Rust Backend/target/debug/coincide-rust.exe" -Client "Rust Backend/target/debug/coincide-rs.exe" -Artifacts "$env:RUNNER_TEMP/windows-native-ui"
       - name: Build synthetic native download executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_download_sdk --locked
       - name: Verify exact native downloads on a fresh Windows runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 4
         shell: pwsh
@@ -425,9 +471,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/native-download-sdk.log" -SimpleMatch 'synthetic native downloads: PASS')) { throw 'Expected actual native downloads and callback-owner return' }
       - name: Build synthetic owned upload SDK executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_upload_sdk --locked
       - name: Verify native file attachment through the no-reparse reader on a fresh Windows runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         shell: pwsh
@@ -438,9 +486,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/native-upload-sdk.log" -SimpleMatch 'synthetic native upload: PASS')) { throw 'Expected actual native WebView2 attachment of owned files' }
       - name: Build synthetic native tab shortcut executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_browser_tab_shortcuts --locked
       - name: Verify exact-view browser tab keys on a fresh Windows runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         shell: pwsh
@@ -451,9 +501,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Select-String -Path "$env:RUNNER_TEMP/native-tab-shortcuts.log" -SimpleMatch 'synthetic native tab shortcuts: PASS')) { throw 'Expected actual focused-view native tab shortcut callbacks' }
       - name: Build synthetic native passkey executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_passkey_sdk --locked
       - name: Verify WebView2's own WebAuthn API on a fresh Windows runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         shell: pwsh
@@ -486,9 +538,8 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: |
-            crates
-            vendor
-            .cargo
+            Rust Backend/crates
+            Rust Backend/vendor
             scripts
       - name: Select main Ubuntu archive for native dependencies
         run: |
@@ -528,19 +579,21 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', 'Rust Backend/vendor/gpui-pre/Rust Backend/Cargo.lock', 'Rust Backend/vendor/gpui-webview/Rust Backend/Cargo.lock', '.cargo/**') }}
+            Rust Backend/target
+          key: rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', 'Rust Backend/vendor/gpui-pre/Cargo.lock', 'Rust Backend/vendor/gpui-webview/Cargo.lock', '.cargo/**') }}
           restore-keys: |
             rust-desktop-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-
             rust-desktop-${{ runner.os }}-${{ runner.arch }}-
       - name: Install isolated Linux native host fixture dependencies
         run: sudo apt-get install -y --no-install-recommends xvfb xauth dbus-x11 at-spi2-core libatk-adaptor mesa-vulkan-drivers vulkan-tools
       - name: Compile production Linux native host and run pure guards before UI compilation
+        working-directory: Rust Backend
         run: |
           set -o pipefail
           cargo test -p coincide-native-host-tests --features native-computer-use --locked linux_cu_ -- --nocapture | tee "$RUNNER_TEMP/linux-native-host-pure-tests.log"
           grep -F 'test result: ok. 3 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/linux-native-host-pure-tests.log"
       - name: Test exact owned X11 fixture before UI compilation
+        working-directory: Rust Backend
         env:
           COINCIDE_LINUX_CU_CI: private-xvfb-owned-gtk-v1
         run: |
@@ -548,6 +601,7 @@ jobs:
           dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' cargo test -p coincide-native-host-tests --features native-computer-use --locked computer_use::linux::native_tests::actual_owned_x11_window_actions_capture_and_drain -- --ignored --exact --nocapture --test-threads=1 | tee "$RUNNER_TEMP/linux-native-host-owned-tests.log"
           grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/linux-native-host-owned-tests.log"
       - name: Test exact XWayland refusal before UI compilation
+        working-directory: Rust Backend
         env:
           COINCIDE_LINUX_CU_CI: private-xvfb-owned-gtk-v1
         run: |
@@ -555,18 +609,22 @@ jobs:
           dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' env WAYLAND_DISPLAY=coincide-private-wayland cargo test -p coincide-native-host-tests --features native-computer-use --locked computer_use::linux::native_tests::actual_wayland_refuses_existing_x11_display -- --ignored --exact --nocapture --test-threads=1 | tee "$RUNNER_TEMP/linux-native-host-wayland-tests.log"
           grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/linux-native-host-wayland-tests.log"
       - run: cargo check -p coincide-desktop --locked
+        working-directory: Rust Backend
       - name: Check opt-in desktop helper transport
+        working-directory: Rust Backend
         run: cargo check -p coincide-desktop --locked --features preview-updater-helper
       - name: Test actual vendored WebView release unit module
+        working-directory: Rust Backend
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
           set -o pipefail
-          cargo test --manifest-path Rust Backend/vendor/gpui-webview/Rust Backend/Cargo.toml --no-default-features --lib release::tests --config 'patch.crates-io.gpui-pre.path="Rust Backend/vendor/gpui-pre"' --locked -- --nocapture | tee "$RUNNER_TEMP/webview-release-own-tests.log"
+          cargo test --manifest-path Rust Backend/vendor/gpui-webview/Rust Backend/Cargo.toml --no-default-features --lib release::tests --config 'patch.crates-io.gpui-pre.path="vendor/gpui-pre"' --locked -- --nocapture | tee "$RUNNER_TEMP/webview-release-own-tests.log"
           grep -F 'test result: ok. 8 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/webview-release-own-tests.log"
       - name: Install native Linux smoke dependencies
         run: sudo apt-get install -y --no-install-recommends xvfb xauth xdotool imagemagick python3-pil tesseract-ocr dbus-x11 at-spi2-core libatk-adaptor fonts-dejavu-core
       - name: Test Linux Appshots pixels, keys and owned delivery without capture
+        working-directory: Rust Backend
         run: |
           set -o pipefail
           cargo test -p coincide-desktop --bin coincide-rust appshots_platform::backend::tests --locked -- --nocapture | tee "$RUNNER_TEMP/appshots-linux-tests.log"
@@ -574,35 +632,42 @@ jobs:
           cargo test -p coincide-desktop --bin coincide-rust appshots::tests --locked -- --nocapture | tee "$RUNNER_TEMP/appshots-owner-tests.log"
           grep -F 'test result: ok. 6 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/appshots-owner-tests.log"
       - name: Test native microphone PCM conversion without opening a device
+        working-directory: Rust Backend
         run: |
           set -o pipefail
           cargo test -p coincide-desktop --bin coincide-rust microphone::samples::tests --features native-microphone --locked -- --nocapture | tee "$RUNNER_TEMP/microphone-pcm-tests.log"
           grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/microphone-pcm-tests.log"
       - name: Test Linux command shortcuts, menus, palette and terminal keys without a window
+        working-directory: Rust Backend
         run: |
           set -o pipefail
           cargo test -p coincide-desktop --bin coincide-rust --features native-microphone --locked -- keyboard_settings::tests app_menu::tests command_palette::tests terminal_workspace::tests::prompt_jumps --nocapture | tee "$RUNNER_TEMP/keyboard-menu-tests.log"
           grep -E 'test result: ok. [1-9][0-9]* passed; 0 failed;' "$RUNNER_TEMP/keyboard-menu-tests.log"
           grep -F 'terminal_keys_follow_platform_terminal_conventions ... ok' "$RUNNER_TEMP/keyboard-menu-tests.log"
       - name: Test bot avatar rendering, bot editor and App Updates logic without a window
+        working-directory: Rust Backend
         run: |
           set -o pipefail
           cargo test -p coincide-desktop --bin coincide-rust --features native-microphone --locked -- bot_avatar::tests bot_settings::tests updater_settings::tests --nocapture | tee "$RUNNER_TEMP/bot-editor-tests.log"
           grep -F 'test result: ok. 15 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/bot-editor-tests.log"
       - name: Test the pull request panel's repository states without GitHub
+        working-directory: Rust Backend
         run: |
           set -o pipefail
           cargo test -p coincide-desktop --bin coincide-rust github_review::tests --features native-microphone --locked -- --nocapture | tee "$RUNNER_TEMP/pr-panel-tests.log"
           grep -F 'repository_input_is_explicit_and_not_a_url_or_shell_fragment ... ok' "$RUNNER_TEMP/pr-panel-tests.log"
           grep -F 'state_and_list_bounds_reject_unsupported_or_incomplete_data ... ok' "$RUNNER_TEMP/pr-panel-tests.log"
       - name: Test transcript link routing, plan card, changed files and rewind logic
+        working-directory: Rust Backend
         run: |
           set -o pipefail
           cargo test -p coincide-desktop --bin coincide-rust --features native-microphone --locked -- transcript_links:: composer_plan_card:: turn_changes:: chat_rewind:: --nocapture | tee "$RUNNER_TEMP/chat-actions-tests.log"
           grep -F 'test result: ok. 15 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/chat-actions-tests.log"
       - name: Build actual Linux native application
+        working-directory: Rust Backend
         run: cargo build -p coincide-desktop --features native-microphone,native-notifications,native-computer-use --locked
       - name: Test actual owned X11 Computer Use on a private desktop
+        working-directory: Rust Backend
         env:
           COINCIDE_LINUX_CU_CI: private-xvfb-owned-gtk-v1
         run: |
@@ -610,6 +675,7 @@ jobs:
           dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' cargo test -p coincide-desktop --bin coincide-rust --features native-microphone,native-notifications,native-computer-use --locked computer_use::linux::native_tests::actual_owned_x11_window_actions_capture_and_drain -- --ignored --exact --nocapture --test-threads=1 | tee "$RUNNER_TEMP/linux-cu-owned-tests.log"
           python3 -c 'import os,pathlib; text=(pathlib.Path(os.environ["RUNNER_TEMP"])/"linux-cu-owned-tests.log").read_text(); assert "1 passed; 0 failed; 0 ignored;" in text, "Expected the exact owned X11 Computer Use test"'
       - name: Reject XWayland as authority over a Wayland desktop
+        working-directory: Rust Backend
         env:
           COINCIDE_LINUX_CU_CI: private-xvfb-owned-gtk-v1
         run: |
@@ -617,6 +683,7 @@ jobs:
           dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' env WAYLAND_DISPLAY=coincide-private-wayland cargo test -p coincide-desktop --bin coincide-rust --features native-microphone,native-notifications,native-computer-use --locked computer_use::linux::native_tests::actual_wayland_refuses_existing_x11_display -- --ignored --exact --nocapture --test-threads=1 | tee "$RUNNER_TEMP/linux-cu-wayland-tests.log"
           python3 -c 'import os,pathlib; text=(pathlib.Path(os.environ["RUNNER_TEMP"])/"linux-cu-wayland-tests.log").read_text(); assert "1 passed; 0 failed; 0 ignored;" in text, "Expected the exact Wayland refusal test"'
       - name: Test notifications through a private synthetic desktop bus
+        working-directory: Rust Backend
         shell: bash
         env:
           COINCIDE_NOTIFICATION_BUS_CI: private-synthetic-server-v1
@@ -625,6 +692,7 @@ jobs:
           dbus-run-session -- cargo test -p coincide-desktop --bin coincide-rust --features native-microphone,native-notifications --locked notifications::linux::tests::actual_private_notification_bus_round_trip -- --ignored --exact --nocapture | tee "$RUNNER_TEMP/notification-bus-tests.log"
           python3 -c 'import os,pathlib; text=(pathlib.Path(os.environ["RUNNER_TEMP"])/"notification-bus-tests.log").read_text(); assert "1 passed; 0 failed; 0 ignored;" in text, "Expected the exact private notification bus test"'
       - name: Verify activity on an isolated X11 display and private bus
+        working-directory: Rust Backend
         env:
           COINCIDE_PRIVATE_ACTIVITY_FIXTURE: '1'
         run: |
@@ -632,8 +700,10 @@ jobs:
           dbus-run-session -- sh -c 'DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" xvfb-run -a -s "-screen 0 1440x1000x24" cargo test -p coincide-desktop --bin coincide-rust --features native-microphone,native-notifications --locked notification_activity::tests::actual_private_x11_activity -- --ignored --exact --nocapture' | tee "$RUNNER_TEMP/notification-activity-tests.log"
           python3 -c 'import os,pathlib; text=(pathlib.Path(os.environ["RUNNER_TEMP"])/"notification-activity-tests.log").read_text(); assert "1 passed; 0 failed; 0 ignored;" in text, "Expected the exact private activity test"'
       - name: Build synthetic private credential SDK executable
+        working-directory: Rust Backend
         run: cargo build -p coincide-desktop --example native_credential_sdk --locked
       - name: Verify native private credential channel on a fresh Linux runner
+        working-directory: Rust Backend
         timeout-minutes: 3
         env:
           COINCIDE_SYNTHETIC_FILL_SDK: '1'
@@ -652,9 +722,11 @@ jobs:
         if: ${{ !cancelled() }}
         run: sudo apt-get install -y --no-install-recommends xvfb xauth dbus-x11 mesa-vulkan-drivers
       - name: Build synthetic native browser screenshot executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_browser_screenshot --locked
       - name: Verify native browser screenshots on a fresh Linux runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 4
         env:
@@ -679,11 +751,13 @@ jobs:
             ${{ runner.temp }}/owned-synthetic-screenshot-*/screenshots/*.png
           if-no-files-found: warn
       - name: Exercise real X11 UI and private Store restart
-        run: dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' /usr/bin/python3 scripts/test-rust-native-ui-linux.py --binary target/debug/coincide-rust --artifacts "$RUNNER_TEMP/linux-native-ui"
+        run: dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' /usr/bin/python3 scripts/test-rust-native-ui-linux.py --binary "Rust Backend/target/debug/coincide-rust" --artifacts "$RUNNER_TEMP/linux-native-ui"
       - name: Build synthetic native download executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_download_sdk --locked
       - name: Verify exact native downloads on a fresh Linux runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 4
         env:
@@ -698,9 +772,11 @@ jobs:
           dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' target/debug/examples/native_download_sdk | tee "$RUNNER_TEMP/native-download-sdk.log"
           grep -F 'synthetic native downloads: PASS' "$RUNNER_TEMP/native-download-sdk.log"
       - name: Build synthetic owned upload SDK executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_upload_sdk --locked
       - name: Verify native file attachment and chooser policy on a fresh Linux runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         env:
@@ -715,9 +791,11 @@ jobs:
           dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' target/debug/examples/native_upload_sdk 2>&1 | tee "$RUNNER_TEMP/native-upload-sdk.log"
           grep -F 'synthetic native upload: PASS' "$RUNNER_TEMP/native-upload-sdk.log"
       - name: Build synthetic native tab shortcut executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_browser_tab_shortcuts --locked
       - name: Verify exact-view browser tab keys on a fresh Linux runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         env:
@@ -732,9 +810,11 @@ jobs:
           dbus-run-session -- xvfb-run -a -s '-screen 0 1440x1000x24' target/debug/examples/native_browser_tab_shortcuts | tee "$RUNNER_TEMP/native-tab-shortcuts.log"
           grep -F 'synthetic native tab shortcuts: PASS' "$RUNNER_TEMP/native-tab-shortcuts.log"
       - name: Build synthetic native passkey executable
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         run: cargo build -p coincide-desktop --example native_passkey_sdk --locked
       - name: Verify WebKitGTK's missing WebAuthn API on a fresh Linux runner
+        working-directory: Rust Backend
         if: ${{ !cancelled() }}
         timeout-minutes: 3
         env:

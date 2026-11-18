@@ -1,4 +1,0 @@
-# Wrangler state and local secrets never belong in the repository.
-.wrangler/
-.dev.vars*
-*.env

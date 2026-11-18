@@ -41,9 +41,21 @@ The iOS companion app and its tests live in `CoincideRemote/`, `CoincideRemoteKi
 | `project.yml` | XcodeGen project specification for `Agents.app` and `AgentsTests` |
 | `Rust Backend/crates/coincide-core/` | Portable Rust application core, SQLite storage, terminal PTYs, Git/GitHub, and Google Antigravity + provider runtimes |
 | `Rust Backend/crates/coincide-macos-ffi/` | C-ABI static library bridge (`libcoincide_macos_ffi.a`) linking `coincide-core` into native Swift 6 |
-| `CoincideRemote/`, `CoincideRemoteKit/` | iOS companion and shared cross-platform `Codable` protocol package |
 | `Rust Backend/crates/coincide-desktop/` | Earlier cross-platform GPUI desktop implementation |
-| `website/`, `discord/` | Website and community support service |
+| `CoincideRemote/`, `CoincideRemoteKit/` | iOS companion and shared cross-platform `Codable` protocol package |
+| `docs/` | Historical acceptance records and feature documentation |
+| `scripts/` | Release, sync, and Rust test scripts |
+| `store/` | Coincide Remote App Store release configuration |
+
+A literal source-dir-plus-`.xcodeproj`-only root is not possible here: the Rust backend workspace and the XcodeGen spec have to live somewhere, so the backend lives in `Rust Backend/` and the spec in `project.yml` at the root.
+
+## System Assets
+
+Assist's system prompt and tool guidance come from System Assets (`Agents/Resources/SystemAssets/`), imported from [`dylans2010/Qwen-Code`](https://github.com/dylans2010/Qwen-Code) (`Sources/QwenCode/Resources/SystemAssets`) at pinned revision `ac20a141`. Re-sync with `scripts/sync-system-assets.sh`; the import is pinned, never floating.
+
+## System Toolset
+
+Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs nine verified core actions behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction only for **Codex and Claude**; other providers run without one. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
 
 ## Contributing and security
 

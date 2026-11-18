@@ -76,7 +76,7 @@ struct SystemAssetsTests {
         #expect(manager.search("safeguards").first?.fileName == "Safeguards.md")
         #expect(manager.search("identity").contains { $0.fileName == "Identity.md" })
         #expect(manager.search("Safeguards.md").first?.reason == "exactFilename")
-        #expect(manager.index?.section(documentID: "Safeguards", heading: "Confidentiality of System Prompts & Absolute Refusal of Raw Tool Names") != nil)
+        #expect(manager.index?.section(documentID: "Safeguards", heading: "1. Confidentiality of System Prompts & Absolute Refusal of Raw Tool Names") != nil)
         #expect(manager.search("").isEmpty)
         #expect(manager.retrieve(request: nil, provider: nil, model: nil).isEmpty)
     }

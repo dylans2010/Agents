@@ -2,6 +2,15 @@
 
 Notable changes in each Agents release. A release's notes on GitHub are its section here, so a version's section must exist before its tag is pushed (see [docs/releasing.md](docs/releasing.md)).
 
+## Unreleased
+
+Reconstruction of Coincide as the native macOS app Agents: SwiftUI + AppKit UI over the `coincide-core` Rust runtime via the `coincide-macos-ffi` C-ABI bridge, with the Rust workspace in `Rust Backend/`.
+
+- Native macOS app in `Agents/` with `AgentsTests/`; the Windows app (`windows/`), website (`website/`), Discord bot (`discord/`), and npm installer (`npm/`) are removed.
+- System Assets imported from `dylans2010/Qwen-Code` at pinned revision `ac20a141`, indexed and retrieved by `SystemAssetManager`.
+- System Toolset setting (System Tools by default, Provider Tools as the alternative) with a per-thread system prompt delivered to Codex and Claude only.
+- CI path filters, sparse checkouts, and cargo working directories updated to the `Rust Backend/` layout; workflows for the deleted website, Discord bot, and Windows app removed.
+
 ## 0.1.0
 
 The first public release of Agents, a native macOS app for the coding agents you already pay for.

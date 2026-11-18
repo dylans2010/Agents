@@ -32,9 +32,8 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: |
-            crates
-            vendor
-            .cargo
+            Rust Backend/crates
+            Rust Backend/vendor
             scripts
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         id: toolchain
@@ -43,7 +42,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
+            Rust Backend/target
           key: rust-packaging-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', '.cargo/**') }}
           restore-keys: |
             rust-packaging-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-
@@ -51,12 +50,13 @@ jobs:
         run: python -B scripts/rust-packaging-tests.py
       - name: Build only synthetic migration tool
         run: cargo build -p coincide-core --bin coincide-store --locked
+        working-directory: Rust Backend
       - name: Validate built artifact and rehearse isolated import
         env:
           TESTED_COMMIT: ${{ github.sha }}
         run: |
           mkdir -p packaging-evidence
-          store_binary=target/debug/coincide-store
+          store_binary="Rust Backend/target/debug/coincide-store"
           if [ "$RUNNER_OS" = Windows ]; then store_binary="$store_binary.exe"; fi
           python -B scripts/rust-packaging-ci.py --store-bin "$store_binary" --commit "$TESTED_COMMIT" > packaging-evidence/result.json
       - name: Retain validation evidence

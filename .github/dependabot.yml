@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: cargo
-    directory: /
+    directory: /Rust Backend
     schedule:
       interval: weekly
     ignore:
@@ -30,7 +30,3 @@ updates:
     cooldown:
       default-days: 7
       include: ["apoorvdarshan/store-release*"]
-  - package-ecosystem: nuget
-    directory: /windows/App
-    schedule:
-      interval: weekly

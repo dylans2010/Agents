@@ -1,6 +1,6 @@
 #!/bin/bash
 # Tests of the release scripts that run anywhere (Linux included), before release.yml builds anything:
-# ShellCheck, then the version, release notes and cask scripts on fixtures, and the npm installer's own tests.
+# ShellCheck, then the version, release notes and cask scripts on fixtures.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$root"
@@ -14,8 +14,7 @@ pass "shellcheck"
 
 version="$(scripts/release/version.sh)"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "version.sh printed \"$version\""
-[ "$(node -p 'require("./npm/package.json").version')" = "$version" ] || fail "npm/package.json isn't version $version"
-pass "version $version, the npm package's too"
+pass "version $version"
 
 scripts/release/notes.sh "$version" >"$work/notes" || fail "CHANGELOG.md has no notes for $version"
 [ -s "$work/notes" ] || fail "empty notes"
@@ -46,6 +45,3 @@ sed 's/Coincide-#{version}.dmg/Other.dmg/' "$work/before.rb" >"$work/other.rb"
 ! scripts/release/update-cask.sh "$work/other.rb" 1.4.3 "$sha" 2>/dev/null || fail "update-cask.sh took another download"
 cmp -s "$work/coincide.rb" "$work/before.rb" || fail "a refused update changed the cask"
 pass "cask update"
-
-(cd npm && node --test "test/*.test.mjs")
-pass "npm installer"

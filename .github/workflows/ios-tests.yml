@@ -142,10 +142,7 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
-            !/website/
             !/docs/
-            !/discord/
-            !/npm/
             !/Fuzz/
 
       - name: Install XcodeGen

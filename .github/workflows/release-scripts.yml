@@ -1,5 +1,5 @@
-# The release scripts' tests (scripts/release/test.sh): ShellCheck, the version and release notes checks, the Homebrew
-# cask update and the npm installer's tests. release.yml runs them again before every release; this catches a break in
+# The release scripts' tests (scripts/release/test.sh): ShellCheck, the version and release notes checks and the Homebrew
+# cask update. release.yml runs them again before every release; this catches a break in
 # the pull request that causes it.
 
 name: Release scripts
@@ -11,7 +11,6 @@ on:
       - ".github/workflows/release-scripts.yml"
       - ".github/workflows/release.yml"
       - "scripts/release/**"
-      - "npm/**"
       - "CHANGELOG.md"
       - "Rust Backend/Cargo.toml"
   push:
@@ -20,7 +19,6 @@ on:
       - ".github/workflows/release-scripts.yml"
       - ".github/workflows/release.yml"
       - "scripts/release/**"
-      - "npm/**"
       - "CHANGELOG.md"
       - "Rust Backend/Cargo.toml"
   workflow_dispatch:
@@ -42,10 +40,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
 
       - name: Run tests
         run: scripts/release/test.sh
