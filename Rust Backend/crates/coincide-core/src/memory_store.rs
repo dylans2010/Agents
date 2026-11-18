@@ -6,8 +6,39 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub const MAX_KEY_CHARS: usize = 256;
 pub const MAX_VALUE_BYTES: usize = 64 * 1024;
 pub const MAX_SCOPE_CHARS: usize = 512;
+pub const MAX_MEMORY_ENTRIES: usize = 1000;
+pub const MAX_MEMORY_TOTAL_BYTES: usize = 16 * 1024 * 1024;
 pub const DEFAULT_LIST_LIMIT: usize = 200;
 pub const DEFAULT_SNAPSHOT_LIMIT: usize = 50;
+
+fn is_snapshot_entry(entry: &Value) -> bool {
+    entry
+        .get("key")
+        .and_then(Value::as_str)
+        .is_some_and(|key| key.starts_with("snapshot:"))
+}
+
+fn ensure_memory_capacity(store: &Store, composite: &str, entry: &Value) -> Result<()> {
+    let entry_len = entry.to_string().len() as i64;
+    let existing = store.memory_entry(composite)?;
+    if existing.is_none() {
+        let count = store.memory_count()?;
+        ensure!(
+            (count as usize) < MAX_MEMORY_ENTRIES,
+            "Agent memory is full (1000 entries); delete an old entry or clear a scope before storing more"
+        );
+    }
+    let total = store.memory_total_bytes()?;
+    let old_len = existing
+        .map(|value| value.to_string().len() as i64)
+        .unwrap_or(0);
+    let projected = total.saturating_add(entry_len).saturating_sub(old_len);
+    ensure!(
+        projected <= MAX_MEMORY_TOTAL_BYTES as i64,
+        "Agent memory is full (16 MiB total); delete an old entry or clear a scope before storing more"
+    );
+    Ok(())
+}
 
 fn now_seconds() -> f64 {
     SystemTime::now()
@@ -140,7 +171,9 @@ pub fn store_entry(store: &mut Store, params: &Value) -> Result<Value> {
     let scope = normalize_scope(opt_str(params, "scope").as_deref())?;
     let composite = composite_key(&scope, &key);
     let updated_at = now_seconds();
-    let overwritten = store.memory_upsert(&composite, &scope, &entry_json(&key, &scope, &value, updated_at))?;
+    let entry = entry_json(&key, &scope, &value, updated_at);
+    ensure_memory_capacity(store, &composite, &entry)?;
+    let overwritten = store.memory_upsert(&composite, &scope, &entry)?;
     Ok(json!({
         "key": key,
         "scope": scope,
@@ -205,23 +238,38 @@ pub fn snapshot_context(store: &mut Store, params: &Value) -> Result<Value> {
     let query = opt_str(params, "query").unwrap_or_default();
     let limit = opt_limit(params, "limit", DEFAULT_SNAPSHOT_LIMIT);
     let entries = store.memory_entries()?;
+    let entries: Vec<Value> = entries
+        .into_iter()
+        .filter(|entry| !is_snapshot_entry(entry))
+        .collect();
     let rows = sorted_entries(&entries, Some(&scope), &query);
     let total = rows.len();
     let page: Vec<Value> = rows.into_iter().take(limit).collect();
     let snapshot_id = uuid::Uuid::new_v4().to_string();
     let key = format!("snapshot:{snapshot_id}");
     let stored_at = now_seconds();
-    let summary = json!({
+    let mut entry_keys: Vec<String> = page
+        .iter()
+        .filter_map(|e| e.get("key").and_then(Value::as_str).map(str::to_owned))
+        .collect();
+    let mut summary = json!({
         "snapshotId": snapshot_id,
         "scope": scope,
         "query": query,
-        "entryKeys": page.iter().filter_map(|e| e.get("key").and_then(Value::as_str)).collect::<Vec<_>>(),
+        "entryKeys": entry_keys.clone(),
         "totalMatched": total,
         "storedAt": stored_at,
     });
-    let value = serde_json::to_string(&summary)?;
+    let mut value = serde_json::to_string(&summary)?;
+    while value.len() > MAX_VALUE_BYTES && !entry_keys.is_empty() {
+        entry_keys.pop();
+        summary["entryKeys"] = json!(entry_keys.clone());
+        value = serde_json::to_string(&summary)?;
+    }
     let composite = composite_key(&scope, &key);
-    store.memory_upsert(&composite, &scope, &entry_json(&key, &scope, &value, stored_at))?;
+    let entry = entry_json(&key, &scope, &value, stored_at);
+    ensure_memory_capacity(store, &composite, &entry)?;
+    store.memory_upsert(&composite, &scope, &entry)?;
     Ok(json!({
         "snapshotId": snapshot_id,
         "key": key,
@@ -259,7 +307,9 @@ pub fn context_store(store: &mut Store, params: &Value) -> Result<Value> {
             let value = validate_value(&req_str(params, "value")?)?;
             let composite = composite_key(&scope, &key);
             let updated_at = now_seconds();
-            let overwritten = store.memory_upsert(&composite, &scope, &entry_json(&key, &scope, &value, updated_at))?;
+            let entry = entry_json(&key, &scope, &value, updated_at);
+            ensure_memory_capacity(store, &composite, &entry)?;
+            let overwritten = store.memory_upsert(&composite, &scope, &entry)?;
             Ok(json!({
                 "key": key,
                 "scope": scope,
@@ -570,5 +620,110 @@ mod tests {
             &params(&[("key", json!("k")), ("value", json!(oversized))]),
         )
         .is_err());
+    }
+
+    #[test]
+    fn store_rejects_new_entry_when_entry_count_cap_reached() {
+        let (_dir, mut store) = fixture_store();
+        for index in 0..MAX_MEMORY_ENTRIES {
+            store_entry(
+                &mut store,
+                &params(&[
+                    ("key", json!(format!("cap-{index}"))),
+                    ("value", json!("tiny")),
+                ]),
+            )
+            .unwrap();
+        }
+        let full = store_entry(
+            &mut store,
+            &params(&[("key", json!("cap-overflow")), ("value", json!("tiny"))]),
+        )
+        .unwrap_err();
+        assert!(full.to_string().contains("1000 entries"));
+        delete_entry(&mut store, &params(&[("key", json!("cap-0"))])).unwrap();
+        store_entry(
+            &mut store,
+            &params(&[("key", json!("cap-overflow")), ("value", json!("tiny"))]),
+        )
+        .unwrap();
+        let overwrite = store_entry(
+            &mut store,
+            &params(&[("key", json!("cap-1")), ("value", json!("replaced"))]),
+        )
+        .unwrap();
+        assert_eq!(overwrite["overwritten"], true);
+    }
+
+    #[test]
+    fn store_rejects_new_entry_when_total_byte_cap_reached() {
+        let (_dir, mut store) = fixture_store();
+        let big = "v".repeat(MAX_VALUE_BYTES);
+        let mut inserted = 0usize;
+        let mut full_error = String::new();
+        for index in 0..MAX_MEMORY_ENTRIES {
+            match store_entry(
+                &mut store,
+                &params(&[
+                    ("key", json!(format!("bulk-{index}"))),
+                    ("value", json!(big)),
+                ]),
+            ) {
+                Ok(_) => inserted += 1,
+                Err(error) => {
+                    full_error = error.to_string();
+                    break;
+                }
+            }
+        }
+        assert!(inserted < MAX_MEMORY_ENTRIES);
+        assert!(full_error.contains("16 MiB"));
+        delete_entry(&mut store, &params(&[("key", json!("bulk-0"))])).unwrap();
+        store_entry(
+            &mut store,
+            &params(&[("key", json!("bulk-retry")), ("value", json!(big))]),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn repeated_snapshots_do_not_count_prior_snapshots() {
+        let (_dir, mut store) = fixture_store();
+        store_entry(
+            &mut store,
+            &params(&[("key", json!("fact")), ("value", json!("ships sail"))]),
+        )
+        .unwrap();
+        let first = snapshot_context(&mut store, &params(&[("query", json!("ships"))])).unwrap();
+        assert_eq!(first["totalMatched"], 1);
+        let second =
+            snapshot_context(&mut store, &params(&[("query", json!("ships"))])).unwrap();
+        assert_eq!(second["totalMatched"], 1);
+        assert_eq!(second["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(second["entries"][0]["key"], "fact");
+    }
+
+    #[test]
+    fn snapshot_stored_value_stays_within_value_cap() {
+        let (_dir, mut store) = fixture_store();
+        for index in 0..300 {
+            store_entry(
+                &mut store,
+                &params(&[
+                    ("key", json!(format!("k{index:0240}"))),
+                    ("value", json!("tiny")),
+                ]),
+            )
+            .unwrap();
+        }
+        let snapshot =
+            snapshot_context(&mut store, &params(&[("limit", json!(1000))])).unwrap();
+        assert_eq!(snapshot["totalMatched"], 300);
+        let stored = retrieve_entry(
+            &store,
+            &params(&[("key", json!(snapshot["key"].as_str().unwrap()))]),
+        )
+        .unwrap();
+        assert!(stored["value"].as_str().unwrap().len() <= MAX_VALUE_BYTES);
     }
 }

@@ -3,12 +3,20 @@ use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub const WORKERS_DOCUMENT: &str = "workers.json";
 pub const MAX_WORKER_NAME_CHARS: usize = 128;
 pub const MAX_TASK_CHARS: usize = 500;
 pub const MAX_TARGET_FILES: usize = 64;
 pub const MAX_PLAN_STEPS: usize = 16;
 pub const MAX_WORKERS_PER_PARENT: usize = 32;
+pub const MAX_WORKER_RESULT_CHARS: usize = 64 * 1024;
+
+pub fn truncate_worker_text(text: &str) -> String {
+    if text.chars().count() <= MAX_WORKER_RESULT_CHARS {
+        return text.to_owned();
+    }
+    let kept: String = text.chars().take(MAX_WORKER_RESULT_CHARS).collect();
+    format!("{kept}\n[truncated: worker output exceeded 64 KiB; the full transcript remains on the worker thread]")
+}
 
 pub fn now_seconds() -> f64 {
     SystemTime::now()
@@ -562,4 +570,26 @@ pub fn objective_keywords(objective: &str) -> Vec<String> {
         }
     }
     keywords
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_worker_text_keeps_short_text_and_caps_long_text() {
+        assert_eq!(truncate_worker_text("done"), "done");
+        let exact = "x".repeat(MAX_WORKER_RESULT_CHARS);
+        assert_eq!(truncate_worker_text(&exact), exact);
+        let long = "x".repeat(MAX_WORKER_RESULT_CHARS + 1);
+        let truncated = truncate_worker_text(&long);
+        assert!(truncated.starts_with(&exact));
+        assert!(truncated.contains("truncated"));
+        assert!(truncated.contains("full transcript remains on the worker thread"));
+        assert!(truncated.chars().count() < MAX_WORKER_RESULT_CHARS + 128);
+        let wide = "é".repeat(MAX_WORKER_RESULT_CHARS + 1);
+        let truncated_wide = truncate_worker_text(&wide);
+        assert!(truncated_wide.starts_with(&"é".repeat(MAX_WORKER_RESULT_CHARS)));
+        assert!(truncated_wide.contains("truncated"));
+    }
 }

@@ -567,6 +567,16 @@ impl Store {
         {
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+            for suffix in ["-wal", "-shm"] {
+                let mut companion = path.as_os_str().to_os_string();
+                companion.push(suffix);
+                let companion = std::path::PathBuf::from(companion);
+                if let Ok(meta) = fs::symlink_metadata(&companion) {
+                    if meta.is_file() {
+                        fs::set_permissions(&companion, fs::Permissions::from_mode(0o600))?;
+                    }
+                }
+            }
         }
         db.execute_batch("CREATE INDEX IF NOT EXISTS thread_summaries_snooze ON thread_summaries(snoozed_until) WHERE snoozed_until IS NOT NULL;")?;
         migrate_memory_entries(&mut db)?;
@@ -1798,6 +1808,18 @@ impl Store {
         Ok(self
             .connection_mut()?
             .execute("DELETE FROM memory_entries WHERE scope=?1", [scope])?)
+    }
+    pub(crate) fn memory_count(&self) -> Result<i64> {
+        Ok(self
+            .connection()?
+            .query_row("SELECT count(*) FROM memory_entries", [], |row| row.get(0))?)
+    }
+    pub(crate) fn memory_total_bytes(&self) -> Result<i64> {
+        Ok(self.connection()?.query_row(
+            "SELECT COALESCE(SUM(length(entry)),0) FROM memory_entries",
+            [],
+            |row| row.get(0),
+        )?)
     }
     pub(crate) fn worker_record(&self, id: &str) -> Result<Option<Value>> {
         let record: Option<String> = self

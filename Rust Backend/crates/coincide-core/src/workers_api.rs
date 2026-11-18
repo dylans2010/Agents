@@ -198,12 +198,15 @@ impl Engine {
             Some("completed") => {
                 record["status"] = json!("completed");
                 record["completedAt"] = json!(completed_at);
-                record["result"] = json!(assistant_texts.join("\n\n"));
+                record["result"] =
+                    json!(worker_store::truncate_worker_text(&assistant_texts.join("\n\n")));
             }
             Some("failed") => {
                 record["status"] = json!("failed");
                 record["completedAt"] = json!(completed_at);
-                record["error"] = json!(error_text.unwrap_or_else(|| "Provider turn failed".to_owned()));
+                record["error"] = json!(error_text
+                    .map(|text| worker_store::truncate_worker_text(&text))
+                    .unwrap_or_else(|| "Provider turn failed".to_owned()));
             }
             Some("interrupted") => {
                 record["status"] = json!("cancelled");
@@ -214,11 +217,12 @@ impl Engine {
                 if let Some(error) = error_text {
                     record["status"] = json!("failed");
                     record["completedAt"] = json!(completed_at);
-                    record["error"] = json!(error);
+                    record["error"] = json!(worker_store::truncate_worker_text(&error));
                 } else if !assistant_texts.is_empty() {
                     record["status"] = json!("completed");
                     record["completedAt"] = json!(completed_at);
-                    record["result"] = json!(assistant_texts.join("\n\n"));
+                    record["result"] =
+                        json!(worker_store::truncate_worker_text(&assistant_texts.join("\n\n")));
                 } else {
                     record["status"] = json!("failed");
                     record["completedAt"] = json!(completed_at);
