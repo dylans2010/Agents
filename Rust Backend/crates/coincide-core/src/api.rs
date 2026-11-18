@@ -759,13 +759,15 @@ impl Engine {
                 );
                 if task.limits.max_concurrent == 1 {
                     if let Some(worker_id) = &task.last_worker_id {
+                        let _ = self.workers_list(&json!({"parentThreadId": parent_id}));
                         if let Ok(record) =
                             crate::worker_store::load_worker(&self.store, worker_id)
                         {
                             let status =
                                 record.get("status").and_then(Value::as_str).unwrap_or("");
                             ensure!(
-                                crate::worker_store::is_terminal(status),
+                                crate::worker_store::is_terminal(status)
+                                    || status == "interrupted",
                                 "Automated task '{}' already has a running worker",
                                 task.name
                             );
@@ -838,13 +840,6 @@ impl Engine {
                     "Unknown workspace '{}'",
                     incoming.workspace_id
                 );
-                if incoming.schedule.kind == "once" && incoming.is_active() {
-                    ensure!(
-                        next_run_at(&incoming, now)?.is_some(),
-                        "Choose a future date for a one-time task"
-                    );
-                }
-                incoming.next_run_at = next_run_at(&incoming, now)?.map(|next| next.timestamp());
                 let tasks = snapshot.document["tasks"]
                     .as_array_mut()
                     .context("Invalid automated tasks envelope")?;
@@ -866,6 +861,32 @@ impl Engine {
                         incoming.last_missed_at = stored.last_missed_at;
                         incoming.missed_count = stored.missed_count;
                         incoming.last_worker_id = stored.last_worker_id;
+                        if incoming.schedule.kind == "once" && incoming.is_active() {
+                            ensure!(
+                                next_run_at(&incoming, now)?.is_some(),
+                                "Choose a future date for a one-time task"
+                            );
+                        }
+                        let timing_unchanged = incoming.schedule.kind == stored.schedule.kind
+                            && incoming.schedule.time_zone_id == stored.schedule.time_zone_id
+                            && incoming.schedule.date == stored.schedule.date
+                            && incoming.schedule.hour == stored.schedule.hour
+                            && incoming.schedule.minute == stored.schedule.minute
+                            && incoming.schedule.weekday == stored.schedule.weekday
+                            && incoming.schedule.weekdays == stored.schedule.weekdays
+                            && incoming.schedule.interval_minutes
+                                == stored.schedule.interval_minutes
+                            && incoming.schedule.cron == stored.schedule.cron
+                            && incoming.trigger == stored.trigger
+                            && incoming.enabled == stored.enabled
+                            && incoming.paused == stored.paused
+                            && incoming.limits.max_runs == stored.limits.max_runs;
+                        if timing_unchanged {
+                            incoming.next_run_at = stored.next_run_at;
+                        } else {
+                            incoming.next_run_at =
+                                next_run_at(&incoming, now)?.map(|next| next.timestamp());
+                        }
                         incoming.updated_at = now_secs;
                         tasks[position] = serde_json::to_value(&incoming)?;
                         position
@@ -875,9 +896,22 @@ impl Engine {
                             tasks.len() < crate::organization::RECORD_LIMIT,
                             "Too many automated tasks"
                         );
-                        if incoming.created_at <= 0 {
-                            incoming.created_at = now_secs;
+                        incoming.run_count = 0;
+                        incoming.missed_count = 0;
+                        incoming.last_run_at = None;
+                        incoming.last_outcome = None;
+                        incoming.last_message = None;
+                        incoming.last_missed_at = None;
+                        incoming.last_worker_id = None;
+                        if incoming.schedule.kind == "once" && incoming.is_active() {
+                            ensure!(
+                                next_run_at(&incoming, now)?.is_some(),
+                                "Choose a future date for a one-time task"
+                            );
                         }
+                        incoming.next_run_at =
+                            next_run_at(&incoming, now)?.map(|next| next.timestamp());
+                        incoming.created_at = now_secs;
                         incoming.updated_at = now_secs;
                         tasks.push(serde_json::to_value(&incoming)?);
                         tasks.len() - 1

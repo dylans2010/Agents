@@ -659,6 +659,12 @@ pub fn check_run_now(task: &AssistantTask, assistant: &Assistant, now: DateTime<
             max_runs
         );
     }
+    if task.schedule.kind == "once" && task.run_count >= 1 {
+        bail!(
+            "Automated task '{}' is a one-time task that has already run",
+            task.name
+        );
+    }
     if task.approval.required {
         bail!(
             "Automated task '{}' requires approval for its actions; run-now cannot start it without explicit user approval",
@@ -1190,5 +1196,286 @@ mod tests {
             json!({"taskId": "00000000-0000-4000-8000-000000000099", "parentThreadId": parent_id}),
         );
         assert!(missing["error"].is_object());
+    }
+
+    fn set_stored_next_run_at(engine: &mut Engine, id: &str, next_run_at: i64) {
+        let listed = call(engine, "tasks.list", json!({}));
+        assert!(listed["error"].is_null(), "{}", listed["error"]);
+        let mut document = json!({"version": 1, "tasks": listed["result"]["tasks"].clone()});
+        for task in document["tasks"].as_array_mut().unwrap() {
+            if task["id"] == id {
+                task["nextRunAt"] = json!(next_run_at);
+            }
+        }
+        engine
+            .store
+            .save_document("assistant-tasks.json", &document)
+            .unwrap();
+    }
+
+    fn run_now_parent(engine: &mut Engine) -> String {
+        let parent = call(
+            engine,
+            "threads.create",
+            json!({"projectId": WORKSPACE_ID}),
+        );
+        assert!(parent["error"].is_null(), "{}", parent["error"]);
+        parent["result"]["id"].as_str().unwrap().to_string()
+    }
+
+    fn run_now(engine: &mut Engine, task_id: &str, parent_id: &str) -> Value {
+        call(
+            engine,
+            "tasks.run_now",
+            json!({"taskId": task_id, "parentThreadId": parent_id}),
+        )
+    }
+
+    #[test]
+    fn check_run_now_rejects_a_spent_one_time_task_without_max_runs() {
+        let assistant: Assistant = serde_json::from_value(assistant_json("read-only")).unwrap();
+        let now = utc(2026, 11, 18, 12, 0);
+        let mut spent = validate_task(&task_json(ID)).unwrap();
+        spent.schedule.kind = "once".to_string();
+        spent.run_count = 1;
+        assert!(check_run_now(&spent, &assistant, now)
+            .unwrap_err()
+            .to_string()
+            .contains("already run"));
+        let mut fresh = validate_task(&task_json(ID)).unwrap();
+        fresh.schedule.kind = "once".to_string();
+        assert!(check_run_now(&fresh, &assistant, now).is_ok());
+    }
+
+    #[test]
+    fn dispatch_save_resets_client_supplied_bookkeeping_on_create() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let mut forged = task_json(ID);
+        forged["runCount"] = json!(100);
+        forged["limits"]["maxRuns"] = json!(100);
+        forged["missedCount"] = json!(5);
+        forged["lastRunAt"] = json!(1_500_000);
+        forged["lastOutcome"] = json!("completed");
+        forged["lastMessage"] = json!("Forged outcome");
+        forged["lastMissedAt"] = json!(1_400_000);
+        forged["lastWorkerId"] = json!("00000000-0000-4000-8000-000000000009");
+        forged["createdAt"] = json!(500);
+        let created = save_task(&mut engine, &forged);
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let saved = &created["result"]["task"];
+        assert_eq!(saved["runCount"], json!(0));
+        assert_eq!(saved["missedCount"], json!(0));
+        assert!(saved["lastRunAt"].is_null());
+        assert!(saved["lastOutcome"].is_null());
+        assert!(saved["lastMessage"].is_null());
+        assert!(saved["lastMissedAt"].is_null());
+        assert!(saved["lastWorkerId"].is_null());
+        assert!(saved["nextRunAt"].as_i64().unwrap() > 0);
+        assert!(saved["createdAt"].as_i64().unwrap() > 1_000_000);
+        assert_eq!(saved["createdAt"], saved["updatedAt"]);
+    }
+
+    #[test]
+    fn dispatch_save_preserves_overdue_next_run_at_when_schedule_is_unchanged() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        set_stored_next_run_at(&mut engine, ID, 1_000_000);
+        let mut renamed = task_json(ID);
+        renamed["name"] = json!("Morning review");
+        let saved = save_task(&mut engine, &renamed);
+        assert!(saved["error"].is_null(), "{}", saved["error"]);
+        assert_eq!(saved["result"]["task"]["nextRunAt"], json!(1_000_000));
+        let mut rescheduled = task_json(ID);
+        rescheduled["name"] = json!("Morning review");
+        rescheduled["schedule"]["hour"] = json!(10);
+        let saved = save_task(&mut engine, &rescheduled);
+        assert!(saved["error"].is_null(), "{}", saved["error"]);
+        assert!(saved["result"]["task"]["nextRunAt"].as_i64().unwrap() > 1_000_000);
+        let mut capped = task_json(ID);
+        capped["name"] = json!("Morning review");
+        capped["schedule"]["hour"] = json!(10);
+        capped["limits"]["maxRuns"] = json!(5);
+        let saved = save_task(&mut engine, &capped);
+        assert!(saved["error"].is_null(), "{}", saved["error"]);
+        assert!(saved["result"]["task"]["nextRunAt"].as_i64().unwrap() > 1_000_000);
+    }
+
+    #[test]
+    fn dispatch_run_now_spawns_a_worker_and_records_the_run() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
+        let ran = run_now(&mut engine, ID, &parent_id);
+        assert!(ran["error"].is_null(), "{}", ran["error"]);
+        let worker = &ran["result"]["worker"];
+        assert!(worker["id"].as_str().is_some_and(|id| !id.is_empty()));
+        assert_eq!(worker["status"], "running");
+        let thread_id = worker["threadId"].as_str().unwrap();
+        assert!(engine.store.thread(thread_id).is_ok());
+        let saved = &ran["result"]["task"];
+        assert_eq!(saved["runCount"], json!(1));
+        assert_eq!(saved["lastWorkerId"], worker["id"]);
+        assert!(saved["lastRunAt"].as_i64().unwrap() > 0);
+        assert!(saved["lastOutcome"].is_null());
+        assert!(saved["nextRunAt"].as_i64().unwrap() > saved["lastRunAt"].as_i64().unwrap());
+    }
+
+    #[test]
+    fn dispatch_run_now_rejects_a_spent_one_time_task() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let mut once = task_json(ID);
+        once["schedule"]["kind"] = json!("once");
+        once["schedule"]["date"] = json!("2030-01-01T09:00:00Z");
+        let created = save_task(&mut engine, &once);
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
+        let first = run_now(&mut engine, ID, &parent_id);
+        assert!(first["error"].is_null(), "{}", first["error"]);
+        assert_eq!(first["result"]["task"]["runCount"], json!(1));
+        let second = run_now(&mut engine, ID, &parent_id);
+        assert!(second["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("already run"));
+        let listed = call(&mut engine, "tasks.list", json!({}));
+        assert_eq!(listed["result"]["tasks"][0]["runCount"], json!(1));
+    }
+
+    #[test]
+    fn dispatch_due_lists_overdue_tasks() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let future = save_task(
+            &mut engine,
+            &task_json("00000000-0000-4000-8000-000000000004"),
+        );
+        assert!(future["error"].is_null(), "{}", future["error"]);
+        set_stored_next_run_at(&mut engine, ID, 1_000_000);
+        let due = call(&mut engine, "tasks.due", json!({}));
+        assert!(due["error"].is_null(), "{}", due["error"]);
+        let due_tasks = due["result"]["dueTasks"].as_array().unwrap();
+        assert_eq!(due_tasks.len(), 1);
+        assert_eq!(due_tasks[0]["taskId"], ID);
+        assert_eq!(due_tasks[0]["occurrence"], json!(1_000_000));
+    }
+
+    #[test]
+    fn dispatch_recover_marks_overdue_tasks_missed() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        set_stored_next_run_at(&mut engine, ID, 1_000_000);
+        let recovered = call(&mut engine, "tasks.recover", json!({}));
+        assert!(recovered["error"].is_null(), "{}", recovered["error"]);
+        assert_eq!(recovered["result"]["missedTaskIds"], json!([ID]));
+        let listed = call(&mut engine, "tasks.list", json!({}));
+        let task = &listed["result"]["tasks"][0];
+        assert_eq!(task["lastOutcome"], "missed");
+        assert_eq!(task["missedCount"], json!(1));
+        assert!(task["nextRunAt"].as_i64().unwrap() > 1_000_000);
+        let again = call(&mut engine, "tasks.recover", json!({}));
+        assert_eq!(again["result"]["missedTaskIds"], json!([]));
+    }
+
+    #[test]
+    fn dispatch_mark_missed_records_a_missed_run() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        set_stored_next_run_at(&mut engine, ID, 1_000_000);
+        let missed = call(
+            &mut engine,
+            "tasks.mark_missed",
+            json!({"taskId": ID, "reason": "Host was asleep."}),
+        );
+        assert!(missed["error"].is_null(), "{}", missed["error"]);
+        let saved = &missed["result"]["task"];
+        assert_eq!(saved["lastOutcome"], "missed");
+        assert_eq!(saved["lastMessage"], "Host was asleep.");
+        assert_eq!(saved["missedCount"], json!(1));
+        assert!(saved["nextRunAt"].as_i64().unwrap() > 1_000_000);
+        let too_soon = call(
+            &mut engine,
+            "tasks.mark_missed",
+            json!({"taskId": ID, "reason": "Too soon."}),
+        );
+        assert!(too_soon["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("no missed run to record"));
+    }
+
+    #[test]
+    fn dispatch_rejects_unknown_task_parameters() {
+        let (_root, mut engine) = fixture_engine();
+        let listed = call(&mut engine, "tasks.list", json!({"unexpected": 1}));
+        assert!(listed["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Unknown automated task parameter"));
+        let due = call(&mut engine, "tasks.due", json!({"unexpected": 1}));
+        assert!(due["error"].is_object());
+        let run_now = call(
+            &mut engine,
+            "tasks.run_now",
+            json!({"taskId": ID, "parentThreadId": "x", "extra": 1}),
+        );
+        assert!(run_now["error"].is_object());
+    }
+
+    #[test]
+    fn dispatch_run_now_allows_a_second_run_when_the_previous_worker_is_interrupted() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
+        let first = run_now(&mut engine, ID, &parent_id);
+        assert!(first["error"].is_null(), "{}", first["error"]);
+        let worker_id = first["result"]["worker"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let mut record = crate::worker_store::load_worker(&engine.store, &worker_id).unwrap();
+        record["status"] = json!("interrupted");
+        assert!(engine.store.worker_upsert(&worker_id, &record).unwrap());
+        let second = run_now(&mut engine, ID, &parent_id);
+        assert!(second["error"].is_null(), "{}", second["error"]);
+        assert_eq!(second["result"]["task"]["runCount"], json!(2));
+    }
+
+    #[test]
+    fn dispatch_run_now_recovers_a_stale_running_worker_after_restart() {
+        let (root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
+        let first = run_now(&mut engine, ID, &parent_id);
+        assert!(first["error"].is_null(), "{}", first["error"]);
+        drop(engine);
+        let mut engine = Engine::fixture(Store::open(&root.path().join("rust.sqlite")).unwrap());
+        let second = run_now(&mut engine, ID, &parent_id);
+        assert!(second["error"].is_null(), "{}", second["error"]);
+        assert_eq!(second["result"]["task"]["runCount"], json!(2));
     }
 }
