@@ -66,18 +66,57 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 9)
+        #expect(tools.count == 26)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
             "workspace.read_file", "workspace.write_file", "workspace.files", "workspace.search",
+            "workspace.delete_file", "workspace.delete_directory", "workspace.move_file",
+            "workspace.copy_file", "workspace.create_dir", "workspace.read_dir",
+            "workspace.edit_file", "workspace.search_regex",
             "terminal.create", "terminal.write", "terminal.read", "git.status", "git.diff",
+            "git.actions.run", "git.actions.pull", "git.branches.list", "git.branches.create",
+            "git.branches.checkout",
         ])
         #expect(tools.allSatisfy { !$0.parameters.isEmpty })
         #expect(tools.allSatisfy { $0.parameters.contains { $0.required } })
         for tool in tools {
             #expect(SystemToolRegistry.definition(named: tool.name, for: .system) == tool)
         }
+    }
+
+    @Test("Slice 1 tools register with their real backend actions")
+    func sliceOneToolsRegister() {
+        let expected: [(String, String)] = [
+            ("delete_file", "workspace.delete_file"),
+            ("delete_directory", "workspace.delete_directory"),
+            ("move_file", "workspace.move_file"),
+            ("copy_file", "workspace.copy_file"),
+            ("create_directory", "workspace.create_dir"),
+            ("read_directory", "workspace.read_dir"),
+            ("edit_file", "workspace.edit_file"),
+            ("multi_edit_file", "workspace.edit_file"),
+            ("search_regex", "workspace.search_regex"),
+            ("run_build", "terminal.create"),
+            ("run_tests", "terminal.create"),
+            ("git_commit", "git.actions.run"),
+            ("git_push", "git.actions.run"),
+            ("git_pull", "git.actions.pull"),
+            ("git_branch_list", "git.branches.list"),
+            ("git_branch_create", "git.branches.create"),
+            ("git_branch_checkout", "git.branches.checkout"),
+        ]
+        for (name, action) in expected {
+            guard let definition = SystemToolRegistry.definition(named: name, for: .system) else {
+                Issue.record("Missing system tool \(name)")
+                continue
+            }
+            #expect(definition.action == action)
+            #expect(definition.parameters.contains { $0.required })
+        }
+        #expect(SystemToolRegistry.definition(named: "edit_file", for: .system)?.parameters.map(\.name).contains("mode") == true)
+        #expect(SystemToolRegistry.definition(named: "read_directory", for: .system)?.parameters.map(\.name).contains("recursive") == true)
+        #expect(SystemToolRegistry.definition(named: "git_commit", for: .system)?.parameters.map(\.name).contains("message") == true)
     }
 
     @Test("Provider Tools mode registers no system tools")
@@ -132,6 +171,35 @@ struct ToolsetTests {
             #expect(error == .missingArgument(tool: "read_file", argument: "path"))
         } catch {
             Issue.record("Unexpected error \(error)")
+        }
+        await client.close()
+    }
+
+    @Test("Slice 1 tools refuse missing arguments before any runtime call")
+    func sliceOneMissingArgumentRefused() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cases: [(String, [String: JSONValue], String)] = [
+            ("delete_file", ["cwd": .string("/tmp")], "path"),
+            ("move_file", ["cwd": .string("/tmp"), "path": .string("a.txt")], "destination"),
+            ("edit_file", ["cwd": .string("/tmp"), "path": .string("a.txt"), "oldText": .string("x")], "newText"),
+            ("multi_edit_file", ["cwd": .string("/tmp"), "path": .string("a.txt")], "edits"),
+            ("search_regex", ["cwd": .string("/tmp")], "pattern"),
+            ("run_build", ["threadId": .string("t")], "command"),
+            ("git_commit", ["threadId": .string("t")], "message"),
+            ("git_branch_create", ["threadId": .string("t")], "name"),
+        ]
+        for (tool, arguments, missing) in cases {
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    tool, arguments: arguments, toolset: .system, runtime: client
+                )
+                Issue.record("Expected missingArgument error for \(tool)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: tool, argument: missing))
+            } catch {
+                Issue.record("Unexpected error for \(tool): \(error)")
+            }
         }
         await client.close()
     }

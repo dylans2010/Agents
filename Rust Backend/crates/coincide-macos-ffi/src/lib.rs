@@ -671,6 +671,188 @@ mod tests {
         assert_eq!(search_resp["ok"], true, "workspace.search: {search_resp}");
         assert_eq!(search_resp["result"]["matches"][0]["path"], "src/hello.swift");
 
+        let edit_req = CString::new(
+            json!({
+                "action": "workspace.edit_file",
+                "cwd": proj_dir,
+                "path": "src/hello.swift",
+                "oldText": "Hello Native SwiftUI",
+                "newText": "Hello Agents",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let edit_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, edit_req.as_ptr())) };
+        assert_eq!(edit_resp["ok"], true, "workspace.edit_file: {edit_resp}");
+        assert_eq!(edit_resp["result"]["replacements"], 1);
+        assert_eq!(edit_resp["result"]["lines"], json!([2]));
+
+        let ambiguous_req = CString::new(
+            json!({
+                "action": "workspace.edit_file",
+                "cwd": proj_dir,
+                "path": "src/hello.swift",
+                "oldText": "e",
+                "newText": "E",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let ambiguous_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, ambiguous_req.as_ptr())) };
+        assert_eq!(ambiguous_resp["ok"], false, "ambiguous edit must fail");
+
+        let missing_req = CString::new(
+            json!({
+                "action": "workspace.edit_file",
+                "cwd": proj_dir,
+                "path": "src/hello.swift",
+                "oldText": "no such anchor",
+                "newText": "x",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let missing_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, missing_req.as_ptr())) };
+        assert_eq!(missing_resp["ok"], false, "missing anchor edit must fail");
+
+        let regex_req = CString::new(
+            json!({
+                "action": "workspace.search_regex",
+                "cwd": proj_dir,
+                "pattern": "Hello (Agents|Swift)",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let regex_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, regex_req.as_ptr())) };
+        assert_eq!(regex_resp["ok"], true, "workspace.search_regex: {regex_resp}");
+        assert_eq!(regex_resp["result"]["matches"][0]["path"], "src/hello.swift");
+
+        let bad_regex_req = CString::new(
+            json!({
+                "action": "workspace.search_regex",
+                "cwd": proj_dir,
+                "pattern": "([unclosed",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let bad_regex_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, bad_regex_req.as_ptr())) };
+        assert_eq!(bad_regex_resp["ok"], false, "invalid regex must fail");
+
+        let copy_req = CString::new(
+            json!({
+                "action": "workspace.copy_file",
+                "cwd": proj_dir,
+                "path": "src/hello.swift",
+                "destination": "src/hello_copy.swift",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let copy_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, copy_req.as_ptr())) };
+        assert_eq!(copy_resp["ok"], true, "workspace.copy_file: {copy_resp}");
+
+        let move_req = CString::new(
+            json!({
+                "action": "workspace.move_file",
+                "cwd": proj_dir,
+                "path": "src/hello_copy.swift",
+                "destination": "src/moved.swift",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let move_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, move_req.as_ptr())) };
+        assert_eq!(move_resp["ok"], true, "workspace.move_file: {move_resp}");
+
+        let mkdir_req = CString::new(
+            json!({
+                "action": "workspace.create_dir",
+                "cwd": proj_dir,
+                "path": "src/nested/deep",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let mkdir_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, mkdir_req.as_ptr())) };
+        assert_eq!(mkdir_resp["ok"], true, "workspace.create_dir: {mkdir_resp}");
+
+        let readdir_req = CString::new(
+            json!({
+                "action": "workspace.read_dir",
+                "cwd": proj_dir,
+                "path": "src",
+                "recursive": true,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let readdir_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, readdir_req.as_ptr())) };
+        assert_eq!(readdir_resp["ok"], true, "workspace.read_dir: {readdir_resp}");
+        let entries = readdir_resp["result"]["entries"].as_array().unwrap();
+        assert!(entries.iter().any(|e| e["path"] == "src/hello.swift"));
+        assert!(entries.iter().any(|e| e["path"] == "src/moved.swift"));
+        assert!(
+            entries
+                .iter()
+                .any(|e| e["path"] == "src/nested/deep" && e["isDirectory"] == true)
+        );
+
+        let del_file_req = CString::new(
+            json!({
+                "action": "workspace.delete_file",
+                "cwd": proj_dir,
+                "path": "src/moved.swift",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let del_file_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, del_file_req.as_ptr())) };
+        assert_eq!(del_file_resp["ok"], true, "workspace.delete_file: {del_file_resp}");
+        assert!(!proj_dir.join("src/moved.swift").exists());
+
+        let del_dir_req = CString::new(
+            json!({
+                "action": "workspace.delete_directory",
+                "cwd": proj_dir,
+                "path": "src/nested",
+                "recursive": true,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let del_dir_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, del_dir_req.as_ptr())) };
+        assert_eq!(
+            del_dir_resp["ok"], true,
+            "workspace.delete_directory: {del_dir_resp}"
+        );
+        assert!(!proj_dir.join("src/nested").exists());
+
+        let escape_req = CString::new(
+            json!({
+                "action": "workspace.delete_file",
+                "cwd": proj_dir,
+                "path": "../escape.txt",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let escape_resp =
+            unsafe { take_json(coincide_macos_desktop_call(runtime, escape_req.as_ptr())) };
+        assert_eq!(escape_resp["ok"], false, "path escape must fail");
+
         // 8. Desktop call: `terminal.create` + `terminal.viewport` + `terminal.close`
         let term_create_req = CString::new(
             json!({

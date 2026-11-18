@@ -177,8 +177,32 @@ pub fn text_controlled(
     }
     ensure!(root.is_dir(), "The project folder is unavailable");
     let mut matches = match ripgrep() {
-        Some(rg) => run_ripgrep(&rg, root, query, control)?,
+        Some(rg) => run_ripgrep(&rg, root, query, control, true)?,
         None => walk_controlled(root, query, control),
+    };
+    matches.truncate(TEXT_LIMIT);
+    Ok(matches)
+}
+
+pub fn text_regex(root: &Path, pattern: &str) -> Result<Vec<TextMatch>> {
+    text_regex_controlled(root, pattern, &SearchControl::default())
+}
+pub fn text_regex_controlled(
+    root: &Path,
+    pattern: &str,
+    control: &SearchControl,
+) -> Result<Vec<TextMatch>> {
+    control.check()?;
+    ensure!(
+        pattern.len() <= 256 && !pattern.contains(['\0', '\n', '\r']),
+        "Search must be at most 256 bytes on one line"
+    );
+    ensure!(!pattern.trim().is_empty(), "Search pattern must not be empty");
+    ensure!(root.is_dir(), "The project folder is unavailable");
+    let compiled = regex::Regex::new(pattern).context("Invalid regular expression")?;
+    let mut matches = match ripgrep() {
+        Some(rg) => run_ripgrep(&rg, root, pattern, control, false)?,
+        None => walk_regex_controlled(root, &compiled, control),
     };
     matches.truncate(TEXT_LIMIT);
     Ok(matches)
@@ -189,14 +213,15 @@ fn run_ripgrep(
     root: &Path,
     query: &str,
     control: &SearchControl,
+    fixed_strings: bool,
 ) -> Result<Vec<TextMatch>> {
     let mut command = Command::new(rg);
+    command.args(["--no-config", "--line-number", "--no-heading"]);
+    if fixed_strings {
+        command.arg("--fixed-strings");
+    }
     command
         .args([
-            "--no-config",
-            "--line-number",
-            "--no-heading",
-            "--fixed-strings",
             "--smart-case",
             "--max-count",
             "6",
@@ -251,6 +276,20 @@ fn walk(root: &Path, query: &str) -> Vec<TextMatch> {
     walk_controlled(root, query, &SearchControl::default())
 }
 fn walk_controlled(root: &Path, query: &str, control: &SearchControl) -> Vec<TextMatch> {
+    walk_matching(root, control, &|line| line.contains(query))
+}
+fn walk_regex_controlled(
+    root: &Path,
+    pattern: &regex::Regex,
+    control: &SearchControl,
+) -> Vec<TextMatch> {
+    walk_matching(root, control, &|line| pattern.is_match(line))
+}
+fn walk_matching(
+    root: &Path,
+    control: &SearchControl,
+    matches_line: &dyn Fn(&str) -> bool,
+) -> Vec<TextMatch> {
     let mut matches = Vec::new();
     let mut folders = vec![PathBuf::new()];
     let mut visited = 0;
@@ -287,7 +326,7 @@ fn walk_controlled(root: &Path, query: &str, control: &SearchControl) -> Vec<Tex
                     subfolders.push(path);
                 }
             } else if kind.is_file() {
-                search_file(root, &path, query, &mut matches, control, &mut bytes_left);
+                search_file(root, &path, matches_line, &mut matches, control, &mut bytes_left);
                 if matches.len() >= TEXT_LIMIT {
                     return matches;
                 }
@@ -301,7 +340,7 @@ fn walk_controlled(root: &Path, query: &str, control: &SearchControl) -> Vec<Tex
 fn search_file(
     root: &Path,
     path: &Path,
-    query: &str,
+    matches_line: &dyn Fn(&str) -> bool,
     matches: &mut Vec<TextMatch>,
     control: &SearchControl,
     bytes_left: &mut usize,
@@ -350,7 +389,7 @@ fn search_file(
         };
         *bytes_left = bytes_left.saturating_sub(line.len() + 1);
         let line = String::from_utf8_lossy(&line);
-        if line.contains(query) {
+        if matches_line(&line) {
             matches.push(TextMatch {
                 path: display.clone(),
                 line: index + 1,
@@ -760,6 +799,48 @@ mod tests {
         assert!(text(&scratch.0, "needle").unwrap().contains(&expected[0]));
         assert!(text(&scratch.0, "n").unwrap().is_empty());
         assert!(text(&scratch.0, "a\nb").is_err());
+    }
+
+    #[test]
+    fn regex_search_matches_patterns_literal_search_misses() {
+        let scratch = Scratch::new();
+        scratch.file("src/a.txt", "one\nthe needle is here\nthree\n");
+        scratch.file("b.txt", "nothing\n");
+        let found = text_regex(&scratch.0, "n.dle").unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].path, "src/a.txt");
+        assert_eq!(found[0].line, 2);
+        let alt = text_regex(&scratch.0, "one|nothing").unwrap();
+        assert_eq!(alt.len(), 2);
+        assert_eq!(text_regex(&scratch.0, "needle").unwrap().len(), 1);
+        assert!(text_regex(&scratch.0, "nomatch").unwrap().is_empty());
+    }
+
+    #[test]
+    fn regex_search_rejects_invalid_patterns() {
+        let scratch = Scratch::new();
+        scratch.file("a.txt", "x\n");
+        assert!(text_regex(&scratch.0, "([unclosed").is_err());
+        assert!(text_regex(&scratch.0, "").is_err());
+        assert!(text_regex(&scratch.0, "   ").is_err());
+        assert!(text_regex(&scratch.0, "a\nb").is_err());
+    }
+
+    #[test]
+    fn regex_fallback_walker_matches_without_ripgrep() {
+        let scratch = Scratch::new();
+        scratch.file("src/a.txt", "one\nthe needle is here\nthree\n");
+        scratch.file("b.txt", "nothing\n");
+        let re = regex::Regex::new("n.dle").unwrap();
+        let found = walk_regex_controlled(&scratch.0, &re, &SearchControl::default());
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].path, "src/a.txt");
+        assert_eq!(found[0].line, 2);
+        let alt = regex::Regex::new("one|nothing").unwrap();
+        assert_eq!(
+            walk_regex_controlled(&scratch.0, &alt, &SearchControl::default()).len(),
+            2
+        );
     }
 
     #[test]

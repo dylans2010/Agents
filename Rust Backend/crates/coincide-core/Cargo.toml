@@ -43,6 +43,7 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
 socket2 = { version = "0.6", features = ["all"] }
 qrcodegen = "1.8"
+regex = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "=1.0.2", default-features = false, features = ["keychain"] }

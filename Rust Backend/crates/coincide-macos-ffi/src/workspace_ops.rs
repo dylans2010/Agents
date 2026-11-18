@@ -76,8 +76,16 @@ pub fn dispatch_desktop_action(runtime: &CoincideMacOSRuntime, raw_json: &str) -
         "terminal.viewport" => terminal_viewport(runtime, &params),
         "workspace.files" => workspace_files(&params),
         "workspace.search" => workspace_search(&params),
+        "workspace.search_regex" => workspace_search_regex(&params),
         "workspace.read_file" => workspace_read_file(&params),
         "workspace.write_file" => workspace_write_file(&params),
+        "workspace.delete_file" => workspace_delete_file(&params),
+        "workspace.delete_directory" => workspace_delete_directory(&params),
+        "workspace.move_file" => workspace_move_file(&params),
+        "workspace.copy_file" => workspace_copy_file(&params),
+        "workspace.create_dir" => workspace_create_dir(&params),
+        "workspace.read_dir" => workspace_read_dir(&params),
+        "workspace.edit_file" => workspace_edit_file(&params),
         "instructions.list" => instructions_list(runtime, &params),
         "instructions.read" => instructions_read(runtime, &params),
         "instructions.save" => instructions_save(runtime, &params),
@@ -440,6 +448,347 @@ fn validate_relative_workspace_path(path: &str) -> Result<&Path> {
         "Path must be a relative workspace path without '.' or '..' components"
     );
     Ok(rel)
+}
+
+fn workspace_target_parts(cwd: &Path, rel_str: &str) -> Result<(PathBuf, PathBuf)> {
+    let rel = validate_relative_workspace_path(rel_str)?;
+    let canonical_root = cwd.canonicalize().context("Workspace directory is unavailable")?;
+    let joined = canonical_root.join(rel);
+    Ok((canonical_root, joined))
+}
+
+fn existing_workspace_target(cwd: &Path, rel_str: &str) -> Result<PathBuf> {
+    let (canonical_root, joined) = workspace_target_parts(cwd, rel_str)?;
+    let meta = fs::symlink_metadata(&joined)?;
+    ensure!(
+        !meta.file_type().is_symlink(),
+        "Refusing to operate on a symlink"
+    );
+    let canonical = joined.canonicalize().context("Path does not exist")?;
+    ensure!(
+        canonical.starts_with(&canonical_root),
+        "Path resolves outside the workspace directory"
+    );
+    Ok(canonical)
+}
+
+fn workspace_parent_for_write(cwd: &Path, rel_str: &str) -> Result<(PathBuf, String)> {
+    let rel = validate_relative_workspace_path(rel_str)?;
+    let canonical_root = cwd.canonicalize().context("Workspace directory is unavailable")?;
+    let mut current = canonical_root.clone();
+    if let Some(parent_rel) = rel.parent() {
+        for component in parent_rel.components() {
+            current.push(component);
+            match fs::symlink_metadata(&current) {
+                Ok(meta) => {
+                    ensure!(
+                        meta.is_dir() && !meta.file_type().is_symlink(),
+                        "Intermediate workspace path is not a regular directory"
+                    );
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    fs::create_dir(&current)?;
+                }
+                Err(err) => return Err(err.into()),
+            }
+        }
+    }
+    let canonical_parent = current.canonicalize()?;
+    ensure!(
+        canonical_parent.starts_with(&canonical_root),
+        "Target parent directory is outside the workspace"
+    );
+    let name = rel
+        .file_name()
+        .context("Invalid filename")?
+        .to_string_lossy()
+        .into_owned();
+    Ok((canonical_parent, name))
+}
+
+fn read_workspace_text(cwd: &Path, rel_str: &str) -> Result<(String, PathBuf)> {
+    let (canonical_root, joined) = workspace_target_parts(cwd, rel_str)?;
+    let meta = fs::symlink_metadata(&joined)?;
+    ensure!(
+        meta.is_file() && !meta.file_type().is_symlink(),
+        "Path is not a regular file"
+    );
+    let canonical = joined.canonicalize().context("File does not exist")?;
+    ensure!(
+        canonical.starts_with(&canonical_root),
+        "File resolves outside the workspace directory"
+    );
+    let mut file = native_file::open_regular(&canonical, false)?;
+    let mut bytes = Vec::new();
+    Read::by_ref(&mut file)
+        .take((MAX_FILE_WRITE_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)?;
+    ensure!(bytes.len() <= MAX_FILE_WRITE_BYTES, "File exceeds 3 MiB");
+    ensure!(!bytes.contains(&0), "File is binary");
+    let content = String::from_utf8(bytes).context("File is not valid UTF-8 text")?;
+    Ok((content, canonical))
+}
+
+fn workspace_search_regex(params: &Value) -> Result<Value> {
+    let cwd = PathBuf::from(req_str(params, &["cwd"], "cwd")?);
+    let pattern = req_str(params, &["pattern"], "pattern")?;
+    let limit = params
+        .get("limit")
+        .and_then(Value::as_u64)
+        .map(|n| n as usize)
+        .unwrap_or(project_search::TEXT_LIMIT)
+        .clamp(1, 1000);
+    let mut matches = project_search::text_regex(&cwd, pattern)?;
+    let total = matches.len();
+    matches.truncate(limit);
+    let rows: Vec<Value> = matches
+        .into_iter()
+        .map(|m| {
+            json!({
+                "path": m.path,
+                "line": m.line,
+                "text": m.text,
+            })
+        })
+        .collect();
+    Ok(json!({
+        "matches": rows,
+        "total": total,
+        "truncated": total > limit,
+    }))
+}
+
+fn workspace_delete_file(params: &Value) -> Result<Value> {
+    let cwd = PathBuf::from(req_str(params, &["cwd"], "cwd")?);
+    let rel_str = req_str(params, &["path"], "path")?;
+    let target = existing_workspace_target(&cwd, rel_str)?;
+    ensure!(fs::metadata(&target)?.is_file(), "Path is not a file");
+    fs::remove_file(&target)?;
+    Ok(json!({
+        "path": rel_str,
+        "deleted": true,
+    }))
+}
+
+fn workspace_delete_directory(params: &Value) -> Result<Value> {
+    let cwd = PathBuf::from(req_str(params, &["cwd"], "cwd")?);
+    let rel_str = req_str(params, &["path"], "path")?;
+    let recursive = params.get("recursive").and_then(Value::as_bool).unwrap_or(false);
+    let target = existing_workspace_target(&cwd, rel_str)?;
+    ensure!(fs::metadata(&target)?.is_dir(), "Path is not a directory");
+    if recursive {
+        fs::remove_dir_all(&target)?;
+    } else {
+        fs::remove_dir(&target)?;
+    }
+    Ok(json!({
+        "path": rel_str,
+        "deleted": true,
+        "recursive": recursive,
+    }))
+}
+
+fn require_absent_destination(dest: &Path) -> Result<()> {
+    match fs::symlink_metadata(dest) {
+        Ok(_) => bail!("Destination already exists"),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err.into()),
+    }
+}
+
+fn workspace_move_file(params: &Value) -> Result<Value> {
+    let cwd = PathBuf::from(req_str(params, &["cwd"], "cwd")?);
+    let rel_str = req_str(params, &["path"], "path")?;
+    let dest_str = req_str(params, &["destination"], "destination")?;
+    let source = existing_workspace_target(&cwd, rel_str)?;
+    let (dest_parent, dest_name) = workspace_parent_for_write(&cwd, dest_str)?;
+    let dest = dest_parent.join(&dest_name);
+    ensure!(source != dest, "Source and destination are the same path");
+    require_absent_destination(&dest)?;
+    fs::rename(&source, &dest)?;
+    Ok(json!({
+        "path": rel_str,
+        "destination": dest_str,
+        "moved": true,
+    }))
+}
+
+fn workspace_copy_file(params: &Value) -> Result<Value> {
+    let cwd = PathBuf::from(req_str(params, &["cwd"], "cwd")?);
+    let rel_str = req_str(params, &["path"], "path")?;
+    let dest_str = req_str(params, &["destination"], "destination")?;
+    let source = existing_workspace_target(&cwd, rel_str)?;
+    ensure!(fs::metadata(&source)?.is_file(), "Path is not a file");
+    let (dest_parent, dest_name) = workspace_parent_for_write(&cwd, dest_str)?;
+    let dest = dest_parent.join(&dest_name);
+    ensure!(source != dest, "Source and destination are the same path");
+    require_absent_destination(&dest)?;
+    let bytes = fs::copy(&source, &dest)?;
+    Ok(json!({
+        "path": rel_str,
+        "destination": dest_str,
+        "copied": true,
+        "byteLen": bytes,
+    }))
+}
+
+fn workspace_create_dir(params: &Value) -> Result<Value> {
+    let cwd = PathBuf::from(req_str(params, &["cwd"], "cwd")?);
+    let rel_str = req_str(params, &["path"], "path")?;
+    let (parent, name) = workspace_parent_for_write(&cwd, rel_str)?;
+    let target = parent.join(&name);
+    match fs::symlink_metadata(&target) {
+        Ok(meta) => {
+            ensure!(
+                meta.is_dir() && !meta.file_type().is_symlink(),
+                "Path exists and is not a directory"
+            );
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir(&target)?;
+        }
+        Err(err) => return Err(err.into()),
+    }
+    Ok(json!({
+        "path": rel_str,
+        "created": true,
+    }))
+}
+
+fn workspace_read_dir(params: &Value) -> Result<Value> {
+    let cwd = PathBuf::from(req_str(params, &["cwd"], "cwd")?);
+    let rel_str = str_param(params, &["path"]).unwrap_or("");
+    let recursive = params.get("recursive").and_then(Value::as_bool).unwrap_or(false);
+    let canonical_root = cwd.canonicalize().context("Workspace directory is unavailable")?;
+    let base = if rel_str.is_empty() || rel_str == "." {
+        canonical_root.clone()
+    } else {
+        existing_workspace_target(&cwd, rel_str)?
+    };
+    ensure!(fs::metadata(&base)?.is_dir(), "Path is not a directory");
+    let mut entries: Vec<Value> = Vec::new();
+    let mut queue = VecDeque::from([(base, 0usize)]);
+    while let Some((dir, depth)) = queue.pop_front() {
+        if entries.len() >= 5000 {
+            break;
+        }
+        let Ok(read) = fs::read_dir(&dir) else {
+            continue;
+        };
+        let mut rows: Vec<_> = read.flatten().collect();
+        rows.sort_by_key(|entry| entry.file_name());
+        for entry in rows {
+            if entries.len() >= 5000 {
+                break;
+            }
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let path = entry.path();
+            let Ok(rel) = path.strip_prefix(&canonical_root) else {
+                continue;
+            };
+            let Some(rel_str) = rel.to_str() else {
+                continue;
+            };
+            let is_dir = kind.is_dir();
+            entries.push(json!({
+                "path": rel_str.replace('\\', "/"),
+                "name": name,
+                "isDirectory": is_dir,
+            }));
+            if recursive && is_dir && depth < 16 {
+                queue.push_back((path, depth + 1));
+            }
+        }
+    }
+    entries.sort_by(|a, b| a["path"].as_str().cmp(&b["path"].as_str()));
+    let total = entries.len();
+    Ok(json!({
+        "path": rel_str,
+        "entries": entries,
+        "total": total,
+    }))
+}
+
+fn workspace_edit_file(params: &Value) -> Result<Value> {
+    let cwd = PathBuf::from(req_str(params, &["cwd"], "cwd")?);
+    let rel_str = req_str(params, &["path"], "path")?;
+    let mut edits: Vec<(String, String, String)> = Vec::new();
+    if let Some(list) = params.get("edits").and_then(Value::as_array) {
+        ensure!(!list.is_empty(), "Edits must not be empty");
+        ensure!(list.len() <= 100, "Too many edits in one call");
+        for item in list {
+            let old = item
+                .get("oldText")
+                .and_then(Value::as_str)
+                .context("Each edit requires 'oldText'")?;
+            let new = item
+                .get("newText")
+                .and_then(Value::as_str)
+                .context("Each edit requires 'newText'")?;
+            let mode = item.get("mode").and_then(Value::as_str).unwrap_or("replace");
+            edits.push((old.to_owned(), new.to_owned(), mode.to_owned()));
+        }
+    } else {
+        let old = req_str(params, &["oldText"], "oldText")?;
+        let new = params
+            .get("newText")
+            .and_then(Value::as_str)
+            .context("Missing required string parameter 'newText'")?;
+        let mode = str_param(params, &["mode"]).unwrap_or("replace");
+        edits.push((old.to_owned(), new.to_owned(), mode.to_owned()));
+    }
+    let (content, target) = read_workspace_text(&cwd, rel_str)?;
+    let mut updated = content.clone();
+    let mut lines: Vec<Value> = Vec::new();
+    for (old, new, mode) in &edits {
+        ensure!(!old.is_empty(), "Anchor text must not be empty");
+        ensure!(!new.contains('\0'), "NUL bytes are not permitted in text files");
+        ensure!(
+            matches!(mode.as_str(), "replace" | "insertAfter" | "insertBefore"),
+            "Edit mode must be 'replace', 'insertAfter' or 'insertBefore'"
+        );
+        let found: Vec<usize> = updated.match_indices(old).map(|(index, _)| index).collect();
+        ensure!(
+            !found.is_empty(),
+            format!("Anchor text not found in {rel_str}")
+        );
+        ensure!(
+            found.len() == 1,
+            format!(
+                "Anchor text matches {} times in {rel_str}; refine the anchor to match exactly once",
+                found.len()
+            )
+        );
+        let at = found[0];
+        let line = updated[..at].matches('\n').count() + 1;
+        let replacement = match mode.as_str() {
+            "insertAfter" => format!("{old}{new}"),
+            "insertBefore" => format!("{new}{old}"),
+            _ => new.clone(),
+        };
+        updated.replace_range(at..at + old.len(), &replacement);
+        lines.push(json!(line));
+    }
+    ensure!(
+        updated.len() <= MAX_FILE_WRITE_BYTES,
+        "Edited file exceeds 3 MiB limit"
+    );
+    write_regular_utf8(&target, updated.as_bytes())?;
+    let (verified, _) = read_workspace_text(&cwd, rel_str)?;
+    ensure!(
+        verified == updated,
+        "Edit verification failed: file content changed after write"
+    );
+    Ok(json!({
+        "path": rel_str,
+        "edited": true,
+        "replacements": edits.len(),
+        "lines": lines,
+        "byteLen": updated.len(),
+    }))
 }
 
 fn workspace_read_file(params: &Value) -> Result<Value> {

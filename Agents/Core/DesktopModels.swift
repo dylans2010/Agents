@@ -1327,6 +1327,18 @@ public nonisolated struct WorkspaceFileDocument: Codable, Hashable, Sendable {
     }
 }
 
+public nonisolated struct WorkspaceEdit: Codable, Hashable, Sendable {
+    public var oldText: String
+    public var newText: String
+    public var mode: String
+
+    public init(oldText: String, newText: String, mode: String = "replace") {
+        self.oldText = oldText
+        self.newText = newText
+        self.mode = mode
+    }
+}
+
 public nonisolated struct WorkspaceFileOpenRequest: Codable, Hashable, Sendable, Identifiable {
     public var id: UUID
     public var path: String

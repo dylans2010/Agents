@@ -1094,6 +1094,151 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         )
     }
 
+    public func deleteWorkspaceFile(cwd: String, path: String) async throws {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        _ = try await desktopCall(
+            action: "workspace.delete_file",
+            params: [
+                "cwd": .string(expanded),
+                "path": .string(path),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func deleteWorkspaceDirectory(cwd: String, path: String, recursive: Bool = false) async throws {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        _ = try await desktopCall(
+            action: "workspace.delete_directory",
+            params: [
+                "cwd": .string(expanded),
+                "path": .string(path),
+                "recursive": .bool(recursive),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func moveWorkspaceFile(cwd: String, path: String, destination: String) async throws {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        _ = try await desktopCall(
+            action: "workspace.move_file",
+            params: [
+                "cwd": .string(expanded),
+                "path": .string(path),
+                "destination": .string(destination),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func copyWorkspaceFile(cwd: String, path: String, destination: String) async throws {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        _ = try await desktopCall(
+            action: "workspace.copy_file",
+            params: [
+                "cwd": .string(expanded),
+                "path": .string(path),
+                "destination": .string(destination),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func createWorkspaceDirectory(cwd: String, path: String) async throws {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        _ = try await desktopCall(
+            action: "workspace.create_dir",
+            params: [
+                "cwd": .string(expanded),
+                "path": .string(path),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func readWorkspaceDirectory(
+        cwd: String,
+        path: String = "",
+        recursive: Bool = false
+    ) async throws -> [WorkspaceFileEntry] {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        let raw = try await desktopCall(
+            action: "workspace.read_dir",
+            params: [
+                "cwd": .string(expanded),
+                "path": .string(path),
+                "recursive": .bool(recursive),
+            ],
+            as: JSONValue.self
+        )
+        let encoder = Self.makeDesktopEncoder()
+        let decoder = Self.makeDesktopDecoder()
+        if let entriesVal = raw["entries"] {
+            let data = try encoder.encode(entriesVal)
+            return try decoder.decode([WorkspaceFileEntry].self, from: data)
+        }
+        return []
+    }
+
+    public func editWorkspaceFile(
+        cwd: String,
+        path: String,
+        oldText: String,
+        newText: String,
+        mode: String = "replace"
+    ) async throws -> JSONValue {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        return try await desktopCall(
+            action: "workspace.edit_file",
+            params: [
+                "cwd": .string(expanded),
+                "path": .string(path),
+                "oldText": .string(oldText),
+                "newText": .string(newText),
+                "mode": .string(mode),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func editWorkspaceFile(cwd: String, path: String, edits: [WorkspaceEdit]) async throws -> JSONValue {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        return try await desktopCall(
+            action: "workspace.edit_file",
+            params: [
+                "cwd": .string(expanded),
+                "path": .string(path),
+                "edits": .array(edits.map { edit in
+                    .object([
+                        "oldText": .string(edit.oldText),
+                        "newText": .string(edit.newText),
+                        "mode": .string(edit.mode),
+                    ])
+                }),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func searchWorkspaceRegex(
+        cwd: String,
+        pattern: String,
+        limit: Int = 200
+    ) async throws -> [WorkspaceSearchHit] {
+        let expanded = ExternalEditorService.expandedPath(cwd)
+        let env = try await desktopCall(
+            action: "workspace.search_regex",
+            params: [
+                "cwd": .string(expanded),
+                "pattern": .string(pattern),
+                "limit": .int(Int64(limit)),
+            ],
+            as: WorkspaceSearchEnvelope.self
+        )
+        return env.matches ?? []
+    }
+
     // 5. Agent Instruction Files
     private struct InstructionsListEnvelope: Decodable {
         var global: [InstructionFileDescriptor]?
