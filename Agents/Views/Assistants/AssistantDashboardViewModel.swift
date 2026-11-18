@@ -251,6 +251,7 @@ public final class AssistantDashboardViewModel {
             let loaded = try await source.listRuns(assistantId: selectedAssistantID?.uuidString)
             if !Task.isCancelled {
                 runs = loaded
+                cancellingIDs.subtract(Set(loaded.filter(\.isTerminal).map(\.id)))
             }
             errorText = nil
         } catch {
@@ -332,10 +333,12 @@ public final class AssistantDashboardViewModel {
         guard let source = sourceProvider() else { return }
         guard !cancellingIDs.contains(record.id) else { return }
         cancellingIDs.insert(record.id)
-        defer { cancellingIDs.remove(record.id) }
         do {
             let updated = try await source.cancelWorker(workerId: record.id)
             replaceRun(updated)
+            if updated.isTerminal {
+                cancellingIDs.remove(record.id)
+            }
             if selectedRunID == record.id {
                 detail = Self.assembleDetail(
                     record: updated,
@@ -349,6 +352,7 @@ public final class AssistantDashboardViewModel {
             }
             errorText = nil
         } catch {
+            cancellingIDs.remove(record.id)
             errorText = error.localizedDescription
         }
     }

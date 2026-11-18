@@ -164,17 +164,43 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificat
         }
         let outcome = appModel.status.turnResultsRecent.first { $0.threadID == thread.id.uuidString }?.outcome ?? ""
         let name = assistantName(for: thread.assistantId)
-        if !assistantNotifications.notifyTurnFinished(thread: thread, outcome: outcome, assistantName: name) {
-            postTurnFinishedNotification(for: thread)
+        guard let client = appModel.runtime else {
+            if !assistantNotifications.notifyTurnFinished(thread: thread, outcome: outcome, assistantName: name) {
+                postTurnFinishedNotification(for: thread)
+            }
+            return
         }
-        if let assistantID = thread.assistantId {
-            Task {
-                guard let client = self.appModel.runtime else { return }
-                guard let workers = try? await client.listWorkers(assistantId: assistantID) else { return }
-                guard let worker = workers.first(where: { $0.threadId == thread.id.uuidString }) else { return }
+        Task {
+            var worker: WorkerRecord?
+            if let assistantID = thread.assistantId,
+               let workers = try? await client.listWorkers(assistantId: assistantID) {
+                worker = workers.first(where: { $0.threadId == thread.id.uuidString })
+            }
+            if let worker,
+               let task = try? await self.automationTask(forWorkerID: worker.id, client: client),
+               !self.assistantNotifications.allowsTaskNotification(task: task, outcome: outcome, scheduleCount: thread.scheduleCount ?? 0) {
+                return
+            }
+            if !self.assistantNotifications.notifyTurnFinished(thread: thread, outcome: outcome, assistantName: name) {
+                self.postTurnFinishedNotification(for: thread)
+            }
+            if let worker {
                 self.assistantNotifications.notifyWorkerTerminal(worker, assistantName: name)
             }
         }
+    }
+
+    private func automationTask(forWorkerID workerID: String, client: AgentsRuntimeClient) async throws -> AssistantTaskRecord? {
+        let result = try await client.tasksList()
+        for value in result["tasks"]?.arrayValue ?? [] {
+            guard let task = try? AssistantTaskRecord(json: value) else { continue }
+            if task.activeWorkerIds.contains(workerID)
+                || task.lastWorkerID == workerID
+                || task.history.contains(where: { $0.workerID == workerID }) {
+                return task
+            }
+        }
+        return nil
     }
 
     private func handleAttentionNeeded(approvals: Int, questions: Int) {

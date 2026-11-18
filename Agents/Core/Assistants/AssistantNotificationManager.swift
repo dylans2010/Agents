@@ -235,6 +235,19 @@ public final class AssistantNotificationManager {
         }
     }
 
+    public func allowsTaskNotification(task: AssistantTaskRecord, outcome: String, scheduleCount: Int) -> Bool {
+        switch outcome {
+        case "completed":
+            guard task.notifications.onSuccess else { return false }
+            return settings.isCategoryEnabled(scheduleCount > 0 ? .automationExecuted : .runCompleted)
+        case "failed":
+            guard task.notifications.onFailure else { return false }
+            return settings.isCategoryEnabled(.runFailed)
+        default:
+            return false
+        }
+    }
+
     @discardableResult
     private func post(
         category: AssistantNotificationCategory,

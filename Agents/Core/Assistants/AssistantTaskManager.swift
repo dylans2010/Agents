@@ -9,6 +9,8 @@ public protocol AssistantTaskRuntime: Sendable {
     func tasksDue() async throws -> JSONValue
     func tasksMarkMissed(taskId: String, reason: String) async throws -> JSONValue
     func tasksRecover() async throws -> JSONValue
+    func tasksRecordOutcome(taskId: String, workerId: String) async throws -> JSONValue
+    func workerStatus(workerId: String) async throws -> WorkerRecord
     func createParentThread(projectID: UUID) async throws -> UUID
     func deleteParentThread(_ threadID: UUID) async throws
     func listAssistants() async throws -> RemoteAssistants
@@ -200,6 +202,27 @@ extension AssistantTaskSchedule: Codable {
     }
 }
 
+public struct AssistantTaskHistoryEntry: Codable, Hashable, Sendable {
+    public var at: Int64
+    public var outcome: String
+    public var workerID: String?
+    public var message: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case at
+        case outcome
+        case workerID = "workerId"
+        case message
+    }
+
+    public init(at: Int64, outcome: String, workerID: String? = nil, message: String? = nil) {
+        self.at = at
+        self.outcome = outcome
+        self.workerID = workerID
+        self.message = message
+    }
+}
+
 public struct AssistantTaskRecord: Hashable, Sendable {
     public var id: UUID
     public var name: String
@@ -221,6 +244,9 @@ public struct AssistantTaskRecord: Hashable, Sendable {
     public var lastMissedAt: Int64?
     public var missedCount: Int
     public var lastWorkerID: String?
+    public var activeWorkerIds: [String]
+    public var history: [AssistantTaskHistoryEntry]
+    public var consecutiveFailures: Int
     public var nextRunAt: Int64?
     public var createdAt: Int64
     public var updatedAt: Int64
@@ -236,7 +262,9 @@ public struct AssistantTaskRecord: Hashable, Sendable {
         approval: AssistantTaskApprovalRequirements = AssistantTaskApprovalRequirements(),
         runCount: Int = 0, lastRunAt: Int64? = nil, lastOutcome: String? = nil,
         lastMessage: String? = nil, lastMissedAt: Int64? = nil, missedCount: Int = 0,
-        lastWorkerID: String? = nil, nextRunAt: Int64? = nil, createdAt: Int64 = 0,
+        lastWorkerID: String? = nil, activeWorkerIds: [String] = [],
+        history: [AssistantTaskHistoryEntry] = [], consecutiveFailures: Int = 0,
+        nextRunAt: Int64? = nil, createdAt: Int64 = 0,
         updatedAt: Int64 = 0, extra: [String: JSONValue] = [:]
     ) {
         self.id = id
@@ -259,6 +287,9 @@ public struct AssistantTaskRecord: Hashable, Sendable {
         self.lastMissedAt = lastMissedAt
         self.missedCount = missedCount
         self.lastWorkerID = lastWorkerID
+        self.activeWorkerIds = activeWorkerIds
+        self.history = history
+        self.consecutiveFailures = consecutiveFailures
         self.nextRunAt = nextRunAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -282,7 +313,8 @@ extension AssistantTaskRecord: Codable {
     private static let knownKeys: Set<String> = [
         "id", "name", "assistantId", "workspaceId", "inputs", "schedule", "trigger", "enabled",
         "paused", "limits", "notifications", "failurePolicy", "approval", "runCount", "lastRunAt",
-        "lastOutcome", "lastMessage", "lastMissedAt", "missedCount", "lastWorkerId", "nextRunAt",
+        "lastOutcome", "lastMessage", "lastMissedAt", "missedCount", "lastWorkerId",
+        "activeWorkerIds", "history", "consecutiveFailures", "nextRunAt",
         "createdAt", "updatedAt",
     ]
 
@@ -308,6 +340,9 @@ extension AssistantTaskRecord: Codable {
         lastMissedAt = try container.decodeIfPresent(Int64.self, forKey: AnyCodingKey("lastMissedAt"))
         missedCount = try container.decodeIfPresent(Int.self, forKey: AnyCodingKey("missedCount")) ?? 0
         lastWorkerID = try container.decodeIfPresent(String.self, forKey: AnyCodingKey("lastWorkerId"))
+        activeWorkerIds = try container.decodeIfPresent([String].self, forKey: AnyCodingKey("activeWorkerIds")) ?? []
+        history = try container.decodeIfPresent([AssistantTaskHistoryEntry].self, forKey: AnyCodingKey("history")) ?? []
+        consecutiveFailures = try container.decodeIfPresent(Int.self, forKey: AnyCodingKey("consecutiveFailures")) ?? 0
         nextRunAt = try container.decodeIfPresent(Int64.self, forKey: AnyCodingKey("nextRunAt"))
         createdAt = try container.decodeIfPresent(Int64.self, forKey: AnyCodingKey("createdAt")) ?? 0
         updatedAt = try container.decodeIfPresent(Int64.self, forKey: AnyCodingKey("updatedAt")) ?? 0
@@ -342,6 +377,9 @@ extension AssistantTaskRecord: Codable {
         try container.encodeIfPresent(lastMissedAt, forKey: AnyCodingKey("lastMissedAt"))
         try container.encode(missedCount, forKey: AnyCodingKey("missedCount"))
         try container.encodeIfPresent(lastWorkerID, forKey: AnyCodingKey("lastWorkerId"))
+        try container.encode(activeWorkerIds, forKey: AnyCodingKey("activeWorkerIds"))
+        try container.encode(history, forKey: AnyCodingKey("history"))
+        try container.encode(consecutiveFailures, forKey: AnyCodingKey("consecutiveFailures"))
         try container.encodeIfPresent(nextRunAt, forKey: AnyCodingKey("nextRunAt"))
         try container.encode(createdAt, forKey: AnyCodingKey("createdAt"))
         try container.encode(updatedAt, forKey: AnyCodingKey("updatedAt"))
@@ -408,6 +446,30 @@ public struct AssistantTaskRunOutcome: Sendable, Hashable {
     }
 }
 
+public struct AssistantTaskOutcomeRecord: Sendable {
+    public var task: AssistantTaskRecord
+    public var outcome: String
+    public var workerID: String
+    public var parentThreadID: UUID?
+    public var retryScheduled: Bool
+    public var nextRetryAt: Int64?
+    public var notifyRequested: Bool
+
+    public init(
+        task: AssistantTaskRecord, outcome: String, workerID: String,
+        parentThreadID: UUID? = nil, retryScheduled: Bool = false,
+        nextRetryAt: Int64? = nil, notifyRequested: Bool = false
+    ) {
+        self.task = task
+        self.outcome = outcome
+        self.workerID = workerID
+        self.parentThreadID = parentThreadID
+        self.retryScheduled = retryScheduled
+        self.nextRetryAt = nextRetryAt
+        self.notifyRequested = notifyRequested
+    }
+}
+
 public struct AssistantTaskSkippedRun: Sendable, Hashable {
     public var task: AssistantTaskRecord
     public var reason: AssistantTaskSkipReason
@@ -440,20 +502,25 @@ public struct AssistantTaskDecodeFailure: Sendable, Hashable {
 
 public struct AssistantTaskPollOutcome: Sendable {
     public var ran: [AssistantTaskRunOutcome]
+    public var outcomes: [AssistantTaskOutcomeRecord]
     public var skipped: [AssistantTaskSkippedRun]
     public var failed: [AssistantTaskFailedRun]
     public var decodeFailures: [AssistantTaskDecodeFailure]
+    public var reconcileFailures: [AssistantTaskDecodeFailure]
     public var cycleError: String?
 
     public init(
-        ran: [AssistantTaskRunOutcome] = [], skipped: [AssistantTaskSkippedRun] = [],
+        ran: [AssistantTaskRunOutcome] = [], outcomes: [AssistantTaskOutcomeRecord] = [],
+        skipped: [AssistantTaskSkippedRun] = [],
         failed: [AssistantTaskFailedRun] = [], decodeFailures: [AssistantTaskDecodeFailure] = [],
-        cycleError: String? = nil
+        reconcileFailures: [AssistantTaskDecodeFailure] = [], cycleError: String? = nil
     ) {
         self.ran = ran
+        self.outcomes = outcomes
         self.skipped = skipped
         self.failed = failed
         self.decodeFailures = decodeFailures
+        self.reconcileFailures = reconcileFailures
         self.cycleError = cycleError
     }
 }
@@ -510,13 +577,18 @@ public actor AssistantTaskManager {
     public static let staleBaselineMarker = "changed; reload before saving"
 
     private let runtime: AssistantTaskRuntime
+    private let notifications: AssistantNotificationManager?
     public let pollInterval: Duration
     private var pollTask: Task<Void, Never>?
     private var baseline: String?
 
-    public init(runtime: AssistantTaskRuntime, pollInterval: Duration = defaultPollInterval) {
+    public init(
+        runtime: AssistantTaskRuntime, pollInterval: Duration = defaultPollInterval,
+        notifications: AssistantNotificationManager? = nil
+    ) {
         self.runtime = runtime
         self.pollInterval = pollInterval
+        self.notifications = notifications
     }
 
     public var isPolling: Bool {
@@ -694,6 +766,9 @@ public actor AssistantTaskManager {
             return outcome
         }
         outcome.decodeFailures.append(contentsOf: listed.decodeFailures)
+        let reconciled = await reconcileTaskOutcomes(listed.tasks)
+        outcome.outcomes.append(contentsOf: reconciled.outcomes)
+        outcome.reconcileFailures.append(contentsOf: reconciled.reconcileFailures)
         guard !due.isEmpty else {
             return outcome
         }
@@ -759,6 +834,67 @@ public actor AssistantTaskManager {
     public func stopPolling() {
         pollTask?.cancel()
         pollTask = nil
+    }
+
+    public func reconcileTaskOutcomes(_ tasks: [AssistantTaskRecord]) async -> AssistantTaskPollOutcome {
+        var outcome = AssistantTaskPollOutcome()
+        var assistantNames: [UUID: String]?
+        for task in tasks {
+            for workerID in task.activeWorkerIds {
+                let worker: WorkerRecord
+                do {
+                    worker = try await runtime.workerStatus(workerId: workerID)
+                } catch {
+                    do {
+                        outcome.outcomes.append(try await recordOutcome(task: task, workerID: workerID))
+                    } catch {
+                        outcome.reconcileFailures.append(AssistantTaskDecodeFailure(
+                            taskID: task.id,
+                            message: "Could not record the outcome of worker \(workerID): \(error.localizedDescription)"
+                        ))
+                    }
+                    continue
+                }
+                guard worker.isTerminal else { continue }
+                do {
+                    let recorded = try await recordOutcome(task: task, workerID: workerID)
+                    outcome.outcomes.append(recorded)
+                    if recorded.notifyRequested && task.notifications.onFailure {
+                        if assistantNames == nil {
+                            let listed = try? await runtime.listAssistants()
+                            assistantNames = Dictionary(uniqueKeysWithValues: (listed?.assistants ?? []).map { ($0.id, $0.name) })
+                        }
+                        await notifications?.notifyWorkerTerminal(worker, assistantName: assistantNames?[task.assistantID])
+                    }
+                    if let parentThreadID = recorded.parentThreadID {
+                        try? await runtime.deleteParentThread(parentThreadID)
+                    }
+                } catch {
+                    outcome.reconcileFailures.append(AssistantTaskDecodeFailure(
+                        taskID: task.id,
+                        message: "Could not record the outcome of worker \(workerID): \(error.localizedDescription)"
+                    ))
+                }
+            }
+        }
+        return outcome
+    }
+
+    private func recordOutcome(task: AssistantTaskRecord, workerID: String) async throws -> AssistantTaskOutcomeRecord {
+        let result = try await runtime.tasksRecordOutcome(taskId: task.id.uuidString, workerId: workerID)
+        updateBaseline(from: result)
+        guard let updated = try? AssistantTaskRecord(json: result["task"] ?? .null) else {
+            throw AssistantTaskError.invalidResult("Record-outcome did not return the updated task.")
+        }
+        return AssistantTaskOutcomeRecord(
+            task: updated,
+            outcome: result["outcome"]?.stringValue ?? "",
+            workerID: workerID,
+            parentThreadID: result["parentThreadId"]?.stringValue.flatMap { UUID(uuidString: $0) },
+            retryScheduled: result["retryScheduled"]?.boolValue ?? false,
+            nextRetryAt: result["nextRetryAt"]?.intValue.map { Int64($0) },
+            notifyRequested: result["notifyRequested"]?.boolValue ?? false
+        )
     }
 
     private func runNowUnchecked(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome {

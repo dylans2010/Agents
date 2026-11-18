@@ -673,7 +673,8 @@ impl Engine {
     fn assistant_tasks_command(&mut self, method: &str, params: &Value) -> Result<Value> {
         use crate::assistant_tasks::{
             AssistantTaskDocument, check_run_now, due_tasks, find_task, load, mark_missed,
-            next_run_at, persist, record_missed_runs, run_now_prompt, validate_task,
+            next_run_at, persist, record_missed_runs, record_outcome, run_now_prompt,
+            validate_task,
         };
         ensure!(
             crate::assistant_tasks::METHODS.contains(&method),
@@ -688,6 +689,7 @@ impl Engine {
             "tasks.due" => &[],
             "tasks.mark_missed" => &["taskId", "reason"],
             "tasks.recover" => &[],
+            "tasks.record_outcome" => &["taskId", "workerId"],
             _ => &[],
         };
         ensure!(
@@ -774,24 +776,33 @@ impl Engine {
                     parent["projectID"].as_str() == Some(task.workspace_id.as_str()),
                     "Parent thread belongs to another workspace"
                 );
-                if task.limits.max_concurrent == 1 {
-                    if let Some(worker_id) = &task.last_worker_id {
-                        if crate::worker_store::load_worker(&self.store, worker_id).is_ok() {
-                            self.workers_status(&json!({"workerId": worker_id}))?;
-                        }
-                        if let Ok(record) =
-                            crate::worker_store::load_worker(&self.store, worker_id)
-                        {
-                            let status =
-                                record.get("status").and_then(Value::as_str).unwrap_or("");
-                            ensure!(
-                                worker_allows_run_now(status),
-                                "Automated task '{}' already has a running worker",
-                                task.name
-                            );
-                        }
+                let mut running: Vec<String> = Vec::new();
+                let mut candidates: Vec<String> = task.active_worker_ids.clone();
+                if let Some(worker_id) = &task.last_worker_id
+                    && !candidates.iter().any(|id| id == worker_id)
+                {
+                    candidates.push(worker_id.clone());
+                }
+                for worker_id in candidates {
+                    if crate::worker_store::load_worker(&self.store, &worker_id).is_err() {
+                        continue;
+                    }
+                    self.workers_status(&json!({"workerId": worker_id}))?;
+                    let record =
+                        crate::worker_store::load_worker(&self.store, &worker_id)?;
+                    let status = record.get("status").and_then(Value::as_str).unwrap_or("");
+                    if !worker_allows_run_now(status) {
+                        running.push(worker_id);
                     }
                 }
+                task.active_worker_ids = running.clone();
+                ensure!(
+                    (running.len() as u32) < task.limits.max_concurrent,
+                    "Automated task '{}' already has {} running worker(s); its maximum is {}",
+                    task.name,
+                    running.len(),
+                    task.limits.max_concurrent
+                );
                 let spawned = self.workers_spawn(&json!({
                     "parentThreadId": parent_id,
                     "name": task.name,
@@ -803,6 +814,9 @@ impl Engine {
                 task.run_count += 1;
                 task.last_run_at = Some(now_secs);
                 task.last_worker_id = worker["id"].as_str().map(str::to_owned);
+                if let Some(worker_id) = worker["id"].as_str() {
+                    task.active_worker_ids.push(worker_id.to_owned());
+                }
                 task.last_outcome = None;
                 task.last_message = None;
                 task.next_run_at = next_run_at(&task, now)?.map(|next| next.timestamp());
@@ -813,6 +827,38 @@ impl Engine {
                 let saved = snapshot.document["tasks"][position].clone();
                 let mut result = response(&snapshot, Some(&saved));
                 result["worker"] = worker;
+                Ok(result)
+            }
+            "tasks.record_outcome" => {
+                let id = Uuid::parse_str(required(params, "taskId")?)
+                    .context("Invalid automated task UUID")?;
+                let worker_id = required(params, "workerId")?;
+                Uuid::parse_str(worker_id).context("Invalid worker UUID")?;
+                let position = find_task(&snapshot.document, id)?;
+                let mut task = validate_task(&snapshot.document["tasks"][position])?;
+                let worker = match crate::worker_store::load_worker(&self.store, worker_id) {
+                    Ok(_) => self.workers_status(&json!({"workerId": worker_id}))?,
+                    Err(_) => json!({
+                        "id": worker_id,
+                        "status": "cancelled",
+                        "error": "Worker record is gone; its outcome cannot be determined",
+                        "parentThreadId": Value::Null,
+                    }),
+                };
+                let recorded = record_outcome(&mut task, &worker, now)?;
+                snapshot.document["tasks"][position] = serde_json::to_value(&task)?;
+                persist(&mut self.store, &mut snapshot)?;
+                self.revision += 1;
+                let saved = snapshot.document["tasks"][position].clone();
+                let mut result = response(&snapshot, Some(&saved));
+                result["outcome"] = json!(recorded.outcome);
+                result["retryScheduled"] = json!(recorded.retry_scheduled);
+                result["nextRetryAt"] =
+                    recorded.next_retry_at.map_or(Value::Null, Value::from);
+                result["notifyRequested"] = json!(recorded.notify_requested);
+                result["parentThreadId"] =
+                    recorded.parent_thread_id.map_or(Value::Null, Value::from);
+                result["workerId"] = json!(worker_id);
                 Ok(result)
             }
             _ => {
@@ -879,6 +925,9 @@ impl Engine {
                         incoming.last_missed_at = stored.last_missed_at;
                         incoming.missed_count = stored.missed_count;
                         incoming.last_worker_id = stored.last_worker_id;
+                        incoming.active_worker_ids = stored.active_worker_ids;
+                        incoming.history = stored.history;
+                        incoming.consecutive_failures = stored.consecutive_failures;
                         let timing_unchanged = incoming.schedule.kind == stored.schedule.kind
                             && incoming.schedule.time_zone_id == stored.schedule.time_zone_id
                             && incoming.schedule.date == stored.schedule.date
@@ -924,6 +973,9 @@ impl Engine {
                         incoming.last_message = None;
                         incoming.last_missed_at = None;
                         incoming.last_worker_id = None;
+                        incoming.active_worker_ids = Vec::new();
+                        incoming.history = Vec::new();
+                        incoming.consecutive_failures = 0;
                         if incoming.schedule.kind == "once" && incoming.is_active() {
                             ensure!(
                                 next_run_at(&incoming, now)?.is_some(),

@@ -481,9 +481,6 @@ impl Engine {
             match self.request_provider_stop(&thread_id) {
                 Ok(()) => {
                     record["cancelRequested"] = json!(true);
-                    record["status"] = json!("cancelled");
-                    record["completedAt"] = json!(worker_store::now_seconds());
-                    record["error"] = json!("Cancelled by the parent thread; the provider turn was asked to stop and may still be winding down");
                     worker_store::save_worker(&mut self.store, &record)?;
                     self.revision += 1;
                 }
@@ -1383,20 +1380,22 @@ mod tests {
     }
 
     #[test]
-    fn cancel_requests_provider_stop_and_marks_cancelled() {
+    fn cancel_requests_provider_stop_and_stays_running_until_the_provider_finishes() {
         let mut engine = test_engine();
         let parent = make_thread(&mut engine);
         let child = make_thread(&mut engine);
         let (record, sender) = insert_running_worker(&mut engine, &parent, &child, "alpha");
         let id = text(&record, "id");
-        let cancelled = engine.workers_cancel(&json!({"workerId": id})).unwrap();
-        assert_eq!(cancelled["status"], "cancelled");
-        assert_eq!(cancelled["cancelRequested"], true);
+        let requested = engine.workers_cancel(&json!({"workerId": id})).unwrap();
+        assert_eq!(requested["status"], "running");
+        assert_eq!(requested["cancelRequested"], true);
+        assert!(requested["completedAt"].is_null());
         assert!(engine.runs.contains_key(&child));
         sender.send(Event::Finished).unwrap();
         engine.poll();
-        let still = engine.workers_status(&json!({"workerId": id})).unwrap();
-        assert_eq!(still["status"], "cancelled");
+        let done = engine.workers_status(&json!({"workerId": id})).unwrap();
+        assert_eq!(done["status"], "cancelled");
+        assert_eq!(done["cancelRequested"], true);
         let repeat = engine.workers_cancel(&json!({"workerId": id})).unwrap();
         assert_eq!(repeat["status"], "cancelled");
     }
@@ -1406,7 +1405,7 @@ mod tests {
         let mut engine = test_engine();
         let parent = make_thread(&mut engine);
         let child = make_thread(&mut engine);
-        let (record, _sender) = insert_running_worker(&mut engine, &parent, &child, "alpha");
+        let (record, sender) = insert_running_worker(&mut engine, &parent, &child, "alpha");
         let id = text(&record, "id");
         let running_error = engine
             .workers_delete(&json!({"workerId": id}))
@@ -1415,8 +1414,18 @@ mod tests {
             .to_string()
             .contains("only completed, failed, or cancelled"));
         assert!(worker_store::load_worker(&engine.store, &id).is_ok());
-        let cancelled = engine.workers_cancel(&json!({"workerId": id})).unwrap();
-        assert_eq!(cancelled["status"], "cancelled");
+        let requested = engine.workers_cancel(&json!({"workerId": id})).unwrap();
+        assert_eq!(requested["status"], "running");
+        let still_running_error = engine
+            .workers_delete(&json!({"workerId": id}))
+            .unwrap_err();
+        assert!(still_running_error
+            .to_string()
+            .contains("only completed, failed, or cancelled"));
+        sender.send(Event::Finished).unwrap();
+        engine.poll();
+        let done = engine.workers_status(&json!({"workerId": id})).unwrap();
+        assert_eq!(done["status"], "cancelled");
         let deleted = engine.workers_delete(&json!({"workerId": id})).unwrap();
         assert_eq!(deleted["deleted"], true);
         assert_eq!(deleted["workerId"], id);

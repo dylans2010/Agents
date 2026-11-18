@@ -290,4 +290,62 @@ struct AssistantNotificationManagerTests {
         #expect(reloaded.isCategoryEnabled(.significantFindings) == false)
         #expect(reloaded.isCategoryEnabled(.runCompleted) == true)
     }
+
+    private static func makeTask(
+        notifications: AssistantTaskNotificationPrefs = AssistantTaskNotificationPrefs()
+    ) -> AssistantTaskRecord {
+        AssistantTaskRecord(
+            id: UUID(), name: "Nightly review", assistantID: UUID(), workspaceID: UUID(),
+            notifications: notifications
+        )
+    }
+
+    @Test("Task completion honors the task success preference")
+    func taskCompletionHonorsSuccessPreference() {
+        let (settings, _) = makeSettings()
+        let (manager, _) = makeManager(settings: settings)
+        let silenced = Self.makeTask(notifications: AssistantTaskNotificationPrefs(onSuccess: false, onFailure: true, onMissed: true))
+        #expect(manager.allowsTaskNotification(task: silenced, outcome: "completed", scheduleCount: 0) == false)
+        let allowed = Self.makeTask(notifications: AssistantTaskNotificationPrefs(onSuccess: true, onFailure: true, onMissed: true))
+        #expect(manager.allowsTaskNotification(task: allowed, outcome: "completed", scheduleCount: 0) == true)
+    }
+
+    @Test("Task failure honors the task failure preference")
+    func taskFailureHonorsFailurePreference() {
+        let (settings, _) = makeSettings()
+        let (manager, _) = makeManager(settings: settings)
+        let silenced = Self.makeTask(notifications: AssistantTaskNotificationPrefs(onSuccess: true, onFailure: false, onMissed: true))
+        #expect(manager.allowsTaskNotification(task: silenced, outcome: "failed", scheduleCount: 0) == false)
+        let allowed = Self.makeTask(notifications: AssistantTaskNotificationPrefs(onSuccess: true, onFailure: true, onMissed: true))
+        #expect(manager.allowsTaskNotification(task: allowed, outcome: "failed", scheduleCount: 0) == true)
+    }
+
+    @Test("Scheduled task completion uses the automation category")
+    func scheduledTaskCompletionUsesAutomationCategory() {
+        let (settings, _) = makeSettings()
+        let (manager, _) = makeManager(settings: settings)
+        let task = Self.makeTask(notifications: AssistantTaskNotificationPrefs(onSuccess: true, onFailure: true, onMissed: true))
+        #expect(manager.allowsTaskNotification(task: task, outcome: "completed", scheduleCount: 1) == true)
+        settings.setCategoryEnabled(false, for: .automationExecuted)
+        #expect(manager.allowsTaskNotification(task: task, outcome: "completed", scheduleCount: 1) == false)
+        #expect(manager.allowsTaskNotification(task: task, outcome: "completed", scheduleCount: 0) == true)
+    }
+
+    @Test("Master toggle off silences task notifications")
+    func masterToggleSilencesTaskNotifications() {
+        let (settings, _) = makeSettings()
+        let (manager, _) = makeManager(settings: settings)
+        let task = Self.makeTask(notifications: AssistantTaskNotificationPrefs(onSuccess: true, onFailure: true, onMissed: true))
+        settings.isEnabled = false
+        #expect(manager.allowsTaskNotification(task: task, outcome: "completed", scheduleCount: 0) == false)
+        #expect(manager.allowsTaskNotification(task: task, outcome: "failed", scheduleCount: 0) == false)
+    }
+
+    @Test("Interrupted task outcome never notifies")
+    func interruptedTaskOutcomeNeverNotifies() {
+        let (settings, _) = makeSettings()
+        let (manager, _) = makeManager(settings: settings)
+        let task = Self.makeTask(notifications: AssistantTaskNotificationPrefs(onSuccess: true, onFailure: true, onMissed: true))
+        #expect(manager.allowsTaskNotification(task: task, outcome: "interrupted", scheduleCount: 0) == false)
+    }
 }

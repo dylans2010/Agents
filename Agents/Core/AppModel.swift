@@ -1132,7 +1132,9 @@ public final class AppModel {
             assistantChangeLedger = AssistantChangeLedger(runtime: client)
         }
         if assistantTaskManager == nil {
-            assistantTaskManager = AssistantTaskManager(runtime: client)
+            assistantTaskManager = AssistantTaskManager(
+                runtime: client, notifications: AssistantNotificationManager()
+            )
             await assistantTaskManager?.startPolling()
         }
     }

@@ -122,9 +122,7 @@ struct AssistantDashboardViewModelTests {
         func cancelWorker(workerId: String) async throws -> WorkerRecord {
             cancelledIDs.append(workerId)
             var record = runs.first(where: { $0.id == workerId }) ?? Self.missingRecord(id: workerId)
-            record.status = "cancelled"
             record.cancelRequested = true
-            record.completedAt = 2000
             return record
         }
 
@@ -555,7 +553,7 @@ struct AssistantDashboardViewModelTests {
         #expect(stub.requestedAssistantIds.last == assistantID)
     }
 
-    @Test("View model cancel updates the run in place")
+    @Test("View model cancel keeps the run pending until the provider confirms it")
     @MainActor
     func viewModelCancelUpdatesRun() async {
         let stub = StubRunDataSource()
@@ -565,8 +563,16 @@ struct AssistantDashboardViewModelTests {
         await viewModel.loadRuns()
         await viewModel.cancelRun(record)
         #expect(stub.cancelledIDs == [record.id])
-        #expect(viewModel.runs.first?.status == "cancelled")
+        #expect(viewModel.runs.first?.status == "running")
         #expect(viewModel.runs.first?.cancelRequested == true)
+        #expect(viewModel.cancellingIDs == [record.id])
+        var confirmed = record
+        confirmed.status = "cancelled"
+        confirmed.completedAt = 2000
+        stub.runs = [confirmed]
+        await viewModel.loadRuns()
+        #expect(viewModel.runs.first?.status == "cancelled")
+        #expect(viewModel.cancellingIDs.isEmpty)
     }
 
     @Test("View model retry spawns the same inputs on the same parent thread")

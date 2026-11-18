@@ -18,6 +18,7 @@ pub const METHODS: &[&str] = &[
     "tasks.due",
     "tasks.mark_missed",
     "tasks.recover",
+    "tasks.record_outcome",
 ];
 pub const NAME_LIMIT: usize = 1024;
 pub const INPUTS_LIMIT: usize = 65_536;
@@ -32,6 +33,8 @@ pub const MAX_RETRIES_LIMIT: u32 = 10;
 pub const BACKOFF_MIN_SECONDS: u32 = 60;
 pub const BACKOFF_MAX_SECONDS: u32 = 86_400;
 pub const RUN_NOW_PROMPT_LIMIT: usize = 500;
+pub const RUN_NOW_PROMPT_TRUNCATED_MARKER: &str = "… [truncated]";
+pub const HISTORY_LIMIT: usize = 50;
 
 pub const LAST_OUTCOMES: &[&str] = &["completed", "failed", "missed", "interrupted"];
 
@@ -275,6 +278,29 @@ impl ApprovalRequirements {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TaskHistoryEntry {
+    pub at: i64,
+    pub outcome: String,
+    #[serde(default)]
+    pub worker_id: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutcomeRecord {
+    pub outcome: String,
+    pub retry_scheduled: bool,
+    #[serde(default)]
+    pub next_retry_at: Option<i64>,
+    pub notify_requested: bool,
+    #[serde(default)]
+    pub parent_thread_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssistantTask {
     pub id: String,
     pub name: String,
@@ -310,6 +336,12 @@ pub struct AssistantTask {
     pub missed_count: u64,
     #[serde(default)]
     pub last_worker_id: Option<String>,
+    #[serde(default)]
+    pub active_worker_ids: Vec<String>,
+    #[serde(default)]
+    pub history: Vec<TaskHistoryEntry>,
+    #[serde(default)]
+    pub consecutive_failures: u32,
     #[serde(default)]
     pub next_run_at: Option<i64>,
     #[serde(default)]
@@ -375,6 +407,32 @@ impl AssistantTask {
         }
         if let Some(worker_id) = &self.last_worker_id {
             Uuid::parse_str(worker_id).context("Invalid automated task last worker ID")?;
+        }
+        for worker_id in &self.active_worker_ids {
+            Uuid::parse_str(worker_id).context("Invalid automated task active worker ID")?;
+        }
+        ensure!(
+            self.history.len() <= HISTORY_LIMIT,
+            "Automated task history must contain at most 50 entries"
+        );
+        for entry in &self.history {
+            ensure!(
+                entry.at >= 0,
+                "Automated task history timestamps must be epoch timestamps"
+            );
+            ensure!(
+                LAST_OUTCOMES.contains(&entry.outcome.as_str()),
+                "Unknown automated task history outcome"
+            );
+            if let Some(worker_id) = &entry.worker_id {
+                Uuid::parse_str(worker_id).context("Invalid automated task history worker ID")?;
+            }
+            if let Some(message) = &entry.message {
+                ensure!(
+                    message.chars().count() <= MESSAGE_LIMIT && !message.contains('\0'),
+                    "Automated task history message must contain at most 4096 characters and no NUL"
+                );
+            }
         }
         ensure!(
             self.next_run_at.is_none_or(|at| at >= 0),
@@ -683,7 +741,111 @@ pub fn check_run_now(task: &AssistantTask, assistant: &Assistant, now: DateTime<
 pub fn run_now_prompt(task: &AssistantTask) -> String {
     let inputs = serde_json::to_string(&task.inputs).unwrap_or_else(|_| "{}".to_string());
     let text = format!("Automated task \"{}\". Inputs: {inputs}", task.name);
-    text.chars().take(RUN_NOW_PROMPT_LIMIT).collect()
+    if text.chars().count() <= RUN_NOW_PROMPT_LIMIT {
+        return text;
+    }
+    let marker = RUN_NOW_PROMPT_TRUNCATED_MARKER;
+    let keep = RUN_NOW_PROMPT_LIMIT.saturating_sub(marker.chars().count());
+    let kept: String = text.chars().take(keep).collect();
+    format!("{kept}{marker}")
+}
+
+fn truncate_message(text: &str) -> String {
+    if text.chars().count() <= MESSAGE_LIMIT {
+        return text.to_string();
+    }
+    let marker = "… [truncated]";
+    let keep = MESSAGE_LIMIT.saturating_sub(marker.chars().count());
+    let kept: String = text.chars().take(keep).collect();
+    format!("{kept}{marker}")
+}
+
+pub fn record_outcome(
+    task: &mut AssistantTask,
+    worker: &Value,
+    now: DateTime<Utc>,
+) -> Result<OutcomeRecord> {
+    let worker_id = worker
+        .get("id")
+        .and_then(Value::as_str)
+        .context("Worker record has no id")?
+        .to_owned();
+    let status = worker.get("status").and_then(Value::as_str).unwrap_or("");
+    let outcome = match status {
+        "completed" => "completed",
+        "failed" => "failed",
+        "cancelled" => "interrupted",
+        _ => bail!("Worker '{worker_id}' has not finished; its status is '{status}'"),
+    };
+    let summary = if outcome == "completed" {
+        worker.get("result").and_then(Value::as_str).unwrap_or("")
+    } else {
+        worker.get("error").and_then(Value::as_str).unwrap_or("")
+    };
+    let message = if summary.trim().is_empty() {
+        match outcome {
+            "completed" => "Worker finished with no result summary.".to_string(),
+            "failed" => "Worker failed with no error detail.".to_string(),
+            _ => "Worker run was interrupted.".to_string(),
+        }
+    } else {
+        truncate_message(summary)
+    };
+    let parent_thread_id = worker
+        .get("parentThreadId")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    task.active_worker_ids.retain(|id| id != &worker_id);
+    task.last_worker_id = Some(worker_id.clone());
+    task.last_outcome = Some(outcome.to_string());
+    task.last_message = Some(message.clone());
+    task.last_run_at = Some(now.timestamp());
+    task.updated_at = now.timestamp();
+    task.history.push(TaskHistoryEntry {
+        at: now.timestamp(),
+        outcome: outcome.to_string(),
+        worker_id: Some(worker_id),
+        message: Some(message),
+    });
+    if task.history.len() > HISTORY_LIMIT {
+        let excess = task.history.len() - HISTORY_LIMIT;
+        task.history.drain(..excess);
+    }
+    let retry_scheduled;
+    let mut next_retry_at = None;
+    let notify_requested;
+    if outcome == "failed" {
+        task.consecutive_failures += 1;
+        let can_retry = task.failure_policy.behavior == FailureBehavior::RetryWithBackoff
+            && task.consecutive_failures <= task.failure_policy.max_retries
+            && task.schedule.kind != "once"
+            && !task
+                .limits
+                .max_runs
+                .is_some_and(|max| task.run_count >= u64::from(max));
+        if can_retry {
+            let retry_at = now.timestamp() + i64::from(task.failure_policy.backoff_seconds);
+            task.next_run_at = Some(retry_at);
+            retry_scheduled = true;
+            next_retry_at = Some(retry_at);
+        } else {
+            task.next_run_at = next_run_at(task, now)?.map(|next| next.timestamp());
+            retry_scheduled = false;
+        }
+        notify_requested = task.failure_policy.behavior == FailureBehavior::Notify;
+    } else {
+        task.consecutive_failures = 0;
+        task.next_run_at = next_run_at(task, now)?.map(|next| next.timestamp());
+        retry_scheduled = false;
+        notify_requested = false;
+    }
+    Ok(OutcomeRecord {
+        outcome: outcome.to_string(),
+        retry_scheduled,
+        next_retry_at,
+        notify_requested,
+        parent_thread_id,
+    })
 }
 
 pub fn find_task(document: &Value, id: Uuid) -> Result<usize> {
@@ -1106,6 +1268,172 @@ mod tests {
     }
 
     #[test]
+    fn run_now_prompt_marks_truncation_within_the_limit() {
+        let mut value = task_json(ID);
+        value["inputs"] = json!({"blob": "x".repeat(2000)});
+        let task = validate_task(&value).unwrap();
+        let prompt = run_now_prompt(&task);
+        assert!(prompt.chars().count() <= RUN_NOW_PROMPT_LIMIT);
+        assert!(prompt.ends_with(RUN_NOW_PROMPT_TRUNCATED_MARKER));
+        let short = validate_task(&task_json(ID)).unwrap();
+        let short_prompt = run_now_prompt(&short);
+        assert!(!short_prompt.contains(RUN_NOW_PROMPT_TRUNCATED_MARKER));
+    }
+
+    fn worker_json(id: &str, status: &str, parent: &str) -> Value {
+        json!({
+            "id": id,
+            "status": status,
+            "parentThreadId": parent,
+            "result": "Reviewed three files.",
+            "error": "Provider blew up",
+        })
+    }
+
+    const WORKER_ID: &str = "00000000-0000-4000-8000-000000000010";
+    const PARENT_ID: &str = "00000000-0000-4000-8000-000000000020";
+
+    #[test]
+    fn record_outcome_writes_back_a_completed_run() {
+        let mut task = validate_task(&task_json(ID)).unwrap();
+        task.active_worker_ids = vec![WORKER_ID.to_string()];
+        task.last_worker_id = Some(WORKER_ID.to_string());
+        let now = utc(2026, 11, 18, 10, 0);
+        let recorded =
+            record_outcome(&mut task, &worker_json(WORKER_ID, "completed", PARENT_ID), now)
+                .unwrap();
+        assert_eq!(recorded.outcome, "completed");
+        assert!(!recorded.retry_scheduled);
+        assert!(!recorded.notify_requested);
+        assert_eq!(recorded.parent_thread_id.as_deref(), Some(PARENT_ID));
+        assert_eq!(task.last_outcome.as_deref(), Some("completed"));
+        assert_eq!(task.last_message.as_deref(), Some("Reviewed three files."));
+        assert_eq!(task.last_run_at, Some(now.timestamp()));
+        assert!(task.active_worker_ids.is_empty());
+        assert_eq!(task.history.len(), 1);
+        assert_eq!(task.history[0].outcome, "completed");
+        assert_eq!(task.history[0].worker_id.as_deref(), Some(WORKER_ID));
+        assert_eq!(task.consecutive_failures, 0);
+        assert!(task.next_run_at.is_some_and(|at| at > now.timestamp()));
+    }
+
+    #[test]
+    fn record_outcome_retries_a_failed_run_with_backoff() {
+        let mut task = validate_task(&task_json(ID)).unwrap();
+        let now = utc(2026, 11, 18, 10, 0);
+        let recorded =
+            record_outcome(&mut task, &worker_json(WORKER_ID, "failed", PARENT_ID), now).unwrap();
+        assert_eq!(recorded.outcome, "failed");
+        assert!(recorded.retry_scheduled);
+        assert_eq!(recorded.next_retry_at, Some(now.timestamp() + 300));
+        assert_eq!(task.next_run_at, Some(now.timestamp() + 300));
+        assert_eq!(task.consecutive_failures, 1);
+        assert_eq!(task.last_message.as_deref(), Some("Provider blew up"));
+        assert!(!recorded.notify_requested);
+    }
+
+    #[test]
+    fn record_outcome_stops_retrying_after_max_retries() {
+        let mut task = validate_task(&task_json(ID)).unwrap();
+        task.consecutive_failures = 3;
+        let now = utc(2026, 11, 18, 10, 0);
+        let recorded =
+            record_outcome(&mut task, &worker_json(WORKER_ID, "failed", PARENT_ID), now).unwrap();
+        assert_eq!(recorded.outcome, "failed");
+        assert!(!recorded.retry_scheduled);
+        assert_eq!(recorded.next_retry_at, None);
+        assert_eq!(task.consecutive_failures, 4);
+        assert!(task.next_run_at.is_some_and(|at| at > now.timestamp()));
+    }
+
+    #[test]
+    fn record_outcome_stop_marks_failed_without_a_retry() {
+        let mut value = task_json(ID);
+        value["failurePolicy"]["behavior"] = json!("stop");
+        let mut task = validate_task(&value).unwrap();
+        let now = utc(2026, 11, 18, 10, 0);
+        let recorded =
+            record_outcome(&mut task, &worker_json(WORKER_ID, "failed", PARENT_ID), now).unwrap();
+        assert_eq!(recorded.outcome, "failed");
+        assert!(!recorded.retry_scheduled);
+        assert!(!recorded.notify_requested);
+        assert_eq!(task.consecutive_failures, 1);
+    }
+
+    #[test]
+    fn record_outcome_notify_requests_a_notification() {
+        let mut value = task_json(ID);
+        value["failurePolicy"]["behavior"] = json!("notify");
+        let mut task = validate_task(&value).unwrap();
+        let now = utc(2026, 11, 18, 10, 0);
+        let recorded =
+            record_outcome(&mut task, &worker_json(WORKER_ID, "failed", PARENT_ID), now).unwrap();
+        assert_eq!(recorded.outcome, "failed");
+        assert!(!recorded.retry_scheduled);
+        assert!(recorded.notify_requested);
+    }
+
+    #[test]
+    fn record_outcome_rejects_a_running_worker() {
+        let mut task = validate_task(&task_json(ID)).unwrap();
+        let error = record_outcome(
+            &mut task,
+            &worker_json(WORKER_ID, "running", PARENT_ID),
+            utc(2026, 11, 18, 10, 0),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("has not finished"));
+    }
+
+    #[test]
+    fn record_outcome_maps_a_cancelled_worker_to_interrupted() {
+        let mut task = validate_task(&task_json(ID)).unwrap();
+        task.consecutive_failures = 2;
+        let recorded = record_outcome(
+            &mut task,
+            &worker_json(WORKER_ID, "cancelled", PARENT_ID),
+            utc(2026, 11, 18, 10, 0),
+        )
+        .unwrap();
+        assert_eq!(recorded.outcome, "interrupted");
+        assert_eq!(task.last_outcome.as_deref(), Some("interrupted"));
+        assert_eq!(task.consecutive_failures, 0);
+    }
+
+    #[test]
+    fn record_outcome_never_retries_a_one_time_task() {
+        let mut value = task_json(ID);
+        value["schedule"]["kind"] = json!("once");
+        value["schedule"]["date"] = json!("2030-01-01T09:00:00Z");
+        let mut task = validate_task(&value).unwrap();
+        task.run_count = 1;
+        let recorded = record_outcome(
+            &mut task,
+            &worker_json(WORKER_ID, "failed", PARENT_ID),
+            utc(2026, 11, 18, 10, 0),
+        )
+        .unwrap();
+        assert!(!recorded.retry_scheduled);
+    }
+
+    #[test]
+    fn record_outcome_keeps_history_to_fifty_entries() {
+        let mut task = validate_task(&task_json(ID)).unwrap();
+        let base = utc(2026, 11, 18, 10, 0);
+        for index in 0..52 {
+            let now = base + chrono::Duration::seconds(index);
+            record_outcome(
+                &mut task,
+                &worker_json(WORKER_ID, "completed", PARENT_ID),
+                now,
+            )
+            .unwrap();
+        }
+        assert_eq!(task.history.len(), HISTORY_LIMIT);
+        assert_eq!(task.history[0].at, base.timestamp() + 2);
+    }
+
+    #[test]
     fn dispatch_list_save_delete_round_trip_with_baseline() {
         let (_root, mut engine) = fixture_engine();
         seed_assistant(&mut engine, "read-only");
@@ -1362,6 +1690,143 @@ mod tests {
         assert!(saved["lastRunAt"].as_i64().unwrap() > 0);
         assert!(saved["lastOutcome"].is_null());
         assert!(saved["nextRunAt"].as_i64().unwrap() > saved["lastRunAt"].as_i64().unwrap());
+    }
+
+    fn complete_worker(engine: &mut Engine, worker_id: &str, result: &str) {
+        let mut record = crate::worker_store::load_worker(&engine.store, worker_id).unwrap();
+        record["status"] = json!("completed");
+        record["result"] = json!(result);
+        assert!(engine.store.worker_upsert(worker_id, &record).unwrap());
+    }
+
+    fn fail_worker(engine: &mut Engine, worker_id: &str, error: &str) {
+        let mut record = crate::worker_store::load_worker(&engine.store, worker_id).unwrap();
+        record["status"] = json!("failed");
+        record["error"] = json!(error);
+        assert!(engine.store.worker_upsert(worker_id, &record).unwrap());
+    }
+
+    fn record_outcome(engine: &mut Engine, worker_id: &str) -> Value {
+        call(
+            engine,
+            "tasks.record_outcome",
+            json!({"taskId": ID, "workerId": worker_id}),
+        )
+    }
+
+    #[test]
+    fn dispatch_record_outcome_writes_back_a_completed_run() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
+        let ran = run_now(&mut engine, ID, &parent_id);
+        assert!(ran["error"].is_null(), "{}", ran["error"]);
+        let worker_id = ran["result"]["worker"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        complete_worker(&mut engine, &worker_id, "Reviewed three files.");
+        let recorded = record_outcome(&mut engine, &worker_id);
+        assert!(recorded["error"].is_null(), "{}", recorded["error"]);
+        assert_eq!(recorded["result"]["outcome"], "completed");
+        assert_eq!(recorded["result"]["parentThreadId"], json!(parent_id));
+        assert_eq!(recorded["result"]["workerId"], json!(worker_id));
+        let saved = &recorded["result"]["task"];
+        assert_eq!(saved["lastOutcome"], "completed");
+        assert_eq!(saved["lastMessage"], "Reviewed three files.");
+        assert_eq!(saved["activeWorkerIds"], json!([]));
+        assert_eq!(saved["history"].as_array().unwrap().len(), 1);
+        assert_eq!(saved["history"][0]["outcome"], "completed");
+        assert_eq!(saved["history"][0]["workerId"], json!(worker_id));
+    }
+
+    #[test]
+    fn dispatch_record_outcome_schedules_a_retry_after_a_failure() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
+        let ran = run_now(&mut engine, ID, &parent_id);
+        assert!(ran["error"].is_null(), "{}", ran["error"]);
+        let worker_id = ran["result"]["worker"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        fail_worker(&mut engine, &worker_id, "Provider blew up");
+        let before = chrono::Utc::now().timestamp();
+        let recorded = record_outcome(&mut engine, &worker_id);
+        let after = chrono::Utc::now().timestamp();
+        assert!(recorded["error"].is_null(), "{}", recorded["error"]);
+        assert_eq!(recorded["result"]["outcome"], "failed");
+        assert_eq!(recorded["result"]["retryScheduled"], true);
+        assert_eq!(recorded["result"]["notifyRequested"], false);
+        let retry_at = recorded["result"]["nextRetryAt"].as_i64().unwrap();
+        assert!(retry_at >= before + 300 && retry_at <= after + 300);
+        assert_eq!(recorded["result"]["task"]["consecutiveFailures"], json!(1));
+        assert_eq!(
+            recorded["result"]["task"]["nextRunAt"].as_i64().unwrap(),
+            retry_at
+        );
+    }
+
+    #[test]
+    fn dispatch_record_outcome_rejects_a_running_worker() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
+        let ran = run_now(&mut engine, ID, &parent_id);
+        assert!(ran["error"].is_null(), "{}", ran["error"]);
+        let worker_id = ran["result"]["worker"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let recorded = record_outcome(&mut engine, &worker_id);
+        assert!(recorded["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("has not finished"));
+        let listed = call(&mut engine, "tasks.list", json!({}));
+        assert!(listed["result"]["tasks"][0]["lastOutcome"].is_null());
+        assert_eq!(
+            listed["result"]["tasks"][0]["activeWorkerIds"][0],
+            json!(worker_id)
+        );
+    }
+
+    #[test]
+    fn dispatch_run_now_enforces_max_concurrent() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let mut value = task_json(ID);
+        value["limits"]["maxConcurrent"] = json!(2);
+        let created = save_task(&mut engine, &value);
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let first = run_now(&mut engine, ID, &run_now_parent(&mut engine));
+        assert!(first["error"].is_null(), "{}", first["error"]);
+        let first_id = first["result"]["worker"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let second = run_now(&mut engine, ID, &run_now_parent(&mut engine));
+        assert!(second["error"].is_null(), "{}", second["error"]);
+        let third = run_now(&mut engine, ID, &run_now_parent(&mut engine));
+        assert!(third["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("maximum is 2"));
+        complete_worker(&mut engine, &first_id, "Done.");
+        let fourth = run_now(&mut engine, ID, &run_now_parent(&mut engine));
+        assert!(fourth["error"].is_null(), "{}", fourth["error"]);
+        assert_eq!(fourth["result"]["task"]["runCount"], json!(3));
     }
 
     #[test]

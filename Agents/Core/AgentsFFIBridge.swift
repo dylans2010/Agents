@@ -726,6 +726,16 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         try await engineRPC(method: "tasks.recover")
     }
 
+    public func tasksRecordOutcome(taskId: String, workerId: String) async throws -> JSONValue {
+        try await engineRPC(
+            method: "tasks.record_outcome",
+            params: [
+                "taskId": .string(taskId),
+                "workerId": .string(workerId),
+            ]
+        )
+    }
+
     public func fetchGitState(thread: UUID) async throws -> RemoteGitState {
         let res = try await adapterCall(.gitState(threadID: thread))
         guard case .gitState(let state) = res else {

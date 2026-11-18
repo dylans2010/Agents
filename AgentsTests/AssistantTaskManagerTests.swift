@@ -1,6 +1,7 @@
 import CoincideRemoteKit
 import Foundation
 import Testing
+import UserNotifications
 @testable import Agents
 
 @Suite("Assistant Task Manager: CRUD, CAS, Run-Now, Due Poll, Recover")
@@ -17,8 +18,17 @@ struct AssistantTaskManagerTests {
         var errorDescription: String? { message }
     }
 
+    private final class RecordingPoster: AssistantNotificationPosting, @unchecked Sendable {
+        var requests: [UNNotificationRequest] = []
+
+        func add(_ request: UNNotificationRequest) {
+            requests.append(request)
+        }
+    }
+
     private actor FakeTaskRuntime: AssistantTaskRuntime {
         var tasks: [AssistantTaskRecord] = []
+        var workers: [String: WorkerRecord] = [:]
         var baseline: String = String(repeating: "a", count: 64)
         var baselineCounter = 0
         var assistants: [RemoteAssistant] = []
@@ -37,17 +47,35 @@ struct AssistantTaskManagerTests {
         var markMissedCalls: [(taskId: String, reason: String)] = []
         var recoverCalls = 0
         var runNowError: Error?
+        var recordOutcomeCalls: [(taskId: String, workerId: String)] = []
+        var recordOutcomeError: Error?
 
         func setTasks(_ value: [AssistantTaskRecord]) { tasks = value }
+        func setWorker(_ value: WorkerRecord) { workers[value.id] = value }
         func setAssistants(_ value: [RemoteAssistant]) { assistants = value }
         func setWorkspace(_ value: RemoteWorkspace) { workspace = value }
         func setNow(_ value: Int64) { now = value }
         func setRunNowError(_ value: Error?) { runNowError = value }
+        func setRecordOutcomeError(_ value: Error?) { recordOutcomeError = value }
         func setParentThreadID(_ value: UUID) { parentThreadID = value }
         func setDeleteParentThreadError(_ value: Error?) { deleteParentThreadError = value }
         func setExtraListValues(_ value: [JSONValue]) { extraListValues = value }
         func setExtraDueValues(_ value: [JSONValue]) { extraDueValues = value }
         func setListTasksError(_ value: Error?) { listTasksError = value }
+
+        static func makeWorker(
+            id: String, parentThreadId: String, threadId: String = UUID().uuidString,
+            status: String, result: String? = nil, error: String? = nil
+        ) -> WorkerRecord {
+            WorkerRecord(
+                id: id, name: "Nightly review", parentThreadId: parentThreadId,
+                threadId: threadId, task: "Review the change.", provider: "claude",
+                targetFiles: [], status: status, cancelRequested: false,
+                transcriptStart: 0, transcriptItems: 0, elapsedSeconds: 0,
+                createdAt: 1000, startedAt: 1000, completedAt: nil, error: error,
+                result: result, progress: nil
+            )
+        }
 
         private func rotateBaseline() {
             baselineCounter += 1
@@ -103,6 +131,9 @@ struct AssistantTaskManagerTests {
                 incoming.lastMissedAt = stored.lastMissedAt
                 incoming.missedCount = stored.missedCount
                 incoming.lastWorkerID = stored.lastWorkerID
+                incoming.activeWorkerIds = stored.activeWorkerIds
+                incoming.history = stored.history
+                incoming.consecutiveFailures = stored.consecutiveFailures
                 incoming.updatedAt = now
                 tasks[index] = incoming
             } else {
@@ -137,6 +168,12 @@ struct AssistantTaskManagerTests {
             tasks[index].runCount += 1
             tasks[index].lastRunAt = now
             tasks[index].lastWorkerID = "worker-1"
+            if !tasks[index].activeWorkerIds.contains("worker-1") {
+                tasks[index].activeWorkerIds.append("worker-1")
+            }
+            workers["worker-1"] = Self.makeWorker(
+                id: "worker-1", parentThreadId: parentThreadId, status: "running"
+            )
             tasks[index].lastOutcome = nil
             tasks[index].lastMessage = nil
             tasks[index].nextRunAt = now + 86_400
@@ -145,6 +182,96 @@ struct AssistantTaskManagerTests {
             var result = taskResult(tasks[index])
             if case .object(var object) = result {
                 object["worker"] = .object(["id": .string("worker-1")])
+                result = .object(object)
+            }
+            return result
+        }
+
+        func workerStatus(workerId: String) async throws -> WorkerRecord {
+            guard let worker = workers[workerId] else {
+                throw FakeTaskError(message: "Unknown worker")
+            }
+            return worker
+        }
+
+        func tasksRecordOutcome(taskId: String, workerId: String) async throws -> JSONValue {
+            if let recordOutcomeError {
+                throw recordOutcomeError
+            }
+            guard let index = tasks.firstIndex(where: { $0.id.uuidString == taskId }) else {
+                throw FakeTaskError(message: "Automated task not found")
+            }
+            recordOutcomeCalls.append((taskId: taskId, workerId: workerId))
+            guard let worker = workers[workerId] else {
+                recordOutcomeLocked(
+                    &tasks[index], workerID: workerId, status: "cancelled",
+                    summary: "Worker record is gone; its outcome cannot be determined",
+                    parentThreadID: nil
+                )
+                rotateBaseline()
+                return recordOutcomeResult(tasks[index], outcome: "interrupted", retryScheduled: false, notifyRequested: false, parentThreadID: nil, workerID: workerId)
+            }
+            guard worker.isTerminal else {
+                throw FakeTaskError(message: "Worker '\(workerId)' has not finished; its status is '\(worker.status)'")
+            }
+            let outcome = worker.status == "completed" ? "completed" : worker.status == "failed" ? "failed" : "interrupted"
+            let summary = outcome == "completed" ? (worker.result ?? "") : (worker.error ?? "")
+            recordOutcomeLocked(
+                &tasks[index], workerID: workerId, status: worker.status,
+                summary: summary, parentThreadID: worker.parentThreadId
+            )
+            let retryScheduled = outcome == "failed"
+                && tasks[index].failurePolicy.behavior == "retryWithBackoff"
+                && tasks[index].consecutiveFailures <= tasks[index].failurePolicy.maxRetries
+            let notifyRequested = outcome == "failed" && tasks[index].failurePolicy.behavior == "notify"
+            rotateBaseline()
+            return recordOutcomeResult(
+                tasks[index], outcome: outcome, retryScheduled: retryScheduled,
+                notifyRequested: notifyRequested, parentThreadID: worker.parentThreadId, workerID: workerId
+            )
+        }
+
+        private func recordOutcomeLocked(
+            _ task: inout AssistantTaskRecord, workerID: String, status: String,
+            summary: String, parentThreadID: String?
+        ) {
+            let outcome = status == "completed" ? "completed" : status == "failed" ? "failed" : "interrupted"
+            task.activeWorkerIds.removeAll { $0 == workerID }
+            task.lastWorkerID = workerID
+            task.lastOutcome = outcome
+            task.lastMessage = summary.isEmpty ? "Worker run was interrupted." : summary
+            task.lastRunAt = now
+            task.updatedAt = now
+            task.history.append(AssistantTaskHistoryEntry(at: now, outcome: outcome, workerID: workerID, message: task.lastMessage ?? ""))
+            if task.history.count > 50 {
+                task.history.removeFirst(task.history.count - 50)
+            }
+            if outcome == "failed" {
+                task.consecutiveFailures += 1
+                if task.failurePolicy.behavior == "retryWithBackoff"
+                    && task.consecutiveFailures <= task.failurePolicy.maxRetries {
+                    task.nextRunAt = now + Int64(task.failurePolicy.backoffSeconds)
+                } else {
+                    task.nextRunAt = now + 86_400
+                }
+            } else {
+                task.consecutiveFailures = 0
+                task.nextRunAt = now + 86_400
+            }
+        }
+
+        private func recordOutcomeResult(
+            _ task: AssistantTaskRecord, outcome: String, retryScheduled: Bool,
+            notifyRequested: Bool, parentThreadID: String?, workerID: String
+        ) -> JSONValue {
+            var result = taskResult(task)
+            if case .object(var object) = result {
+                object["outcome"] = .string(outcome)
+                object["retryScheduled"] = .bool(retryScheduled)
+                object["nextRetryAt"] = retryScheduled ? .int(task.nextRunAt ?? now) : .null
+                object["notifyRequested"] = .bool(notifyRequested)
+                object["parentThreadId"] = parentThreadID.map { .string($0) } ?? .null
+                object["workerId"] = .string(workerID)
                 result = .object(object)
             }
             return result
@@ -272,6 +399,40 @@ struct AssistantTaskManagerTests {
         return AssistantTaskManager(runtime: fake)
     }
 
+    private func makeNotifications() async -> (AssistantNotificationManager, RecordingPoster) {
+        let suiteName = "com.apoorvdarshan.coincide.tests.taskReconcile.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        let settings = await AssistantNotificationSettings(defaults: suite)
+        let poster = RecordingPoster()
+        let manager = await AssistantNotificationManager(
+            settings: settings, poster: poster, isAppActive: { false },
+            bundleIdentifier: "com.apoorvdarshan.coincide.tests"
+        )
+        return (manager, poster)
+    }
+
+    private func makeManagerWithNotifications(
+        fake: FakeTaskRuntime, assistantID: UUID, workspaceID: UUID,
+        notifications: AssistantNotificationManager
+    ) async -> AssistantTaskManager {
+        await fake.setAssistants([Self.makeAssistant(id: assistantID)])
+        await fake.setWorkspace(Self.makeWorkspace(projectID: workspaceID))
+        return AssistantTaskManager(runtime: fake, notifications: notifications)
+    }
+
+    private static func makeTaskWithWorker(
+        assistantID: UUID, workspaceID: UUID, workerID: String = "worker-1",
+        behavior: String = "retryWithBackoff", maxRetries: Int = 3, backoffSeconds: Int = 300,
+        notifyOnSuccess: Bool = false, notifyOnFailure: Bool = true
+    ) -> AssistantTaskRecord {
+        var task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID)
+        task.failurePolicy = AssistantTaskFailurePolicy(behavior: behavior, maxRetries: maxRetries, backoffSeconds: backoffSeconds)
+        task.notifications = AssistantTaskNotificationPrefs(onSuccess: notifyOnSuccess, onFailure: notifyOnFailure, onMissed: true)
+        task.activeWorkerIds = [workerID]
+        task.lastWorkerID = workerID
+        return task
+    }
+
     @Test("CRUD round trip preserves the task and rotates the baseline")
     func crudRoundTripPreservesTaskAndBaseline() async throws {
         let fake = FakeTaskRuntime()
@@ -390,6 +551,153 @@ struct AssistantTaskManagerTests {
         }
         #expect(await fake.newThreadProjectIDs.isEmpty)
         #expect(await fake.runNowCalls.isEmpty)
+    }
+
+    @Test("Reconcile writes back a completed worker and deletes its parent thread")
+    func reconcileWritesBackCompletedOutcome() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let parentThreadID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let task = Self.makeTaskWithWorker(assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: parentThreadID.uuidString,
+            status: "completed", result: "Reviewed three files."
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].outcome == "completed")
+        #expect(outcome.outcomes[0].task.lastOutcome == "completed")
+        #expect(outcome.outcomes[0].task.lastMessage == "Reviewed three files.")
+        #expect(outcome.outcomes[0].task.history.count == 1)
+        #expect(outcome.outcomes[0].task.history[0].workerID == "worker-1")
+        #expect(outcome.outcomes[0].parentThreadID == parentThreadID)
+        #expect(outcome.reconcileFailures.isEmpty)
+        #expect(await fake.deleteParentThreadCalls == [parentThreadID])
+        let listed = try await manager.listTasks()
+        #expect(listed.tasks[0].activeWorkerIds.isEmpty)
+    }
+
+    @Test("Reconcile schedules a retry after a failed run and deletes its parent thread")
+    func reconcileSchedulesRetryOnFailure() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let parentThreadID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let task = Self.makeTaskWithWorker(assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: parentThreadID.uuidString,
+            status: "failed", error: "Provider blew up"
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].outcome == "failed")
+        #expect(outcome.outcomes[0].retryScheduled == true)
+        #expect(outcome.outcomes[0].nextRetryAt == 1_790_000_000 + 300)
+        #expect(outcome.outcomes[0].task.nextRunAt == 1_790_000_000 + 300)
+        #expect(outcome.outcomes[0].task.consecutiveFailures == 1)
+        #expect(await fake.deleteParentThreadCalls == [parentThreadID])
+    }
+
+    @Test("Reconcile posts a failure notification only when the policy asks and prefs allow it")
+    func reconcileNotifiesForNotifyPolicy() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let threadID = UUID().uuidString
+        let (notifications, poster) = await makeNotifications()
+        let manager = await makeManagerWithNotifications(
+            fake: fake, assistantID: assistantID, workspaceID: workspaceID, notifications: notifications
+        )
+        let task = Self.makeTaskWithWorker(assistantID: assistantID, workspaceID: workspaceID, behavior: "notify")
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: UUID().uuidString, threadId: threadID,
+            status: "failed", error: "Provider blew up"
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].notifyRequested == true)
+        #expect(poster.requests.count == 1)
+        #expect(poster.requests[0].identifier == "assistant-runFailed-\(threadID)")
+    }
+
+    @Test("Reconcile skips the failure notification when the task disables it")
+    func reconcileSkipsNotificationWhenTaskDisablesFailureNotifications() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let (notifications, poster) = await makeNotifications()
+        let manager = await makeManagerWithNotifications(
+            fake: fake, assistantID: assistantID, workspaceID: workspaceID, notifications: notifications
+        )
+        let task = Self.makeTaskWithWorker(
+            assistantID: assistantID, workspaceID: workspaceID, behavior: "notify", notifyOnFailure: false
+        )
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: UUID().uuidString,
+            status: "failed", error: "Provider blew up"
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].notifyRequested == true)
+        #expect(poster.requests.isEmpty)
+    }
+
+    @Test("Reconcile leaves running workers alone")
+    func reconcileSkipsRunningWorkers() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let task = Self.makeTaskWithWorker(assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: UUID().uuidString, status: "running"
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.outcomes.isEmpty)
+        #expect(outcome.reconcileFailures.isEmpty)
+        #expect(await fake.deleteParentThreadCalls.isEmpty)
+        #expect(await fake.recordOutcomeCalls.isEmpty)
+        let listed = try await manager.listTasks()
+        #expect(listed.tasks[0].activeWorkerIds == ["worker-1"])
+    }
+
+    @Test("Reconcile records a missing worker record as interrupted")
+    func reconcileRecordsMissingWorkerAsInterrupted() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let task = Self.makeTaskWithWorker(assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setTasks([task])
+        let outcome = await manager.pollNow()
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].outcome == "interrupted")
+        #expect(outcome.outcomes[0].parentThreadID == nil)
+        #expect(await fake.deleteParentThreadCalls.isEmpty)
+    }
+
+    @Test("Run-now tracks the spawned worker as active")
+    func runNowTracksActiveWorker() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        await fake.setParentThreadID(UUID())
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let listed = try await manager.listTasks()
+        let task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID)
+        let saved = try await manager.saveTask(task, baseline: listed.baseline)
+        let outcome = try await manager.runNow(saved)
+        #expect(outcome.workerID == "worker-1")
+        let listedAfter = try await manager.listTasks()
+        #expect(listedAfter.tasks[0].activeWorkerIds == ["worker-1"])
     }
 
     @Test("Due poll runs due tasks and marks invalid ones missed with reasons")

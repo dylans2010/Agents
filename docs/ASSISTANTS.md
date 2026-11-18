@@ -601,6 +601,39 @@ therefore runs on the bare assistant prompt, while a thread launched
 from the same assistant in the app runs on the composed prompt.
 Do not describe the two as equivalent.
 
+## Automation execution: two schedulers, split ownership
+
+There are two schedulers, and they schedule different things, so
+neither double-fires nor drops the other's jobs. The legacy
+`ScheduleService` (`scheduled-tasks.json`, `coincide-core/src/
+schedule_service.rs`) owns thread-bound schedules: a schedule names
+a project and a thread, the engine's poll claims due occurrences
+at-most-once and sends the prompt into that thread as a foreground
+turn, and completion is recorded back on the schedule claim. The
+assistant task system (`assistant-tasks.json`, `coincide-core/src/
+assistant_tasks.rs`) owns assistant automations: a task names an
+assistant and a workspace, the Swift `AssistantTaskManager` polls
+`tasks.due` every 60 seconds and starts each due occurrence with
+`tasks.run_now`, which spawns a background worker under a fresh
+parent thread. The two stores share no IDs and no code path creates
+both a schedule and a task for one user action, so one job cannot be
+claimed twice. Execution of a task run is owned by the same pair:
+`tasks.run_now` enforces `maxConcurrent` by counting the task's
+still-running workers and records the spawn in `activeWorkerIds`;
+`tasks.record_outcome` writes a finished worker back to the task
+(`lastOutcome`, `lastMessage`, a capped 50-entry `history`), applies
+`failurePolicy` (retry with backoff while retries remain, stop with
+no retry, notify requesting a failure notification), and the Swift
+poll then deletes the run-now parent thread, which never receives a
+turn and holds no user content. A task worker's completion or
+failure notifies only when the task's own notification prefs allow
+that outcome and the Assistants settings master and per-category
+toggles allow it; a run-now prompt longer than 500 characters is
+capped with an explicit `… [truncated]` marker. Worker cancel is a
+request, not a result: `workers.cancel` leaves the status alone
+until the provider turn ends, and the app keeps the run in a
+`cancelling` state until a status poll confirms it terminal.
+
 ## What is NOT built yet
 
 Everything below is absent at base `b81e42ea`. Do not describe any
