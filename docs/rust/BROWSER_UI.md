@@ -1,5 +1,7 @@
 # Browser address and user-turn controls
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the GPUI desktop browser's address field and user-turn controls as they stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 The native address field resolves HTTP(S) addresses, local development servers,
 user-selected local file paths, and searches. The search provider is saved in
 `browser.json` without replacing other fields. Inline completion reads bookmarks

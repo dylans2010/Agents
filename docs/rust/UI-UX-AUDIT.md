@@ -1,5 +1,7 @@
 # Swift / Rust UI and interaction audit
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-09.** This document records the Swift / Rust UI and interaction audit against the actual Swift app and Rust 0.1.33 as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 Started 2026-11-09 against the actual Swift app and Rust 0.1.33, following the
 user's full-app parity request. This is an open acceptance record, not a claim
 that the port is complete. Existing unit tests and older checklist checkmarks

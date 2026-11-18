@@ -1,5 +1,7 @@
 # Active implementation ownership
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the Rust replacement program's active implementation-ownership board as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 Current user direction: work in this conversation with built-in subagents, and
 prioritize UI parity alongside the remaining core work. The nine separate worker
 conversations were stopped and deleted earlier; their pushed code, branches,

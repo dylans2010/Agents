@@ -1,5 +1,7 @@
 # Passkeys in the Rust browser
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the Rust desktop browser's passkey approach (portable logic in `coincide-core/src/passkeys.rs`, browser side in `coincide-desktop/src/browser_passkeys.rs`) as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 The Swift app serves passkeys from the user's Bitwarden vault, because Apple's managed browser passkey entitlement
 (`com.apple.developer.web-browser.public-key-credential`, see `Agents/Passkeys.entitlements`) is available only to
 organization developer accounts, and Agents's account is an individual one. The Rust desktop app follows the same

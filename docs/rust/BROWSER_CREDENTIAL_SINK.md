@@ -1,5 +1,7 @@
 # Browser credential sink integration
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the GPUI desktop browser's native credential sink integration as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 The macOS bridge now supports native credential filling after eleven real WebKit
 fixture groups passed; see [native acceptance](NATIVE_CREDENTIAL_ACCEPTANCE.md).
 Linux and Windows remain unavailable. Approval is native-only: no agent/browser

@@ -1,5 +1,7 @@
 # macOS native credential acceptance — 2026-11-05
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-07.** This document records the macOS native credential acceptance runs against the GPUI desktop's WebKit bridge (eleven native WebKit groups, 2026-11-05; three-host runner acceptance, 2026-11-07) as they stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 Eleven native WebKit groups passed against the production bridge from source
 revision `1e5387e`. The final run completed and its isolated harness exited. No
 real vault, credential account, website, certificate trust setting or running

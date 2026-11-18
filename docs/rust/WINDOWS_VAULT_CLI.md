@@ -1,5 +1,7 @@
 # Windows vault CLI ownership
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the Windows vault CLI ownership (the Windows `CliCommand` transport and `bw.exe`/`op.exe` discovery) as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 The Windows `CliCommand` transport accepts absolute native `.exe` files, passes
 arguments directly, inherits the authorized app's existing session, and suppresses
 stderr. It does not invoke shell shims, log into a manager, unlock a vault or read

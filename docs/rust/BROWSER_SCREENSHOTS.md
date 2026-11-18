@@ -1,5 +1,7 @@
 # Browser screenshot redaction scope
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the GPUI desktop browser's screenshot redaction scope as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 Screenshots mask password, credential/autocomplete and payment inputs in the
 document and its accessible open shadow roots. They mask iframe/frame and
 object/embed surfaces as whole rectangles, including same-origin frames: opaque

@@ -1,5 +1,7 @@
 # Coding agents and model services
 
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the GPUI desktop's coding-agent and model-service discovery (Settings › Providers, the model picker's Agents tab, Browse more agents, and per-platform discovery) as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the GPUI desktop remains in the tree as the earlier implementation (`Rust Backend/crates/coincide-desktop/`), and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. There is no cutover to the GPUI desktop. The dated sections below are preserved as written.
+
 Agents looks for installed coding-agent commands at startup and displays them
 in Settings › Providers and the model picker's **Agents** tab. Detection does
 not start a command or establish whether it is signed in. The app begins with

@@ -1,8 +1,7 @@
 # Agents
 
-[![CI](https://github.com/apoorvdarshan/coincide/actions/workflows/ci.yml/badge.svg)](https://github.com/apoorvdarshan/coincide/actions/workflows/ci.yml)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15854/badge)](https://www.bestpractices.dev/projects/15854)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/apoorvdarshan/coincide/badge)](https://scorecard.dev/viewer/?uri=github.com/apoorvdarshan/coincide)
+[![CI](https://github.com/dylans2010/Agents/actions/workflows/ci.yml/badge.svg)](https://github.com/dylans2010/Agents/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/dylans2010/Agents/badge)](https://scorecard.dev/viewer/?uri=github.com/dylans2010/Agents)
 
 Agents is a native macOS application for coding agents built with **SwiftUI and AppKit**, powered in-process by the `coincide-core` Rust runtime and Google Antigravity ACP integration alongside Claude Code, Codex, Cursor, Grok Build, OpenCode, Lithos AI, and the ACP v1 agent registry. Coincide Remote is the separate iPhone and iPad companion.
 

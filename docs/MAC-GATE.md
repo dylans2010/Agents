@@ -419,7 +419,7 @@ reason. A step that was not run is unchecked, not passed.
 - [ ] Step 3 — Agents Swift tests pass (AgentsTests, 105 `@Test`)
 - [ ] Step 4 — Coincide Remote tests pass (CoincideRemoteTests, 19
   `@Test`; UI tests ran, not skipped)
-- [ ] Step 5 — Rust tests pass (2,191 `#[test]` excl. vendor, incl.
+- [ ] Step 5 — Rust tests pass (2,199 `#[test]` excl. vendor, incl.
   `coincide-mcp-server` and `coincide-macos-ffi`); `cargo fmt --check`
   and clippy clean
 - [ ] Step 6 — CI green on the tested commit (`agents-app`,
