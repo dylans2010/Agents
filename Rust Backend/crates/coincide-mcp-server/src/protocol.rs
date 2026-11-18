@@ -72,21 +72,32 @@ pub fn handle(state: &crate::ServerState, request: &Value) -> Option<Value> {
     };
     let id = request.get("id").cloned().unwrap_or(Value::Null);
     let params = request.get("params").cloned().unwrap_or(Value::Null);
-    let result = match method {
-        "initialize" => Ok(initialize_result()),
-        "ping" => Ok(json!({})),
-        "tools/list" => Ok(json!({"tools": tools::list_json()})),
-        "tools/call" => call_tool(state, &params),
-        "resources/list" => list_resources(state),
-        "resources/read" => read_resource(state, &params),
-        "prompts/list" => Ok(prompts_list()),
-        "prompts/get" => get_prompt(state, &params),
-        _ => Err((-32601, format!("Method not found: {method}"))),
-    };
+    let result = dispatch_guarded(state, method, &params);
     Some(match result {
         Ok(value) => result_response(&id, value),
         Err((code, message)) => error_response(&id, code, &message),
     })
+}
+
+fn dispatch(state: &crate::ServerState, method: &str, params: &Value) -> Result<Value, (i64, String)> {
+    match method {
+        "initialize" => Ok(initialize_result()),
+        "ping" => Ok(json!({})),
+        "tools/list" => Ok(json!({"tools": tools::list_json()})),
+        "tools/call" => call_tool(state, params),
+        "resources/list" => list_resources(state),
+        "resources/read" => read_resource(state, params),
+        "prompts/list" => Ok(prompts_list()),
+        "prompts/get" => get_prompt(state, params),
+        _ => Err((-32601, format!("Method not found: {method}"))),
+    }
+}
+
+fn dispatch_guarded(state: &crate::ServerState, method: &str, params: &Value) -> Result<Value, (i64, String)> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| dispatch(state, method, params))) {
+        Ok(result) => result,
+        Err(_) => Err((-32603, "request handler panicked".to_owned())),
+    }
 }
 
 fn call_tool(state: &crate::ServerState, params: &Value) -> Result<Value, (i64, String)> {

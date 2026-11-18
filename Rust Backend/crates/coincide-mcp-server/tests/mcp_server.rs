@@ -568,6 +568,36 @@ fn unknown_tool_and_malformed_requests_return_jsonrpc_errors() {
 }
 
 #[test]
+fn panicking_tool_call_returns_internal_error_and_the_server_survives() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let mut session = Session::spawn(workspace.path(), None);
+    initialize(&mut session);
+    call(
+        &mut session,
+        "write_file",
+        json!({"path": "Localizable.xcstrings", "content": "{\"strings\": 42}"}),
+    );
+    let panicked = session.request(
+        "tools/call",
+        json!({"name": "strings_localization", "arguments": {
+            "path": "Localizable.xcstrings",
+            "action": "set",
+            "key": "greeting",
+            "value": "Hello",
+        }}),
+    );
+    assert_eq!(panicked["error"]["code"], -32603);
+    assert_eq!(panicked["error"]["message"], "request handler panicked");
+    let ping = session.request("ping", json!({}));
+    assert!(
+        ping.get("error").is_none(),
+        "server did not survive the panic: {ping}"
+    );
+    assert_eq!(ping["result"], json!({}));
+    session.close();
+}
+
+#[test]
 fn resources_serve_real_asset_files() {
     let workspace = temp_dir("agents-mcp-workspace");
     let assets = asset_fixtures();

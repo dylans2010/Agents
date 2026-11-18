@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–130)
+### Hardening wave (Slices 69–134)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–130 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–134 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -995,6 +995,19 @@ no entries in this file either and are not backfilled here. Full record:
   remote SHA `de82d77f`. No code change, no test added; totals
   unchanged at 29 defects / 27 tests. Full record:
   `docs/HARDENING-AUDIT.md`.
+- **Slice 134** — MCP server panic isolation: per-request dispatch is
+  now wrapped in `catch_unwind` (`dispatch_guarded` in
+  `protocol.rs`), so a panicking tool handler returns a fixed-message
+  `-32603` JSON-RPC error (`"request handler panicked"`, panic payload
+  never echoed) and the server keeps serving instead of dying with exit
+  101. Proven trigger: `strings_localization` set on a catalog with a
+  non-object `"strings"` value panics in `g6_xcstrings_set`; 1 regression
+  test added (same trigger over stdio, then `ping` still answers). 1
+  defect fixed, 1 test added — bringing the totals to 30 defects / 28
+  regression tests. Mutex poisoning untouched by design (engine-side lock
+  still reports the pre-existing `"Engine lock failed"`). Statically
+  verified only; `cargo test -p coincide-mcp-server` on Dylan's Mac is
+  owed. Full record: `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
 

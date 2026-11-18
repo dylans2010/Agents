@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–130
+# Hardening Audit — Slices 71–134
 
 ## Summary
 
@@ -51,7 +51,12 @@ count had included the one `//` comment line at
 `diff_panel_ui_tests.rs:5`), fixed the `rust.yml` job cite, and
 backfilled the Slice 128 remote SHA — all description-only, following
 the Slice 105/109 precedent, so the totals stay at
-**29 defects fixed and 27 regression tests**. The remaining
+**29 defects fixed and 27 regression tests**. Slice 134,
+appended after that, isolated MCP server dispatch panics: per-request
+dispatch is now wrapped in `catch_unwind`, a panicking handler returns a
+fixed-message `-32603` error, and the server keeps serving subsequent
+requests — 1 further defect fixed and 1 regression test added, bringing
+the totals to **30 defects fixed and 28 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -1184,6 +1189,77 @@ backfilled by Slice 133.
 1,148 desktop tests never run here) stands, now with the corrected
 count.
 
+## Slice 134 — MCP server panic isolation
+
+**Audited:** the `coincide-mcp-server` dispatch path — `main.rs` `run()`
+loop, `protocol.rs` `handle()`, `call_tool()`, and `tools.rs` `call()` —
+for panic isolation. (File paths in this section are under
+`Rust Backend/crates/coincide-mcp-server/` unless noted otherwise.)
+
+**Gap (1, real):** there was no `catch_unwind` anywhere in the crate
+(verified: zero matches in `src/`), so a panic anywhere in tool dispatch
+unwound through `handle()` into the `run()` loop and killed the process
+(exit 101), dropping every provider's System Tools mid-turn with no error
+frame. A deterministic provider-reachable trigger exists today:
+`strings_localization` with action `set` on a `.xcstrings` catalog whose
+`"strings"` value is not an object (for example `{"strings": 42}`) panics
+in `g6_xcstrings_set` at `tools.rs:11870`
+(`object.get_mut("strings").unwrap().as_object_mut().unwrap()`), reached
+via `call()` `tools.rs:21143` → `g6_call` `tools.rs:13451` → the `set`
+arm `tools.rs:13498`. Every other `unwrap()` site checked on the dispatch
+path is guarded by a preceding check (`use_mcp` `tools.rs:17402-17406`,
+`whole_word_replace` `tools.rs:18688`, `code_mutation_engine`
+`tools.rs:18462`, `assets.rs` throughout), so the guard is defense in
+depth for this and any future handler panic, not a fix for a single
+unwrapping site.
+
+**Defects fixed (1):**
+
+1. Per-request dispatch is now wrapped in `std::panic::catch_unwind`
+   (`dispatch_guarded`, `src/protocol.rs:96-101`; `AssertUnwindSafe`
+   because the closure captures `&ServerState`, whose
+   `Mutex<ControlClient>` is not statically `UnwindSafe`). The method
+   match was extracted unchanged into `dispatch()`
+   (`src/protocol.rs:82-94`) and `handle()` now calls
+   `dispatch_guarded()` (`src/protocol.rs:75`), so the wrap covers every
+   dispatched method (`tools/call`, `resources/list`, `resources/read`,
+   `prompts/get`, `initialize`, `ping`, `tools/list`), not just tool
+   calls. A caught panic returns JSON-RPC error `-32603` with the fixed
+   message `"request handler panicked"` — the panic payload is discarded
+   (`Err(_)`), never echoed into the response — and the `run()` loop
+   continues serving subsequent requests.
+
+**Tests added (1):**
+`panicking_tool_call_returns_internal_error_and_the_server_survives` in
+`tests/mcp_server.rs` — drives the real server binary over stdio through
+the real wrap point: writes a `Localizable.xcstrings` catalog containing
+`{"strings": 42}`, calls `strings_localization` with action `set`, and
+asserts the `-32603` error with exactly the fixed message, then asserts a
+following `ping` still answers `{}` and the server exits cleanly on
+stdin EOF.
+
+**Known limitation (not fixed, by design):** Mutex poisoning is untouched.
+If a panic happens while the engine-control lock is held, the lock
+poisons; the MCP server's own `state.control` lock already recovers via
+`into_inner()` in `engine_request` (`tools.rs:7842-7844`), but a poisoned
+engine-side lock surfaces as the pre-existing `"Engine lock failed"`
+error (`coincide-core/src/control.rs:182`). No lock type was changed.
+
+**Verification:** static only (no cargo in this environment, as for every
+slice in this record). Brace/paren/bracket balance re-checked on both
+changed Rust files; full diff read — only the two intended files, only
+the intended hunks; the wrap point traced by hand from the `run()` loop
+through `handle()` → `dispatch_guarded()` → `dispatch()` →
+`call_tool()` → `tools::call()`; the panic trigger traced by hand from
+`tools/call` to `g6_xcstrings_set` `tools.rs:11870`; no panic payload
+reaches any error string (the only new error string is the fixed
+literal); zero new `//` comments; no secrets. The local pre-push
+commit SHA and tree are in the slice's push report; the remote SHA is
+owed backfill by a later slice, following the Slice 130 precedent.
+
+**Mac-gate checks owed:** `cargo test -p coincide-mcp-server` on Dylan's
+Mac — the new test was written, not executed, here.
+
 ## Documented, not fixed
 
 Items the audits found, recorded, and deliberately left open. None of
@@ -1201,7 +1277,10 @@ limitation of the audited component, or a question owed to Dylan.
   there is no tools/call-level timeout (verified: no `timeout` in `main.rs`
   or `protocol.rs`). The frame itself is size-capped at 16 MiB
   (`main.rs:22`, `MAX_FRAME_BYTES`), but that bounds frame size, not call
-  duration. Documented limitation (Slices 31/71).
+  duration. Documented limitation (Slices 31/71). Panic isolation for
+  per-request dispatch was fixed in Slice 134 (`dispatch_guarded` in
+  `protocol.rs`, `-32603` fixed-message error, server keeps serving); the
+  sequential loop and the missing tools/call timeout remain open.
 - **No overall turn-level timeout; context budget is a fixed 2 MiB cap,
   not per-provider.** A browser-only turn timeout exists
   (`browser_protocol.rs:119,148`) — that is not an overall turn timeout.
