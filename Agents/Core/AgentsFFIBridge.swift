@@ -674,6 +674,58 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         return tasks
     }
 
+    public func tasksList() async throws -> JSONValue {
+        try await engineRPC(method: "tasks.list")
+    }
+
+    public func tasksSave(task: JSONValue, baseline: String) async throws -> JSONValue {
+        try await engineRPC(
+            method: "tasks.save",
+            params: [
+                "task": task,
+                "baseline": .string(baseline),
+            ]
+        )
+    }
+
+    public func tasksDelete(taskId: String, baseline: String) async throws -> JSONValue {
+        try await engineRPC(
+            method: "tasks.delete",
+            params: [
+                "taskId": .string(taskId),
+                "baseline": .string(baseline),
+            ]
+        )
+    }
+
+    public func tasksRunNow(taskId: String, parentThreadId: String) async throws -> JSONValue {
+        try await engineRPC(
+            method: "tasks.run_now",
+            params: [
+                "taskId": .string(taskId),
+                "parentThreadId": .string(parentThreadId),
+            ]
+        )
+    }
+
+    public func tasksDue() async throws -> JSONValue {
+        try await engineRPC(method: "tasks.due")
+    }
+
+    public func tasksMarkMissed(taskId: String, reason: String) async throws -> JSONValue {
+        try await engineRPC(
+            method: "tasks.mark_missed",
+            params: [
+                "taskId": .string(taskId),
+                "reason": .string(reason),
+            ]
+        )
+    }
+
+    public func tasksRecover() async throws -> JSONValue {
+        try await engineRPC(method: "tasks.recover")
+    }
+
     public func fetchGitState(thread: UUID) async throws -> RemoteGitState {
         let res = try await adapterCall(.gitState(threadID: thread))
         guard case .gitState(let state) = res else {
