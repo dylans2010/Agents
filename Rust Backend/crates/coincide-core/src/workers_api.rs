@@ -117,6 +117,9 @@ impl Engine {
         if !parent["toolset"].is_null() {
             child_params["toolset"] = parent["toolset"].clone();
         }
+        if !parent["allowedTools"].is_null() {
+            child_params["allowedTools"] = parent["allowedTools"].clone();
+        }
         let child = self.create_ordinary_thread(&child_params)?;
         let child_id = text(&child, "id");
         let transcript_start = child
@@ -594,6 +597,24 @@ mod tests {
         });
         assert!(engine.workers_spawn(&overlap).is_err());
         assert!(worker_store::load_workers(&engine.store).unwrap().is_empty());
+    }
+
+    #[test]
+    fn spawned_worker_inherits_parent_allowed_tools() {
+        let mut engine = test_engine();
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["allowedTools"] = json!(["read_file", "use_workers"]);
+        engine.store.save(&parent_doc).unwrap();
+        let _ = engine.workers_spawn(&spawn_request(&parent, "alpha", "Do the thing."));
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["allowedTools"], json!(["read_file", "use_workers"]));
     }
 
     #[test]

@@ -157,6 +157,13 @@ struct AssistantTests {
         #expect(await AppModel.unknownAllowedTools(in: none).isEmpty)
     }
 
+    @Test("Allowed-tools validation works on a bare tool list too")
+    func allowedToolsValidationAcceptsBareList() async {
+        #expect(await AppModel.unknownAllowedTools(in: ["use_workers"] as [String]?).isEmpty)
+        #expect(await AppModel.unknownAllowedTools(in: ["not_a_real_tool"] as [String]?) == ["not_a_real_tool"])
+        #expect(await AppModel.unknownAllowedTools(in: nil as [String]?).isEmpty)
+    }
+
     @Test("Delete-assistant request carries the id as assistantID")
     func deleteAssistantRequestShape() throws {
         let id = UUID()

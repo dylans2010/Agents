@@ -180,6 +180,8 @@ pub struct SendRequest {
     pub delivery: Delivery,
     #[serde(default)]
     pub system_prompt: Option<String>,
+    #[serde(default)]
+    pub allowed_tools: Option<Vec<String>>,
 }
 
 /// Composer settings sent by a paired phone. Missing fields keep their value.
@@ -328,6 +330,7 @@ pub enum Request {
         project_id: Option<Uuid>,
         system_prompt: Option<String>,
         toolset: Option<String>,
+        allowed_tools: Option<Vec<String>>,
     },
     NewBotConversation {
         bot_id: Uuid,
@@ -535,6 +538,21 @@ impl ClientMessage {
                             .as_str()
                             .ok_or_else(RemoteError::bad_request)?
                             .to_owned(),
+                    ),
+                },
+                allowed_tools: match fields.get("allowedTools") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(
+                        value
+                            .as_array()
+                            .ok_or_else(RemoteError::bad_request)?
+                            .iter()
+                            .map(|name| {
+                                name.as_str()
+                                    .ok_or_else(RemoteError::bad_request)
+                                    .map(str::to_owned)
+                            })
+                            .collect::<Result<Vec<_>, _>>()?,
                     ),
                 },
             },
@@ -879,6 +897,8 @@ pub struct ThreadSummary {
     pub item_count: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub toolset: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_tools: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub running_since: Option<f64>,
 }

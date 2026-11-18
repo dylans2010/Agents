@@ -408,8 +408,14 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         _ = try await adapterCall(.updateSettings(settings))
     }
 
-    public func newThread(projectID: UUID? = nil, systemPrompt: String? = nil, toolset: AgentToolset? = nil) async throws -> UUID {
-        let res = try await adapterCall(.newThread(projectID: projectID, systemPrompt: systemPrompt, toolset: toolset?.rawValue))
+    public func newThread(projectID: UUID? = nil, systemPrompt: String? = nil, toolset: AgentToolset? = nil, allowedTools: [String]? = nil) async throws -> UUID {
+        let unknown = SystemToolRegistry.unknownToolNames(in: allowedTools)
+        guard unknown.isEmpty else {
+            throw AgentsRuntimeError.desktopFailure(
+                "Unknown thread tools: \(unknown.joined(separator: ", ")). Threads can only allow tools from the system toolset."
+            )
+        }
+        let res = try await adapterCall(.newThread(projectID: projectID, systemPrompt: systemPrompt, toolset: toolset?.rawValue, allowedTools: allowedTools))
         guard case .thread(let id) = res else {
             throw AgentsRuntimeError.unexpectedResult(expected: "thread", actual: "\(res)")
         }

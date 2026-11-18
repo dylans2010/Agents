@@ -923,6 +923,7 @@ impl Store {
                 'draft', document -> '$.draft',
                 'botID', document -> '$.botID',
                 'toolset', document -> '$.toolset',
+                'allowedTools', document -> '$.allowedTools',
                 'rustMessageQueue', document -> '$.rustMessageQueue'
             ), json_array_length(document, '$.items') FROM threads WHERE id=?1",
             [id],
@@ -2589,6 +2590,11 @@ fn validate_patch(patch: &serde_json::Map<String, Value>) -> Result<()> {
                 value.as_str().is_some_and(|toolset| matches!(toolset, "system" | "provider")),
                 "Toolset must be \"system\" or \"provider\""
             ),
+            "allowedTools" => {
+                if !value.is_null() {
+                    crate::agent::validate_allowed_tools_value(value)?;
+                }
+            }
             "snoozedUntil" => ensure!(
                 value.is_null() || snooze_timestamp(value).is_some(),
                 "Invalid snooze date"

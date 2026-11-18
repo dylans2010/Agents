@@ -695,6 +695,7 @@ fn validate_instructions(provider: &Provider, instructions: Option<&str>) -> Res
 pub(crate) fn validate_system_prompt_and_toolset(
     system_prompt: Option<&str>,
     toolset: Option<&str>,
+    allowed_tools: Option<&[String]>,
 ) -> Result<()> {
     if let Some(toolset) = toolset {
         ensure!(
@@ -713,10 +714,53 @@ pub(crate) fn validate_system_prompt_and_toolset(
             "System prompt cannot contain NUL"
         );
     }
+    validate_allowed_tools(allowed_tools)?;
     if toolset == Some("provider") && system_prompt.is_some() {
         bail!("A system prompt cannot be combined with the provider toolset");
     }
+    if toolset == Some("provider") && allowed_tools.is_some_and(|list| !list.is_empty()) {
+        bail!("Allowed tools cannot be combined with the provider toolset");
+    }
     Ok(())
+}
+pub const MAX_ALLOWED_TOOLS: usize = 333;
+pub const MAX_ALLOWED_TOOL_NAME_CHARS: usize = 256;
+fn validate_allowed_tool_names(names: &[&str]) -> Result<()> {
+    ensure!(
+        names.len() <= MAX_ALLOWED_TOOLS,
+        "A thread can allow at most 333 tools"
+    );
+    let mut seen = std::collections::HashSet::new();
+    for name in names {
+        ensure!(
+            !name.trim().is_empty()
+                && name.chars().count() <= MAX_ALLOWED_TOOL_NAME_CHARS
+                && !name.chars().any(char::is_control),
+            "Allowed tool names must be non-empty text of at most 256 characters without control characters"
+        );
+        ensure!(seen.insert(*name), "Duplicate allowed tool name");
+    }
+    Ok(())
+}
+pub(crate) fn validate_allowed_tools(allowed_tools: Option<&[String]>) -> Result<()> {
+    let Some(allowed_tools) = allowed_tools else {
+        return Ok(());
+    };
+    let names: Vec<&str> = allowed_tools.iter().map(String::as_str).collect();
+    validate_allowed_tool_names(&names)
+}
+pub(crate) fn validate_allowed_tools_value(value: &Value) -> Result<()> {
+    let Some(names) = value.as_array() else {
+        bail!("Allowed tools must be an array of tool names");
+    };
+    let mut owned = Vec::with_capacity(names.len());
+    for name in names {
+        let Some(name) = name.as_str() else {
+            bail!("Allowed tools must be an array of tool names");
+        };
+        owned.push(name);
+    }
+    validate_allowed_tool_names(&owned)
 }
 pub(crate) fn ensure_system_toolset_supported(provider: &str) -> Result<()> {
     ensure!(
@@ -1829,6 +1873,45 @@ pub(crate) fn set_provider_session_for_account(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn allowed_tools_validation_rejects_bad_entries() {
+        let tools = |names: &[&str]| {
+            names
+                .iter()
+                .map(|name| name.to_string())
+                .collect::<Vec<_>>()
+        };
+        assert!(validate_allowed_tools(None).is_ok());
+        assert!(validate_allowed_tools(Some(&[])).is_ok());
+        assert!(validate_allowed_tools(Some(&tools(&["read_file", "use_workers"]))).is_ok());
+        assert!(validate_allowed_tools(Some(&tools(&[""]))).is_err());
+        assert!(validate_allowed_tools(Some(&tools(&["   "]))).is_err());
+        assert!(validate_allowed_tools(Some(&tools(&["x".repeat(257).as_str()]))).is_err());
+        assert!(validate_allowed_tools(Some(&tools(&["read\u{1}file"])))).is_err());
+        assert!(validate_allowed_tools(Some(&tools(&["read_file", "read_file"]))).is_err());
+        let over_cap = (0..334).map(|n| format!("tool_{n}")).collect::<Vec<_>>();
+        assert!(validate_allowed_tools(Some(&over_cap)).is_err());
+        let at_cap = (0..333).map(|n| format!("tool_{n}")).collect::<Vec<_>>();
+        assert!(validate_allowed_tools(Some(&at_cap)).is_ok());
+        assert!(
+            validate_system_prompt_and_toolset(None, Some("provider"), Some(&tools(&["read_file"])))
+                .is_err()
+        );
+        assert!(
+            validate_system_prompt_and_toolset(None, Some("provider"), Some(&[])).is_ok()
+        );
+        assert!(
+            validate_system_prompt_and_toolset(None, Some("system"), Some(&tools(&["read_file"])))
+                .is_ok()
+        );
+        assert!(
+            validate_system_prompt_and_toolset(None, None, Some(&tools(&["read_file"]))).is_ok()
+        );
+        assert!(validate_allowed_tools_value(&json!(["read_file"])).is_ok());
+        assert!(validate_allowed_tools_value(&json!("read_file")).is_err());
+        assert!(validate_allowed_tools_value(&json!([42])).is_err());
+        assert!(validate_allowed_tools_value(&json!(["read_file", "read_file"])).is_err());
+    }
     #[test]
     fn provider_error_codes_never_carry_provider_text() {
         let error = json!({"code":-32000,"message":"synthetic-key-echo","data":{"key":"synthetic-key-echo"}});

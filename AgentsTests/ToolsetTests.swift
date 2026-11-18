@@ -400,17 +400,51 @@ struct ToolsetTests {
         let decoder = RemoteProtocol.makeDecoder()
         let projectID = UUID()
         let message = RemoteClientMessage(
-            request: .newThread(projectID: projectID, systemPrompt: "Behave.", toolset: "system")
+            request: .newThread(projectID: projectID, systemPrompt: "Behave.", toolset: "system", allowedTools: ["read_file"])
         )
         let data = try encoder.encode(message)
         let decoded = try decoder.decode(RemoteClientMessage.self, from: data)
-        guard case .newThread(let decodedProject, let prompt, let toolset) = decoded.request else {
+        guard case .newThread(let decodedProject, let prompt, let toolset, let allowedTools) = decoded.request else {
             Issue.record("Expected newThread request")
             return
         }
         #expect(decodedProject == projectID)
         #expect(prompt == "Behave.")
         #expect(toolset == "system")
+        #expect(allowedTools == ["read_file"])
+    }
+
+    @Test("New-thread request without allowed tools encodes an absent list")
+    func newThreadRequestWithoutAllowedTools() throws {
+        let encoder = RemoteProtocol.makeEncoder()
+        let decoder = RemoteProtocol.makeDecoder()
+        let message = RemoteClientMessage(
+            request: .newThread(projectID: nil, systemPrompt: nil, toolset: nil, allowedTools: nil)
+        )
+        let data = try encoder.encode(message)
+        let decoded = try decoder.decode(RemoteClientMessage.self, from: data)
+        guard case .newThread(_, _, _, let allowedTools) = decoded.request else {
+            Issue.record("Expected newThread request")
+            return
+        }
+        #expect(allowedTools == nil)
+    }
+
+    @Test("New-thread creation rejects an unknown tool name at the bridge")
+    func newThreadRejectsUnknownToolName() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "SliceF2Tools")
+        await #expect(throws: AgentsRuntimeError.self) {
+            try await client.newThread(projectID: projectID, allowedTools: ["not_a_real_tool"])
+        }
+        let created = try await client.newThread(projectID: projectID, allowedTools: ["read_file"])
+        let workspace = try await client.fetchWorkspace()
+        let summary = workspace.threads.first { $0.id == created }
+        #expect(summary?.allowedTools == ["read_file"])
+        await client.close()
     }
 
     @Test("Old new-thread messages without prompt fields decode to nils")
@@ -421,13 +455,14 @@ struct ToolsetTests {
         let decoded = try RemoteProtocol.makeDecoder().decode(
             RemoteClientMessage.self, from: Data(json.utf8)
         )
-        guard case .newThread(let project, let prompt, let toolset) = decoded.request else {
+        guard case .newThread(let project, let prompt, let toolset, let allowedTools) = decoded.request else {
             Issue.record("Expected newThread request")
             return
         }
         #expect(project != nil)
         #expect(prompt == nil)
         #expect(toolset == nil)
+        #expect(allowedTools == nil)
     }
 
     @Test("Send request carries the system prompt and old sends decode without it")
@@ -445,6 +480,19 @@ struct ToolsetTests {
             from: Data("{\"threadID\":\"\(UUID().uuidString)\",\"text\":\"Hi\",\"images\":[],\"delivery\":\"automatic\"}".utf8)
         )
         #expect(old.systemPrompt == nil)
+        #expect(old.allowedTools == nil)
+    }
+
+    @Test("Send request carries allowed tools and old sends decode without them")
+    func sendRequestCarriesAllowedTools() throws {
+        let encoder = RemoteProtocol.makeEncoder()
+        let decoder = RemoteProtocol.makeDecoder()
+        let request = RemoteSendRequest(
+            threadID: UUID(), text: "Hi", systemPrompt: "Behave.", allowedTools: ["read_file"]
+        )
+        #expect(request.allowedTools == ["read_file"])
+        let data = try encoder.encode(request)
+        #expect(try decoder.decode(RemoteSendRequest.self, from: data).allowedTools == ["read_file"])
     }
 
     @Test("Computer Use tools register with the real engine action")

@@ -444,8 +444,10 @@ impl Session {
                 project_id,
                 system_prompt,
                 toolset,
+                allowed_tools,
             } => {
-                let thread = adapter.new_thread(project_id, &runs()?, system_prompt, toolset)?;
+                let thread =
+                    adapter.new_thread(project_id, &runs()?, system_prompt, toolset, allowed_tools)?;
                 self.respond(id, "thread", Some(protocol::value_body(thread)));
             }
             Request::NewBotConversation { bot_id } => {

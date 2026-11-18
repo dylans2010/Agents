@@ -63,6 +63,11 @@ public nonisolated enum SystemToolError: LocalizedError, Equatable, Sendable {
 }
 
 public nonisolated enum SystemToolRegistry {
+    public static func unknownToolNames(in tools: [String]?) -> [String] {
+        let known = Set(systemTools.map(\.name))
+        return (tools ?? []).filter { !known.contains($0) }
+    }
+
     public static let systemTools: [SystemToolDefinition] = [
         SystemToolDefinition(
             name: "read_file",

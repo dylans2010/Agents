@@ -95,6 +95,7 @@ impl Engine {
                     | "interactionMode"
                     | "systemPrompt"
                     | "toolset"
+                    | "allowedTools"
             )),
             "New-thread request contains unsupported options"
         );
@@ -283,8 +284,29 @@ impl Engine {
             .filter(|value| !value.is_null())
             .map(|value| value.as_str().context("Toolset must be text"))
             .transpose()?;
-        crate::agent::validate_system_prompt_and_toolset(system_prompt, toolset)?;
-        if toolset == Some("system") {
+        let allowed_tools = fields
+            .get("allowedTools")
+            .filter(|value| !value.is_null())
+            .map(|value| {
+                value
+                    .as_array()
+                    .context("Allowed tools must be an array of tool names")?
+                    .iter()
+                    .map(|name| {
+                        name.as_str()
+                            .context("Allowed tools must be an array of tool names")
+                            .map(str::to_owned)
+                    })
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?
+            .filter(|list| !list.is_empty());
+        crate::agent::validate_system_prompt_and_toolset(
+            system_prompt,
+            toolset,
+            allowed_tools.as_deref(),
+        )?;
+        if toolset == Some("system") || allowed_tools.is_some() {
             let provider = thread["selection"]["provider"].as_str().unwrap_or("codex");
             crate::agent::ensure_system_toolset_supported(provider)?;
         }
@@ -293,6 +315,9 @@ impl Engine {
         }
         if let Some(prompt) = system_prompt {
             thread["systemPrompt"] = json!(prompt);
+        }
+        if let Some(allowed_tools) = allowed_tools {
+            thread["allowedTools"] = json!(allowed_tools);
         }
         if let Some(cwd) = cwd {
             thread["worktreePath"] = json!(cwd);

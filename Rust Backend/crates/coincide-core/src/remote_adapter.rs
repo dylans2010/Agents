@@ -56,6 +56,7 @@ struct ThreadFields {
     queued: usize,
     bot_id: Option<String>,
     toolset: Option<String>,
+    allowed_tools: Option<Vec<String>>,
 }
 
 /// A pending provider request: its id, method and parameters.
@@ -476,6 +477,13 @@ impl Adapter {
                 .and_then(|id| Uuid::parse_str(id).ok())
                 .map(|id| upper(&id.to_string())),
             toolset: document["toolset"].as_str().map(str::to_owned),
+            allowed_tools: document["allowedTools"].as_array().map(|names| {
+                names
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            }),
         }
     }
 
@@ -581,6 +589,7 @@ impl Adapter {
             has_draft: fields.has_draft,
             item_count: fields.item_count,
             toolset: fields.toolset.clone(),
+            allowed_tools: fields.allowed_tools.clone(),
             running_since: runs.started_at.get(&id).copied(),
             id,
         }
@@ -1510,25 +1519,41 @@ impl Adapter {
     }
 
     fn bind_system_prompt(&self, request: &SendRequest, document: &Value) -> Result<(), RemoteError> {
-        let Some(prompt) = request
+        let supplied_prompt = request
             .system_prompt
             .as_deref()
-            .filter(|prompt| !prompt.trim().is_empty())
-        else {
+            .filter(|prompt| !prompt.trim().is_empty());
+        let supplied_tools = request
+            .allowed_tools
+            .as_deref()
+            .filter(|list| !list.is_empty());
+        if supplied_prompt.is_none() && supplied_tools.is_none() {
             return Ok(());
-        };
+        }
         if document["toolset"].as_str() == Some("provider") {
-            return Err(RemoteError::failed(
-                "This thread uses Provider Tools, so a system prompt cannot be applied to it.",
-            ));
+            let message = if supplied_prompt.is_some() && supplied_tools.is_some() {
+                "This thread uses Provider Tools, so a system prompt and allowed tools cannot be applied to it."
+            } else if supplied_tools.is_some() {
+                "This thread uses Provider Tools, so allowed tools cannot be applied to it."
+            } else {
+                "This thread uses Provider Tools, so a system prompt cannot be applied to it."
+            };
+            return Err(RemoteError::failed(message));
         }
-        if document["systemPrompt"]
-            .as_str()
-            .is_some_and(|stored| !stored.trim().is_empty())
-        {
+        let prompt = supplied_prompt.filter(|_| {
+            document["systemPrompt"]
+                .as_str()
+                .is_none_or(|stored| stored.trim().is_empty())
+        });
+        let allowed_tools = supplied_tools.filter(|_| {
+            document["allowedTools"]
+                .as_array()
+                .is_none_or(|stored| stored.is_empty())
+        });
+        if prompt.is_none() && allowed_tools.is_none() {
             return Ok(());
         }
-        crate::agent::validate_system_prompt_and_toolset(Some(prompt), Some("system"))
+        crate::agent::validate_system_prompt_and_toolset(prompt, Some("system"), allowed_tools)
             .map_err(|error| RemoteError::failed(error.to_string()))?;
         let provider = document["selection"]["provider"]
             .as_str()
@@ -1536,9 +1561,17 @@ impl Adapter {
         crate::agent::ensure_system_toolset_supported(provider)
             .map_err(|error| RemoteError::failed(error.to_string()))?;
         let (resolved, _) = self.document(request.thread_id)?;
+        let mut patch = serde_json::Map::new();
+        if let Some(prompt) = prompt {
+            patch.insert("systemPrompt".into(), json!(prompt));
+        }
+        if let Some(allowed_tools) = allowed_tools {
+            patch.insert("allowedTools".into(), json!(allowed_tools));
+        }
+        patch.insert("toolset".into(), json!("system"));
         self.call(
             "threads.patch",
-            json!({"threadId": resolved, "patch": {"systemPrompt": prompt, "toolset": "system"}}),
+            json!({"threadId": resolved, "patch": patch}),
         )?;
         Ok(())
     }
@@ -1633,12 +1666,18 @@ impl Adapter {
         runs: &Runs,
         system_prompt: Option<String>,
         toolset: Option<String>,
+        allowed_tools: Option<Vec<String>>,
     ) -> Result<String, RemoteError> {
         let system_prompt = system_prompt
             .as_deref()
             .filter(|prompt| !prompt.trim().is_empty());
-        crate::agent::validate_system_prompt_and_toolset(system_prompt, toolset.as_deref())
-            .map_err(|error| RemoteError::failed(error.to_string()))?;
+        let allowed_tools = allowed_tools.filter(|list| !list.is_empty());
+        crate::agent::validate_system_prompt_and_toolset(
+            system_prompt,
+            toolset.as_deref(),
+            allowed_tools.as_deref(),
+        )
+        .map_err(|error| RemoteError::failed(error.to_string()))?;
         let workspace = self.workspace(false, runs)?;
         let project = match project {
             Some(project) => workspace
@@ -1664,11 +1703,14 @@ impl Adapter {
                 && !t.is_hidden
                 && !t.has_worktree
         }) {
-            if system_prompt.is_some() || toolset.is_some() {
+            if system_prompt.is_some() || toolset.is_some() || allowed_tools.is_some() {
                 let empty_id =
                     Uuid::parse_str(&empty.id).map_err(|_| RemoteError::bad_request())?;
                 let (resolved, document) = self.document(empty_id)?;
-                if system_prompt.is_some() || toolset.as_deref() == Some("system") {
+                if system_prompt.is_some()
+                    || toolset.as_deref() == Some("system")
+                    || allowed_tools.is_some()
+                {
                     let provider = document["selection"]["provider"]
                         .as_str()
                         .unwrap_or("codex");
@@ -1681,6 +1723,9 @@ impl Adapter {
                 }
                 if let Some(toolset) = toolset.as_deref() {
                     patch.insert("toolset".into(), json!(toolset));
+                }
+                if let Some(allowed_tools) = allowed_tools.as_deref() {
+                    patch.insert("allowedTools".into(), json!(allowed_tools));
                 }
                 self.call(
                     "threads.patch",
@@ -1696,10 +1741,13 @@ impl Adapter {
         };
         let created = self.call("threads.create", json!({"projectId": project_id}))?;
         let created_id = upper(created["id"].as_str().unwrap_or_default());
-        if system_prompt.is_some() || toolset.is_some() {
+        if system_prompt.is_some() || toolset.is_some() || allowed_tools.is_some() {
             let id = Uuid::parse_str(&created_id).map_err(|_| RemoteError::bad_request())?;
             let (resolved, document) = self.document(id)?;
-            if system_prompt.is_some() || toolset.as_deref() == Some("system") {
+            if system_prompt.is_some()
+                || toolset.as_deref() == Some("system")
+                || allowed_tools.is_some()
+            {
                 let provider = document["selection"]["provider"]
                     .as_str()
                     .unwrap_or("codex");
@@ -1712,6 +1760,9 @@ impl Adapter {
             }
             if let Some(toolset) = toolset.as_deref() {
                 patch.insert("toolset".into(), json!(toolset));
+            }
+            if let Some(allowed_tools) = allowed_tools.as_deref() {
+                patch.insert("allowedTools".into(), json!(allowed_tools));
             }
             self.call(
                 "threads.patch",
@@ -2481,6 +2532,7 @@ mod tests {
                 }],
                 delivery: Delivery::Automatic,
                 system_prompt: None,
+                allowed_tools: None,
             };
             let images = adapter.import_remote_images(&request, &thread).unwrap();
             adapter.queue_remote_payload(&thread, "", &images).unwrap();
@@ -2563,13 +2615,13 @@ mod tests {
         let adapter = Adapter::new(shared.clone(), "fixture");
         let runs = Runs::default();
         assert!(adapter
-            .new_thread(None, &runs, None, Some("system".to_owned()))
+            .new_thread(None, &runs, None, Some("system".to_owned()), None)
             .is_err());
         let (_, document) = adapter.document(empty_id).unwrap();
         assert!(document["toolset"].is_null());
         assert!(document["systemPrompt"].is_null());
         let reused = adapter
-            .new_thread(None, &runs, None, Some("provider".to_owned()))
+            .new_thread(None, &runs, None, Some("provider".to_owned()), None)
             .unwrap();
         assert_eq!(reused, upper(empty["id"].as_str().unwrap()));
         let (_, document) = adapter.document(empty_id).unwrap();
@@ -2593,13 +2645,58 @@ mod tests {
         let adapter = Adapter::new(shared.clone(), "fixture");
         let runs = Runs::default();
         assert!(adapter
-            .new_thread(None, &runs, None, Some("system".to_owned()))
+            .new_thread(None, &runs, None, Some("system".to_owned()), None)
             .is_err());
-        let created = adapter.new_thread(None, &runs, None, None).unwrap();
+        let created = adapter.new_thread(None, &runs, None, None, None).unwrap();
         let (_, document) =
             adapter.document(Uuid::parse_str(&created).unwrap()).unwrap();
         assert!(document["toolset"].is_null());
         assert!(document["systemPrompt"].is_null());
         assert_eq!(document["selection"]["provider"], "opencode");
+    }
+
+    #[test]
+    fn new_thread_stores_allowed_tools_and_rejects_provider_combination() {
+        let directory = tempfile::tempdir().unwrap();
+        let engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        assert!(adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                Some("provider".to_owned()),
+                Some(vec!["read_file".to_owned()])
+            )
+            .is_err());
+        assert!(adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                Some("system".to_owned()),
+                Some(vec!["read_file".to_owned(), "read_file".to_owned()])
+            )
+            .is_err());
+        let created = adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                Some("system".to_owned()),
+                Some(vec!["read_file".to_owned(), "use_workers".to_owned()]),
+            )
+            .unwrap();
+        let (_, document) =
+            adapter.document(Uuid::parse_str(&created).unwrap()).unwrap();
+        assert_eq!(
+            document["allowedTools"],
+            json!(["read_file", "use_workers"])
+        );
+        assert_eq!(document["toolset"], "system");
     }
 }

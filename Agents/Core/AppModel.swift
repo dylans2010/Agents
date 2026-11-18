@@ -430,7 +430,7 @@ public final class AppModel {
     }
 
     @discardableResult
-    public func createNewThread(in projectID: UUID? = nil) async -> UUID? {
+    public func createNewThread(in projectID: UUID? = nil, allowedTools: [String]? = nil) async -> UUID? {
         guard let client = runtime else { return nil }
         let resolvedProject: UUID? = projectID ?? {
             if let proj = selectedProject, !proj.isChats { return proj.id }
@@ -438,7 +438,7 @@ public final class AppModel {
         }()
         do {
             let prompt = agentToolset == .system ? systemPromptForSelectedThread.text : nil
-            let newID = try await client.newThread(projectID: resolvedProject, systemPrompt: prompt, toolset: agentToolset)
+            let newID = try await client.newThread(projectID: resolvedProject, systemPrompt: prompt, toolset: agentToolset, allowedTools: allowedTools)
             await refreshWorkspace()
             selectThread(newID)
             return newID
@@ -653,10 +653,11 @@ public final class AppModel {
         let targetSummary = workspace.threads.first { $0.id == targetThread }
         let effectiveToolset = toolset(for: targetSummary)
         let systemPromptText: String? = effectiveToolset == .system ? systemPrompt(for: targetSummary).text : nil
+        let allowedTools: [String]? = effectiveToolset == .system ? targetSummary?.allowedTools : nil
 
         do {
             let outcome = try await client.send(
-                RemoteSendRequest(threadID: targetThread, text: text, images: images, delivery: delivery, systemPrompt: systemPromptText)
+                RemoteSendRequest(threadID: targetThread, text: text, images: images, delivery: delivery, systemPrompt: systemPromptText, allowedTools: allowedTools)
             )
             boostPollForNewActivity()
             await refreshWorkspace()
@@ -966,8 +967,11 @@ public final class AppModel {
     }
 
     public static func unknownAllowedTools(in draft: RemoteAssistantDraft) -> [String] {
-        let known = Set(SystemToolRegistry.systemTools.map(\.name))
-        return (draft.allowedTools ?? []).filter { !known.contains($0) }
+        unknownAllowedTools(in: draft.allowedTools)
+    }
+
+    public static func unknownAllowedTools(in tools: [String]?) -> [String] {
+        SystemToolRegistry.unknownToolNames(in: tools)
     }
 
     @discardableResult

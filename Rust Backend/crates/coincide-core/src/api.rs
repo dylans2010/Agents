@@ -1738,6 +1738,17 @@ impl Engine {
             codex_profile.is_none() || system_instructions.is_none(),
             "System Tools cannot be used with a named Codex profile: a per-thread system prompt needs the default Codex session"
         );
+        let allowed_tools = match v.get("allowedTools") {
+            None | Some(Value::Null) => None,
+            Some(value) => {
+                crate::agent::validate_allowed_tools_value(value)?;
+                value.as_array().filter(|list| !list.is_empty())
+            }
+        };
+        ensure!(
+            codex_profile.is_none() || allowed_tools.is_none(),
+            "System Tools cannot be used with a named Codex profile: a per-thread allowed-tools list needs the default Codex session"
+        );
         let mode_policy = if v["selection"]["provider"] == "codex" {
             Some(if let Some(policy) = named_policy {
                 policy
@@ -3964,6 +3975,25 @@ mod tests {
             json!({"method":"threads.patch","params":{"threadId":id,"patch":{"sessions":{}}}}),
         );
         assert!(reply.get("error").is_some());
+    }
+
+    #[test]
+    fn patch_accepts_rejects_and_clears_allowed_tools() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("data.sqlite")).unwrap();
+        let mut e = Engine::new(store);
+        let created = e.dispatch(json!({"id":1,"method":"threads.create","params":{}}));
+        let id = created["result"]["id"].clone();
+        let reply = e.dispatch(json!({"id":2,"method":"threads.patch","params":{"threadId":id,"patch":{"allowedTools":["read_file"]}}}));
+        assert!(reply.get("error").is_none());
+        assert_eq!(reply["result"]["allowedTools"], json!(["read_file"]));
+        let reply = e.dispatch(json!({"id":3,"method":"threads.patch","params":{"threadId":id,"patch":{"allowedTools":["read_file","read_file"]}}}));
+        assert!(reply.get("error").is_some());
+        let reply = e.dispatch(json!({"id":4,"method":"threads.patch","params":{"threadId":id,"patch":{"allowedTools":"read_file"}}}));
+        assert!(reply.get("error").is_some());
+        let reply = e.dispatch(json!({"id":5,"method":"threads.patch","params":{"threadId":id,"patch":{"allowedTools":null}}}));
+        assert!(reply.get("error").is_none());
+        assert!(reply["result"]["allowedTools"].is_null());
     }
 
     #[test]
