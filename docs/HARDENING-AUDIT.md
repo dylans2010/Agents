@@ -1995,6 +1995,14 @@ limitation of the audited component, or a question owed to Dylan.
 - **Schedule claim atomicity rests on the Engine lock.** The claim is
   revision-checked, but it is atomic only while a single writer holds the
   Engine lock; there is no second-writer lock (Slice 95).
+- **`.git` guards are exact-byte: `.GIT` passes on a case-insensitive
+  filesystem.** The guards in `workspace.rs:290–294`,
+  `workspace_tools.rs:154–158`, and `workspace_ops.rs:970–974`
+  (coincide-macos-ffi) all compare
+  `part.as_os_str().as_encoded_bytes() != b".git"`, so `.GIT` passes the
+  guard while resolving to the real `.git` on macOS's case-insensitive
+  APFS (`.GIT/config` reads the real `.git/config`). No `.GIT` test
+  exists (Slice 147 INFO-3). Documented, not fixed.
 ## How to re-verify
 
 - **Registry 332 check.** Count the `ToolDef {` entries inside the
@@ -2277,8 +2285,35 @@ limitation of the audited component, or a question owed to Dylan.
   the Slice 150 Verification paragraph's program-diff figure +55,570 is
   stale at HEAD `b6caaffb` — that was the value at Slice 148's HEAD
   `7c4d94cf`; re-measured against the program base `04b235e3` it is
-  +55,778; corrected in Slice 152, which also qualified the Slice 149
+  +55,778; corrected in Slice 152 (remote 12e85d5e), which also qualified the Slice 149
   note's +55,570 with its rev.
+  **Slice 153 re-verification (no commit):** Slice 153 re-verified Slice
+  152 read-only and passed it **PASS WITH MINORs** — two MINOR findings,
+  both fixed in Slice 154. Spot-checked as written: sync tree-identical
+  (remote `12e85d5e` / tree `bbcfaac6`); registry 332/332/332 with 0
+  mismatches (1,087 params each side, 63 distinct actions); catalog
+  279/300 (278 exact + 1 alias + 1 duplicate + 20 NONE); strict coverage
+  261 direct / 184 arm-reached (55.4%) / 77 validation-only / 29 shared /
+  42 uncovered (loose 190/71); Swift `@Test` 143 (124 in `AgentsTests` +
+  19 bare `@Test func` in `CoincideRemoteTests`), Rust 3,012 (2,231 real
+  short-form + 736 fully-qualified + 45 `gpui_kit`); Swift files 148, Rust
+  files 707 excluding `vendor/`, docs 28; program diff 224 files
+  +55,809/−3,596 against the program base `04b235e3`, measured at HEAD
+  `ba9ee5b7`; commits in range 99; totals recounted at 36 defects / 52
+  tests; secrets sweep clean (69 hits reviewed); comments sweep 6 lines
+  all explained; open items all still true/documented except F2 (fixed
+  here); Slices 144/146/148/150 fixes all hold at HEAD. The Slice 152
+  backfill is API-verified (remote
+  `12e85d5e64f945424780dd6cf62338aa82a60df0`, tree
+  `bbcfaac60e6a9547e382f836d799292565db9c75`, parent
+  `e9a46e9cae70af8bad914d307673d5332332ed2c`). MINOR (F1):
+  `docs/MAC-GATE.md:188` still said `coincide-mcp-server` (19 tests),
+  but the true count is 20 (4 in `tools.rs:21310,21332,21366,21384` + 16
+  in `tests/mcp_server.rs:120–796`); the per-crate table at `:172`
+  already said 20 and the 3,012 total depends on 20; corrected in Slice
+  154. MINOR (F2): the `.git` guards' exact-byte case-insensitivity
+  edge (Slice 147 INFO-3) was missing from the docs; added to
+  [Documented, not fixed](#documented-not-fixed) in Slice 154.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)

@@ -185,7 +185,7 @@ and CI do not cover the same surface (`.github/workflows/rust.yml`,
     cargo test -p coincide-desktop --locked --features native-notifications,native-microphone,native-computer-use
 
 Coverage gap to know about before interpreting results:
-`coincide-mcp-server` (19 tests) and `coincide-macos-ffi` (3 tests) have
+`coincide-mcp-server` (20 tests) and `coincide-macos-ffi` (3 tests) have
 no `cargo test` coverage in any CI job. Their first CI coverage is the
 `agents-app` job building them via the Xcode pre-build scripts. On the
 gate Mac, also run:
