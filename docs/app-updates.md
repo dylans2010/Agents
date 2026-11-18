@@ -1,6 +1,6 @@
 # Native app updates
 
-> Historical Swift desktop documentation. The active desktop implementation is Rust.
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the Swift desktop's update flow as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the active desktop is the native Swift app, and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. The dated sections below are preserved as written.
 
 Agents → Check for Updates and Settings → About use the public GitHub Releases API. Daily checks are opt-in and persisted; checking does not download, stop agents, or quit the app. Download Update stages a verified release. Install on Quit starts a separate signed Swift helper and can be cancelled until the user quits.
 

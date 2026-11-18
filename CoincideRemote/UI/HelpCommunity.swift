@@ -4,91 +4,49 @@ import SwiftUI
 import UIKit
 
 /// Help & Community on the phone, as in the Mac's Settings › About: each link offered here
-/// (`CommunityLink.offered(on: .remote)`, which leaves out the Mac's Ko-fi link) with its title and tile. A bug report's
+/// (`CommunityLink.offered(on: .remote)`) with its title and tile. A bug report's
 /// GitHub form has the versions of both apps and both systems filled in.
 extension CommunityLink {
     var title: String {
         switch self {
-        case .getHelp: String(localized: "Get Help")
         case .reportIssue: String(localized: "Report an Issue")
         case .requestFeature: String(localized: "Request a Feature")
-        case .joinDiscord: String(localized: "Join the Discord")
         case .starOnGitHub: String(localized: "Star on GitHub")
         case .upvoteOnProductHunt: String(localized: "Upvote on Product Hunt")
-        // Mac only (`isOffered(on:)`), so never listed here.
-        case .supportOnKoFi: "Ko-fi"
-        case .x: "X"
-        case .instagram: "Instagram"
-        case .linkedIn: "LinkedIn"
-        case .contact: String(localized: "Contact")
-        case .privacyPolicy: String(localized: "Privacy Policy")
-        case .termsOfService: String(localized: "Terms of Service")
         }
     }
 
     /// The account or address shown at the row's end.
     var detail: String? {
-        switch self {
-        case .x: CoincideLinks.xHandle
-        case .instagram: CoincideLinks.instagramHandle
-        case .contact: CoincideLinks.contactEmail
-        default: nil
-        }
+        nil
     }
 
     var symbol: String {
         switch self {
-        case .getHelp: "questionmark.bubble.fill"
         case .reportIssue: "ladybug.fill"
         case .requestFeature: "lightbulb.fill"
-        case .joinDiscord: "bubble.left.and.bubble.right.fill"
         case .starOnGitHub: "star.fill"
         case .upvoteOnProductHunt: "arrowtriangle.up.fill"
-        case .supportOnKoFi: "heart.fill"
-        case .x: "at"
-        case .instagram: "camera.fill"
-        case .linkedIn: "person.2.fill"
-        case .contact: "envelope.fill"
-        case .privacyPolicy: "hand.raised.fill"
-        case .termsOfService: "doc.text.fill"
         }
     }
 
     /// The tile's color, by `MacSettingsLabel.color` name.
     var color: String {
         switch self {
-        case .getHelp: "teal"
         case .reportIssue: "red"
         case .requestFeature: "orange"
-        case .joinDiscord: "indigo"
         case .starOnGitHub: "gray"
         case .upvoteOnProductHunt: "orange"
-        case .supportOnKoFi: "pink"
-        case .x: "black"
-        case .instagram: "pink"
-        case .linkedIn: "blue"
-        case .contact: "cyan"
-        case .privacyPolicy: "blue"
-        case .termsOfService: "gray"
         }
     }
 
     /// Words Settings search also finds the link by.
     var keywords: [String] {
         switch self {
-        case .getHelp: [String(localized: "Help"), "discord", "support", "question"]
-        case .reportIssue: [String(localized: "Bug"), String(localized: "Feedback"), "GitHub", "Discord", "bug", "issue"]
-        case .requestFeature: [String(localized: "Idea"), String(localized: "Feedback"), "GitHub", "Discord", "feature"]
-        case .joinDiscord: ["Discord", "community", "server"]
+        case .reportIssue: [String(localized: "Bug"), String(localized: "Feedback"), "GitHub", "bug", "issue"]
+        case .requestFeature: [String(localized: "Idea"), String(localized: "Feedback"), "GitHub", "feature"]
         case .starOnGitHub: ["GitHub", "source", "open source", "MIT"]
         case .upvoteOnProductHunt: ["Product Hunt", "upvote", "vote", "launch"]
-        case .supportOnKoFi: []
-        case .x: ["twitter", "follow", CoincideLinks.xHandle]
-        case .instagram: ["follow", CoincideLinks.instagramHandle]
-        case .linkedIn: ["follow"]
-        case .contact: ["email", "mail", CoincideLinks.contactEmail]
-        case .privacyPolicy: ["privacy", "legal"]
-        case .termsOfService: ["terms", "legal"]
         }
     }
 
@@ -96,19 +54,6 @@ extension CommunityLink {
     static func title(of group: Group) -> String {
         switch group {
         case .community: String(localized: "Help & Community")
-        case .follow: String(localized: "Follow")
-        case .contact: String(localized: "Contact & Legal")
-        }
-    }
-
-    /// What the GitHub or Discord question explains.
-    var choiceMessage: String {
-        switch self {
-        case .reportIssue:
-            String(localized: "Fill in the bug report form on GitHub, or use /bug in the bug reports channel on Discord. Channel links work once you’ve joined the server. Reports sent on Discord become public GitHub issues and need no GitHub account.")
-        case .requestFeature:
-            String(localized: "Fill in the feature request form on GitHub, or use /feature in the feature requests channel on Discord. Channel links work once you’ve joined the server. Requests sent on Discord become public GitHub issues and need no GitHub account.")
-        default: ""
         }
     }
 
@@ -130,7 +75,7 @@ extension CommunityLink {
     }
 }
 
-/// Settings' Help & Community, Follow, and Contact & Legal rows at the foot of the sidebar, with Rate Coincide Remote
+/// Settings' Help & Community rows at the foot of the sidebar, with Rate Coincide Remote
 /// among the first.
 struct HelpCommunityRows: View {
     var body: some View {
@@ -143,37 +88,26 @@ struct HelpCommunityRows: View {
 }
 
 /// One link in the sidebar's look, with the arrow of a row that leaves the app. Report an Issue and Request a Feature
-/// ask GitHub or Discord first.
+/// open the repository's GitHub issue form.
 struct CommunityLinkRow: View {
     let link: CommunityLink
     @Environment(RemoteClient.self) private var client
     @Environment(\.openURL) private var openURL
-    @State private var isChoosing = false
 
     var body: some View {
         Button {
-            if link.discordChannel == nil { openURL(link.remoteURL(client)) } else { isChoosing = true }
+            openURL(link.remoteURL(client))
         } label: {
             SettingsTileLabel(title: link.title, symbol: link.symbol, color: link.color, detail: link.detail, opensLink: true)
         }
         .buttonStyle(SidebarRowButtonStyle())
         .accessibilityHint(hint)
-        .confirmationDialog(link.title, isPresented: $isChoosing, titleVisibility: .visible) {
-            Button("GitHub") { openURL(link.remoteURL(client)) }
-            if let discord = link.discordChannel {
-                Button("Discord") { openURL(discord) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(link.choiceMessage)
-        }
         .sidebarRow()
     }
 
     private var hint: Text {
         switch link {
-        case .reportIssue, .requestFeature: Text("Asks whether to use GitHub or Discord")
-        case .contact: Text("Writes an email to \(CoincideLinks.contactEmail)")
+        case .reportIssue, .requestFeature: Text("Opens the GitHub issue form")
         default: Text("Opens in your browser")
         }
     }

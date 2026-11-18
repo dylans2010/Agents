@@ -1,6 +1,6 @@
 # Agent sessions across quits, relaunches and updates
 
-> Historical Swift desktop documentation. The active desktop implementation is Rust.
+> **Historical record — pre-reconstruction, frozen at 2026-11-17.** This document records the Swift desktop's agent host as it stood before the native SwiftUI + AppKit Agents app was reconstructed as the current macOS app on 2026-11-17. It is not the current state: the active desktop is the native Swift app, and Rust's current role is `coincide-core`, powering the native app in-process through `coincide-macos-ffi` and serving System Tools through `coincide-mcp-server`. The dated sections below are preserved as written.
 
 Agents runs agents (Claude Code, Codex, Cursor, Grok, OpenCode, Antigravity) in its background agent host, `AgentsAgentHost`: a LaunchAgent (`com.apoorvdarshan.coincide.agent-host`) that launchd starts on demand and that the app talks to over XPC. The host owns the agent processes and logs their events, so agents keep working while Agents is closed. This applies to every provider in the same way: the host and the app only see `AgentSession`s and `AgentEvent`s.
 

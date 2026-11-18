@@ -1,4 +1,3 @@
-import CoincideRemoteKit
 import StoreKit
 import SwiftUI
 
@@ -21,7 +20,6 @@ struct PaywallView: View {
     @Environment(ProStore.self) private var store
     @Environment(RemoteClient.self) private var client
     @Environment(\.theme) private var theme
-    @Environment(\.openURL) private var openURL
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var selected = ProPlan.Kind.annual
     @State private var managing = false
@@ -306,11 +304,6 @@ struct PaywallView: View {
                 .disabled(store.busy != nil || !store.isAvailable)
                 separator
                 linkButton(String(localized: "Manage Subscription")) { managing = true }
-            }
-            HStack(spacing: 4) {
-                linkButton(String(localized: "Privacy Policy")) { openURL(CoincideLinks.privacyPolicy) }
-                separator
-                linkButton(String(localized: "Terms of Use")) { openURL(CoincideLinks.termsOfService) }
             }
         }
         .font(.footnote.weight(.medium))

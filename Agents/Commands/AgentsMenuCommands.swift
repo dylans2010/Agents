@@ -223,7 +223,7 @@ public struct AgentsMenuCommands: Commands {
             }
 
             Button("Agents GitHub Repository") {
-                NSWorkspace.shared.open(AgentsLinks.repository)
+                NSWorkspace.shared.open(CoincideLinks.repository)
             }
 
             Button("Report an Issue") {

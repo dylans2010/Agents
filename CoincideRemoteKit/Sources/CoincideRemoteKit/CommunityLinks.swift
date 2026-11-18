@@ -1,61 +1,30 @@
 import Foundation
 
-/// Coincide's public pages and accounts, for both apps. Plain links: nothing here is fetched.
+/// Agents' public pages, for both apps. Plain links: nothing here is fetched.
 public enum CoincideLinks {
-    public static let repository = URL(string: "https://github.com/apoorvdarshan/coincide")!
-    /// The Discord server's permanent invite.
-    public static let discordInvite = URL(string: "https://discord.gg/DETrbhDVqw")!
-    /// Channels of the Discord server, which open once the user has joined it.
-    public static let discordHelp = URL(string: "https://discord.com/channels/1566352780862427258/1566353949336797275")!
-    public static let discordBugReports = URL(string: "https://discord.com/channels/1566352780862427258/1566353951299862598")!
-    public static let discordFeatureRequests = URL(
-        string: "https://discord.com/channels/1566352780862427258/1566353955494039602")!
+    public static let repository = URL(string: "https://github.com/dylans2010/Agents")!
     /// Coincide's page on Product Hunt, to upvote it.
     public static let productHunt = URL(string: "https://www.producthunt.com/products/coincide")!
-    /// Donations, on the Mac only ("Buy Apoorv a Coffee").
-    public static let koFi = URL(string: "https://ko-fi.com/apoorvdarshan")!
-    public static let x = URL(string: "https://x.com/apoorvdarshan")!
-    public static let xHandle = "@apoorvdarshan"
-    public static let instagram = URL(string: "https://instagram.com/apoorvcodes")!
-    public static let instagramHandle = "@apoorvcodes"
-    /// Coincide's showcase page on LinkedIn.
-    public static let linkedIn = URL(string: "https://www.linkedin.com/showcase/coincide-dev")!
-    public static let privacyPolicy = URL(string: "https://coincide.dev/privacy")!
-    public static let termsOfService = URL(string: "https://coincide.dev/terms")!
-    public static let contactEmail = "apoorv@fud-ai.app"
-    public static let contact = URL(string: "mailto:\(contactEmail)")!
     /// Coincide Remote's "Write a Review" page on the App Store, opened when the in-app review prompt was asked for
     /// recently (`RemoteReview`). Nil until the app is on the App Store, so Rate always asks for the prompt.
     public static let remoteAppStoreReview: URL? = nil
 }
 
 /// Help & Community, as both apps list it in Settings and the Mac also in its Help menu, command palette and rail: help
-/// and reports, the Discord server, the source code and the Product Hunt page, the developer's accounts, and contact and
-/// legal pages. Each
+/// and reports, the source code and the Product Hunt page. Each
 /// app supplies the titles and symbols and lists the links `offered(on:)` its platform, so a link added here shows up
 /// in every place of the apps that offer it.
 ///
-/// Report an Issue and Request a Feature offer a choice: the repository's GitHub issue form, or the Discord channel
-/// whose slash command files the same public issue for people without a GitHub account. A bug report's form fills in
+/// Report an Issue and Request a Feature open the repository's GitHub issue form. A bug report's form fills in
 /// only its version fields, with the versions of the apps and systems involved, never logs, paths or account names.
 public enum CommunityLink: String, CaseIterable, Sendable, Identifiable {
-    case getHelp
-    /// The bug report form (`bug_report.yml`), or `/bug` on Discord.
+    /// The bug report form (`bug_report.yml`).
     case reportIssue
-    /// The feature request form (`feature_request.yml`), or `/feature` on Discord.
+    /// The feature request form (`feature_request.yml`).
     case requestFeature
-    case joinDiscord
     case starOnGitHub
     /// Coincide's Product Hunt page, to upvote it.
     case upvoteOnProductHunt
-    /// Ko-fi donations, which only the Mac offers.
-    case supportOnKoFi
-    case x
-    case instagram
-    case linkedIn
-    case contact
-    case privacyPolicy
-    case termsOfService
 
     /// The app listing the links.
     public enum Platform: Sendable {
@@ -64,30 +33,20 @@ public enum CommunityLink: String, CaseIterable, Sendable, Identifiable {
         case remote
     }
 
-    /// How the links are grouped, in order: under Help & Community, Follow, and Contact & Legal.
+    /// How the links are grouped: under Help & Community.
     public enum Group: String, CaseIterable, Sendable {
         case community
-        case follow
-        case contact
     }
 
     public var id: String { rawValue }
 
     public var group: Group {
-        switch self {
-        case .getHelp, .reportIssue, .requestFeature, .joinDiscord, .starOnGitHub, .upvoteOnProductHunt, .supportOnKoFi:
-            .community
-        case .x, .instagram, .linkedIn: .follow
-        case .contact, .privacyPolicy, .termsOfService: .contact
-        }
+        .community
     }
 
-    /// Whether the app on `platform` lists the link: everything but Ko-fi is on both, and Ko-fi only on the Mac.
+    /// Whether the app on `platform` lists the link: every link is on both.
     public func isOffered(on platform: Platform) -> Bool {
-        switch self {
-        case .supportOnKoFi: platform == .mac
-        default: true
-        }
+        true
     }
 
     /// The links the app on `platform` lists, in order.
@@ -107,24 +66,6 @@ public enum CommunityLink: String, CaseIterable, Sendable, Identifiable {
         }
     }
 
-    /// The Discord channel offered beside the GitHub form, for the two that offer one.
-    public var discordChannel: URL? {
-        switch self {
-        case .reportIssue: CoincideLinks.discordBugReports
-        case .requestFeature: CoincideLinks.discordFeatureRequests
-        default: nil
-        }
-    }
-
-    /// The slash command that files the report in `discordChannel`.
-    public var slashCommand: String? {
-        switch self {
-        case .reportIssue: "/bug"
-        case .requestFeature: "/feature"
-        default: nil
-        }
-    }
-
     /// Ids of the bug report form's fields that a link fills in.
     public enum Field {
         public static let macOSVersion = "macos-version"
@@ -138,17 +79,8 @@ public enum CommunityLink: String, CaseIterable, Sendable, Identifiable {
     /// version" fields with what is given; empty values are left out, and nothing else takes any.
     public func url(coincideVersion: String? = nil, macOSVersion: String? = nil) -> URL {
         switch self {
-        case .getHelp: return CoincideLinks.discordHelp
-        case .joinDiscord: return CoincideLinks.discordInvite
         case .starOnGitHub: return CoincideLinks.repository
         case .upvoteOnProductHunt: return CoincideLinks.productHunt
-        case .supportOnKoFi: return CoincideLinks.koFi
-        case .x: return CoincideLinks.x
-        case .instagram: return CoincideLinks.instagram
-        case .linkedIn: return CoincideLinks.linkedIn
-        case .contact: return CoincideLinks.contact
-        case .privacyPolicy: return CoincideLinks.privacyPolicy
-        case .termsOfService: return CoincideLinks.termsOfService
         case .reportIssue, .requestFeature: break
         }
         var components = URLComponents(
