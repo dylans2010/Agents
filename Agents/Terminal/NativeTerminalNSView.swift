@@ -353,21 +353,24 @@ public final class TerminalCanvasNSView: NSView {
             return
         }
         pollTask = Task { [weak self] in
-            guard let self else { return }
-            await self.pollViewportOnce(forceRedraw: true)
+            await self?.pollViewportOnce(forceRedraw: true)
             while !Task.isCancelled {
-                let elapsed = ContinuousClock.now - self.lastInteractionAt
-                let isFocused = self.window?.firstResponder === self && (self.window?.isKeyWindow ?? false)
                 let delayMs: Int
-                if elapsed < .seconds(2) || self.isBusy {
-                    delayMs = 24 // ~42 fps while active or running foreground process
-                } else if isFocused {
-                    delayMs = 50 // 20 fps while idle & focused
+                if let self {
+                    let elapsed = ContinuousClock.now - self.lastInteractionAt
+                    let isFocused = self.window?.firstResponder === self && (self.window?.isKeyWindow ?? false)
+                    if elapsed < .seconds(2) || self.isBusy {
+                        delayMs = 24
+                    } else if isFocused {
+                        delayMs = 50
+                    } else {
+                        delayMs = 150
+                    }
                 } else {
-                    delayMs = 150 // ~6.6 fps while unfocused & idle
+                    break
                 }
                 try? await Task.sleep(for: .milliseconds(delayMs))
-                guard !Task.isCancelled else { break }
+                guard !Task.isCancelled, let self else { break }
                 await self.pollViewportOnce(forceRedraw: false)
             }
         }

@@ -91,10 +91,36 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         stateLock.withLock { runtimePtr != nil }
     }
 
-    public func close() async {
+    public func close(timeout: Duration = .seconds(15)) async {
         await withCheckedContinuation { continuation in
+            let gate = CloseResumeGate(continuation)
             ffiQueue.async { [self] in
                 self.performCloseOnQueue()
+                gate.resume()
+            }
+            Task {
+                try? await Task.sleep(for: timeout)
+                gate.resume()
+            }
+        }
+    }
+
+    private final class CloseResumeGate: @unchecked Sendable {
+        private let lock = NSLock()
+        private var resumed = false
+        private let continuation: CheckedContinuation<Void, Never>
+
+        init(_ continuation: CheckedContinuation<Void, Never>) {
+            self.continuation = continuation
+        }
+
+        func resume() {
+            let shouldResume = lock.withLock {
+                if resumed { return false }
+                resumed = true
+                return true
+            }
+            if shouldResume {
                 continuation.resume()
             }
         }

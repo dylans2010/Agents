@@ -307,7 +307,8 @@ public final class AppModel {
         if revisionChanged || runningChanged || attentionChanged || turnFinishedChanged {
             await refreshWorkspace()
             if let activeUUID = selectedThreadUUID {
-                if let transcript = try? await client.openThread(activeUUID) {
+                if let transcript = try? await client.openThread(activeUUID),
+                   selectedThreadUUID == activeUUID {
                     self.activeTranscript = transcript
                 }
             }
@@ -404,6 +405,7 @@ public final class AppModel {
 
         do {
             let transcript = try await client.openThread(uuid)
+            guard self.selectedThreadUUID == uuid else { return }
             self.activeTranscript = transcript
             _ = try? await client.markSeen(uuid)
             async let checkoutTask = try? client.fetchCheckout(thread: uuid)
@@ -655,8 +657,9 @@ public final class AppModel {
             )
             boostPollForNewActivity()
             await refreshWorkspace()
-            if selectedThreadUUID == targetThread {
-                activeTranscript = try? await client.openThread(targetThread)
+            if selectedThreadUUID == targetThread,
+               let transcript = try? await client.openThread(targetThread) {
+                activeTranscript = transcript
             }
             return outcome
         } catch {
@@ -670,8 +673,9 @@ public final class AppModel {
         do {
             try await client.stop(thread: tid)
             pollFastUntil = .distantPast
-            if selectedThreadUUID == tid {
-                activeTranscript = try? await client.openThread(tid)
+            if selectedThreadUUID == tid,
+               let transcript = try? await client.openThread(tid) {
+                activeTranscript = transcript
             }
             await refreshWorkspace()
         } catch {
@@ -683,7 +687,9 @@ public final class AppModel {
         guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
         do {
             try await client.steerQueued(thread: tid, message: messageID)
-            activeTranscript = try? await client.openThread(tid)
+            if let transcript = try? await client.openThread(tid), selectedThreadUUID == tid {
+                activeTranscript = transcript
+            }
         } catch {
             presentError(error)
         }
@@ -693,7 +699,9 @@ public final class AppModel {
         guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
         do {
             try await client.removeQueued(thread: tid, message: messageID)
-            activeTranscript = try? await client.openThread(tid)
+            if let transcript = try? await client.openThread(tid), selectedThreadUUID == tid {
+                activeTranscript = transcript
+            }
         } catch {
             presentError(error)
         }
@@ -709,7 +717,9 @@ public final class AppModel {
         do {
             try await client.respond(thread: tid, requestID: itemID, optionID: optionID, text: text)
             boostPollForNewActivity()
-            activeTranscript = try? await client.openThread(tid)
+            if let transcript = try? await client.openThread(tid), selectedThreadUUID == tid {
+                activeTranscript = transcript
+            }
             await refreshWorkspace()
         } catch {
             presentError(error)
@@ -725,7 +735,9 @@ public final class AppModel {
         do {
             try await client.answer(thread: tid, requestID: itemID, answers: answers)
             boostPollForNewActivity()
-            activeTranscript = try? await client.openThread(tid)
+            if let transcript = try? await client.openThread(tid), selectedThreadUUID == tid {
+                activeTranscript = transcript
+            }
             await refreshWorkspace()
         } catch {
             presentError(error)
@@ -736,7 +748,9 @@ public final class AppModel {
         guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
         do {
             try await client.dismissQuestion(thread: tid, requestID: itemID)
-            activeTranscript = try? await client.openThread(tid)
+            if let transcript = try? await client.openThread(tid), selectedThreadUUID == tid {
+                activeTranscript = transcript
+            }
             await refreshWorkspace()
         } catch {
             presentError(error)
@@ -748,8 +762,9 @@ public final class AppModel {
         do {
             try await client.updateThreadSettings(settings)
             await refreshWorkspace()
-            if selectedThreadUUID == settings.threadID {
-                activeTranscript = try? await client.openThread(settings.threadID)
+            if selectedThreadUUID == settings.threadID,
+               let transcript = try? await client.openThread(settings.threadID) {
+                activeTranscript = transcript
             }
         } catch {
             presentError(error)
@@ -759,20 +774,21 @@ public final class AppModel {
     public func loadEarlierMessages(limit: Int = 200) async {
         guard let client = runtime,
               let tid = selectedThreadUUID,
-              var transcript = activeTranscript,
+              let transcript = activeTranscript,
               transcript.hasEarlier,
               let firstIndex = transcript.items.first?.index
         else { return }
 
         do {
             let page = try await client.loadEarlier(thread: tid, before: firstIndex, limit: limit)
+            guard selectedThreadUUID == tid, var current = activeTranscript, current.thread.id == tid else { return }
             var merged = page.items
             let existingIDs = Set(merged.map(\.id))
-            merged.append(contentsOf: transcript.items.filter { !existingIDs.contains($0.id) })
+            merged.append(contentsOf: current.items.filter { !existingIDs.contains($0.id) })
             merged.sort { $0.index < $1.index }
-            transcript.items = merged
-            transcript.hasEarlier = page.hasEarlier
-            self.activeTranscript = transcript
+            current.items = merged
+            current.hasEarlier = page.hasEarlier
+            self.activeTranscript = current
         } catch {
             presentError(error)
         }
@@ -795,7 +811,9 @@ public final class AppModel {
             let rw = try await client.rewind(
                 RemoteRewindRequest(threadID: tid, itemID: itemID, revertsFiles: revertsFiles)
             )
-            activeTranscript = try? await client.openThread(tid)
+            if let transcript = try? await client.openThread(tid), selectedThreadUUID == tid {
+                activeTranscript = transcript
+            }
             await refreshWorkspace()
             if !rw.text.isEmpty {
                 insertTextIntoComposer(rw.text)
@@ -848,8 +866,10 @@ public final class AppModel {
     public func refreshDiff(scope: DiffScope? = nil) async {
         guard let client = runtime, let tid = selectedThreadUUID else { return }
         if let scope { activeDiffScope = scope }
+        let requestedScope = activeDiffScope
         do {
-            switch activeDiffScope {
+            let resolved: RemoteDiff
+            switch requestedScope {
             case .branch:
                 let value = try await client.runWorkspaceOperation(
                     method: "git.diff.branch",
@@ -857,7 +877,7 @@ public final class AppModel {
                 )
                 let patch = value["patch"]?.stringValue ?? ""
                 let base = value["baseLabel"]?.stringValue ?? "base"
-                activeDiff = RemoteDiffParsing.split(patch, title: "Branch vs \(base)")
+                resolved = RemoteDiffParsing.split(patch, title: "Branch vs \(base)")
             case .compare(let from, let to):
                 let value = try await client.runWorkspaceOperation(
                     method: "git.diff.range",
@@ -868,9 +888,12 @@ public final class AppModel {
                     ]
                 )
                 let patch = value["diff"]?.stringValue ?? ""
-                activeDiff = RemoteDiffParsing.split(patch, title: "Compare \(from)…\(to)")
+                resolved = RemoteDiffParsing.split(patch, title: "Compare \(from)…\(to)")
             default:
-                activeDiff = try await client.fetchDiff(thread: tid, scope: activeDiffScope)
+                resolved = try await client.fetchDiff(thread: tid, scope: requestedScope)
+            }
+            if selectedThreadUUID == tid && activeDiffScope == requestedScope {
+                activeDiff = resolved
             }
         } catch {
             self.lastError = error.localizedDescription
@@ -880,7 +903,10 @@ public final class AppModel {
     public func refreshGitState() async {
         guard let client = runtime, let tid = selectedThreadUUID else { return }
         do {
-            activeGitState = try await client.fetchGitState(thread: tid)
+            let state = try await client.fetchGitState(thread: tid)
+            if selectedThreadUUID == tid {
+                activeGitState = state
+            }
         } catch {
             self.lastError = error.localizedDescription
         }

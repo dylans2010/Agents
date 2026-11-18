@@ -187,6 +187,9 @@ public final class ComputerUseController {
             lastError = error.localizedDescription
         }
         history.insert(record, at: 0)
+        if history.count > 100 {
+            history.removeLast(history.count - 100)
+        }
     }
 
     public func listScreenshots(threadId: String) async -> [ComputerUseScreenshot] {
