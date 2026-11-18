@@ -147,13 +147,21 @@ impl Engine {
                 child_params["allowedTools"] = json!(allowed_tools);
             } else {
                 let parent_toolset = parent["toolset"].as_str();
+                let parent_tools_non_empty = parent["allowedTools"]
+                    .as_array()
+                    .is_some_and(|list| !list.is_empty());
+                let effective_system = parent_toolset == Some("system")
+                    || (parent_toolset.is_none() && parent_tools_non_empty);
+                let provider_key_present = child_params["selection"]
+                    .as_object()
+                    .is_some_and(|selection| selection.contains_key("provider"));
                 let child_provider = child_params["selection"]["provider"]
                     .as_str()
                     .unwrap_or("codex");
+                let system_supported = provider_key_present
+                    && crate::agent::ensure_system_toolset_supported(child_provider).is_ok();
                 let fallback_valid = parent_toolset != Some("provider")
-                    && (parent_toolset != Some("system")
-                        || crate::agent::ensure_system_toolset_supported(child_provider)
-                            .is_ok());
+                    && (!effective_system || system_supported);
                 if fallback_valid {
                     if !parent["toolset"].is_null() {
                         child_params["toolset"] = parent["toolset"].clone();
@@ -697,6 +705,14 @@ mod tests {
         provider: &str,
         allowed_tools: Option<Value>,
     ) -> String {
+        seed_assistant_with_optional_provider_and_tools(engine, Some(provider), allowed_tools)
+    }
+
+    fn seed_assistant_with_optional_provider_and_tools(
+        engine: &mut Engine,
+        provider: Option<&str>,
+        allowed_tools: Option<Value>,
+    ) -> String {
         let id = "00000000-0000-4000-8000-000000000001";
         let listed = engine.execute("assistants.list", &json!({})).unwrap();
         let mut assistant = json!({
@@ -708,7 +724,6 @@ mod tests {
             "systemPrompt": "Review the diff for security issues.",
             "intendedTasks": ["Review pull requests"],
             "expectedOutputFormat": "A list of findings",
-            "provider": provider,
             "model": "sonnet",
             "permissionProfile": "read-only",
             "inputRequirements": ["A diff"],
@@ -719,6 +734,9 @@ mod tests {
             "createdAt": 1_000_000,
             "updatedAt": 1_000_000
         });
+        if let Some(provider) = provider {
+            assistant["provider"] = json!(provider);
+        }
         if let Some(tools) = allowed_tools {
             assistant["allowedTools"] = tools;
         }
@@ -889,6 +907,90 @@ mod tests {
         let mut parent_doc = engine.store.thread(&parent).unwrap();
         parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
         parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["selection"]["provider"], "opencode");
+        assert_eq!(
+            child_doc["systemPrompt"],
+            "Review the diff for security issues."
+        );
+        assert!(child_doc["toolset"].is_null());
+        assert!(child_doc["allowedTools"].is_null());
+        assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_with_opencode_assistant_without_allowed_tools_skips_derived_system_toolset_parent() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant_with_provider_and_tools(
+            &mut engine,
+            "opencode",
+            None,
+        );
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["selection"]["provider"], "opencode");
+        assert_eq!(
+            child_doc["systemPrompt"],
+            "Review the diff for security issues."
+        );
+        assert!(child_doc["toolset"].is_null());
+        assert!(child_doc["allowedTools"].is_null());
+        assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_with_selectionless_parent_and_opencode_discovery_skips_system_toolset_parent() {
+        let mut engine = test_engine();
+        engine.provider_discovery = Some(json!({"providers":[
+            {"provider":"codex","state":"not_found"},
+            {"provider":"claude","state":"not_found"},
+            {"provider":"opencode","state":"found"}
+        ]}));
+        let assistant_id =
+            seed_assistant_with_optional_provider_and_tools(&mut engine, None, None);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc
+            .as_object_mut()
+            .unwrap()
+            .remove("selection");
         parent_doc["systemPrompt"] = json!("Parent prompt.");
         parent_doc["toolset"] = json!("system");
         parent_doc["allowedTools"] = json!(["read_file"]);
