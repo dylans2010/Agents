@@ -2092,7 +2092,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
         case .voice: "waveform.and.mic"
         case .remote: "iphone.radiowaves.left.and.right"
         case .computerUse: "cursorarrow"
-        case .assistants: "person.2.badge.gearshape"
+        case .assistants: "person.2"
         case .about: "info.circle"
         }
     }
