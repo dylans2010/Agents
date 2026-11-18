@@ -690,6 +690,8 @@ struct AssistantReportBuilderTests {
             Self.makeToolItem(title: "Read Sources/Auth.swift", category: "read", status: "completed"),
             Self.makeToolItem(title: "readFile", category: "read", status: "completed"),
             Self.makeToolItem(title: "READ", category: "read", status: "completed"),
+            Self.makeToolItem(title: "run-command!", category: "command", status: "completed"),
+            Self.makeToolItem(title: "HTTP2", category: "network", status: "completed"),
             Self.makeToolItem(title: "read(file)", category: "read", status: "completed"),
             Self.makeToolItem(title: "Read", category: "read", status: "completed"),
         ]
@@ -702,7 +704,7 @@ struct AssistantReportBuilderTests {
         #expect(titles == [
             "Tool activity", "Tool activity", "Tool activity", "Tool activity", "Tool activity",
             "Tool activity", "Read file", "Run command", "Read Sources/Auth.swift",
-            "Tool activity", "Tool activity", "Tool activity", "Read",
+            "Tool activity", "Tool activity", "Tool activity", "Tool activity", "Tool activity", "Read",
         ])
         let markdown = report.markdownRepresentation
         #expect(markdown.contains("- Tool activity (completed)"))
@@ -711,6 +713,9 @@ struct AssistantReportBuilderTests {
         #expect(!markdown.contains("mcp.server.tool"))
         #expect(!markdown.contains("server:read_file"))
         #expect(!markdown.contains("readFile"))
+        #expect(!markdown.contains("READ"))
+        #expect(!markdown.contains("run-command!"))
+        #expect(!markdown.contains("HTTP2"))
         #expect(!markdown.contains("read(file)"))
     }
 

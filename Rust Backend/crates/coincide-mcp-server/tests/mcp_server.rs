@@ -817,7 +817,6 @@ fn search_skills_matches_canonical_ranking() {
     control.stop();
 }
 
-
 #[test]
 fn search_skills_exact_document_id_returns_first_section() {
     let workspace = temp_dir("agents-mcp-workspace");

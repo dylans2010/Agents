@@ -364,7 +364,12 @@ struct AgentsRuntimeTests {
         #expect(defaultLaunched != nil)
         #expect(defaultLaunched?.selection.provider == "codex")
         #expect(defaultLaunched?.selection.modelID == "default")
-        #expect(model.systemPrompt(for: defaultLaunched).text == model.systemPrompt(for: nil, provider: "codex", model: "default", assistant: AssistantPromptDescriptor(saved)).text)
+        let launchedPrompt = model.systemPrompt(for: defaultLaunched).text
+        let descriptorPrompt = model.systemPrompt(
+            for: nil, provider: "codex", model: "default",
+            assistant: AssistantPromptDescriptor(saved)
+        ).text
+        #expect(launchedPrompt == descriptorPrompt)
 
         await model.shutdown()
     }

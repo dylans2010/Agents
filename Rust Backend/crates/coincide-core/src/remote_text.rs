@@ -276,11 +276,11 @@ mod tests {
     #[test]
     fn display_text_redacts_paths_tokens_and_addresses() {
         let redacted = sanitize_display_text(
-            "open /Users/dylan/work/x failed: token ghp_abcdefghij1234567890 at https://github.com/foo",
+            "open /Users/dylan/work/x failed: token ghp_fake00000000000000000000000000000000 at https://github.com/foo",
         )
         .unwrap();
         assert!(!redacted.contains("/Users/dylan"));
-        assert!(!redacted.contains("ghp_abcdefghij1234567890"));
+        assert!(!redacted.contains("ghp_fake00000000000000000000000000000000"));
         assert!(!redacted.contains("https://github.com/foo"));
         assert!(redacted.contains("[path]"));
         assert!(redacted.contains("[redacted token]"));
@@ -289,5 +289,20 @@ mod tests {
             sanitize_display_text("thread 123e4567-e89b-12d3-a456-426614174000 failed").unwrap();
         assert!(identified.contains("[id]"));
         assert!(!identified.contains("123e4567-e89b-12d3-a456-426614174000"));
+    }
+
+    #[test]
+    fn display_text_redacts_bare_token_shapes() {
+        let redacted = sanitize_display_text(
+            "key dump: github_pat_fake0000000000000000000000000000 AKIAFAKE000000000000 sk-fake00000000000000000000000000000000 xoxb-fake0000000000000000000000000000 sc_dev_test_fake0000000000000000000000",
+        )
+        .unwrap();
+        assert!(!redacted.contains("github_pat_fake0000000000000000000000000000"));
+        assert!(!redacted.contains("AKIAFAKE000000000000"));
+        assert!(!redacted.contains("sk-fake00000000000000000000000000000000"));
+        assert!(!redacted.contains("xoxb-fake0000000000000000000000000000"));
+        assert!(!redacted.contains("sc_dev_test_fake0000000000000000000000"));
+        assert!(redacted.contains("[redacted token]"));
+        assert!(redacted.contains("[redacted key]"));
     }
 }

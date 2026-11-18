@@ -105,6 +105,19 @@ struct SystemAssetsTests {
         #expect(prompt.estimatedTokens <= SystemPromptBudget.defaultBudgetTokens)
     }
 
+    @Test("Building a system prompt registers its text with the shared redaction gate")
+    func systemPromptRegistersWithSharedGate() {
+        let manager = Self.manager()
+        let prompt = manager.systemPrompt(for: "Fix the SwiftUI layout bug", provider: "claude", model: "sonnet")
+        #expect(prompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        let echoed = "The model answered: Get straight to the point: no greetings, no self-introduction, no mode announcements unless asked. Done."
+        let redacted = OutputRedactionGate.shared.redactedText(echoed)
+        #expect(redacted.contains(OutputRedactionGate.redactionMarker))
+        #expect(!redacted.contains("no self-introduction"))
+        #expect(!redacted.contains("no mode announcements"))
+        #expect(redacted.contains("Done."))
+    }
+
     @Test("Tool-related requests route AvailableTools and ToolRoutingPolicy")
     func toolRelatedRouting() throws {
         let manager = Self.manager()
@@ -434,7 +447,6 @@ struct SystemAssetsTests {
         #expect(getting.map(\.score) == [80, 80])
         #expect(getting.map(\.reason) == ["exactHeading", "exactHeading"])
     }
-
 
     @Test("An exact document ID match returns the first section at score 100")
     func exactDocumentIDMatchReturnsFirstSection() throws {

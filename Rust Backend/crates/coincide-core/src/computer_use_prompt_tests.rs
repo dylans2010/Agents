@@ -179,6 +179,15 @@ fn standard_chat_turn_carries_no_transport(root: &Path) {
         assert!(prompt.contains("What windows are open?"));
         assert_clean(prompt, &forbidden);
     }
+    let stored = String::from_utf8_lossy(&fs::read(root.join("state.sqlite")).unwrap());
+    assert!(
+        !stored.contains(token.as_str()),
+        "durable thread state carries the transport token"
+    );
+    assert!(
+        !stored.contains(config.as_str()),
+        "durable thread state carries the curl config path"
+    );
 }
 
 #[cfg(unix)]

@@ -38,10 +38,13 @@ struct ErrorSanitizerTests {
 
     @Test("GitHub-style and developer keys are stripped")
     func stripsTokenFormats() {
-        let raw = "Auth error for github_pat_11FAKE0123456789abcdefghij and sc_dev_live_fake0123456789abcdef"
+        let raw = "Auth error for github_pat_11FAKE0123456789abcdefghij and sc_dev_live_fake0123456789abcdef and ghp_fake00000000000000000000000000000000 and AKIAFAKE000000000000 and xoxb-fake0000000000000000000000000000"
         let clean = ErrorSanitizer.sanitizeText(raw)
         #expect(!clean.contains("github_pat_11FAKE0123456789abcdefghij"))
         #expect(!clean.contains("sc_dev_live_fake0123456789abcdef"))
+        #expect(!clean.contains("ghp_fake00000000000000000000000000000000"))
+        #expect(!clean.contains("AKIAFAKE000000000000"))
+        #expect(!clean.contains("xoxb-fake0000000000000000000000000000"))
         #expect(clean.contains("[redacted"))
     }
 
