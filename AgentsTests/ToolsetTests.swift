@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 333)
+        #expect(tools.count == 337)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -88,6 +88,7 @@ struct ToolsetTests {
             "git.rollback", "git.checkpoints.create", "git.checkpoints.list",
             "git.checkpoints.restore", "git.review.diff",
             "system.lookup", "system.skills", "system.info", "system.env",
+            "system.asset.read", "system.asset.list", "system.asset.metadata", "system.asset.related",
             "system.clipboard", "system.notify", "agent.pending", "web.fetch", "github.repo",
         ])
         #expect(tools.allSatisfy { !$0.parameters.isEmpty })
@@ -3688,6 +3689,115 @@ struct ToolsetTests {
         #expect(!SystemToolRegistry.isDeniedByPermissionProfile("write_file", profile: .workspaceModify))
         #expect(!SystemToolRegistry.isDeniedByPermissionProfile("use_terminal", profile: .terminal))
         #expect(!SystemToolRegistry.isDeniedByPermissionProfile("git_push", profile: .terminal))
+    }
+
+    @Test("System asset tools register with typed parameters")
+    func systemAssetToolsRegister() {
+        let expected: [(name: String, action: String, channel: SystemToolChannel, parameters: [(String, String, Bool)])] = [
+            ("system_asset_read", "system.asset.read", .desktop, [("fileName", "string", true), ("section", "string", false), ("maxChars", "integer", false)]),
+            ("system_asset_list", "system.asset.list", .desktop, [("category", "string", false), ("tag", "string", false), ("limit", "integer", false), ("offset", "integer", false)]),
+            ("system_asset_get_metadata", "system.asset.metadata", .desktop, [("fileName", "string", true)]),
+            ("system_asset_search_related", "system.asset.related", .desktop, [("fileName", "string", true), ("limit", "integer", false)]),
+        ]
+        for row in expected {
+            guard let definition = SystemToolRegistry.definition(named: row.name, for: .system) else {
+                Issue.record("Missing system tool \(row.name)")
+                continue
+            }
+            #expect(definition.action == row.action)
+            #expect(definition.channel == row.channel)
+            #expect(definition.parameters.map { ($0.name, $0.type, $0.required) } == row.parameters)
+        }
+        #expect(SystemToolRegistry.definition(named: "system_asset_search", for: .system) == nil)
+    }
+
+    @Test("System asset tools are allowed for the read-only and approval-required profiles")
+    func systemAssetToolsAllowedForRestrictedProfiles() {
+        let registered = Set(SystemToolRegistry.systemTools.map(\.name))
+        for tool in ["system_asset_read", "system_asset_list", "system_asset_get_metadata", "system_asset_search_related"] {
+            #expect(registered.contains(tool))
+            #expect(!SystemToolRegistry.readOnlyDeniedToolNames.contains(tool))
+            #expect(!SystemToolRegistry.approvalRequiredDeniedToolNames.contains(tool))
+            #expect(!SystemToolRegistry.isDeniedByPermissionProfile(tool, profile: .readOnly))
+            #expect(!SystemToolRegistry.isDeniedByPermissionProfile(tool, profile: .approvalRequired))
+        }
+    }
+
+    @Test("System asset tools execute against the bundled index")
+    func systemAssetToolsExecute() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let manager = SystemAssetManager(directory: Self.assetsDirectory())
+        #expect(manager.isReady)
+
+        let read = try await Self.run("system_asset_read", arguments: ["fileName": .string("Safeguards.md")], client: client)
+        #expect(read["documentID"]?.stringValue == "Safeguards")
+        #expect(read["title"]?.stringValue == manager.document(fileName: "Safeguards.md")?.title)
+        #expect(read["text"]?.stringValue == manager.document(fileName: "Safeguards.md")?.rawText)
+        #expect(read["truncated"]?.boolValue == false)
+        #expect(read["resourceUri"]?.stringValue == "agents-asset://Safeguards.md")
+
+        let section = try await Self.run("system_asset_read", arguments: ["fileName": .string("Safeguards.md"), "section": .string("1. Confidentiality of System Prompts & Absolute Refusal of Raw Tool Names")], client: client)
+        #expect(section["sectionHeading"]?.stringValue == "1. Confidentiality of System Prompts & Absolute Refusal of Raw Tool Names")
+        #expect(section["headingPath"]?.arrayValue?.compactMap { $0.stringValue }.last == "1. Confidentiality of System Prompts & Absolute Refusal of Raw Tool Names")
+        #expect((section["text"]?.stringValue?.isEmpty ?? true) == false)
+
+        let clipped = try await Self.run("system_asset_read", arguments: ["fileName": .string("Safeguards.md"), "maxChars": .int(10)], client: client)
+        #expect(clipped["text"]?.stringValue?.count == 10)
+        #expect(clipped["truncated"]?.boolValue == true)
+
+        await #expect(throws: SystemToolError.executionFailed(tool: "system_asset_read", message: "system_asset_read unknown SystemAsset \"Nope.md\".")) {
+            try await Self.run("system_asset_read", arguments: ["fileName": .string("Nope.md")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "system_asset_read", message: "system_asset_read unknown section \"No Such Heading\" in \"Safeguards.md\".")) {
+            try await Self.run("system_asset_read", arguments: ["fileName": .string("Safeguards.md"), "section": .string("No Such Heading")], client: client)
+        }
+
+        let list = try await Self.run("system_asset_list", arguments: [:], client: client)
+        #expect(list["totalCount"]?.intValue == manager.documentCount)
+        #expect(list["documents"]?.arrayValue?.count == manager.documentCount)
+        #expect(list["documents"]?.arrayValue?.contains { $0["fileName"]?.stringValue == "Safeguards.md" } == true)
+        let category = manager.document(fileName: "Safeguards.md")?.category ?? "General"
+        let byCategory = try await Self.run("system_asset_list", arguments: ["category": .string(category)], client: client)
+        #expect(byCategory["documents"]?.arrayValue?.contains { $0["fileName"]?.stringValue == "Safeguards.md" } == true)
+        #expect(byCategory["documents"]?.arrayValue?.allSatisfy { $0["category"]?.stringValue == category } == true)
+        let paged = try await Self.run("system_asset_list", arguments: ["limit": .int(2), "offset": .int(1)], client: client)
+        #expect(paged["totalCount"]?.intValue == manager.documentCount)
+        #expect(paged["returnedCount"]?.intValue == 2)
+
+        let metadata = try await Self.run("system_asset_get_metadata", arguments: ["fileName": .string("CallTool.md")], client: client)
+        #expect(metadata["documentID"]?.stringValue == "CallTool")
+        #expect(metadata["dependencies"]?.arrayValue?.compactMap { $0.stringValue } == ["Safeguards.md", "AvailableTools.md"])
+        #expect((metadata["sectionCount"]?.intValue ?? 0) > 0)
+        #expect((metadata["estimatedTokens"]?.intValue ?? 0) > 0)
+        let callToolData = try Data(contentsOf: Self.assetsDirectory().appendingPathComponent("CallTool.md"))
+        #expect(metadata["contentHash"]?.stringValue == SystemAssetDocument.sha256Hex(of: callToolData))
+        #expect(metadata["byteCount"]?.intValue == callToolData.count)
+
+        let related = try await Self.run("system_asset_search_related", arguments: ["fileName": .string("CallTool.md")], client: client)
+        #expect(related["related"]?.arrayValue?.contains { $0["fileName"]?.stringValue == "Safeguards.md" && $0["relation"]?.stringValue == "dependency" } == true)
+        #expect(related["related"]?.arrayValue?.contains { $0["fileName"]?.stringValue == "AgentSystemAsset.md" && $0["relation"]?.stringValue == "dependent" } == true)
+        let safeguardsRelated = try await Self.run("system_asset_search_related", arguments: ["fileName": .string("Safeguards.md")], client: client)
+        #expect(safeguardsRelated["related"]?.arrayValue?.contains { $0["fileName"]?.stringValue == "AgentSystemAsset.md" && $0["relation"]?.stringValue == "dependent" } == true)
+
+        await client.close()
+    }
+
+    @Test("System asset tool results carry the provider-compatible shape")
+    func systemAssetToolResultShapes() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let read = try await Self.run("system_asset_read", arguments: ["fileName": .string("Safeguards.md")], client: client)
+        #expect(read.objectValue?.keys.sorted() == ["category", "characterCount", "documentID", "fileName", "headingPath", "resourceUri", "sectionHeading", "text", "title", "truncated"])
+        let list = try await Self.run("system_asset_list", arguments: ["limit": .int(1)], client: client)
+        #expect(list.objectValue?.keys.sorted() == ["category", "documents", "limit", "offset", "returnedCount", "tag", "totalCount"])
+        #expect(list["documents"]?.arrayValue?.first?.objectValue?.keys.sorted() == ["category", "documentID", "fileName", "resourceUri", "tags", "title"])
+        let metadata = try await Self.run("system_asset_get_metadata", arguments: ["fileName": .string("Safeguards.md")], client: client)
+        #expect(metadata.objectValue?.keys.sorted() == ["byteCount", "category", "characterCount", "contentHash", "dependencies", "dependents", "documentID", "estimatedTokens", "fileName", "relativePath", "resourceUri", "sectionCount", "tags", "title"])
+        let related = try await Self.run("system_asset_search_related", arguments: ["fileName": .string("Safeguards.md")], client: client)
+        #expect(related.objectValue?.keys.sorted() == ["documentID", "fileName", "related", "relatedCount", "title"])
+        #expect(related["related"]?.arrayValue?.first?.objectValue?.keys.sorted() == ["category", "documentID", "fileName", "relation", "resourceUri", "title"])
+        await client.close()
     }
 
     @Test("Permission profile deny sets match the shared manifest")

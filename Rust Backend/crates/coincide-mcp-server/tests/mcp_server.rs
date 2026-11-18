@@ -139,7 +139,7 @@ fn tools_list_returns_the_real_registry() {
     initialize(&mut session);
     let response = session.request("tools/list", json!({}));
     let tools = response["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 333);
+    assert_eq!(tools.len(), 337);
     let names: Vec<&str> = tools
         .iter()
         .map(|tool| tool["name"].as_str().unwrap())
@@ -460,6 +460,10 @@ fn tools_list_returns_the_real_registry() {
         "system_notification_tool",
         "use_system",
         "search_skills",
+        "system_asset_read",
+        "system_asset_list",
+        "system_asset_get_metadata",
+        "system_asset_search_related",
         "plan-AskUser",
         "tool_capability_lookup",
         "preflight_checks",
@@ -849,6 +853,260 @@ fn search_skills_full_document_readable_outside_top_results() {
     assert!(read.get("error").is_none(), "resources/read failed: {read}");
     let text = read["result"]["contents"][0]["text"].as_str().unwrap();
     assert_eq!(text, RETRIEVAL_BETA);
+    session.close();
+}
+
+const ASSET_ALPHA: &str = "<!-- system-index-category: Guides -->\n<!-- system-index-tags: alpha, walkthrough -->\n<!-- system-index-depends: Beta.md -->\n# Alpha Guide\n\n## Getting Started\nAlpha tokens live here for the alpha walkthrough.\n\n## Advanced Alpha\nDeep alpha material.\n";
+const ASSET_BETA: &str = "# Beta Guide\n\n## Getting Started\nBeta tokens live here for the beta walkthrough.\n";
+
+fn asset_tool_fixtures() -> tempfile::TempDir {
+    let dir = temp_dir("agents-mcp-asset-tools");
+    std::fs::write(dir.path().join("Safeguards.md"), "# Safeguards\n").unwrap();
+    std::fs::write(dir.path().join("Identity.md"), "# Identity\n").unwrap();
+    std::fs::write(dir.path().join("Alpha.md"), ASSET_ALPHA).unwrap();
+    std::fs::write(dir.path().join("Beta.md"), ASSET_BETA).unwrap();
+    std::fs::write(dir.path().join("Hash.md"), "abc").unwrap();
+    std::fs::write(dir.path().join("Gamma Notes.md"), RETRIEVAL_GAMMA).unwrap();
+    dir
+}
+
+fn asset_tool(session: &mut Session, name: &str, arguments: Value) -> Value {
+    let text = call_text(session, name, arguments);
+    serde_json::from_str(&text).expect("asset tool result parses as JSON")
+}
+
+fn sorted_keys(value: &Value) -> Vec<&str> {
+    let mut keys: Vec<&str> = value
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    keys
+}
+
+#[test]
+fn system_asset_tools_read_list_metadata_and_related() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let assets = asset_tool_fixtures();
+    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    initialize(&mut session);
+    let read = asset_tool(
+        &mut session,
+        "system_asset_read",
+        json!({"fileName": "Alpha.md"}),
+    );
+    assert_eq!(read["documentID"], "Alpha");
+    assert_eq!(read["title"], "Alpha Guide");
+    assert_eq!(read["category"], "Guides");
+    assert_eq!(read["sectionHeading"], "Alpha Guide");
+    assert_eq!(read["text"], ASSET_ALPHA);
+    assert_eq!(read["truncated"], false);
+    assert_eq!(
+        read["characterCount"],
+        ASSET_ALPHA.chars().count() as u64
+    );
+    assert_eq!(read["resourceUri"], "agents-asset://Alpha.md");
+    assert_eq!(
+        sorted_keys(&read),
+        vec![
+            "category",
+            "characterCount",
+            "documentID",
+            "fileName",
+            "headingPath",
+            "resourceUri",
+            "sectionHeading",
+            "text",
+            "title",
+            "truncated"
+        ]
+    );
+    let section = asset_tool(
+        &mut session,
+        "system_asset_read",
+        json!({"fileName": "Alpha.md", "section": "getting started"}),
+    );
+    assert_eq!(section["sectionHeading"], "Getting Started");
+    assert_eq!(
+        section["headingPath"],
+        json!(["Alpha Guide", "Getting Started"])
+    );
+    assert_eq!(
+        section["text"],
+        "Getting Started\n\nAlpha tokens live here for the alpha walkthrough."
+    );
+    let clipped = asset_tool(
+        &mut session,
+        "system_asset_read",
+        json!({"fileName": "Alpha.md", "maxChars": 10}),
+    );
+    assert_eq!(clipped["text"].as_str().unwrap().chars().count(), 10);
+    assert_eq!(clipped["truncated"], true);
+    let list = asset_tool(&mut session, "system_asset_list", json!({}));
+    assert_eq!(list["totalCount"], 6);
+    assert_eq!(list["returnedCount"], 6);
+    let names: Vec<&str> = list["documents"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["fileName"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            "Alpha.md",
+            "Beta.md",
+            "Gamma Notes.md",
+            "Hash.md",
+            "Identity.md",
+            "Safeguards.md"
+        ]
+    );
+    assert_eq!(
+        sorted_keys(&list),
+        vec![
+            "category",
+            "documents",
+            "limit",
+            "offset",
+            "returnedCount",
+            "tag",
+            "totalCount"
+        ]
+    );
+    assert_eq!(
+        sorted_keys(&list["documents"][0]),
+        vec![
+            "category",
+            "documentID",
+            "fileName",
+            "resourceUri",
+            "tags",
+            "title"
+        ]
+    );
+    let guides = asset_tool(
+        &mut session,
+        "system_asset_list",
+        json!({"category": "GUIDES"}),
+    );
+    assert_eq!(guides["totalCount"], 1);
+    assert_eq!(guides["documents"][0]["fileName"], "Alpha.md");
+    let tagged = asset_tool(
+        &mut session,
+        "system_asset_list",
+        json!({"tag": "walkthrough"}),
+    );
+    assert_eq!(tagged["totalCount"], 1);
+    let page = asset_tool(
+        &mut session,
+        "system_asset_list",
+        json!({"limit": 2, "offset": 2}),
+    );
+    assert_eq!(page["totalCount"], 6);
+    assert_eq!(page["returnedCount"], 2);
+    assert_eq!(page["documents"][0]["fileName"], "Gamma Notes.md");
+    assert_eq!(page["documents"][1]["fileName"], "Hash.md");
+    let metadata = asset_tool(
+        &mut session,
+        "system_asset_get_metadata",
+        json!({"fileName": "Alpha.md"}),
+    );
+    assert_eq!(metadata["documentID"], "Alpha");
+    assert_eq!(metadata["relativePath"], "Alpha.md");
+    assert_eq!(metadata["category"], "Guides");
+    assert_eq!(metadata["tags"], json!(["alpha", "walkthrough"]));
+    assert_eq!(metadata["dependencies"], json!(["Beta.md"]));
+    assert_eq!(metadata["dependents"], json!([]));
+    assert_eq!(metadata["sectionCount"], 3);
+    assert!(metadata["estimatedTokens"].as_i64().unwrap() > 0);
+    assert_eq!(
+        metadata["characterCount"],
+        ASSET_ALPHA.chars().count() as u64
+    );
+    assert_eq!(metadata["byteCount"], ASSET_ALPHA.len() as u64);
+    assert_eq!(metadata["contentHash"].as_str().unwrap().len(), 64);
+    assert_eq!(
+        sorted_keys(&metadata),
+        vec![
+            "byteCount",
+            "category",
+            "characterCount",
+            "contentHash",
+            "dependencies",
+            "dependents",
+            "documentID",
+            "estimatedTokens",
+            "fileName",
+            "relativePath",
+            "resourceUri",
+            "sectionCount",
+            "tags",
+            "title"
+        ]
+    );
+    let hash = asset_tool(
+        &mut session,
+        "system_asset_get_metadata",
+        json!({"fileName": "Hash.md"}),
+    );
+    assert_eq!(
+        hash["contentHash"],
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+    let related = asset_tool(
+        &mut session,
+        "system_asset_search_related",
+        json!({"fileName": "Alpha.md"}),
+    );
+    assert_eq!(related["relatedCount"], 1);
+    assert_eq!(related["related"][0]["fileName"], "Beta.md");
+    assert_eq!(related["related"][0]["relation"], "dependency");
+    assert_eq!(
+        sorted_keys(&related),
+        vec!["documentID", "fileName", "related", "relatedCount", "title"]
+    );
+    assert_eq!(
+        sorted_keys(&related["related"][0]),
+        vec![
+            "category",
+            "documentID",
+            "fileName",
+            "relation",
+            "resourceUri",
+            "title"
+        ]
+    );
+    let reverse = asset_tool(
+        &mut session,
+        "system_asset_search_related",
+        json!({"fileName": "Beta.md"}),
+    );
+    assert_eq!(reverse["relatedCount"], 1);
+    assert_eq!(reverse["related"][0]["fileName"], "Alpha.md");
+    assert_eq!(reverse["related"][0]["relation"], "dependent");
+    let beta_meta = asset_tool(
+        &mut session,
+        "system_asset_get_metadata",
+        json!({"fileName": "Beta.md"}),
+    );
+    assert_eq!(beta_meta["dependents"], json!(["Alpha.md"]));
+    assert_eq!(beta_meta["category"], "General");
+    let missing = session.request(
+        "tools/call",
+        json!({"name": "system_asset_read", "arguments": {"fileName": "Nope.md"}}),
+    );
+    assert!(
+        missing.get("error").is_none(),
+        "unknown asset must not be a protocol error: {missing}"
+    );
+    assert_eq!(missing["result"]["isError"], true);
+    assert!(missing["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("unknown SystemAsset"));
     session.close();
 }
 

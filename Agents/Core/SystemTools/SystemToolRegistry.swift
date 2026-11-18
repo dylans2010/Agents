@@ -3593,6 +3593,48 @@ public nonisolated enum SystemToolRegistry {
             ]
         ),
         SystemToolDefinition(
+            name: "system_asset_read",
+            description: "Reads one bundled SystemAssets guidance document in full, or one of its sections by heading. It reads only the bundled index, never the workspace or an external source.",
+            action: "system.asset.read",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "fileName", type: "string", required: true, description: "System asset file name, for example Safeguards.md."),
+                SystemToolParameter(name: "section", type: "string", required: false, description: "Section heading to read instead of the whole document; matched case- and diacritic-insensitively."),
+                SystemToolParameter(name: "maxChars", type: "integer", required: false, description: "Maximum characters of text to return. Defaults to the full text, at most 100000."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "system_asset_list",
+            description: "Lists the bundled SystemAssets guidance documents, optionally filtered by category or tag, with paging. It lists only the bundled index, never the workspace.",
+            action: "system.asset.list",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "category", type: "string", required: false, description: "Category to filter by; matched case- and diacritic-insensitively."),
+                SystemToolParameter(name: "tag", type: "string", required: false, description: "Tag to filter by; matched case- and diacritic-insensitively."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum documents to return. Defaults to 100, at most 500."),
+                SystemToolParameter(name: "offset", type: "integer", required: false, description: "Documents to skip. Defaults to 0."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "system_asset_get_metadata",
+            description: "Returns stored metadata for one bundled SystemAssets guidance document: title, category, tags, dependencies, dependents, content hash, section count, and token estimate.",
+            action: "system.asset.metadata",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "fileName", type: "string", required: true, description: "System asset file name, for example Safeguards.md."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "system_asset_search_related",
+            description: "Lists the bundled SystemAssets documents related to one document through its declared dependencies, in both directions.",
+            action: "system.asset.related",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "fileName", type: "string", required: true, description: "System asset file name, for example Safeguards.md."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum related documents to return. Defaults to 10, at most 50."),
+            ]
+        ),
+        SystemToolDefinition(
             name: "plan-AskUser",
             description: "Lists pending provider questions for a thread and submits answers to them. It does not present a new question to the user and does not suspend the turn; no 300 second suspension is wired.",
             action: "agent.pending",
@@ -7059,6 +7101,127 @@ public nonisolated enum SystemToolRegistry {
                         "truncated": .bool(result.text.count > 2000),
                         "score": .int(Int64(result.score)),
                         "reason": .string(result.reason),
+                    ])
+                }),
+            ])
+        case "system_asset_read":
+            let fileName = try requiredString(arguments, "fileName", tool: name)
+            let index = try Self.readyAssetIndex(tool: name)
+            guard let document = index.document(fileName: fileName) else {
+                throw SystemToolError.executionFailed(tool: name, message: "system_asset_read unknown SystemAsset \"\(fileName)\".")
+            }
+            let requestedSection = optionalString(arguments, "section")?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let heading: String
+            let headingPath: [String]
+            let fullText: String
+            if let requestedSection, !requestedSection.isEmpty {
+                guard let section = index.section(documentID: document.id, heading: requestedSection) else {
+                    throw SystemToolError.executionFailed(tool: name, message: "system_asset_read unknown section \"\(requestedSection)\" in \"\(fileName)\".")
+                }
+                heading = section.heading
+                headingPath = section.headingPath
+                fullText = section.displayText
+            } else {
+                heading = document.title
+                headingPath = [document.title]
+                fullText = document.rawText
+            }
+            let maxChars = optionalInt(arguments, "maxChars").map { min(max($0, 1), 100000) }
+            let text = maxChars.map { String(fullText.prefix($0)) } ?? fullText
+            return .object([
+                "documentID": .string(document.id),
+                "fileName": .string(document.fileName),
+                "title": .string(document.title),
+                "category": .string(document.category),
+                "sectionHeading": .string(heading),
+                "headingPath": .array(headingPath.map { .string($0) }),
+                "text": .string(text),
+                "truncated": .bool(text.count < fullText.count),
+                "characterCount": .int(Int64(fullText.count)),
+                "resourceUri": .string("agents-asset://\(document.fileName)"),
+            ])
+        case "system_asset_list":
+            let index = try Self.readyAssetIndex(tool: name)
+            let category = optionalString(arguments, "category")?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let tag = optionalString(arguments, "tag")?.trimmingCharacters(in: .whitespacesAndNewlines)
+            var documents = index.documents
+            if let category, !category.isEmpty {
+                let wanted = SystemAssetIndex.normalized(category)
+                documents = documents.filter { SystemAssetIndex.normalized($0.category) == wanted }
+            }
+            if let tag, !tag.isEmpty {
+                let wanted = SystemAssetIndex.normalized(tag)
+                documents = documents.filter { document in
+                    document.tags.contains { SystemAssetIndex.normalized($0) == wanted }
+                }
+            }
+            let totalCount = documents.count
+            let offset = max(optionalInt(arguments, "offset") ?? 0, 0)
+            let limit = min(max(optionalInt(arguments, "limit") ?? 100, 1), 500)
+            let page = Array(documents.dropFirst(min(offset, totalCount)).prefix(limit))
+            return .object([
+                "documents": .array(page.map { document in
+                    .object([
+                        "documentID": .string(document.id),
+                        "fileName": .string(document.fileName),
+                        "title": .string(document.title),
+                        "category": .string(document.category),
+                        "tags": .array(document.tags.map { .string($0) }),
+                        "resourceUri": .string("agents-asset://\(document.fileName)"),
+                    ])
+                }),
+                "totalCount": .int(Int64(totalCount)),
+                "returnedCount": .int(Int64(page.count)),
+                "offset": .int(Int64(offset)),
+                "limit": .int(Int64(limit)),
+                "category": category.map { .string($0) } ?? .null,
+                "tag": tag.map { .string($0) } ?? .null,
+            ])
+        case "system_asset_get_metadata":
+            let fileName = try requiredString(arguments, "fileName", tool: name)
+            let index = try Self.readyAssetIndex(tool: name)
+            guard let document = index.document(fileName: fileName) else {
+                throw SystemToolError.executionFailed(tool: name, message: "system_asset_get_metadata unknown SystemAsset \"\(fileName)\".")
+            }
+            let dependents = (index.dependentsByFileName[fileName] ?? []).sorted()
+            return .object([
+                "documentID": .string(document.id),
+                "fileName": .string(document.fileName),
+                "relativePath": .string(document.relativePath),
+                "title": .string(document.title),
+                "category": .string(document.category),
+                "tags": .array(document.tags.map { .string($0) }),
+                "dependencies": .array(document.dependencies.map { .string($0) }),
+                "dependents": .array(dependents.map { .string($0) }),
+                "contentHash": .string(document.contentHash),
+                "sectionCount": .int(Int64(document.sections.count)),
+                "estimatedTokens": .int(Int64(document.estimatedTokens)),
+                "characterCount": .int(Int64(document.rawText.count)),
+                "byteCount": .int(Int64(document.rawText.utf8.count)),
+                "resourceUri": .string("agents-asset://\(document.fileName)"),
+            ])
+        case "system_asset_search_related":
+            let fileName = try requiredString(arguments, "fileName", tool: name)
+            let index = try Self.readyAssetIndex(tool: name)
+            guard let document = index.document(fileName: fileName) else {
+                throw SystemToolError.executionFailed(tool: name, message: "system_asset_search_related unknown SystemAsset \"\(fileName)\".")
+            }
+            let limit = min(max(optionalInt(arguments, "limit") ?? 10, 1), 50)
+            let relatedIDs = index.relatedDocumentIDs(ofFileName: fileName)
+            let related = relatedIDs.compactMap { index.document(id: $0) }.prefix(limit)
+            return .object([
+                "fileName": .string(document.fileName),
+                "documentID": .string(document.id),
+                "title": .string(document.title),
+                "relatedCount": .int(Int64(relatedIDs.count)),
+                "related": .array(related.map { relatedDocument in
+                    .object([
+                        "documentID": .string(relatedDocument.id),
+                        "fileName": .string(relatedDocument.fileName),
+                        "title": .string(relatedDocument.title),
+                        "category": .string(relatedDocument.category),
+                        "relation": .string(document.dependencies.contains(relatedDocument.fileName) ? "dependency" : "dependent"),
+                        "resourceUri": .string("agents-asset://\(relatedDocument.fileName)"),
                     ])
                 }),
             ])
@@ -12097,6 +12260,14 @@ public nonisolated enum SystemToolRegistry {
             issues.append(["path": .string(path), "line": .int(Int64(lines.count)), "issue": .string("File does not end with a trailing newline.")])
         }
         return issues
+    }
+
+    private static func readyAssetIndex(tool: String) throws -> SystemAssetIndex {
+        guard let index = SystemAssetManager.shared.index else {
+            let detail = SystemAssetManager.shared.loadError?.localizedDescription ?? "System asset index is not ready."
+            throw SystemToolError.executionFailed(tool: tool, message: "\(tool) system asset index is unavailable: \(detail)")
+        }
+        return index
     }
 
     private static func requiredString(_ arguments: [String: JSONValue], _ name: String, tool: String) throws -> String {

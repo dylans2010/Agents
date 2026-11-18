@@ -30,7 +30,7 @@ transcript).
   keeps the parent's toolset and prompt.
 - MCP delivery: for MCP-capable providers the launch carries an `McpMount`
   (thread id and data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 333 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 337 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. Claude is the exception: it gets the mount AND the stored prompt
   injected via `--append-system-prompt`. For the other MCP-capable providers
@@ -62,11 +62,11 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
   thread's provider is validated at the switch (see the end of this
   document).
 
-## The 333-tool registry
+## The 337-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 333 tools, 64 distinct actions: several tools share one action (`workspace.read_file` x59, `terminal.create` x60, `workspace.write_file` x47, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x4, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x4, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 39 single-tool actions).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 337 tools, 68 distinct actions: several tools share one action (`workspace.read_file` x59, `terminal.create` x60, `workspace.write_file` x47, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x4, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x4, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 43 single-tool actions).
 
-Production tool execution is the Rust MCP server, not the Swift registry: `tools/call` in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` dispatches the 333 `DEFINITIONS` entries either to `coincide_core::workspace_tools` directly or via `engine_request` over the engine control socket (`<data_dir>/control.sock`). The Swift `SystemToolRegistry` is the canonical schema mirror (definitions, the Rust cross-check test, the UI display filter); its `execute()` is exercised by tests, not by the production turn path. The `Real backend` column below describes each action's backend on either side of that mirror.
+Production tool execution is the Rust MCP server, not the Swift registry: `tools/call` in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` dispatches the 337 `DEFINITIONS` entries either to `coincide_core::workspace_tools` directly or via `engine_request` over the engine control socket (`<data_dir>/control.sock`). The Swift `SystemToolRegistry` is the canonical schema mirror (definitions, the Rust cross-check test, the UI display filter); its `execute()` is exercised by tests, not by the production turn path. The `Real backend` column below describes each action's backend on either side of that mirror.
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -385,6 +385,10 @@ Production tool execution is the Rust MCP server, not the Swift registry: `tools
 | `system_notification_tool` | `system.notify` | desktop | Swift UNUserNotificationCenter fire-and-forget (delivery needs launch-time authorization) |
 | `use_system` | `terminal.create` | engine | Engine terminal fixed-argv ps/ifconfig/lsof/log/launchctl/defaults/sysctl; allow-listed only |
 | `search_skills` | `system.skills` | desktop | Swift SystemAssetManager.shared.search over the bundled SystemAssets index only |
+| `system_asset_read` | `system.asset.read` | desktop | Swift SystemAssetManager.shared.index document by fileName, whole document or one section; Rust `system_assets_search::load_documents` |
+| `system_asset_list` | `system.asset.list` | desktop | Swift SystemAssetIndex.documents with category/tag filter and paging; Rust `system_assets_search::load_documents` |
+| `system_asset_get_metadata` | `system.asset.metadata` | desktop | Swift SystemAssetDocument fields plus dependents from the index; Rust `system_assets_search::load_documents` with SHA-256 content hash |
+| `system_asset_search_related` | `system.asset.related` | desktop | Swift SystemAssetIndex.relatedDocumentIDs in both directions; Rust `system_assets_search::related_documents` |
 | `plan-AskUser` | `agent.pending` | engine | Engine RPC `agent.pending` list / `agent.answer` submit; does not present a question or suspend the turn |
 | `tool_capability_lookup` | `system.lookup` | desktop | Swift SystemToolRegistry.definition(named:for:) in-process |
 | `preflight_checks` | `terminal.create` | engine | Engine terminal writable probe + `xcodebuild -version` + disk space + artifact-storage probe |
@@ -710,6 +714,8 @@ registered in Slice 11, so it is skipped, not double-registered.
   unified on one canonical ranking (see the paragraph below).
 
 Canonical retrieval: `SystemAssetIndex.search` (`Agents/Core/SystemAssets/SystemAssetIndex.swift`) is the single reference ranking, and the Rust MCP server runs the same algorithm ported once (`Rust Backend/crates/coincide-mcp-server/src/system_assets_search.rs`) over the same bundled documents, so both `search_skills` paths return identical ranked sections (Swift folds via ICU; the Rust port uses a best-effort Latin folding table, so diacritic-heavy non-ASCII queries can rank differently); `SystemAssetManager.retrieve` stays the Swift facade and `SystemPromptBuilder` ranks through the same `search`. Ranking is lexical only: exact filename or document ID scores 100, exact title 90, exact section heading 80, a phrase hit 70 plus one per occurrence up to 10, otherwise per-token title 5, heading 4, body 1 capped at 69, with ties broken by filename then section heading. Queries are normalized (case- and diacritic-insensitive, whitespace-collapsed) and tokenized on non-alphanumerics before any postings lookup, since `postings(for:)` returns nothing for multi-word or hyphenated tokens. Complete-document access never depends on ranking: any document is readable in full through `SystemAssetManager.document(fileName:)` on the Swift side and the `agents-asset://` resource (also linked as `resourceUri` on each Rust result) on the Rust side.
+
+Asset tools: besides `search_skills`, the registry carries four read-only SystemAssets tools, all executing against the same bundled index on both sides with identical result shapes. `system_asset_read` returns one document in full, or one section by heading, with an optional `maxChars` cap; `system_asset_list` returns the corpus with optional category/tag filters and offset/limit paging; `system_asset_get_metadata` returns one document's title, category, tags, dependencies, dependents, SHA-256 content hash, section count, and token estimate; `system_asset_search_related` returns the documents linked to one document through declared dependencies, in both directions, each tagged `dependency` or `dependent`. There is deliberately no `system_asset_search` tool: `search_skills` already is the search tool, running the canonical ranking above, so a second search entry would duplicate it. All four are read-only and allowed for the read-only and approval-required profiles; no deny-list entry exists for them.
 - Bug fixes in this slice: `g6DiskSpace` took the mount point from the
   `iused` column of `df` output; it now takes columns 8+ like the Rust
   side. `colorset_builder` verified by checking the written Contents.json
@@ -793,8 +799,8 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   `intel_generate_tests`, `report_to_user`, and `intel_explain_code`
   against a real temp workspace; validation refusals for `svg_to_png`,
   `search_web`, `reverse_analyze`, `intel_generate_tests`, and
-  `report_to_user`). The MCP integration test now asserts 333 with the
-  full name list, and the Rust cross-check test asserts 333. No build or
+  `report_to_user`). The MCP integration test now asserts 337 with the
+  full name list, and the Rust cross-check test asserts 337. No build or
   test run was performed in this environment; the tests are written, not
   executed.
 
@@ -1121,7 +1127,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 333-tool registry, with the same names, descriptions,
+- `tools/list` — the real 337-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -1197,11 +1203,11 @@ What is enforced for real in this slice:
 
 - The system prompt is delivered as a genuine developer/system instruction
   for Codex and Claude, never as user text.
-- `SystemToolRegistry` (Swift) registers exactly 333 tools in 64 distinct
+- `SystemToolRegistry` (Swift) registers exactly 337 tools in 68 distinct
   actions, each mapped to a real core action; the Rust MCP server table in
-  `Rust Backend/crates/coincide-mcp-server/src/tools.rs` carries the same 333
+  `Rust Backend/crates/coincide-mcp-server/src/tools.rs` carries the same 337
   names, actions, and channels, and the Rust cross-check test asserts the two
-  tables match exactly (see "The 333-tool registry" above). Production
+  tables match exactly (see "The 337-tool registry" above). Production
   execution is the MCP server's `tools/call`, not the Swift registry's
   `execute()`. Slice 1 added seventeen more tools to the original set, all
   real:
@@ -1520,7 +1526,7 @@ nobody over-claims it:
   system prompt cannot combine with it either; System Tools are
   rejected for `opencode`/`lithos` at thread creation, at send, and
   at assistant save when the assistant itself pins one of those
-  providers; at most 333 tools per list; `assistantId` must be a
+  providers; at most 337 tools per list; `assistantId` must be a
   UUID. The known gap: an assistant with no pinned provider and a
   non-empty tool list, spawned from an OpenCode/Lithos parent,
   fails at child-thread creation with no graceful fallback.
@@ -1649,7 +1655,7 @@ implemented, and why:
   thread's document over the control socket (`threads.read`, the same read
   `stored_system_prompt` uses) on every `tools/list` and `tools/call`, with
   no caching. `tools/list` returns only the allowed tools (a null or absent
-  list means all 333); `tools/call` rejects a disallowed name before
+  list means all 337); `tools/call` rejects a disallowed name before
   dispatch with the same `UnknownTool` error as an unknown name
   (JSON-RPC -32602), so the two are indistinguishable to the caller. Unknown
   names stored in the list are ignored, never surfaced. The same gate is

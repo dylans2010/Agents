@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -18,20 +19,46 @@ pub struct SystemAssetSearchOutcome {
     pub results: Vec<SystemAssetSearchResult>,
 }
 
-#[allow(dead_code)]
-struct Section {
-    heading: String,
-    level: usize,
-    heading_path: Vec<String>,
-    body: String,
+#[derive(Clone)]
+pub struct Section {
+    pub heading: String,
+    pub level: usize,
+    pub heading_path: Vec<String>,
+    pub body: String,
 }
 
-struct Document {
-    id: String,
-    file_name: String,
-    title: String,
-    sections: Vec<Section>,
-    raw_text: String,
+impl Section {
+    pub fn estimated_tokens(&self) -> i64 {
+        std::cmp::max(
+            1,
+            (self.heading.chars().count() + self.body.chars().count() + 3) / 4,
+        ) as i64
+    }
+}
+
+#[derive(Clone)]
+pub struct Document {
+    pub id: String,
+    pub file_name: String,
+    pub relative_path: String,
+    pub title: String,
+    pub category: String,
+    pub tags: Vec<String>,
+    pub dependencies: Vec<String>,
+    pub content_hash: String,
+    pub sections: Vec<Section>,
+    pub raw_text: String,
+    pub estimated_tokens: i64,
+    pub character_count: i64,
+    pub byte_count: i64,
+}
+
+pub struct RelatedDocument {
+    pub document_id: String,
+    pub file_name: String,
+    pub title: String,
+    pub category: String,
+    pub relation: String,
 }
 
 pub fn normalize(text: &str) -> String {
@@ -200,6 +227,58 @@ fn parse_sections(lines: &[&str], title: &str) -> Vec<Section> {
     sections
 }
 
+fn sha256_hex(text: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(text.as_bytes());
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn parse_category(lines: &[&str]) -> String {
+    let marker = "<!-- system-index-category:";
+    for line in lines {
+        let trimmed = line.trim();
+        if let Some(after) = trimmed.strip_prefix(marker) {
+            let value = after.replace("-->", "").trim().to_owned();
+            if !value.is_empty() {
+                return value;
+            }
+        }
+    }
+    "General".to_owned()
+}
+
+fn parse_marker_values(lines: &[&str], marker: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for line in lines {
+        let trimmed = line.trim();
+        if let Some(after) = trimmed.strip_prefix(marker) {
+            let remainder = after.replace("-->", "");
+            for part in remainder.split(',') {
+                let name = part.trim().to_owned();
+                if !name.is_empty() && !found.contains(&name) {
+                    found.push(name);
+                }
+            }
+        }
+    }
+    found
+}
+
+fn parse_tags(lines: &[&str]) -> Vec<String> {
+    parse_marker_values(lines, "<!-- system-index-tags:")
+}
+
+fn parse_dependencies(lines: &[&str]) -> Vec<String> {
+    parse_marker_values(lines, "<!-- system-index-depends:")
+        .into_iter()
+        .filter(|name| name.ends_with(".md"))
+        .collect()
+}
+
 fn parse_document(file_name: &str, raw_text: &str) -> Option<Document> {
     if raw_text.trim().is_empty() {
         return None;
@@ -211,21 +290,99 @@ fn parse_document(file_name: &str, raw_text: &str) -> Option<Document> {
     let lines: Vec<&str> = raw_text.split('\n').collect();
     let title = parse_title(&lines, &id);
     let sections = parse_sections(&lines, &title);
+    let estimated_tokens = sections.iter().map(Section::estimated_tokens).sum();
     Some(Document {
         id,
         file_name: file_name.to_owned(),
+        relative_path: file_name.to_owned(),
         title,
+        category: parse_category(&lines),
+        tags: parse_tags(&lines),
+        dependencies: parse_dependencies(&lines),
+        content_hash: sha256_hex(raw_text),
         sections,
         raw_text: raw_text.to_owned(),
+        estimated_tokens,
+        character_count: raw_text.chars().count() as i64,
+        byte_count: raw_text.len() as i64,
     })
 }
 
-fn display_text(section: &Section) -> String {
+pub fn display_text(section: &Section) -> String {
     if section.heading.is_empty() {
         section.body.clone()
     } else {
         section.heading.clone() + "\n\n" + &section.body
     }
+}
+
+pub fn load_documents(dir: &Path) -> Result<Vec<Document>> {
+    let names = crate::assets::list_asset_names(dir)?;
+    let mut documents: Vec<Document> = Vec::new();
+    for file_name in &names {
+        let content = crate::assets::read_asset_text(dir, file_name)
+            .with_context(|| format!("Cannot read SystemAsset \"{file_name}\""))?;
+        if let Some(document) = parse_document(file_name, &content) {
+            documents.push(document);
+        }
+    }
+    Ok(documents)
+}
+
+pub fn find_document<'a>(documents: &'a [Document], file_name: &str) -> Option<&'a Document> {
+    documents.iter().find(|document| document.file_name == file_name)
+}
+
+pub fn section_by_heading<'a>(document: &'a Document, heading: &str) -> Option<&'a Section> {
+    let wanted = normalize(heading);
+    document
+        .sections
+        .iter()
+        .find(|section| normalize(&section.heading) == wanted)
+}
+
+pub fn dependents_of(documents: &[Document], file_name: &str) -> Vec<String> {
+    let mut dependents: Vec<String> = documents
+        .iter()
+        .filter(|document| document.dependencies.iter().any(|name| name == file_name))
+        .map(|document| document.file_name.clone())
+        .collect();
+    dependents.sort();
+    dependents
+}
+
+pub fn related_documents(documents: &[Document], file_name: &str) -> Vec<RelatedDocument> {
+    let Some(document) = find_document(documents, file_name) else {
+        return Vec::new();
+    };
+    let mut related: Vec<RelatedDocument> = Vec::new();
+    for dependency in &document.dependencies {
+        if let Some(target) = find_document(documents, dependency) {
+            related.push(RelatedDocument {
+                document_id: target.id.clone(),
+                file_name: target.file_name.clone(),
+                title: target.title.clone(),
+                category: target.category.clone(),
+                relation: "dependency".to_owned(),
+            });
+        }
+    }
+    for dependent in dependents_of(documents, file_name) {
+        if let Some(target) = find_document(documents, &dependent) {
+            if related.iter().any(|entry| entry.file_name == target.file_name) {
+                continue;
+            }
+            related.push(RelatedDocument {
+                document_id: target.id.clone(),
+                file_name: target.file_name.clone(),
+                title: target.title.clone(),
+                category: target.category.clone(),
+                relation: "dependent".to_owned(),
+            });
+        }
+    }
+    related.sort_by(|a, b| a.document_id.cmp(&b.document_id));
+    related
 }
 
 pub fn search(dir: &Path, query: &str, limit: usize) -> Result<SystemAssetSearchOutcome> {

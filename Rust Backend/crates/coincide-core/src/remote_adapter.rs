@@ -3190,7 +3190,7 @@ mod tests {
             .unwrap();
         let expected = crate::agent::profile_gate::materialized_allowed_tools("read-only", None)
             .expect("read-only materializes a list");
-        assert_eq!(expected.len(), 183);
+        assert_eq!(expected.len(), 187);
         let stored = stored_tools(&adapter, &created);
         let stored = stored
             .as_array()
@@ -3224,7 +3224,7 @@ mod tests {
         let expected =
             crate::agent::profile_gate::materialized_allowed_tools("approval-required", None)
                 .expect("approval-required materializes a list");
-        assert_eq!(expected.len(), 247);
+        assert_eq!(expected.len(), 251);
         let stored = stored_tools(&adapter, &created);
         let stored = stored
             .as_array()

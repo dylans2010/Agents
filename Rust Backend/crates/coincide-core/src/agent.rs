@@ -757,12 +757,12 @@ pub(crate) fn validate_system_prompt_and_toolset(
     }
     Ok(())
 }
-pub const MAX_ALLOWED_TOOLS: usize = 333;
+pub const MAX_ALLOWED_TOOLS: usize = 337;
 pub const MAX_ALLOWED_TOOL_NAME_CHARS: usize = 256;
 fn validate_allowed_tool_names(names: &[&str]) -> Result<()> {
     ensure!(
         names.len() <= MAX_ALLOWED_TOOLS,
-        "A thread can allow at most 333 tools"
+        "A thread can allow at most 337 tools"
     );
     let mut seen = std::collections::HashSet::new();
     for name in names {
@@ -1949,9 +1949,9 @@ mod tests {
         assert!(validate_allowed_tools(Some(&tools(&["x".repeat(257).as_str()]))).is_err());
         assert!(validate_allowed_tools(Some(&tools(&["read\u{1}file"]))).is_err());
         assert!(validate_allowed_tools(Some(&tools(&["read_file", "read_file"]))).is_err());
-        let over_cap = (0..334).map(|n| format!("tool_{n}")).collect::<Vec<_>>();
+        let over_cap = (0..338).map(|n| format!("tool_{n}")).collect::<Vec<_>>();
         assert!(validate_allowed_tools(Some(&over_cap)).is_err());
-        let at_cap = (0..333).map(|n| format!("tool_{n}")).collect::<Vec<_>>();
+        let at_cap = (0..337).map(|n| format!("tool_{n}")).collect::<Vec<_>>();
         assert!(validate_allowed_tools(Some(&at_cap)).is_ok());
         assert!(
             validate_system_prompt_and_toolset(None, Some("provider"), Some(&tools(&["read_file"])))

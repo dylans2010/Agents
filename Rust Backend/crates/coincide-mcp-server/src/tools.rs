@@ -7124,6 +7124,98 @@ pub static DEFINITIONS: &[ToolDef] = &[
         ],
     },
     ToolDef {
+        name: "system_asset_read",
+        description: "Reads one bundled SystemAssets guidance document in full, or one of its sections by heading. It reads only the bundled index, never the workspace or an external source.",
+        action: "system.asset.read",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "fileName",
+                kind: "string",
+                required: true,
+                description: "System asset file name, for example Safeguards.md.",
+            },
+            ToolParam {
+                name: "section",
+                kind: "string",
+                required: false,
+                description: "Section heading to read instead of the whole document; matched case- and diacritic-insensitively.",
+            },
+            ToolParam {
+                name: "maxChars",
+                kind: "integer",
+                required: false,
+                description: "Maximum characters of text to return. Defaults to the full text, at most 100000.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "system_asset_list",
+        description: "Lists the bundled SystemAssets guidance documents, optionally filtered by category or tag, with paging. It lists only the bundled index, never the workspace.",
+        action: "system.asset.list",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "category",
+                kind: "string",
+                required: false,
+                description: "Category to filter by; matched case- and diacritic-insensitively.",
+            },
+            ToolParam {
+                name: "tag",
+                kind: "string",
+                required: false,
+                description: "Tag to filter by; matched case- and diacritic-insensitively.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum documents to return. Defaults to 100, at most 500.",
+            },
+            ToolParam {
+                name: "offset",
+                kind: "integer",
+                required: false,
+                description: "Documents to skip. Defaults to 0.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "system_asset_get_metadata",
+        description: "Returns stored metadata for one bundled SystemAssets guidance document: title, category, tags, dependencies, dependents, content hash, section count, and token estimate.",
+        action: "system.asset.metadata",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "fileName",
+                kind: "string",
+                required: true,
+                description: "System asset file name, for example Safeguards.md.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "system_asset_search_related",
+        description: "Lists the bundled SystemAssets documents related to one document through its declared dependencies, in both directions.",
+        action: "system.asset.related",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "fileName",
+                kind: "string",
+                required: true,
+                description: "System asset file name, for example Safeguards.md.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum related documents to return. Defaults to 10, at most 50.",
+            },
+        ],
+    },
+    ToolDef {
         name: "plan-AskUser",
         description: "Lists pending provider questions for a thread and submits answers to them. It does not present a new question to the user and does not suspend the turn; no 300 second suspension is wired.",
         action: "agent.pending",
@@ -16347,6 +16439,194 @@ fn g6_misc_call(
                 }).collect::<Vec<Value>>(),
             }))
         }
+        "system_asset_read" => {
+            let file_name = req_str(args, "fileName", name)?;
+            let section = opt_str(args, "section")
+                .map(|text| text.trim().to_owned())
+                .filter(|text| !text.is_empty());
+            let max_chars = opt_u64(args, "maxChars").map(|value| value.clamp(1, 100_000) as usize);
+            let Some(dir) = crate::assets::resolve_assets_dir(state.assets_dir.as_deref()) else {
+                return Err(failed(format!(
+                    "{name} could not locate the bundled SystemAssets directory."
+                )));
+            };
+            let documents = crate::system_assets_search::load_documents(&dir)
+                .map_err(|error| failed(format!("{name} could not load SystemAssets: {error}")))?;
+            let Some(document) =
+                crate::system_assets_search::find_document(&documents, &file_name)
+            else {
+                return Err(failed(format!("{name} unknown SystemAsset \"{file_name}\".")));
+            };
+            let (heading, heading_path, full_text) = match &section {
+                Some(wanted) => {
+                    let Some(found) =
+                        crate::system_assets_search::section_by_heading(document, wanted)
+                    else {
+                        return Err(failed(format!(
+                            "{name} unknown section \"{wanted}\" in \"{file_name}\"."
+                        )));
+                    };
+                    (
+                        found.heading.clone(),
+                        found.heading_path.clone(),
+                        crate::system_assets_search::display_text(found),
+                    )
+                }
+                None => (
+                    document.title.clone(),
+                    vec![document.title.clone()],
+                    document.raw_text.clone(),
+                ),
+            };
+            let text = match max_chars {
+                Some(limit) => full_text.chars().take(limit).collect::<String>(),
+                None => full_text.clone(),
+            };
+            let truncated = text.chars().count() < full_text.chars().count();
+            Ok(json!({
+                "documentID": document.id,
+                "fileName": document.file_name,
+                "title": document.title,
+                "category": document.category,
+                "sectionHeading": heading,
+                "headingPath": heading_path,
+                "text": text,
+                "truncated": truncated,
+                "characterCount": full_text.chars().count() as i64,
+                "resourceUri": crate::assets::asset_uri(&document.file_name),
+            }))
+        }
+        "system_asset_list" => {
+            let category = opt_str(args, "category")
+                .map(|text| text.trim().to_owned())
+                .filter(|text| !text.is_empty());
+            let tag = opt_str(args, "tag")
+                .map(|text| text.trim().to_owned())
+                .filter(|text| !text.is_empty());
+            let offset = opt_u64(args, "offset").unwrap_or(0) as usize;
+            let limit = opt_u64(args, "limit").unwrap_or(100).clamp(1, 500) as usize;
+            let Some(dir) = crate::assets::resolve_assets_dir(state.assets_dir.as_deref()) else {
+                return Err(failed(format!(
+                    "{name} could not locate the bundled SystemAssets directory."
+                )));
+            };
+            let mut documents = crate::system_assets_search::load_documents(&dir)
+                .map_err(|error| failed(format!("{name} could not load SystemAssets: {error}")))?;
+            if let Some(wanted) = &category {
+                let normalized = crate::system_assets_search::normalize(wanted);
+                documents.retain(|document| {
+                    crate::system_assets_search::normalize(&document.category) == normalized
+                });
+            }
+            if let Some(wanted) = &tag {
+                let normalized = crate::system_assets_search::normalize(wanted);
+                documents.retain(|document| {
+                    document
+                        .tags
+                        .iter()
+                        .any(|tag| crate::system_assets_search::normalize(tag) == normalized)
+                });
+            }
+            let total_count = documents.len();
+            let page: Vec<&crate::system_assets_search::Document> = documents
+                .iter()
+                .skip(offset.min(total_count))
+                .take(limit)
+                .collect();
+            Ok(json!({
+                "documents": page
+                    .iter()
+                    .map(|document| {
+                        json!({
+                            "documentID": document.id,
+                            "fileName": document.file_name,
+                            "title": document.title,
+                            "category": document.category,
+                            "tags": document.tags,
+                            "resourceUri": crate::assets::asset_uri(&document.file_name),
+                        })
+                    })
+                    .collect::<Vec<Value>>(),
+                "totalCount": total_count,
+                "returnedCount": page.len(),
+                "offset": offset,
+                "limit": limit,
+                "category": category,
+                "tag": tag,
+            }))
+        }
+        "system_asset_get_metadata" => {
+            let file_name = req_str(args, "fileName", name)?;
+            let Some(dir) = crate::assets::resolve_assets_dir(state.assets_dir.as_deref()) else {
+                return Err(failed(format!(
+                    "{name} could not locate the bundled SystemAssets directory."
+                )));
+            };
+            let documents = crate::system_assets_search::load_documents(&dir)
+                .map_err(|error| failed(format!("{name} could not load SystemAssets: {error}")))?;
+            let Some(document) =
+                crate::system_assets_search::find_document(&documents, &file_name)
+            else {
+                return Err(failed(format!("{name} unknown SystemAsset \"{file_name}\".")));
+            };
+            let dependents =
+                crate::system_assets_search::dependents_of(&documents, &file_name);
+            Ok(json!({
+                "documentID": document.id,
+                "fileName": document.file_name,
+                "relativePath": document.relative_path,
+                "title": document.title,
+                "category": document.category,
+                "tags": document.tags,
+                "dependencies": document.dependencies,
+                "dependents": dependents,
+                "contentHash": document.content_hash,
+                "sectionCount": document.sections.len(),
+                "estimatedTokens": document.estimated_tokens,
+                "characterCount": document.character_count,
+                "byteCount": document.byte_count,
+                "resourceUri": crate::assets::asset_uri(&document.file_name),
+            }))
+        }
+        "system_asset_search_related" => {
+            let file_name = req_str(args, "fileName", name)?;
+            let limit = opt_u64(args, "limit").unwrap_or(10).clamp(1, 50) as usize;
+            let Some(dir) = crate::assets::resolve_assets_dir(state.assets_dir.as_deref()) else {
+                return Err(failed(format!(
+                    "{name} could not locate the bundled SystemAssets directory."
+                )));
+            };
+            let documents = crate::system_assets_search::load_documents(&dir)
+                .map_err(|error| failed(format!("{name} could not load SystemAssets: {error}")))?;
+            let Some(document) =
+                crate::system_assets_search::find_document(&documents, &file_name)
+            else {
+                return Err(failed(format!("{name} unknown SystemAsset \"{file_name}\".")));
+            };
+            let related =
+                crate::system_assets_search::related_documents(&documents, &file_name);
+            let related_count = related.len();
+            Ok(json!({
+                "fileName": document.file_name,
+                "documentID": document.id,
+                "title": document.title,
+                "relatedCount": related_count,
+                "related": related
+                    .iter()
+                    .take(limit)
+                    .map(|entry| {
+                        json!({
+                            "documentID": entry.document_id,
+                            "fileName": entry.file_name,
+                            "title": entry.title,
+                            "category": entry.category,
+                            "relation": entry.relation,
+                            "resourceUri": crate::assets::asset_uri(&entry.file_name),
+                        })
+                    })
+                    .collect::<Vec<Value>>(),
+            }))
+        }
         "plan-AskUser" => {
             let thread_id = req_str(args, "threadId", name)?;
             let Some(request_id) = opt_str(args, "requestId") else {
@@ -21186,6 +21466,10 @@ pub fn call(
         "clipboard_manager_tool" => g6_misc_call(state, name, &args),
         "system_notification_tool" => g6_misc_call(state, name, &args),
         "search_skills" => g6_misc_call(state, name, &args),
+        "system_asset_read" => g6_misc_call(state, name, &args),
+        "system_asset_list" => g6_misc_call(state, name, &args),
+        "system_asset_get_metadata" => g6_misc_call(state, name, &args),
+        "system_asset_search_related" => g6_misc_call(state, name, &args),
         "plan-AskUser" => g6_misc_call(state, name, &args),
         "tool_capability_lookup" => g6_misc_call(state, name, &args),
         "session_progress_report" => g6_misc_call(state, name, &args),
@@ -21315,7 +21599,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 333, "Swift registry must hold 333 tools");
+        assert_eq!(swift.len(), 337, "Swift registry must hold 337 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");
@@ -21431,7 +21715,7 @@ mod tests {
 
     #[test]
     fn allowed_tools_list_filtering() {
-        assert_eq!(listed_names(&list_json_filtered(None)).len(), 333);
+        assert_eq!(listed_names(&list_json_filtered(None)).len(), 337);
         assert_eq!(
             listed_names(&list_json_filtered(Some(&[
                 "read_file".to_owned(),
@@ -21916,7 +22200,7 @@ mod tests {
     fn profile_list_filtering() {
         let read_only =
             profile_list_names(&crate::assets::ThreadProfile::Known("read-only".to_owned()));
-        assert_eq!(read_only.len(), 183);
+        assert_eq!(read_only.len(), 187);
         assert!(!read_only.iter().any(|name| name == "write_file"));
         assert!(!read_only.iter().any(|name| name == "run_build"));
         assert!(!read_only.iter().any(|name| name == "git_commit"));
@@ -21933,21 +22217,33 @@ mod tests {
         assert!(read_only.iter().any(|name| name == "git_status"));
         assert!(read_only.iter().any(|name| name == "mem_retrieve"));
         assert!(read_only.iter().any(|name| name == "list_workers"));
+        assert!(read_only.iter().any(|name| name == "system_asset_read"));
+        assert!(read_only.iter().any(|name| name == "system_asset_list"));
+        assert!(read_only.iter().any(|name| name == "system_asset_get_metadata"));
+        assert!(read_only
+            .iter()
+            .any(|name| name == "system_asset_search_related"));
         let approval = profile_list_names(&crate::assets::ThreadProfile::Known(
             "approval-required".to_owned(),
         ));
-        assert_eq!(approval.len(), 247);
+        assert_eq!(approval.len(), 251);
         assert!(approval.iter().any(|name| name == "write_file"));
         assert!(approval.iter().any(|name| name == "read_file"));
         assert!(approval.iter().any(|name| name == "read_terminal"));
         assert!(approval.iter().any(|name| name == "use_mcp"));
+        assert!(approval.iter().any(|name| name == "system_asset_read"));
+        assert!(approval.iter().any(|name| name == "system_asset_list"));
+        assert!(approval.iter().any(|name| name == "system_asset_get_metadata"));
+        assert!(approval
+            .iter()
+            .any(|name| name == "system_asset_search_related"));
         assert!(!approval.iter().any(|name| name == "run_build"));
         assert!(!approval.iter().any(|name| name == "git_commit"));
         assert!(!approval.iter().any(|name| name == "delete_file"));
         assert!(!approval.iter().any(|name| name == "github_repo"));
         assert_eq!(
             profile_list_names(&crate::assets::ThreadProfile::NoAssistant).len(),
-            333
+            337
         );
         assert_eq!(
             profile_list_names(&crate::assets::ThreadProfile::Unbound).len(),
@@ -22099,7 +22395,7 @@ mod tests {
                 "allowed tool {tool} is not a registry tool"
             );
         }
-        assert_eq!(seen.len(), 183, "read-only allow set must hold 183 tools");
+        assert_eq!(seen.len(), 187, "read-only allow set must hold 187 tools");
         for tool in coincide_core::agent::profile_gate::READ_ONLY_DENIED_TOOLS {
             assert!(
                 !seen.contains(tool),
@@ -22112,6 +22408,255 @@ mod tests {
             DEFINITIONS.len(),
             "read-only allow and deny sets must partition the registry"
         );
+    }
+
+    fn asset_tool_state(dir: &std::path::Path) -> crate::ServerState {
+        crate::ServerState {
+            cwd: std::path::PathBuf::from("/tmp"),
+            thread_id: None,
+            socket: std::path::PathBuf::from("/tmp/control.sock"),
+            assets_dir: Some(dir.to_path_buf()),
+            control: std::sync::Mutex::new(coincide_core::control::ControlClient::new(
+                std::path::PathBuf::from("/tmp/control.sock"),
+            )),
+        }
+    }
+
+    fn asset_tool_fixtures() -> tempfile::TempDir {
+        let dir = tempfile::Builder::new()
+            .prefix("agents-mcp-asset-tools")
+            .tempdir()
+            .expect("create temp dir");
+        std::fs::write(dir.path().join("Safeguards.md"), "# Safeguards\n").unwrap();
+        std::fs::write(dir.path().join("Identity.md"), "# Identity\n").unwrap();
+        std::fs::write(
+            dir.path().join("Alpha.md"),
+            "<!-- system-index-category: Guides -->\n<!-- system-index-tags: alpha, walkthrough -->\n<!-- system-index-depends: Beta.md -->\n# Alpha Guide\n\n## Getting Started\nAlpha tokens live here for the alpha walkthrough.\n\n## Advanced Alpha\nDeep alpha material.\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("Beta.md"),
+            "# Beta Guide\n\n## Getting Started\nBeta tokens live here for the beta walkthrough.\n",
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("Hash.md"), "abc").unwrap();
+        dir
+    }
+
+    #[test]
+    fn asset_tool_schemas_carry_typed_parameters() {
+        let read = definition("system_asset_read").expect("system_asset_read is registered");
+        assert_eq!(read.action, "system.asset.read");
+        assert_eq!(read.channel, "desktop");
+        assert_eq!(
+            read.params
+                .iter()
+                .map(|param| (param.name, param.kind, param.required))
+                .collect::<Vec<_>>(),
+            vec![
+                ("fileName", "string", true),
+                ("section", "string", false),
+                ("maxChars", "integer", false),
+            ]
+        );
+        let list = definition("system_asset_list").expect("system_asset_list is registered");
+        assert_eq!(list.action, "system.asset.list");
+        assert_eq!(list.channel, "desktop");
+        assert_eq!(
+            list.params
+                .iter()
+                .map(|param| (param.name, param.kind, param.required))
+                .collect::<Vec<_>>(),
+            vec![
+                ("category", "string", false),
+                ("tag", "string", false),
+                ("limit", "integer", false),
+                ("offset", "integer", false),
+            ]
+        );
+        let metadata =
+            definition("system_asset_get_metadata").expect("system_asset_get_metadata is registered");
+        assert_eq!(metadata.action, "system.asset.metadata");
+        assert_eq!(metadata.channel, "desktop");
+        assert_eq!(
+            metadata
+                .params
+                .iter()
+                .map(|param| (param.name, param.kind, param.required))
+                .collect::<Vec<_>>(),
+            vec![("fileName", "string", true)]
+        );
+        let related = definition("system_asset_search_related")
+            .expect("system_asset_search_related is registered");
+        assert_eq!(related.action, "system.asset.related");
+        assert_eq!(related.channel, "desktop");
+        assert_eq!(
+            related
+                .params
+                .iter()
+                .map(|param| (param.name, param.kind, param.required))
+                .collect::<Vec<_>>(),
+            vec![("fileName", "string", true), ("limit", "integer", false)]
+        );
+        assert!(definition("system_asset_search").is_none());
+    }
+
+    #[test]
+    fn asset_tools_execute_against_fixture_corpus() {
+        let dir = asset_tool_fixtures();
+        let state = asset_tool_state(dir.path());
+        let read = g6_misc_call(&state, "system_asset_read", &json!({"fileName": "Alpha.md"}))
+            .expect("system_asset_read succeeds");
+        assert_eq!(read["documentID"], "Alpha");
+        assert_eq!(read["title"], "Alpha Guide");
+        assert_eq!(read["category"], "Guides");
+        assert_eq!(read["sectionHeading"], "Alpha Guide");
+        assert!(read["text"]
+            .as_str()
+            .unwrap()
+            .contains("Alpha tokens live here"));
+        assert_eq!(read["truncated"], false);
+        assert_eq!(read["resourceUri"], "agents-asset://Alpha.md");
+        let section = g6_misc_call(
+            &state,
+            "system_asset_read",
+            &json!({"fileName": "Alpha.md", "section": "getting started"}),
+        )
+        .expect("section read succeeds");
+        assert_eq!(section["sectionHeading"], "Getting Started");
+        assert_eq!(
+            section["headingPath"],
+            json!(["Alpha Guide", "Getting Started"])
+        );
+        assert_eq!(
+            section["text"],
+            "Getting Started\n\nAlpha tokens live here for the alpha walkthrough."
+        );
+        let clipped = g6_misc_call(
+            &state,
+            "system_asset_read",
+            &json!({"fileName": "Alpha.md", "maxChars": 10}),
+        )
+        .expect("clipped read succeeds");
+        assert_eq!(clipped["text"].as_str().unwrap().chars().count(), 10);
+        assert_eq!(clipped["truncated"], true);
+        match g6_misc_call(&state, "system_asset_read", &json!({"fileName": "Nope.md"})) {
+            Err(CallError::Failed(message)) => assert!(message.contains("unknown SystemAsset")),
+            Ok(_) => panic!("unknown asset must fail"),
+            Err(CallError::UnknownTool(name)) => {
+                panic!("unknown asset must report Failed, not UnknownTool: {name}")
+            }
+        }
+        match g6_misc_call(
+            &state,
+            "system_asset_read",
+            &json!({"fileName": "Alpha.md", "section": "No Such Heading"}),
+        ) {
+            Err(CallError::Failed(message)) => assert!(message.contains("unknown section")),
+            Ok(_) => panic!("unknown section must fail"),
+            Err(CallError::UnknownTool(name)) => {
+                panic!("unknown section must report Failed, not UnknownTool: {name}")
+            }
+        }
+        let list =
+            g6_misc_call(&state, "system_asset_list", &json!({})).expect("list succeeds");
+        assert_eq!(list["totalCount"], 5);
+        assert_eq!(list["returnedCount"], 5);
+        let names: Vec<&str> = list["documents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|entry| entry["fileName"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                "Alpha.md",
+                "Beta.md",
+                "Hash.md",
+                "Identity.md",
+                "Safeguards.md"
+            ]
+        );
+        let guides = g6_misc_call(
+            &state,
+            "system_asset_list",
+            &json!({"category": "guides"}),
+        )
+        .expect("category list succeeds");
+        assert_eq!(guides["totalCount"], 1);
+        assert_eq!(guides["documents"][0]["fileName"], "Alpha.md");
+        let tagged = g6_misc_call(
+            &state,
+            "system_asset_list",
+            &json!({"tag": "WALKTHROUGH"}),
+        )
+        .expect("tag list succeeds");
+        assert_eq!(tagged["totalCount"], 1);
+        assert_eq!(tagged["documents"][0]["fileName"], "Alpha.md");
+        let page = g6_misc_call(
+            &state,
+            "system_asset_list",
+            &json!({"limit": 2, "offset": 1}),
+        )
+        .expect("paged list succeeds");
+        assert_eq!(page["totalCount"], 5);
+        assert_eq!(page["returnedCount"], 2);
+        assert_eq!(page["documents"][0]["fileName"], "Beta.md");
+        assert_eq!(page["documents"][1]["fileName"], "Hash.md");
+        let metadata = g6_misc_call(
+            &state,
+            "system_asset_get_metadata",
+            &json!({"fileName": "Alpha.md"}),
+        )
+        .expect("metadata succeeds");
+        assert_eq!(metadata["documentID"], "Alpha");
+        assert_eq!(metadata["relativePath"], "Alpha.md");
+        assert_eq!(metadata["category"], "Guides");
+        assert_eq!(metadata["tags"], json!(["alpha", "walkthrough"]));
+        assert_eq!(metadata["dependencies"], json!(["Beta.md"]));
+        assert_eq!(metadata["dependents"], json!([]));
+        assert_eq!(metadata["sectionCount"], 3);
+        assert!(metadata["estimatedTokens"].as_i64().unwrap() > 0);
+        assert_eq!(metadata["characterCount"], metadata["byteCount"]);
+        let hash = g6_misc_call(
+            &state,
+            "system_asset_get_metadata",
+            &json!({"fileName": "Hash.md"}),
+        )
+        .expect("hash metadata succeeds");
+        assert_eq!(
+            hash["contentHash"],
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(hash["sectionCount"], 1);
+        let related = g6_misc_call(
+            &state,
+            "system_asset_search_related",
+            &json!({"fileName": "Alpha.md"}),
+        )
+        .expect("related succeeds");
+        assert_eq!(related["relatedCount"], 1);
+        assert_eq!(related["related"][0]["fileName"], "Beta.md");
+        assert_eq!(related["related"][0]["relation"], "dependency");
+        let reverse = g6_misc_call(
+            &state,
+            "system_asset_search_related",
+            &json!({"fileName": "Beta.md"}),
+        )
+        .expect("reverse related succeeds");
+        assert_eq!(reverse["relatedCount"], 1);
+        assert_eq!(reverse["related"][0]["fileName"], "Alpha.md");
+        assert_eq!(reverse["related"][0]["relation"], "dependent");
+        let beta_meta = g6_misc_call(
+            &state,
+            "system_asset_get_metadata",
+            &json!({"fileName": "Beta.md"}),
+        )
+        .expect("beta metadata succeeds");
+        assert_eq!(beta_meta["dependents"], json!(["Alpha.md"]));
+        assert_eq!(beta_meta["category"], "General");
+        assert_eq!(beta_meta["tags"], json!([]));
     }
 
 }

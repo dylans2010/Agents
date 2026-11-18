@@ -69,7 +69,9 @@ pub const TOOL_REGISTRY: &[&str] = &["access_level_audit", "accessibility_audit"
     "string_catalog_migrator", "string_literal_audit", "strings_file_validate", "strings_localization",
     "svg_to_png", "swift_ast_inspector", "swift_concurrency_analyzer", "swift_data_schema_auditor",
     "swift_format_lint", "swift_migration_advisor", "swift_package_manager", "symbol_move_file",
-    "symbol_reference_graph", "symbol_rename_project", "symlink_audit", "system_notification_tool",
+    "symbol_reference_graph", "symbol_rename_project", "symlink_audit",
+    "system_asset_get_metadata", "system_asset_list", "system_asset_read",
+    "system_asset_search_related", "system_notification_tool",
     "take_screenshot", "tar_archive_create", "tar_archive_extract", "target_dependencies_list",
     "target_source_list", "test_coverage_report", "test_coverage_reporter", "test_data_factory",
     "test_flaky_detect", "test_log_parse", "test_run_single", "test_snapshot_manage",
@@ -219,7 +221,7 @@ mod tests {
         let mut registry = TOOL_REGISTRY.to_vec();
         registry.sort_unstable();
         assert_eq!(TOOL_REGISTRY, registry.as_slice());
-        assert_eq!(TOOL_REGISTRY.len(), 333);
+        assert_eq!(TOOL_REGISTRY.len(), 337);
         let mut seen = std::collections::HashSet::new();
         for tool in TOOL_REGISTRY {
             assert!(seen.insert(*tool));
@@ -618,21 +620,29 @@ mod tests {
     fn materialized_allowed_tools_restricts_unlisted_profiled_threads() {
         let read_only = materialized_allowed_tools("read-only", None)
             .expect("read-only materializes a list");
-        assert_eq!(read_only.len(), 183);
+        assert_eq!(read_only.len(), 187);
         assert!(read_only.contains(&"read_file".to_string()));
         assert!(read_only.contains(&"test_coverage_report".to_string()));
         assert!(read_only.contains(&"device_list".to_string()));
+        assert!(read_only.contains(&"system_asset_read".to_string()));
+        assert!(read_only.contains(&"system_asset_list".to_string()));
+        assert!(read_only.contains(&"system_asset_get_metadata".to_string()));
+        assert!(read_only.contains(&"system_asset_search_related".to_string()));
         assert!(!read_only.contains(&"write_file".to_string()));
         assert!(!read_only.contains(&"run_command".to_string()));
         assert!(!read_only.contains(&"git_branch_manager".to_string()));
         assert!(!read_only.contains(&"use_mcp".to_string()));
         let approval = materialized_allowed_tools("approval-required", None)
             .expect("approval-required materializes a list");
-        assert_eq!(approval.len(), 247);
+        assert_eq!(approval.len(), 251);
         assert!(approval.contains(&"read_file".to_string()));
         assert!(approval.contains(&"write_file".to_string()));
         assert!(approval.contains(&"read_terminal".to_string()));
         assert!(approval.contains(&"use_mcp".to_string()));
+        assert!(approval.contains(&"system_asset_read".to_string()));
+        assert!(approval.contains(&"system_asset_list".to_string()));
+        assert!(approval.contains(&"system_asset_get_metadata".to_string()));
+        assert!(approval.contains(&"system_asset_search_related".to_string()));
         assert!(!approval.contains(&"run_command".to_string()));
         assert!(!approval.contains(&"device_list".to_string()));
         assert!(!approval.contains(&"git_branch_manager".to_string()));
@@ -665,7 +675,7 @@ mod tests {
                 .iter()
                 .filter(|tool| !tool_denied_by_profile(profile, tool))
                 .count();
-            assert_eq!(denied + allowed, 333);
+            assert_eq!(denied + allowed, 337);
         }
         assert_eq!(
             TOOL_REGISTRY
