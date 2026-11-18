@@ -40,6 +40,8 @@ public enum AssistantRunStatus: String, Codable, Hashable, Sendable, CaseIterabl
         switch workerStatus {
         case "queued":
             self = .queued
+        case "running":
+            self = .running
         case "completed":
             self = .completed
         case "failed":
@@ -47,7 +49,7 @@ public enum AssistantRunStatus: String, Codable, Hashable, Sendable, CaseIterabl
         case "cancelled":
             self = .cancelled
         default:
-            self = .running
+            self = .unknown
         }
     }
 
