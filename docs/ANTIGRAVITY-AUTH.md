@@ -7,9 +7,9 @@ imply.
 ## API-key-only, by design
 
 Antigravity authenticates with a Gemini API key and nothing else. There is
-no OAuth flow in Agents and none in upstream Coincide: Google sign-in was
-deliberately removed upstream, and there is no OAuth infrastructure in this
-repo to reuse or to work around. Do not build a browser OAuth flow, do not
+no OAuth flow in Agents: Google sign-in was removed in this repo, and
+there is no OAuth infrastructure in this repo to reuse or to work
+around. Do not build a browser OAuth flow, do not
 set `AGY_ACP_ENABLE_OAUTH`, and do not import a legacy `acp_token.json` —
 the profile guard refuses to start a thread when one is present.
 
@@ -45,9 +45,10 @@ shell cannot silently switch the server to a different credential.
 `BROWSER` points at a generated `browser-suppressed.sh` shim inside the
 private profile. If the server ever tries to open a sign-in page, the shim
 prints the marker `__COINCIDE_ANTIGRAVITY_SIGN_IN_REQUIRED__` to stderr
-and exits 0 — the OAuth URL is never printed, no browser ever opens, and
-the adapter treats the marker as a safe failure, not as a URL to follow.
-Google sign-in is unavailable because it was removed upstream and because
+and exits 0 — the OAuth URL is never printed and no browser ever opens,
+so no sign-in page is ever opened or followed.
+Google sign-in is unavailable in this repo because there is no OAuth
+infrastructure here, and because
 third-party access to Antigravity has led Google to suspend accounts; see
 the [Antigravity Terms of Service](https://antigravity.google/terms).
 Agents protects the account by never attempting it.
