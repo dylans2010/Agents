@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 326 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 332 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -51,9 +51,9 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
 
-## The 326-tool registry
+## The 332-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 326 tools, 63 distinct actions: several tools share one action (`workspace.read_file` x58, `terminal.create` x58, `workspace.write_file` x44, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x3, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 38 single-tool actions).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 332 tools, 63 distinct actions: several tools share one action (`workspace.read_file` x59, `terminal.create` x60, `workspace.write_file` x46, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x4, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 38 single-tool actions).
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -383,6 +383,12 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `use_app` | `computer_use.request` | engine | Swift dispatch of the 20 real computer-use tools only; the 9 missing actions error honestly |
 | `derived_data_locate` | `system.info` | desktop | Swift FileManager enumeration of ~/Library/Developer/Xcode/DerivedData with recursive sizes |
 | `build_system_detect` | `workspace.files` | desktop | Swift recursive listing for xcworkspace/xcodeproj/SwiftPM/CocoaPods/Carthage/Tuist/xcodegen/Bazel/CMake markers |
+| `svg_to_png` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `intel_generate_tests` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms |
+| `search_web` | `web.fetch` | desktop | Swift URLSession GET of the DuckDuckGo HTML endpoint, result links parsed by regex |
+| `reverse_analyze` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `report_to_user` | `workspace.write_file` | desktop | Swift composition over the FFI `workspace.read_file` / `workspace.write_file` arms; appends to agent_notes.md |
+| `intel_explain_code` | `workspace.read_file` | desktop | Swift composition of `code_summary` + `api_surface_extract` + `code_comment_extract` over `readWorkspaceFile` / regex search |
 
 ### Slice 10: Git completion, snapshots, and aliases
 
@@ -702,6 +708,77 @@ registered in Slice 11, so it is skipped, not double-registered.
   now asserts 326 with the full name list. No build or test run was
   performed in this environment; the tests are written, not executed.
 
+### Slice 18: final catalog tools — the last 6 implementable IDs
+
+6 new tools, taking the registry from 326 to 332 tools; distinct actions
+stay at 63 (no new action: `terminal.create` x58 -> x60,
+`workspace.write_file` x44 -> x46, `web.fetch` x3 -> x4,
+`workspace.read_file` x58 -> x59). The Slice 17 triage counted 299 true
+catalog IDs: 271 registered by exact name, 1 alias-covered
+(`conversation_context_manager` via `context_persistence_store`), 1
+duplicate (`code_review` of `autonomous_review_engine`), 20 with no real
+backend, and these 6 implementable. This slice registers the 6, so the
+catalog is now covered 278 of 299 (271 exact + 1 alias-covered + 6 new);
+the remaining 22 are 20 NONE plus 1 duplicate plus 1 alias-covered.
+
+- `svg_to_png` reuses the exact `sips -s format png` invocation from
+  `image_convert_format`, plus `--resampleHeightWidth` when both width
+  and height are given and the thumbnail's `-Z` flag when only one is.
+  Output is PNG only; the description says complex SVGs can distort at
+  small sizes.
+- `intel_generate_tests` composes the registered `extract_code_symbols`
+  regex extraction with the `code_generate` test template and emits one
+  failing test stub per extracted symbol into `testPath`. It refuses to
+  overwrite an existing file unless `overwrite: true`, following the
+  `ui_test_scaffold` precedent. Template stubs, not LLM-written tests.
+- `search_web` fetches `https://html.duckduckgo.com/html/?q=` through
+  the existing `g6FetchURL` / `g6_curl_fetch` and extracts result
+  titles/URLs with the existing regex helper. Unofficial DuckDuckGo HTML
+  scraping, no search API; results may be empty if DDG blocks or changes
+  markup; failure is reported, never faked.
+- `reverse_analyze` is the narrowed form only: `artifact` composes
+  `file` / `otool -L` / `otool -hv` / `codesign --verify` /
+  `codesign -dv` (the `mach_o_binary_analyzer` and
+  `code_signing_diagnose` primitives, plus top-level plist keys when the
+  path ends in `.plist`), `disassembly` is served by `otool -tV`
+  (objdump itself is not wired), `demangle` runs
+  `xcrun swift-demangle`, and `sqlite_schema` runs the fixed argv
+  `sqlite3 <path> .schema`. REA evidence IDs / confidence scores are
+  refused honestly (the REA subsystem does not exist), as is Go /
+  managed-metadata inspection.
+- `report_to_user` is the narrowed form only: it validates a non-empty
+  `summary` and appends the completion record to the session-notes
+  artifact `.assist_temp/artifacts/agent_notes.md` (the same artifact
+  `session_progress_report` reads), returning success as the completion
+  signal. The chat reply itself is the actual delivery to the user; the
+  tool records the summary and marks the turn complete, it does not
+  deliver out-of-band.
+- `intel_explain_code` is heuristic-only: it composes the registered
+  `code_summary` + `api_surface_extract` + `code_comment_extract` into
+  a structural overview (line counts, public declarations, doc
+  comments). The catalog's "LLM explanation / Provider hardcoded to
+  OpenAI" claim is not reproduced.
+- The 20 NONE tools stay unimplemented; see "What is still NOT
+  implemented" below for the exact list with reasons.
+- Docs corrections in this slice: the stale "~121 PARTIAL" claim is
+  replaced with the exact counts above; `AvailableTools.md` corrects the
+  `file_write` / `file_create` / `code_generate` pbxproj-registration
+  claim (they write the file only; no pbxproj registration exists), the
+  Cloud Toolkit section (all 8 of its IDs are now in the local system
+  registry — `search_web` was the last, registered here), and the
+  `dir_cd` / `use_terminal` `workingDirectory` claim (there is no
+  session working-directory state; per-call `cwd` is the mechanism).
+- Tests: five new `@Test` functions in `AgentsTests/ToolsetTests.swift`
+  (registration of all 6 with actions, channels, parameters, and the
+  required honest-description phrases; round-trips for
+  `intel_generate_tests`, `report_to_user`, and `intel_explain_code`
+  against a real temp workspace; validation refusals for `svg_to_png`,
+  `search_web`, `reverse_analyze`, `intel_generate_tests`, and
+  `report_to_user`). The MCP integration test now asserts 332 with the
+  full name list, and the Rust cross-check test asserts 332. No build or
+  test run was performed in this environment; the tests are written, not
+  executed.
+
 ## The MCP server
 
 `Rust Backend/crates/coincide-mcp-server/` is a standalone stdio binary
@@ -720,7 +797,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 326-tool registry, with the same names, descriptions,
+- `tools/list` — the real 332-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -1041,7 +1118,7 @@ What is enforced for real in this slice:
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 14, 326 tools are real. These catalog tools are NOT
+registry. After slice 18, 332 tools are real. These catalog tools are NOT
 implemented, and why:
 
 - Memory (`manage_memory`, `conversation_context_manager`):
@@ -1073,9 +1150,12 @@ implemented, and why:
   `wait_for_element`, `wait_for_window`) — see the Enforcement boundary
   above. `take_screenrecord` needs a whole new ScreenCaptureKit recorder
   and is unavailable.
-- Artboards ×8, `use_extension`, `reverse_analyze`, `use_composio`,
-  `report_to_user`: whole subsystems or external services that do not
-  exist in this repo. Out of scope for the 10-hour program.
+- Artboards ×8, `use_extension`, `use_composio`: whole subsystems or
+  external services that do not exist in this repo. Out of scope for the
+  10-hour program. `reverse_analyze` and `report_to_user` are now real
+  (Slice 18) in narrowed form — CLI-composition inspection and
+  session-notes completion recording, respectively — and no longer belong
+  in this list.
   `search_skills` is now real (Slice 14): it searches only the bundled
   SystemAssets index via `SystemAssetManager.shared.search` — the
   catalog's indexed skills library does not exist in this repo, and the
@@ -1083,9 +1163,14 @@ implemented, and why:
   said no skills-library backend exists. What also exists is the composer
   `$` skills picker (`composer_suggestions.rs`, skills reported by agent
   sessions) and the SystemAssets `Skills.md` discovery discipline.
-- LLM tools (`intel_autofix`, `intel_generate_tests`, `intel_explain_code`,
-  `code_review`, `task_runner`): there is no LLM client in the core. Out of
-  scope.
+- LLM tools (`intel_autofix`, `code_review`, `task_runner`): there is no
+  LLM client in the core. `intel_autofix` would need one;
+  `code_review` is a duplicate of the registered
+  `autonomous_review_engine`; `task_runner` has no task registry to
+  execute against. `intel_generate_tests` and `intel_explain_code` are
+  now real (Slice 18) in narrowed honest form — template stubs from
+  regex-extracted symbols, and a structural overview from regex scans —
+  neither uses an LLM client. Out of scope.
 - `project_mutation_controller`, `project_target_add`, `test_target_add`:
   no pbxproj writer exists anywhere; `file_write` does not register files
   in Xcode projects. This is the riskiest missing primitive; it is not
@@ -1100,15 +1185,36 @@ implemented, and why:
   `git.worktrees.useExisting`, but the Swift checkout action enum exposes
   only local/new/previous worktrees, so the Worktrees card is a read-only
   list until that action is wired.
-- Everything else in the catalog (~121 IDs) stays PARTIAL: reachable in
-  principle via the real terminal RPC or read/write/search composition, but
-  not tool-shaped, and not claimed as implemented. The heuristic
-  "intelligence" tools (`complexity_analysis`, `autonomous_review_engine`,
-  `semantic_query_engine`, `code_summary`, `code_lint`,
-  `runtime_diagnostics_engine`) are now implemented — as keyword/regex
-  scans, exactly as the catalog describes them; see "Heuristic scans"
-  below. They are not semantic analysis, and their names still overpromise
-  relative to what they do.
+- Everything else in the catalog: exact counts after Slice 18. The
+  catalog has 299 true IDs. 278 are covered: 271 registered by exact
+  name, 1 alias-covered (`conversation_context_manager` via the
+  registered `context_persistence_store`), and 6 registered by this
+  slice (`svg_to_png`, `intel_generate_tests`, `search_web`,
+  `reverse_analyze`, `report_to_user`, `intel_explain_code`). The
+  remaining 21 are 20 with no real backend (NONE) plus 1 duplicate
+  (`code_review`, a duplicate of the registered
+  `autonomous_review_engine`). The 20 NONE tools, with reasons:
+  - Artboards ×8 (`artboard_list`, `artboard_get`, `artboard_create`,
+    `artboard_update`, `artboard_delete`, `artboard_compile`,
+    `artboard_run_app`, `fix_artboards`): no Visual UI Builder
+    subsystem exists.
+  - `code_refactor`, `intel_autofix`: no LLM client in the core.
+  - `task_runner`: no task registry to execute against.
+  - `project_mutation_controller`, `project_target_add`,
+    `test_target_add`: no pbxproj writer exists anywhere.
+  - `use_composio`, `use_extension`: no Composio integration and no
+    Extensions v2 platform exist.
+  - `take_screenrecord`: no ScreenCaptureKit recorder exists.
+  - `dir_cd`, `dir_pwd`: no session working-directory state exists;
+    per-call `cwd` is the mechanism.
+  - `create_new_app`: no app scaffold, no out-of-workspace write, and
+    no session switch exist.
+  The heuristic "intelligence" tools (`complexity_analysis`,
+  `autonomous_review_engine`, `semantic_query_engine`, `code_summary`,
+  `code_lint`, `runtime_diagnostics_engine`) are implemented — as
+  keyword/regex scans, exactly as the catalog describes them; see
+  "Heuristic scans" below. They are not semantic analysis, and their
+  names still overpromise relative to what they do.
 - In Provider Tools mode the registry is empty and executing any system tool
   throws `SystemToolError.toolNotActive` before any runtime call.
 

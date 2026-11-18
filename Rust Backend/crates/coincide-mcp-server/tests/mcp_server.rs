@@ -139,7 +139,7 @@ fn tools_list_returns_the_real_registry() {
     initialize(&mut session);
     let response = session.request("tools/list", json!({}));
     let tools = response["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 326);
+    assert_eq!(tools.len(), 332);
     let names: Vec<&str> = tools
         .iter()
         .map(|tool| tool["name"].as_str().unwrap())
@@ -471,6 +471,12 @@ fn tools_list_returns_the_real_registry() {
         "use_app",
         "derived_data_locate",
         "build_system_detect",
+        "svg_to_png",
+        "intel_generate_tests",
+        "search_web",
+        "reverse_analyze",
+        "report_to_user",
+        "intel_explain_code",
     ] {
         assert!(names.contains(&expected), "tools/list missing {expected}");
     }

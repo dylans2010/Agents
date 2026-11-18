@@ -3733,6 +3733,80 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to inspect, relative to the working directory. Defaults to the whole workspace."),
             ]
         ),
+        SystemToolDefinition(
+            name: "svg_to_png",
+            description: "Convert an SVG file to PNG with the sips CLI and return its real output. Output is PNG only; complex SVGs can distort at small sizes.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "SVG file path relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: false, description: "Output path relative to the working directory. Defaults to the input path with a .png extension."),
+                SystemToolParameter(name: "width", type: "integer", required: false, description: "Target width in pixels, 1 to 4096. With height, resamples to both dimensions; alone, scales to a maximum pixel size."),
+                SystemToolParameter(name: "height", type: "integer", required: false, description: "Target height in pixels, 1 to 4096. With width, resamples to both dimensions; alone, scales to a maximum pixel size."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "intel_generate_tests",
+            description: "Emit one test stub per regex-extracted symbol from a Swift source file or directory into a test file; template stubs from regex-extracted symbols, not LLM-written tests. Refuses to overwrite an existing file unless overwrite is true.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Swift source file or directory relative to the working directory."),
+                SystemToolParameter(name: "testPath", type: "string", required: true, description: "Test file path relative to the working directory."),
+                SystemToolParameter(name: "module", type: "string", required: false, description: "Module name for the @testable import. Defaults to the project directory name."),
+                SystemToolParameter(name: "overwrite", type: "boolean", required: false, description: "Allow overwriting an existing test file. Defaults to false."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "search_web",
+            description: "Search the web with unofficial DuckDuckGo HTML scraping, no search API; results may be empty if DDG blocks or changes markup; failure is reported, never faked.",
+            action: "web.fetch",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "query", type: "string", required: true, description: "Search query."),
+                SystemToolParameter(name: "maxResults", type: "integer", required: false, description: "Maximum results to return, 1 to 25. Defaults to 10."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "reverse_analyze",
+            description: "Inspect a binary or database as a composition of named CLI inspections: file, otool, and codesign artifact facts, otool -tV disassembly, xcrun swift-demangle, or sqlite3 .schema; it is a composition of the named CLI inspections, not the REA subsystem. REA evidence IDs and confidence scores are unavailable.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File to inspect, relative to the working directory. Required for artifact, disassembly, and sqlite_schema."),
+                SystemToolParameter(name: "inspection", type: "string", required: true, description: "Inspection: artifact, disassembly, demangle, or sqlite_schema."),
+                SystemToolParameter(name: "symbol", type: "string", required: false, description: "Mangled Swift symbol name for the demangle inspection."),
+                SystemToolParameter(name: "cwd", type: "string", required: false, description: "Absolute working directory. Only used to read plist facts when path ends in .plist."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds. Defaults to 60."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "report_to_user",
+            description: "Record a completion summary in the session-notes artifact and mark the turn complete; the chat reply itself is the actual delivery to the user; the tool records the summary and marks the turn complete, it does not deliver out-of-band.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "summary", type: "string", required: true, description: "Completion summary to record."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to agent_notes.md. Defaults to .assist_temp/artifacts/agent_notes.md."),
+                SystemToolParameter(name: "title", type: "string", required: false, description: "Section title for the record. Defaults to Completion."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "intel_explain_code",
+            description: "Overview of one source file from regex scans: line counts, public declarations, and doc comments; structural overview from regex scans, not an LLM explanation.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Source file relative to the working directory."),
+            ]
+        ),
 
     ]
 
@@ -7118,6 +7192,242 @@ public nonisolated enum SystemToolRegistry {
             "markdown_link_check", "docs_index_build":
 
             return try await Self.runG5Tool(tool: name, arguments: arguments, runtime: runtime)
+        case "svg_to_png":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            guard (path as NSString).pathExtension.lowercased() == "svg" else {
+                throw SystemToolError.executionFailed(tool: tool, message: "svg_to_png path must end in .svg.")
+            }
+            let output = optionalString(arguments, "output") ?? Self.replacingExtension(path, with: "png")
+            let width = optionalInt(arguments, "width")
+            let height = optionalInt(arguments, "height")
+            if let width {
+                guard width >= 1, width <= 4096 else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "svg_to_png width must be 1 to 4096.")
+                }
+            }
+            if let height {
+                guard height >= 1, height <= 4096 else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "svg_to_png height must be 1 to 4096.")
+                }
+            }
+            try Self.validateRelativePath(path, tool: name)
+            try Self.validateRelativePath(output, tool: name)
+            var svgCommand = "sips -s format png "
+            if let width, let height {
+                svgCommand += "--resampleHeightWidth \(height) \(width) "
+            } else if let width {
+                svgCommand += "-Z \(width) "
+            } else if let height {
+                svgCommand += "-Z \(height) "
+            }
+            svgCommand += Self.shellQuoted(path) + " --out " + Self.shellQuoted(output)
+            let svgResult = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: cwd, command: svgCommand, timeoutSeconds: 120, runtime: runtime)
+            return .object(["path": .string(path), "output": .string(output), "format": .string("png"), "width": width.map { .int(Int64($0)) } ?? .null, "height": height.map { .int(Int64($0)) } ?? .null, "result": .string(svgResult)])
+        case "intel_generate_tests":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let testPath = try requiredString(arguments, "testPath", tool: name)
+            let module = optionalString(arguments, "module") ?? URL(fileURLWithPath: ExternalEditorService.expandedPath(cwd)).lastPathComponent
+            let overwrite = optionalBool(arguments, "overwrite") ?? false
+            if !overwrite {
+                try Self.assertFileAbsent(cwd: cwd, path: testPath, tool: name)
+            }
+            let testFileName = (testPath as NSString).lastPathComponent
+            let suiteName = (testFileName as NSString).deletingPathExtension
+            let suiteFirst = suiteName.unicodeScalars.first
+            let suiteValidStart = suiteFirst.map { CharacterSet.letters.contains($0) || $0 == "_" } ?? false
+            let suiteValidRest = suiteName.unicodeScalars.dropFirst().allSatisfy { CharacterSet.alphanumerics.contains($0) || $0 == "_" }
+            guard suiteValidStart, suiteValidRest else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Test file name must be a valid Swift identifier for test generation.")
+            }
+            var testSources: [String] = []
+            if let entries = try? await runtime.readWorkspaceDirectory(cwd: cwd, path: path, recursive: true) {
+                testSources = entries.filter { !$0.isDirectory && ($0.path as NSString).pathExtension == "swift" }.map { $0.path }
+            } else {
+                testSources = [path]
+            }
+            var testSymbols: [[String: JSONValue]] = []
+            for file in testSources.sorted() {
+                guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: file) else {
+                    continue
+                }
+                testSymbols.append(contentsOf: Self.extractSymbols(document.content, path: file))
+            }
+            guard !testSymbols.isEmpty else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No symbols found in \(path); no test stubs were written.")
+            }
+            var stubLines: [String] = []
+            stubLines.append("import Testing")
+            stubLines.append("@testable import \(module)")
+            stubLines.append("")
+            stubLines.append("@Suite(\"\(suiteName)\")")
+            stubLines.append("struct \(suiteName) {")
+            var usedTestNames: Set<String> = []
+            for symbol in testSymbols {
+                let kind = symbol["kind"]?.stringValue ?? ""
+                let symbolName = symbol["name"]?.stringValue ?? ""
+                let symbolLine = symbol["line"]?.intValue ?? 0
+                var testName = "test" + symbolName.prefix(1).uppercased() + String(symbolName.dropFirst())
+                if usedTestNames.contains(testName) {
+                    testName += "_\(symbolLine)"
+                }
+                usedTestNames.insert(testName)
+                stubLines.append("    @Test(\"Stub for \(kind) \(symbolName)\")")
+                stubLines.append("    func \(testName)() {")
+                stubLines.append("        #expect(Bool(false), \"Replace this stub for \(kind) \(symbolName) with a real assertion.\")")
+                stubLines.append("    }")
+            }
+            stubLines.append("}")
+            stubLines.append("")
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: testPath, content: stubLines.joined(separator: "\n"))
+            return .object(["path": .string(path), "testPath": .string(testPath), "symbols": .int(Int64(testSymbols.count)), "tests": .int(Int64(usedTestNames.count))])
+        case "search_web":
+            _ = try requiredString(arguments, "threadId", tool: name)
+            let query = try requiredString(arguments, "query", tool: name)
+            let maxResults = min(max(optionalInt(arguments, "maxResults") ?? 10, 1), 25)
+            guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                  let searchURL = URL(string: "https://html.duckduckgo.com/html/?q=" + encoded) else {
+                throw SystemToolError.executionFailed(tool: name, message: "Could not build a DuckDuckGo search URL.")
+            }
+            let fetched = try await Self.g6FetchURL(searchURL, timeoutSeconds: 30, tool: name)
+            var results: [[String: JSONValue]] = []
+            for match in Self.g5RegexMatches(pattern: "class=\"result__a\"[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>", text: fetched.text, options: [.caseInsensitive, .dotMatchesLineSeparators]) {
+                guard match.1.count > 2, let href = match.1[1], let rawTitle = match.1[2] else {
+                    continue
+                }
+                var link = href
+                if let uddgStart = link.range(of: "uddg=") {
+                    var encodedTarget = String(link[uddgStart.upperBound...])
+                    if let amp = encodedTarget.firstIndex(of: "&") {
+                        encodedTarget = String(encodedTarget[..<amp])
+                    }
+                    if let decoded = encodedTarget.removingPercentEncoding, !decoded.isEmpty {
+                        link = decoded
+                    }
+                }
+                if link.hasPrefix("//") {
+                    link = "https:" + link
+                }
+                let plainTitle = rawTitle.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                    .replacingOccurrences(of: "&amp;", with: "&")
+                    .replacingOccurrences(of: "&quot;", with: "\"")
+                    .replacingOccurrences(of: "&#39;", with: "'")
+                    .replacingOccurrences(of: "&lt;", with: "<")
+                    .replacingOccurrences(of: "&gt;", with: ">")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                results.append(["title": .string(plainTitle), "url": .string(link)])
+                if results.count >= maxResults {
+                    break
+                }
+            }
+            return .object(["query": .string(query), "url": .string(searchURL.absoluteString), "statusCode": .int(Int64(fetched.statusCode)), "contentType": .string(fetched.contentType), "results": .array(results.map { .object($0) }), "count": .int(Int64(results.count))])
+        case "reverse_analyze":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let inspection = try requiredString(arguments, "inspection", tool: name)
+            let analyzeTimeout = optionalInt(arguments, "timeoutSeconds") ?? 60
+            switch inspection {
+            case "artifact":
+                let path = try requiredString(arguments, "path", tool: name)
+                try Self.validateRelativePath(path, tool: name)
+                guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                }
+                let (fileExit, fileOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["file", path], timeoutSeconds: analyzeTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "file", exitCode: fileExit, output: fileOutput)
+                let (otoolExit, otoolOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["otool", "-L", path], timeoutSeconds: analyzeTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "otool", exitCode: otoolExit, output: otoolOutput)
+                let (hvExit, hvOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["otool", "-hv", path], timeoutSeconds: analyzeTimeout, runtime: runtime)
+                let (verifyExit, verifyOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["codesign", "--verify", "--verbose", path], timeoutSeconds: analyzeTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "codesign", exitCode: verifyExit, output: verifyOutput)
+                let (dvExit, dvOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["codesign", "-dv", "--verbose=4", path], timeoutSeconds: analyzeTimeout, runtime: runtime)
+                let libraries = Self.parseG3OtoolLibraries(otoolOutput)
+                let headers = Self.parseG3MachHeader(hvOutput)
+                let details = Self.parseG3Codesign(dvOutput)
+                var artifact: [String: JSONValue] = [
+                    "path": .string(path),
+                    "inspection": .string(inspection),
+                    "file": .string(fileOutput.components(separatedBy: "\n").first?.trimmingCharacters(in: .whitespaces) ?? ""),
+                    "fileOutput": .string(fileOutput),
+                    "libraries": .array(libraries.map { .string($0) }),
+                    "headers": .array(headers.map { .object($0) }),
+                    "verified": .bool(verifyExit == 0),
+                    "verifyExitCode": .int(Int64(verifyExit)),
+                    "verifyOutput": .string(verifyOutput),
+                    "signature": .object(details),
+                    "exitCode": .int(Int64(otoolExit)),
+                    "hvExitCode": .int(Int64(hvExit)),
+                    "signatureExitCode": .int(Int64(dvExit)),
+                ]
+                if (path as NSString).pathExtension.lowercased() == "plist", let plistCwd = optionalString(arguments, "cwd"),
+                   let plist = try? Self.g6ReadPlist(cwd: plistCwd, path: path, tool: name, runtime: runtime) {
+                    artifact["plistKeys"] = .array(plist.keys.sorted().map { .string($0) })
+                }
+                return .object(artifact)
+            case "disassembly":
+                let path = try requiredString(arguments, "path", tool: name)
+                try Self.validateRelativePath(path, tool: name)
+                guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                }
+                let (disassemblyExit, disassemblyOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["otool", "-tV", path], timeoutSeconds: analyzeTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "otool", exitCode: disassemblyExit, output: disassemblyOutput)
+                return .object(["path": .string(path), "inspection": .string(inspection), "disassembly": .string(disassemblyOutput), "exitCode": .int(Int64(disassemblyExit))])
+            case "demangle":
+                let symbol = try requiredString(arguments, "symbol", tool: name)
+                try Self.g3Token(symbol, field: "symbol", tool: name)
+                let (demangleExit, demangleOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["xcrun", "swift-demangle", symbol], timeoutSeconds: analyzeTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcrun", exitCode: demangleExit, output: demangleOutput)
+                return .object(["symbol": .string(symbol), "inspection": .string(inspection), "demangled": .string(demangleOutput.trimmingCharacters(in: .whitespacesAndNewlines)), "exitCode": .int(Int64(demangleExit)), "output": .string(demangleOutput)])
+            case "sqlite_schema":
+                let path = try requiredString(arguments, "path", tool: name)
+                try Self.validateRelativePath(path, tool: name)
+                guard try await Self.g3FileExists(tool: name, threadId: threadId, path: path, runtime: runtime) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "No such file: \(path)")
+                }
+                let (schemaExit, schemaOutput) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["sqlite3", path, ".schema"], timeoutSeconds: analyzeTimeout, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "sqlite3", exitCode: schemaExit, output: schemaOutput)
+                return .object(["path": .string(path), "inspection": .string(inspection), "schema": .string(schemaOutput), "exitCode": .int(Int64(schemaExit))])
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "reverse_analyze inspection must be artifact, disassembly, demangle, or sqlite_schema. REA evidence IDs and confidence scores are unavailable because the REA subsystem does not exist, and Go or managed-metadata inspection is not supported.")
+            }
+        case "report_to_user":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let summary = try requiredString(arguments, "summary", tool: name)
+            guard !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw SystemToolError.executionFailed(tool: name, message: "report_to_user summary must not be empty.")
+            }
+            let path = optionalString(arguments, "path") ?? ".assist_temp/artifacts/agent_notes.md"
+            try Self.validateRelativePath(path, tool: name)
+            let title = (optionalString(arguments, "title") ?? "Completion").replacingOccurrences(of: "\n", with: " ")
+            let stamp = ISO8601DateFormatter().string(from: Date())
+            let record = "## \(title)\n\(summary)\n\nRecorded \(stamp). The chat reply itself is the delivery to the user; this record marks the turn complete.\n"
+            var existing = (try? await runtime.readWorkspaceFile(cwd: cwd, path: path))?.content ?? ""
+            if !existing.isEmpty, !existing.hasSuffix("\n") {
+                existing += "\n"
+            }
+            let notesContent = existing.isEmpty ? "# Agent Notes\n\n" + record : existing + "\n" + record
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: path, content: notesContent)
+            return .object(["path": .string(path), "completed": .bool(true), "summary": .string(summary)])
+        case "intel_explain_code":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = try requiredString(arguments, "path", tool: name)
+            let summary = try await Self.runG5Tool(tool: "code_summary", arguments: ["cwd": .string(cwd), "path": .string(path)], runtime: runtime)
+            let apiSurface = try await Self.runG5Tool(tool: "api_surface_extract", arguments: ["cwd": .string(cwd), "path": .string(path)], runtime: runtime)
+            let docComments = try await Self.runG5Tool(tool: "code_comment_extract", arguments: ["cwd": .string(cwd), "path": .string(path)], runtime: runtime)
+            return .object([
+                "path": .string(path),
+                "lines": summary["lines"] ?? .null,
+                "codeLines": summary["codeLines"] ?? .null,
+                "commentLines": summary["commentLines"] ?? .null,
+                "blankLines": summary["blankLines"] ?? .null,
+                "publicDeclarationCount": apiSurface["matchCount"] ?? .null,
+                "docCommentCount": docComments["matchCount"] ?? .null,
+                "summary": summary,
+                "apiSurface": apiSurface,
+                "docComments": docComments,
+            ])
         default:
             throw SystemToolError.unknownTool(name)
         }

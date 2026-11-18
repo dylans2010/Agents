@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 326)
+        #expect(tools.count == 332)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -2811,6 +2811,128 @@ struct ToolsetTests {
             try await Self.run("localization_manager", arguments: ["cwd": .string(cwd), "action": .string("add"), "key": .string("x"), "value": .string("y"), "path": .string("notes.txt")], client: client)
         }
 
+        await client.close()
+    }
+
+    @Test("Slice 18 tools register with their real backend actions")
+    func sliceEighteenToolsRegister() {
+        let expected: [(String, String, SystemToolChannel)] = [
+            ("svg_to_png", "terminal.create", .engine),
+            ("intel_generate_tests", "workspace.write_file", .desktop),
+            ("search_web", "web.fetch", .desktop),
+            ("reverse_analyze", "terminal.create", .engine),
+            ("report_to_user", "workspace.write_file", .desktop),
+            ("intel_explain_code", "workspace.read_file", .desktop),
+        ]
+        #expect(expected.count == 6)
+        for (name, action, channel) in expected {
+            guard let definition = SystemToolRegistry.definition(named: name, for: .system) else {
+                Issue.record("Slice 18 tool missing from registry: \(name)")
+                continue
+            }
+            #expect(definition.action == action)
+            #expect(definition.channel == channel)
+            #expect(!definition.parameters.isEmpty)
+            #expect(definition.parameters.contains { $0.required })
+        }
+        #expect(SystemToolRegistry.definition(named: "svg_to_png", for: .system)?.parameters.map(\.name) == ["threadId", "cwd", "path", "output", "width", "height"])
+        #expect(SystemToolRegistry.definition(named: "intel_generate_tests", for: .system)?.parameters.map(\.name) == ["cwd", "path", "testPath", "module", "overwrite"])
+        #expect(SystemToolRegistry.definition(named: "search_web", for: .system)?.parameters.map(\.name) == ["threadId", "query", "maxResults"])
+        #expect(SystemToolRegistry.definition(named: "reverse_analyze", for: .system)?.parameters.map(\.name) == ["threadId", "path", "inspection", "symbol", "cwd", "timeoutSeconds"])
+        #expect(SystemToolRegistry.definition(named: "report_to_user", for: .system)?.parameters.map(\.name) == ["cwd", "summary", "path", "title"])
+        #expect(SystemToolRegistry.definition(named: "intel_explain_code", for: .system)?.parameters.map(\.name) == ["cwd", "path"])
+        #expect(SystemToolRegistry.definition(named: "svg_to_png", for: .system)?.description.contains("Output is PNG only; complex SVGs can distort at small sizes.") == true)
+        #expect(SystemToolRegistry.definition(named: "intel_generate_tests", for: .system)?.description.contains("template stubs from regex-extracted symbols, not LLM-written tests") == true)
+        #expect(SystemToolRegistry.definition(named: "search_web", for: .system)?.description.contains("unofficial DuckDuckGo HTML scraping, no search API; results may be empty if DDG blocks or changes markup; failure is reported, never faked") == true)
+        #expect(SystemToolRegistry.definition(named: "reverse_analyze", for: .system)?.description.contains("it is a composition of the named CLI inspections, not the REA subsystem") == true)
+        #expect(SystemToolRegistry.definition(named: "report_to_user", for: .system)?.description.contains("the chat reply itself is the actual delivery to the user; the tool records the summary and marks the turn complete, it does not deliver out-of-band") == true)
+        #expect(SystemToolRegistry.definition(named: "intel_explain_code", for: .system)?.description.contains("structural overview from regex scans, not an LLM explanation") == true)
+    }
+
+    @Test("Slice 18: intel_generate_tests emits one stub per symbol and refuses overwrite")
+    func sliceEighteenGenerateTestsRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+        try Self.writeText("public struct Widget {\n    public func make() -> Int {\n        return 1\n    }\n}\n", to: "Widget.swift", in: tempRoot)
+        let generated = try await Self.run("intel_generate_tests", arguments: ["cwd": .string(cwd), "path": .string("Widget.swift"), "testPath": .string("WidgetTests.swift"), "module": .string("Demo")], client: client)
+        #expect(generated["symbols"]?.intValue == 2)
+        #expect(generated["tests"]?.intValue == 2)
+        let content = try Self.readText("WidgetTests.swift", in: tempRoot)
+        #expect(content.contains("func testWidget()"))
+        #expect(content.contains("func testMake()"))
+        #expect(content.contains("@testable import Demo"))
+        do {
+            _ = try await Self.run("intel_generate_tests", arguments: ["cwd": .string(cwd), "path": .string("Widget.swift"), "testPath": .string("WidgetTests.swift"), "module": .string("Demo")], client: client)
+            Issue.record("Expected executionFailed for intel_generate_tests over an existing file")
+        } catch let error as SystemToolError {
+            #expect(error == .executionFailed(tool: "intel_generate_tests", message: "A file already exists at that path; use write_file to overwrite it."))
+        } catch {
+            Issue.record("Unexpected error for intel_generate_tests over an existing file: \(error)")
+        }
+        let overwritten = try await Self.run("intel_generate_tests", arguments: ["cwd": .string(cwd), "path": .string("Widget.swift"), "testPath": .string("WidgetTests.swift"), "module": .string("Demo"), "overwrite": .bool(true)], client: client)
+        #expect(overwritten["tests"]?.intValue == 2)
+        await client.close()
+    }
+
+    @Test("Slice 18: report_to_user appends completion records to agent_notes.md")
+    func sliceEighteenReportToUserRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+        let first = try await Self.run("report_to_user", arguments: ["cwd": .string(cwd), "summary": .string("Finished the thing.")], client: client)
+        #expect(first["completed"]?.boolValue == true)
+        #expect(first["path"]?.stringValue == ".assist_temp/artifacts/agent_notes.md")
+        let second = try await Self.run("report_to_user", arguments: ["cwd": .string(cwd), "summary": .string("Second note."), "title": .string("Done")], client: client)
+        #expect(second["completed"]?.boolValue == true)
+        let notes = try Self.readText(".assist_temp/artifacts/agent_notes.md", in: tempRoot)
+        #expect(notes.contains("Finished the thing."))
+        #expect(notes.contains("Second note."))
+        #expect(notes.contains("## Completion"))
+        #expect(notes.contains("## Done"))
+        await client.close()
+    }
+
+    @Test("Slice 18: intel_explain_code composes summary, API surface, and doc comments")
+    func sliceEighteenExplainCodeRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+        try Self.writeText("public struct Widget {\n    /// Makes a widget.\n    public func make() {}\n}", to: "Widget.swift", in: tempRoot)
+        let explained = try await Self.run("intel_explain_code", arguments: ["cwd": .string(cwd), "path": .string("Widget.swift")], client: client)
+        #expect(explained["lines"]?.intValue == 4)
+        #expect(explained["codeLines"]?.intValue == 3)
+        #expect(explained["commentLines"]?.intValue == 1)
+        #expect(explained["blankLines"]?.intValue == 0)
+        #expect(explained["publicDeclarationCount"]?.intValue == 2)
+        #expect(explained["docCommentCount"]?.intValue == 1)
+        await client.close()
+    }
+
+    @Test("Slice 18: invalid Slice 18 arguments are refused before any runtime call")
+    func sliceEighteenInvalidArgumentsRefused() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+        try Self.writeText("let x = 1\n", to: "Empty.swift", in: tempRoot)
+        await #expect(throws: SystemToolError.executionFailed(tool: "svg_to_png", message: "svg_to_png path must end in .svg.")) {
+            try await Self.run("svg_to_png", arguments: ["threadId": .string("test-thread"), "cwd": .string(cwd), "path": .string("photo.png")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "svg_to_png", message: "svg_to_png width must be 1 to 4096.")) {
+            try await Self.run("svg_to_png", arguments: ["threadId": .string("test-thread"), "cwd": .string(cwd), "path": .string("icon.svg"), "width": .int(0)], client: client)
+        }
+        await #expect(throws: SystemToolError.missingArgument(tool: "search_web", argument: "query")) {
+            try await Self.run("search_web", arguments: ["threadId": .string("test-thread")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "reverse_analyze", message: "reverse_analyze inspection must be artifact, disassembly, demangle, or sqlite_schema. REA evidence IDs and confidence scores are unavailable because the REA subsystem does not exist, and Go or managed-metadata inspection is not supported.")) {
+            try await Self.run("reverse_analyze", arguments: ["threadId": .string("test-thread"), "path": .string("app.bin"), "inspection": .string("rea_evidence")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "intel_generate_tests", message: "No symbols found in Empty.swift; no test stubs were written.")) {
+            try await Self.run("intel_generate_tests", arguments: ["cwd": .string(cwd), "path": .string("Empty.swift"), "testPath": .string("EmptyTests.swift"), "module": .string("Demo")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "report_to_user", message: "report_to_user summary must not be empty.")) {
+            try await Self.run("report_to_user", arguments: ["cwd": .string(cwd), "summary": .string("   ")], client: client)
+        }
         await client.close()
     }
 

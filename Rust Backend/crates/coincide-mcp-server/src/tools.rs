@@ -7551,6 +7551,160 @@ pub static DEFINITIONS: &[ToolDef] = &[
             },
         ],
     },
+    ToolDef {
+        name: "svg_to_png",
+        description: "Convert an SVG file to PNG with the sips CLI and return its real output. Output is PNG only; complex SVGs can distort at small sizes.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            P_CWD,
+            P_PATH,
+            ToolParam {
+                name: "output",
+                kind: "string",
+                required: false,
+                description: "Output path relative to the working directory. Defaults to the input path with a .png extension.",
+            },
+            ToolParam {
+                name: "width",
+                kind: "integer",
+                required: false,
+                description: "Target width in pixels, 1 to 4096. With height, resamples to both dimensions; alone, scales to a maximum pixel size.",
+            },
+            ToolParam {
+                name: "height",
+                kind: "integer",
+                required: false,
+                description: "Target height in pixels, 1 to 4096. With width, resamples to both dimensions; alone, scales to a maximum pixel size.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "intel_generate_tests",
+        description: "Emit one test stub per regex-extracted symbol from a Swift source file or directory into a test file; template stubs from regex-extracted symbols, not LLM-written tests. Refuses to overwrite an existing file unless overwrite is true.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+            ToolParam {
+                name: "testPath",
+                kind: "string",
+                required: true,
+                description: "Test file path relative to the working directory.",
+            },
+            ToolParam {
+                name: "module",
+                kind: "string",
+                required: false,
+                description: "Module name for the @testable import. Defaults to the project directory name.",
+            },
+            ToolParam {
+                name: "overwrite",
+                kind: "boolean",
+                required: false,
+                description: "Allow overwriting an existing test file. Defaults to false.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "search_web",
+        description: "Search the web with unofficial DuckDuckGo HTML scraping, no search API; results may be empty if DDG blocks or changes markup; failure is reported, never faked.",
+        action: "web.fetch",
+        channel: "desktop",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "query",
+                kind: "string",
+                required: true,
+                description: "Search query.",
+            },
+            ToolParam {
+                name: "maxResults",
+                kind: "integer",
+                required: false,
+                description: "Maximum results to return, 1 to 25. Defaults to 10.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "reverse_analyze",
+        description: "Inspect a binary or database as a composition of named CLI inspections: file, otool, and codesign artifact facts, otool -tV disassembly, xcrun swift-demangle, or sqlite3 .schema; it is a composition of the named CLI inspections, not the REA subsystem. REA evidence IDs and confidence scores are unavailable.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File to inspect, relative to the working directory. Required for artifact, disassembly, and sqlite_schema.",
+            },
+            ToolParam {
+                name: "inspection",
+                kind: "string",
+                required: true,
+                description: "Inspection: artifact, disassembly, demangle, or sqlite_schema.",
+            },
+            ToolParam {
+                name: "symbol",
+                kind: "string",
+                required: false,
+                description: "Mangled Swift symbol name for the demangle inspection.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: false,
+                description: "Absolute working directory. Only used to read plist facts when path ends in .plist.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds. Defaults to 60.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "report_to_user",
+        description: "Record a completion summary in the session-notes artifact and mark the turn complete; the chat reply itself is the actual delivery to the user; the tool records the summary and marks the turn complete, it does not deliver out-of-band.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            ToolParam {
+                name: "summary",
+                kind: "string",
+                required: true,
+                description: "Completion summary to record.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to agent_notes.md. Defaults to .assist_temp/artifacts/agent_notes.md.",
+            },
+            ToolParam {
+                name: "title",
+                kind: "string",
+                required: false,
+                description: "Section title for the record. Defaults to Completion.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "intel_explain_code",
+        description: "Overview of one source file from regex scans: line counts, public declarations, and doc comments; structural overview from regex scans, not an LLM explanation.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            P_CWD,
+            P_PATH,
+        ],
+    },
 
 ];
 
@@ -11269,6 +11423,26 @@ fn g5_call(state: &crate::ServerState, name: &str, args: &Value) -> Result<Value
             let text = read_text_file_at(&cwd, &file)?;
             Ok(g5_file_summary(name, &file, &text))
         }
+        "intel_explain_code" => {
+            let file = req_str(args, "path", name)?;
+            let text = read_text_file_at(&cwd, &file)?;
+            let summary = g5_file_summary("code_summary", &file, &text);
+            let scan_args = json!({"cwd": cwd, "path": file, "limit": limit});
+            let api_surface = g5_call(state, "api_surface_extract", &scan_args)?;
+            let doc_comments = g5_call(state, "code_comment_extract", &scan_args)?;
+            Ok(json!({
+                "path": file,
+                "lines": summary["lines"],
+                "codeLines": summary["codeLines"],
+                "commentLines": summary["commentLines"],
+                "blankLines": summary["blankLines"],
+                "publicDeclarationCount": api_surface["matchCount"],
+                "docCommentCount": doc_comments["matchCount"],
+                "summary": summary,
+                "apiSurface": api_surface,
+                "docComments": doc_comments,
+            }))
+        }
         "complexity_analysis" => {
             let file = req_str(args, "path", name)?;
             let text = read_text_file_at(&cwd, &file)?;
@@ -14784,6 +14958,26 @@ fn g6_curl_fetch(url: &str, timeout_seconds: u64, tool: &str) -> Result<(i64, St
     Ok((status, content_type, body.to_owned()))
 }
 
+fn g6_percent_decode(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut out: Vec<u8> = Vec::new();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            if let Ok(hex) = std::str::from_utf8(&bytes[index + 1..index + 3]) {
+                if let Ok(byte) = u8::from_str_radix(hex, 16) {
+                    out.push(byte);
+                    index += 3;
+                    continue;
+                }
+            }
+        }
+        out.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 fn g6_terminal_call(
     state: &crate::ServerState,
     name: &str,
@@ -16183,6 +16377,35 @@ fn g6_misc_call(
                 "workers": workers,
             }))
         }
+        "report_to_user" => {
+            let cwd = req_str(args, "cwd", name)?;
+            let summary = req_str(args, "summary", name)?;
+            if summary.trim().is_empty() {
+                return Err(failed("report_to_user summary must not be empty."));
+            }
+            let path = opt_str(args, "path")
+                .unwrap_or_else(|| ".assist_temp/artifacts/agent_notes.md".to_owned());
+            g6_validate_relative(&path, name)?;
+            let title = opt_str(args, "title")
+                .unwrap_or_else(|| "Completion".to_owned())
+                .replace('\n', " ");
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let record = format!("## {title}\n{summary}\n\nRecorded {stamp} seconds since the Unix epoch. The chat reply itself is the delivery to the user; this record marks the turn complete.\n");
+            let mut existing = read_text_file_at(&cwd, &path).unwrap_or_default();
+            if !existing.is_empty() && !existing.ends_with('\n') {
+                existing.push('\n');
+            }
+            let content = if existing.is_empty() {
+                format!("# Agent Notes\n\n{record}")
+            } else {
+                format!("{existing}\n{record}")
+            };
+            write_text_file(&cwd, &path, &content)?;
+            Ok(json!({"path": path, "completed": true, "summary": summary}))
+        }
         "manage_memory" => {
             let action = req_str(args, "action", name)?;
             match action.as_str() {
@@ -16372,6 +16595,77 @@ fn g6_misc_call(
                 "contentType": content_type,
                 "content": content,
                 "truncated": truncated,
+            }))
+        }
+        "search_web" => {
+            let _ = req_str(args, "threadId", name)?;
+            let query = req_str(args, "query", name)?;
+            let max_results = opt_u64(args, "maxResults").unwrap_or(10).clamp(1, 25) as usize;
+            let encoded: String = query
+                .chars()
+                .map(|ch| {
+                    if ch.is_alphanumeric() || "-_.~".contains(ch) {
+                        ch.to_string()
+                    } else {
+                        format!("%{:02X}", ch as u32)
+                    }
+                })
+                .collect();
+            let url = format!("https://html.duckduckgo.com/html/?q={encoded}");
+            let (status, content_type, text) = g6_curl_fetch(&url, 30, name)?;
+            if !(200..300).contains(&status) {
+                return Err(failed(format!("{name} fetch returned HTTP {status}.")));
+            }
+            let tag_regex = regex::RegexBuilder::new("<[^>]+>")
+                .build()
+                .map_err(|_| failed(format!("{name} could not build a tag-stripping pattern.")))?;
+            let mut results: Vec<Value> = Vec::new();
+            for caps in g5_regex_captures(
+                "(?is)class=\"result__a\"[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>",
+                &text,
+            ) {
+                let Some(href) = caps.get(1).cloned().flatten() else {
+                    continue;
+                };
+                let Some(raw_title) = caps.get(2).cloned().flatten() else {
+                    continue;
+                };
+                let mut link = href;
+                if let Some(at) = link.find("uddg=") {
+                    let mut encoded_target = link[at + "uddg=".len()..].to_owned();
+                    if let Some(amp) = encoded_target.find('&') {
+                        encoded_target.truncate(amp);
+                    }
+                    let decoded = g6_percent_decode(&encoded_target);
+                    if !decoded.is_empty() {
+                        link = decoded;
+                    }
+                }
+                if link.starts_with("//") {
+                    link = format!("https:{link}");
+                }
+                let title = tag_regex
+                    .replace_all(&raw_title, "")
+                    .replace("&amp;", "&")
+                    .replace("&quot;", "\"")
+                    .replace("&#39;", "'")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .trim()
+                    .to_owned();
+                results.push(json!({"title": title, "url": link}));
+                if results.len() >= max_results {
+                    break;
+                }
+            }
+            let count = results.len();
+            Ok(json!({
+                "query": query,
+                "url": url,
+                "statusCode": status,
+                "contentType": content_type,
+                "results": results,
+                "count": count,
             }))
         }
         "use_app" => g6_use_app(state, name, args),
@@ -18928,6 +19222,53 @@ pub fn call(
             )?;
             Ok(json!({"path": path, "output": output, "maxPixels": max_pixels, "result": result}))
         }
+        "svg_to_png" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let path = req_str(&args, "path", name)?;
+            if Path::new(&path)
+                .extension()
+                .map_or(true, |x| x.to_string_lossy().to_lowercase() != "svg")
+            {
+                return Err(failed("svg_to_png path must end in .svg."));
+            }
+            let output = opt_str(&args, "output").unwrap_or_else(|| {
+                Path::new(&path)
+                    .with_extension("png")
+                    .to_string_lossy()
+                    .into_owned()
+            });
+            let width = opt_u64(&args, "width");
+            let height = opt_u64(&args, "height");
+            if let Some(width) = width {
+                if width < 1 || width > 4096 {
+                    return Err(failed("svg_to_png width must be 1 to 4096."));
+                }
+            }
+            if let Some(height) = height {
+                if height < 1 || height > 4096 {
+                    return Err(failed("svg_to_png height must be 1 to 4096."));
+                }
+            }
+            validate_relative_path(&path)?;
+            validate_relative_path(&output)?;
+            let mut command = String::from("sips -s format png ");
+            match (width, height) {
+                (Some(width), Some(height)) => {
+                    command.push_str(&format!("--resampleHeightWidth {height} {width} "))
+                }
+                (Some(width), None) => command.push_str(&format!("-Z {width} ")),
+                (None, Some(height)) => command.push_str(&format!("-Z {height} ")),
+                (None, None) => {}
+            }
+            command.push_str(&format!(
+                "{} --out {}",
+                shell_quote(&path),
+                shell_quote(&output)
+            ));
+            let result = run_shell(state, &thread_id, &cwd, &command, 120)?;
+            Ok(json!({"path": path, "output": output, "format": "png", "width": width, "height": height, "result": result}))
+        }
         "image_extract_metadata" => {
             let thread_id = req_str(&args, "threadId", name)?;
             let cwd = req_str(&args, "cwd", name)?;
@@ -19169,6 +19510,94 @@ pub fn call(
             }
             let count = symbols.len();
             Ok(json!({"path": path, "files": files, "symbols": symbols, "count": count}))
+        }
+        "intel_generate_tests" => {
+            let cwd = req_str(&args, "cwd", name)?;
+            let path = req_str(&args, "path", name)?;
+            let test_path = req_str(&args, "testPath", name)?;
+            let module = opt_str(&args, "module").unwrap_or_else(|| {
+                Path::new(&cwd)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            });
+            let overwrite = opt_bool(&args, "overwrite").unwrap_or(false);
+            if !overwrite && workspace_file_exists(&cwd, &test_path)? {
+                return Err(failed("A file already exists at that path; use write_file to overwrite it."));
+            }
+            let file_name = Path::new(&test_path)
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let suite = Path::new(&file_name)
+                .with_extension("")
+                .to_string_lossy()
+                .into_owned();
+            if !valid_swift_identifier(&suite) {
+                return Err(failed(format!(
+                    "Tool \"{name}\" test file name must be a valid Swift identifier for test generation."
+                )));
+            }
+            let mut sources: Vec<String> = Vec::new();
+            if let Ok(entries) = read_dir_entries(&cwd, &path, true) {
+                if entries.is_empty() {
+                    sources = vec![path.clone()];
+                } else {
+                    sources = entries
+                        .iter()
+                        .filter(|e| {
+                            e["isDirectory"] != true
+                                && e["path"]
+                                    .as_str()
+                                    .map(|p| Path::new(p).extension().map_or(false, |x| x == "swift"))
+                                    .unwrap_or(false)
+                        })
+                        .filter_map(|e| e["path"].as_str().map(str::to_owned))
+                        .collect();
+                }
+            } else {
+                sources = vec![path.clone()];
+            }
+            sources.sort();
+            let mut symbols: Vec<Value> = Vec::new();
+            for file in sources {
+                let Ok(document) = read_text_file_at(&cwd, &file) else {
+                    continue;
+                };
+                symbols.extend(extract_symbols(&document, &file));
+            }
+            if symbols.is_empty() {
+                return Err(failed(format!(
+                    "No symbols found in {path}; no test stubs were written."
+                )));
+            }
+            let mut content = format!(
+                "import Testing\n@testable import {module}\n\n@Suite(\"{suite}\")\nstruct {suite} {{\n"
+            );
+            let mut used: Vec<String> = Vec::new();
+            for symbol in &symbols {
+                let kind = symbol["kind"].as_str().unwrap_or("");
+                let symbol_name = symbol["name"].as_str().unwrap_or("");
+                let line = symbol["line"].as_i64().unwrap_or(0);
+                let mut chars = symbol_name.chars();
+                let capitalized = match chars.next() {
+                    Some(first) => first.to_ascii_uppercase().to_string() + chars.as_str(),
+                    None => String::new(),
+                };
+                let mut test_name = format!("test{capitalized}");
+                if used.contains(&test_name) {
+                    test_name = format!("{test_name}_{line}");
+                }
+                used.push(test_name.clone());
+                content.push_str(&format!(
+                    "    @Test(\"Stub for {kind} {symbol_name}\")\n    func {test_name}() {{\n        #expect(Bool(false), \"Replace this stub for {kind} {symbol_name} with a real assertion.\")\n    }}\n"
+                ));
+            }
+            content.push_str("}\n");
+            write_text_file(&cwd, &test_path, &content)?;
+            let symbol_count = symbols.len();
+            let test_count = used.len();
+            Ok(json!({"path": path, "testPath": test_path, "symbols": symbol_count, "tests": test_count}))
         }
         "find_duplicate_files" => {
             let thread_id = req_str(&args, "threadId", name)?;
@@ -20238,6 +20667,153 @@ pub fn call(
             let file_line = file_output.lines().next().unwrap_or("").trim().to_owned();
             Ok(json!({"path": path, "file": file_line, "fileOutput": file_output, "libraries": libraries, "headers": headers, "exitCode": otool_exit, "hvExitCode": hv_exit}))
         }
+        "reverse_analyze" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let cwd = req_str(&args, "cwd", name)?;
+            let inspection = req_str(&args, "inspection", name)?;
+            let timeout = opt_u64(&args, "timeoutSeconds").unwrap_or(60);
+            match inspection.as_str() {
+                "artifact" => {
+                    let path = req_str(&args, "path", name)?;
+                    g3_relative_path(&path, name)?;
+                    if !workspace_file_exists(&cwd, &path)? {
+                        return Err(failed(format!("No such file: {path}.")));
+                    }
+                    let (file_exit, file_output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &["file".to_owned(), path.clone()],
+                        timeout,
+                    )?;
+                    g3_missing_cli("file", file_exit, &file_output)?;
+                    let (otool_exit, otool_output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &["otool".to_owned(), "-L".to_owned(), path.clone()],
+                        timeout,
+                    )?;
+                    g3_missing_cli("otool", otool_exit, &otool_output)?;
+                    let (hv_exit, hv_output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &["otool".to_owned(), "-hv".to_owned(), path.clone()],
+                        timeout,
+                    )?;
+                    let (verify_exit, verify_output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "codesign".to_owned(),
+                            "--verify".to_owned(),
+                            "--verbose".to_owned(),
+                            path.clone(),
+                        ],
+                        timeout,
+                    )?;
+                    g3_missing_cli("codesign", verify_exit, &verify_output)?;
+                    let (dv_exit, dv_output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "codesign".to_owned(),
+                            "-dv".to_owned(),
+                            "--verbose=4".to_owned(),
+                            path.clone(),
+                        ],
+                        timeout,
+                    )?;
+                    let libraries = g3_otool_libraries(&otool_output);
+                    let headers = g3_mach_headers(&hv_output);
+                    let details = g3_codesign(&dv_output);
+                    let file_line = file_output.lines().next().unwrap_or("").trim().to_owned();
+                    let mut result = json!({
+                        "path": path,
+                        "inspection": inspection,
+                        "file": file_line,
+                        "fileOutput": file_output,
+                        "libraries": libraries,
+                        "headers": headers,
+                        "verified": verify_exit == 0,
+                        "verifyExitCode": verify_exit,
+                        "verifyOutput": verify_output,
+                        "signature": details,
+                        "exitCode": otool_exit,
+                        "hvExitCode": hv_exit,
+                        "signatureExitCode": dv_exit,
+                    });
+                    if Path::new(&path)
+                        .extension()
+                        .map_or(false, |x| x.to_string_lossy().to_lowercase() == "plist")
+                    {
+                        if let Ok(plist) = g6_plist_json(&cwd, &path, name) {
+                            if let Some(object) = plist.as_object() {
+                                let mut keys: Vec<String> = object.keys().cloned().collect();
+                                keys.sort();
+                                result["plistKeys"] = json!(keys);
+                            }
+                        }
+                    }
+                    Ok(result)
+                }
+                "disassembly" => {
+                    let path = req_str(&args, "path", name)?;
+                    g3_relative_path(&path, name)?;
+                    if !workspace_file_exists(&cwd, &path)? {
+                        return Err(failed(format!("No such file: {path}.")));
+                    }
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &["otool".to_owned(), "-tV".to_owned(), path.clone()],
+                        timeout,
+                    )?;
+                    g3_missing_cli("otool", exit_code, &output)?;
+                    Ok(json!({"path": path, "inspection": inspection, "disassembly": output, "exitCode": exit_code}))
+                }
+                "demangle" => {
+                    let symbol = req_str(&args, "symbol", name)?;
+                    g3_token(&symbol, "symbol", name)?;
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &[
+                            "xcrun".to_owned(),
+                            "swift-demangle".to_owned(),
+                            symbol.clone(),
+                        ],
+                        timeout,
+                    )?;
+                    g3_missing_cli("xcrun", exit_code, &output)?;
+                    Ok(json!({"symbol": symbol, "inspection": inspection, "demangled": output.trim(), "exitCode": exit_code, "output": output}))
+                }
+                "sqlite_schema" => {
+                    let path = req_str(&args, "path", name)?;
+                    g3_relative_path(&path, name)?;
+                    if !workspace_file_exists(&cwd, &path)? {
+                        return Err(failed(format!("No such file: {path}.")));
+                    }
+                    let (exit_code, output) = g3_run(
+                        state,
+                        &thread_id,
+                        &cwd,
+                        &["sqlite3".to_owned(), path.clone(), ".schema".to_owned()],
+                        timeout,
+                    )?;
+                    g3_missing_cli("sqlite3", exit_code, &output)?;
+                    Ok(json!({"path": path, "inspection": inspection, "schema": output, "exitCode": exit_code}))
+                }
+                _ => Err(failed(
+                    "reverse_analyze inspection must be artifact, disassembly, demangle, or sqlite_schema. REA evidence IDs and confidence scores are unavailable because the REA subsystem does not exist, and Go or managed-metadata inspection is not supported.",
+                )),
+            }
+        }
         "signing_certificate_inspector" => {
             let thread_id = req_str(&args, "threadId", name)?;
             let cwd = req_str(&args, "cwd", name)?;
@@ -20366,6 +20942,7 @@ pub fn call(
         "source_graph_builder" => g5_call(state, name, &args),
         "semantic_query_engine" => g5_call(state, name, &args),
         "code_summary" => g5_call(state, name, &args),
+        "intel_explain_code" => g5_call(state, name, &args),
         "code_lint" => g5_call(state, name, &args),
         "complexity_analysis" => g5_call(state, name, &args),
         "autonomous_review_engine" => g5_call(state, name, &args),
@@ -20481,10 +21058,12 @@ pub fn call(
         "plan-AskUser" => g6_misc_call(state, name, &args),
         "tool_capability_lookup" => g6_misc_call(state, name, &args),
         "session_progress_report" => g6_misc_call(state, name, &args),
+        "report_to_user" => g6_misc_call(state, name, &args),
         "manage_memory" => g6_misc_call(state, name, &args),
         "fetch_documentation" => g6_misc_call(state, name, &args),
         "external_resource_gateway" => g6_misc_call(state, name, &args),
         "read_url_content" => g6_misc_call(state, name, &args),
+        "search_web" => g6_misc_call(state, name, &args),
         "use_app" => g6_misc_call(state, name, &args),
         "derived_data_locate" => g6_misc_call(state, name, &args),
 
@@ -20606,7 +21185,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 326, "Swift registry must hold 326 tools");
+        assert_eq!(swift.len(), 332, "Swift registry must hold 332 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");
