@@ -346,19 +346,25 @@ struct AgentsRuntimeTests {
         #expect(launched?.selection.provider == "claude")
         #expect(launched?.selection.modelID == "claude-sonnet-4")
 
-        let appDefault = RemoteAssistant(
-            id: UUID(),
+        let savedID = await model.saveAssistant(RemoteAssistantDraft(
             name: "Generalist",
             category: .codeReviewSecurity,
             systemPrompt: "Help with the code.",
             allowedTools: ["read_file"]
-        )
-        await model.launchAssistant(appDefault, task: "Help with the code.", in: projID)
+        ))
+        #expect(savedID != nil)
+        guard let savedID, let saved = model.assistants.first(where: { $0.id == savedID }) else {
+            Issue.record("Expected the saved assistant in the assistant list")
+            await model.shutdown()
+            return
+        }
+        await model.launchAssistant(saved, task: "Help with the code.", in: projID)
         await model.refreshWorkspace()
-        let defaultLaunched = model.workspace.threads.first { $0.assistantId == appDefault.id.uuidString }
+        let defaultLaunched = model.workspace.threads.first { $0.assistantId == saved.id.uuidString }
         #expect(defaultLaunched != nil)
         #expect(defaultLaunched?.selection.provider == "codex")
         #expect(defaultLaunched?.selection.modelID == "default")
+        #expect(model.systemPrompt(for: defaultLaunched).text == model.systemPrompt(for: nil, provider: "codex", model: "default", assistant: AssistantPromptDescriptor(saved)).text)
 
         await model.shutdown()
     }
