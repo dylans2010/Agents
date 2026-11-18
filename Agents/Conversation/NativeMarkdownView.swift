@@ -703,7 +703,7 @@ public struct NativeMarkdownView: View {
             if let lower = AttributedString.Index(foundRange.lowerBound, within: attributed),
                let upper = AttributedString.Index(foundRange.upperBound, within: attributed)
             {
-                attributed[lower..<upper].backgroundColor = Color.yellow.opacity(0.38)
+                attributed[lower..<upper].backgroundColor = AppTheme.searchMatchHighlight
             }
             searchStart = foundRange.upperBound
         }
@@ -773,6 +773,7 @@ struct NativeCodeBlockCard: View {
                 }
                 .buttonStyle(.plain)
                 .help("Copy code to clipboard")
+                .accessibilityLabel("Copy code to clipboard")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)

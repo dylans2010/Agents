@@ -169,7 +169,7 @@ struct ScheduleEditorSheet: View {
             Divider()
             sheetFooter
         }
-        .frame(width: 480, height: 540)
+        .frame(minWidth: 440, idealWidth: 480, maxWidth: 560, minHeight: 480, idealHeight: 540, maxHeight: 680)
         .background(AppTheme.windowBackground)
         .onAppear(perform: populateInitialValues)
     }

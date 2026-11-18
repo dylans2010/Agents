@@ -263,6 +263,7 @@ public struct AntigravitySettingsPane: View {
                         }
                         .buttonStyle(.borderless)
                         .help("Reveal in Finder")
+                        .accessibilityLabel("Reveal approved server binary in Finder")
                     }
                 } else {
                     Text("Not pinned yet")
@@ -424,6 +425,7 @@ public struct AntigravitySettingsPane: View {
                         }
                         .controlSize(.small)
                         .help("Delete Keychain Account")
+                        .accessibilityLabel("Delete Gemini API key account \(account.name)")
                     }
                     .padding(.vertical, 2)
                 }
@@ -437,7 +439,7 @@ public struct AntigravitySettingsPane: View {
                 HStack(spacing: 10) {
                     TextField("Account Name", text: $newAccountName)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 200)
+                        .frame(minWidth: 160, idealWidth: 200, maxWidth: 260)
 
                     SecureField("Paste GEMINI_API_KEY…", text: $newAPIKey)
                         .textFieldStyle(.roundedBorder)
@@ -531,7 +533,7 @@ public struct AntigravitySettingsPane: View {
             }
         }
         .padding(20)
-        .frame(width: 380)
+        .frame(minWidth: 340, idealWidth: 380, maxWidth: 440)
     }
 
     private func updateKeySheet(_ account: ProviderKeyAccountInfo) -> some View {
@@ -559,7 +561,7 @@ public struct AntigravitySettingsPane: View {
             }
         }
         .padding(20)
-        .frame(width: 420)
+        .frame(minWidth: 380, idealWidth: 420, maxWidth: 480)
     }
 
     // MARK: - Actions

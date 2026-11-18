@@ -87,7 +87,7 @@ public struct GeneralSettingsPane: View {
             LabeledContent("Font Scale") {
                 HStack(spacing: 10) {
                     Slider(value: $appModel.fontScale, in: 0.8...1.5, step: 0.05)
-                        .frame(width: 200)
+                        .frame(minWidth: 140, idealWidth: 200, maxWidth: 260)
 
                     Text("\(Int((appModel.fontScale * 100).rounded()))%")
                         .font(.system(size: 12, weight: .medium, design: .monospaced))

@@ -112,7 +112,7 @@ public struct SessionImportSheet: View {
 
             footerBar
         }
-        .frame(width: 720, height: 520)
+        .frame(minWidth: 640, idealWidth: 720, maxWidth: 840, minHeight: 460, idealHeight: 520, maxHeight: 640)
         .background(AppTheme.windowBackground)
         .task {
             await reloadSessions()
@@ -158,6 +158,7 @@ public struct SessionImportSheet: View {
             .controlSize(.small)
             .disabled(isScanning)
             .help("Rescan Local CLI Sessions")
+            .accessibilityLabel("Rescan local CLI sessions")
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 13)
@@ -172,7 +173,8 @@ public struct SessionImportSheet: View {
                 }
             }
             .labelsHidden()
-            .frame(width: 145)
+            .accessibilityLabel("Provider filter")
+            .frame(minWidth: 120, idealWidth: 145, maxWidth: 180)
 
             if !regularProjects.isEmpty {
                 Picker("Project", selection: $projectFilterID) {
@@ -182,7 +184,8 @@ public struct SessionImportSheet: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 155)
+                .accessibilityLabel("Project filter")
+                .frame(minWidth: 130, idealWidth: 155, maxWidth: 200)
             }
 
             HStack(spacing: 6) {
@@ -203,6 +206,7 @@ public struct SessionImportSheet: View {
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear session search")
                 }
             }
             .padding(.horizontal, 8)
@@ -382,6 +386,7 @@ public struct SessionImportSheet: View {
                                 }
                                 .buttonStyle(.borderless)
                                 .help("Reveal Working Directory in Finder")
+                                .accessibilityLabel("Reveal working directory in Finder")
                             }
                         }
                     }
@@ -403,6 +408,7 @@ public struct SessionImportSheet: View {
                             }
                             .buttonStyle(.borderless)
                             .help("Reveal Transcript File in Finder")
+                            .accessibilityLabel("Reveal transcript file in Finder")
                         }
                     }
 
@@ -428,6 +434,7 @@ public struct SessionImportSheet: View {
                             }
                         }
                         .labelsHidden()
+                        .accessibilityLabel("Import destination")
                     }
                 }
                 .padding(16)

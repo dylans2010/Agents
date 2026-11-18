@@ -408,6 +408,8 @@ private struct QuestionAttentionCard: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("\(option.label)\(option.detail.map { ", \($0)" } ?? "")")
+                        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
                     }
                 }
             }

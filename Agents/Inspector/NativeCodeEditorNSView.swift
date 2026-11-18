@@ -417,10 +417,12 @@ final class CodeLineNumberRulerView: NSRulerView {
               let textContainer = tv.textContainer
         else { return }
 
-        let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let gutterBg = isDark
-            ? NSColor(srgbRed: 0.11, green: 0.115, blue: 0.13, alpha: 1.0)
-            : NSColor(srgbRed: 0.95, green: 0.955, blue: 0.965, alpha: 1.0)
+        let gutterBg = NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return isDark
+                ? NSColor.white.withAlphaComponent(0.045)
+                : NSColor.black.withAlphaComponent(0.03)
+        }
         gutterBg.setFill()
         bounds.fill()
 

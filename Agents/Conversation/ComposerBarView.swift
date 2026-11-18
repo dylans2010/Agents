@@ -158,6 +158,7 @@ struct ComposerBarView: View {
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Dismiss voice dictation error")
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -289,6 +290,7 @@ struct ComposerBarView: View {
                         }
                         .buttonStyle(.plain)
                         .help("Remove attached image")
+                        .accessibilityLabel("Remove attached image \(img.name)")
                     }
                     .padding(5)
                     .padding(.trailing, 3)
@@ -326,6 +328,7 @@ struct ComposerBarView: View {
                         }
                         .buttonStyle(.plain)
                         .help("Remove @\(filePath) mention")
+                        .accessibilityLabel("Remove file mention \(filePath)")
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
@@ -358,6 +361,7 @@ struct ComposerBarView: View {
             }
             .buttonStyle(.plain)
             .help("Attach images or mention workspace files")
+            .accessibilityLabel("Attach images or mention workspace files")
 
             // 2. Voice Dictation Button + Live Level Meter
             voiceDictationControl
@@ -475,6 +479,7 @@ struct ComposerBarView: View {
             }
             .buttonStyle(.plain)
             .help(vd.isRecording ? "Stop voice dictation" : "Start on-device voice dictation")
+            .accessibilityLabel(vd.isRecording ? "Stop voice dictation" : "Start voice dictation")
             .contextMenu {
                 Section("Microphone Input") {
                     Button {
@@ -629,6 +634,7 @@ struct ComposerBarView: View {
         }
         .buttonStyle(.plain)
         .help("View rate-limit quota windows")
+        .accessibilityLabel("View rate-limit quota windows")
         .popover(isPresented: $showUsageQuotaPopover, arrowEdge: .top) {
             UsageQuotaPopoverContent(appModel: appModel)
         }
@@ -657,6 +663,7 @@ struct ComposerBarView: View {
                 .buttonStyle(.plain)
                 .keyboardShortcut(".", modifiers: [.command])
                 .help("Stop active agent turn (⌘.)")
+                .accessibilityLabel("Stop active agent turn")
             }
 
             if !isTurnRunning || hasSendablePayload {
@@ -686,6 +693,7 @@ struct ComposerBarView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!hasSendablePayload || isSending)
+                .accessibilityLabel(isTurnRunning ? (canSteerRunningTurn ? "Steer running turn" : "Queue follow-up message") : "Send message")
                 .help(
                     isTurnRunning
                         ? "Send into running turn or queue (⌘-Click for alternate delivery)"
@@ -1416,6 +1424,6 @@ private struct UsageQuotaPopoverContent: View {
             }
         }
         .padding(14)
-        .frame(width: 300)
+        .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
     }
 }

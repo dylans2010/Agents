@@ -218,6 +218,7 @@ struct GitInspectorView: View {
                         }
                         .buttonStyle(.borderless)
                         .help("Open on GitHub")
+                        .accessibilityLabel("Open pull request on GitHub")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -601,6 +602,7 @@ struct GitInspectorView: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Refresh Checkpoints")
+                    .accessibilityLabel("Refresh checkpoints")
                 }
             }
 
@@ -680,6 +682,7 @@ struct GitInspectorView: View {
                             }
                             .buttonStyle(.borderless)
                             .help("Copy Commit OID")
+                            .accessibilityLabel("Copy checkpoint commit identifier")
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
@@ -781,7 +784,7 @@ struct GitInspectorView: View {
             }
         }
         .padding(18)
-        .frame(width: 360)
+        .frame(minWidth: 320, idealWidth: 360, maxWidth: 420)
     }
 
     private var sanitizedBranchName: String {

@@ -112,6 +112,7 @@ public struct TerminalDrawerRootView: View {
             .buttonStyle(.borderless)
             .disabled(isCreatingSession)
             .help("New Terminal Session")
+            .accessibilityLabel("New terminal session")
 
             Divider()
                 .frame(height: 16)
@@ -127,6 +128,7 @@ public struct TerminalDrawerRootView: View {
             }
             .buttonStyle(.borderless)
             .help(isSplitView ? "Close Split Terminal View" : "Split Terminal Side-by-Side")
+            .accessibilityLabel(isSplitView ? "Close split terminal view" : "Split terminal side by side")
 
             // Project Scripts Quick-Run Menu
             if let project = appModel.selectedProject, !project.scripts.isEmpty {
@@ -153,6 +155,7 @@ public struct TerminalDrawerRootView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .help("Run Project Script")
+                .accessibilityLabel("Run project script")
             }
 
             Spacer(minLength: 4)
@@ -181,6 +184,7 @@ public struct TerminalDrawerRootView: View {
             .buttonStyle(.borderless)
             .disabled(activeFocusedTerminalID == nil)
             .help("Clear Terminal (⌘K)")
+            .accessibilityLabel("Clear terminal")
 
             // Restart
             Button {
@@ -193,6 +197,7 @@ public struct TerminalDrawerRootView: View {
             .buttonStyle(.borderless)
             .disabled(activeFocusedTerminalID == nil)
             .help("Restart Shell Process")
+            .accessibilityLabel("Restart shell process")
 
             // Send Output to Composer
             Button {
@@ -210,6 +215,7 @@ public struct TerminalDrawerRootView: View {
             .buttonStyle(.borderless)
             .disabled(activeFocusedTerminalID == nil)
             .help("Send Terminal Output to Composer")
+            .accessibilityLabel("Send terminal output to composer")
 
             // Open External Terminal
             externalTerminalButton
@@ -228,6 +234,7 @@ public struct TerminalDrawerRootView: View {
             .buttonStyle(.borderless)
             .padding(.trailing, 6)
             .help("Hide Terminal (⌘J)")
+            .accessibilityLabel("Hide terminal")
         }
     }
 
@@ -259,6 +266,7 @@ public struct TerminalDrawerRootView: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
             .help("Open Working Directory in External Terminal")
+            .accessibilityLabel("Open working directory in external terminal")
         } else {
             Button {
                 if let preferred = appModel.externalEditors.preferredTerminal {
@@ -272,6 +280,7 @@ public struct TerminalDrawerRootView: View {
             .buttonStyle(.borderless)
             .disabled(installed.isEmpty)
             .help("Open Working Directory in External Terminal")
+            .accessibilityLabel("Open working directory in external terminal")
         }
     }
 
@@ -343,6 +352,7 @@ public struct TerminalDrawerRootView: View {
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
+                    .accessibilityLabel("Terminal session in \(slot == .primary ? "primary" : "secondary") pane")
 
                     if let code = summary?.exitCode, summary?.exited == true {
                         ExitCodeBadge(exitCode: code)
@@ -361,6 +371,7 @@ public struct TerminalDrawerRootView: View {
                         }
                         .buttonStyle(.plain)
                         .help("Unsplit Pane")
+                        .accessibilityLabel("Unsplit terminal pane")
                     }
                 }
                 .padding(.horizontal, 10)
@@ -389,6 +400,7 @@ public struct TerminalDrawerRootView: View {
                     snapshotsByID[terminalID] = snap
                 }
             )
+            .accessibilityLabel("\(summary.map(sessionDisplayTitle) ?? "Terminal") terminal")
             .overlay(alignment: .bottom) {
                 if let summary, summary.exited {
                     exitedBanner(for: summary)
@@ -683,6 +695,7 @@ private struct TerminalTabChip: View {
             }
             .buttonStyle(.plain)
             .help("Close Terminal")
+            .accessibilityLabel("Close terminal \(displayTitle)")
         }
         .padding(.leading, 8)
         .padding(.trailing, 5)
@@ -698,6 +711,8 @@ private struct TerminalTabChip: View {
         .contentShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
         .onTapGesture(perform: onSelect)
         .onHover { isHovering = $0 }
+        .accessibilityLabel("\(displayTitle) terminal\(session.exited ? ", exited with code \(session.exitCode ?? 0)" : "")")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     @ViewBuilder

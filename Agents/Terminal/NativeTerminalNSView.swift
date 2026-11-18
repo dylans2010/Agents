@@ -90,6 +90,34 @@ public final class TerminalCanvasNSView: NSView {
         let rows: Int
     }
 
+    private static let defaultBackgroundColor = NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark
+            ? NSColor(srgbRed: 0.067, green: 0.075, blue: 0.094, alpha: 1.0)
+            : NSColor(srgbRed: 0.980, green: 0.984, blue: 0.992, alpha: 1.0)
+    }
+
+    private static let defaultForegroundColor = NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark
+            ? NSColor(srgbRed: 0.902, green: 0.929, blue: 0.953, alpha: 1.0)
+            : NSColor(srgbRed: 0.122, green: 0.137, blue: 0.157, alpha: 1.0)
+    }
+
+    private static let cursorTintColor = NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark
+            ? NSColor(srgbRed: 0.42, green: 0.69, blue: 1.0, alpha: 0.92)
+            : NSColor(srgbRed: 0.12, green: 0.44, blue: 0.92, alpha: 0.90)
+    }
+
+    private static let jumpBadgeBackgroundColor = NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark
+            ? NSColor(srgbRed: 0.16, green: 0.20, blue: 0.28, alpha: 0.94)
+            : NSColor(srgbRed: 0.90, green: 0.93, blue: 0.98, alpha: 0.95)
+    }
+
     // Configuration
     private var terminalID: String = ""
     private var runtime: AgentsRuntimeClient?
@@ -381,12 +409,8 @@ public final class TerminalCanvasNSView: NSView {
 
     override public func draw(_ dirtyRect: NSRect) {
         let isDark = effectiveIsDarkMode()
-        let defaultBG = isDark
-            ? NSColor(srgbRed: 0.067, green: 0.075, blue: 0.094, alpha: 1.0)
-            : NSColor(srgbRed: 0.980, green: 0.984, blue: 0.992, alpha: 1.0)
-        let defaultFG = isDark
-            ? NSColor(srgbRed: 0.902, green: 0.929, blue: 0.953, alpha: 1.0)
-            : NSColor(srgbRed: 0.122, green: 0.137, blue: 0.157, alpha: 1.0)
+        let defaultBG = Self.defaultBackgroundColor
+        let defaultFG = Self.defaultForegroundColor
 
         defaultBG.setFill()
         dirtyRect.fill()
@@ -512,9 +536,7 @@ public final class TerminalCanvasNSView: NSView {
                     width: cellWidth,
                     height: cellHeight
                 )
-                let cursorTint = isDark
-                    ? NSColor(srgbRed: 0.42, green: 0.69, blue: 1.0, alpha: 0.92)
-                    : NSColor(srgbRed: 0.12, green: 0.44, blue: 0.92, alpha: 0.90)
+                let cursorTint = Self.cursorTintColor
                 let isFocused = (window?.firstResponder === self) && (window?.isKeyWindow ?? false)
 
                 let shape = snapshot.cursorShape.lowercased()
@@ -621,9 +643,7 @@ public final class TerminalCanvasNSView: NSView {
         )
         jumpToBottomRect = pillRect
 
-        let bg = isDark
-            ? NSColor(srgbRed: 0.16, green: 0.20, blue: 0.28, alpha: 0.94)
-            : NSColor(srgbRed: 0.90, green: 0.93, blue: 0.98, alpha: 0.95)
+        let bg = Self.jumpBadgeBackgroundColor
         bg.setFill()
         let path = NSBezierPath(roundedRect: pillRect, xRadius: pillHeight / 2, yRadius: pillHeight / 2)
         path.fill()

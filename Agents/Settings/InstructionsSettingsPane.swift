@@ -73,6 +73,7 @@ public struct InstructionsSettingsPane: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Rescan Instruction Files")
+                .accessibilityLabel("Rescan instruction files")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)

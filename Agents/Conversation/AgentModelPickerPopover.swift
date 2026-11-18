@@ -206,7 +206,7 @@ struct AgentModelPickerPopover: View {
                 }
             }
             .padding(10)
-            .frame(width: 195)
+            .frame(minWidth: 180, idealWidth: 195, maxWidth: 220)
             .background(Color.primary.opacity(0.025))
 
             Divider()
@@ -243,10 +243,10 @@ struct AgentModelPickerPopover: View {
                     }
                 }
                 .padding(14)
-                .frame(width: 345)
+                .frame(minWidth: 320, idealWidth: 345, maxWidth: 380)
             }
         }
-        .frame(height: 430)
+        .frame(minHeight: 380, idealHeight: 430, maxHeight: 520)
         .onAppear {
             focusedProviderID = activeSelection.provider
         }
@@ -444,6 +444,7 @@ struct AgentModelPickerPopover: View {
                 }
                 .buttonStyle(.plain)
                 .help("Refresh model catalog")
+                .accessibilityLabel("Refresh model catalog")
             }
 
             if modelList.count > 5 || !modelFilter.isEmpty {
@@ -516,10 +517,11 @@ struct AgentModelPickerPopover: View {
                                 } label: {
                                     Image(systemName: model.isFavorite ? "star.fill" : "star")
                                         .font(.system(size: 10.5))
-                                        .foregroundStyle(model.isFavorite ? Color.yellow : AppTheme.quaternaryLabel)
+                                        .foregroundStyle(model.isFavorite ? AppTheme.favoriteStar : AppTheme.quaternaryLabel)
                                 }
                                 .buttonStyle(.plain)
                                 .help(model.isFavorite ? "Remove favorite" : "Pin favorite model")
+                                .accessibilityLabel(model.isFavorite ? "Remove \(model.name) from favorites" : "Pin \(model.name) as favorite")
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)

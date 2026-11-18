@@ -70,7 +70,8 @@ public struct ModelsSettingsPane: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 190)
+                .accessibilityLabel("Model provider")
+                .frame(minWidth: 160, idealWidth: 190, maxWidth: 240)
             }
 
             HStack(spacing: 6) {
@@ -86,6 +87,7 @@ public struct ModelsSettingsPane: View {
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear model filter")
                 }
             }
             .padding(.horizontal, 8)
@@ -238,16 +240,18 @@ public struct ModelsSettingsPane: View {
                 }
                 .buttonStyle(.borderless)
                 .help(model.isDefault ? "Default Model" : "Set as Default Model")
+                .accessibilityLabel(model.isDefault ? "Default model \(model.name)" : "Set \(model.name) as default model")
 
                 Button {
                     Task { await toggleFavorite(model) }
                 } label: {
                     Image(systemName: model.isFavorite ? "heart.fill" : "heart")
-                        .foregroundStyle(model.isFavorite ? Color(nsColor: .systemPink) : AppTheme.tertiaryLabel)
+                        .foregroundStyle(model.isFavorite ? AppTheme.favoriteHeart : AppTheme.tertiaryLabel)
                         .frame(width: 24, height: 24)
                 }
                 .buttonStyle(.borderless)
                 .help(model.isFavorite ? "Remove from Favorites" : "Pin to Favorites")
+                .accessibilityLabel(model.isFavorite ? "Remove \(model.name) from favorites" : "Pin \(model.name) to favorites")
 
                 Button {
                     Task { await toggleHidden(model) }
@@ -258,6 +262,7 @@ public struct ModelsSettingsPane: View {
                 }
                 .buttonStyle(.borderless)
                 .help(model.isHidden ? "Show in Composer Picker" : "Hide from Composer Picker")
+                .accessibilityLabel(model.isHidden ? "Show \(model.name) in composer picker" : "Hide \(model.name) from composer picker")
             }
         }
         .padding(.vertical, 4)

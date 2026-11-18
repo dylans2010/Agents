@@ -254,7 +254,7 @@ public struct CommandPaletteSheet: View {
 
             footerHintBar
         }
-        .frame(width: 620, height: 420)
+        .frame(minWidth: 560, idealWidth: 620, maxWidth: 720, minHeight: 360, idealHeight: 420, maxHeight: 560)
         .background(AppTheme.windowBackground)
         .onAppear {
             selectedIndex = 0
@@ -296,6 +296,7 @@ public struct CommandPaletteSheet: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 15))
                 .focused($isSearchFocused)
+                .accessibilityLabel("Search commands, threads, projects, bots, or files")
                 .onSubmit {
                     activateHighlightedItem()
                 }
@@ -314,6 +315,7 @@ public struct CommandPaletteSheet: View {
                         .foregroundStyle(AppTheme.tertiaryLabel)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Clear command palette search")
             }
         }
         .padding(.horizontal, 16)
@@ -409,6 +411,8 @@ public struct CommandPaletteSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(item.title), \(item.category.rawValue)\(item.subtitle.map { ", \($0)" } ?? "")")
+        .accessibilityAddTraits(isHighlighted ? [.isButton, .isSelected] : .isButton)
     }
 
     @ViewBuilder

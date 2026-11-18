@@ -45,6 +45,7 @@ struct CheckoutPopoverView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Refresh Git branches")
+                .accessibilityLabel("Refresh Git branches")
             }
 
             if let checkout {
@@ -140,6 +141,7 @@ struct CheckoutPopoverView: View {
                                         .foregroundStyle(AppTheme.tertiaryLabel)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel("Clear branch filter")
                             }
                         }
                         .padding(.horizontal, 8)
@@ -212,7 +214,7 @@ struct CheckoutPopoverView: View {
             }
         }
         .padding(14)
-        .frame(width: 330)
+        .frame(minWidth: 300, idealWidth: 330, maxWidth: 380)
         .task {
             await reloadCheckout()
         }

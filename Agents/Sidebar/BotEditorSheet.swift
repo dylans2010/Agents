@@ -106,7 +106,7 @@ public struct BotEditorSheet: View {
 
             footerBar
         }
-        .frame(width: 640, height: 660)
+        .frame(minWidth: 580, idealWidth: 640, maxWidth: 720, minHeight: 560, idealHeight: 660, maxHeight: 780)
         .background(AppTheme.windowBackground)
         .onAppear {
             initializeFromEditingBotIfNeeded()
@@ -276,7 +276,7 @@ public struct BotEditorSheet: View {
                                         .frame(width: 26, height: 26)
                                         .overlay(
                                             Circle()
-                                                .strokeBorder(Color.black.opacity(0.18), lineWidth: 1)
+                                                .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
                                         )
 
                                     if isSelected {
@@ -293,6 +293,7 @@ public struct BotEditorSheet: View {
                             }
                             .buttonStyle(.plain)
                             .help(tint.rawValue.capitalized)
+                            .accessibilityLabel("Tint \(tint.rawValue.capitalized)")
                         }
                         Spacer(minLength: 0)
                     }

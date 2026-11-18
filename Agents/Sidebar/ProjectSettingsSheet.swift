@@ -137,7 +137,7 @@ public struct ProjectSettingsSheet: View {
 
             footerBar
         }
-        .frame(width: 600, height: 560)
+        .frame(minWidth: 540, idealWidth: 600, maxWidth: 680, minHeight: 480, idealHeight: 560, maxHeight: 680)
         .background(AppTheme.windowBackground)
         .task {
             await loadProjectConfiguration()
@@ -174,6 +174,7 @@ public struct ProjectSettingsSheet: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             .help("Reveal Project Folder in Finder")
+            .accessibilityLabel("Reveal project folder in Finder")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -364,10 +365,11 @@ public struct ProjectSettingsSheet: View {
             .menuStyle(.borderlessButton)
             .frame(width: 30)
             .help("Script Icon")
+            .accessibilityLabel("Script icon, currently \(script.wrappedValue.icon)")
 
             TextField("Name", text: script.name)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 130)
+                .frame(minWidth: 100, idealWidth: 130, maxWidth: 180)
 
             TextField("Shell command (e.g. swift test)", text: script.command)
                 .textFieldStyle(.roundedBorder)
@@ -384,6 +386,7 @@ public struct ProjectSettingsSheet: View {
                 .buttonStyle(.borderless)
                 .disabled(index == 0)
                 .help("Move Up")
+                .accessibilityLabel("Move script up")
 
                 Button {
                     guard index + 1 < scripts.count else { return }
@@ -395,6 +398,7 @@ public struct ProjectSettingsSheet: View {
                 .buttonStyle(.borderless)
                 .disabled(index + 1 >= scripts.count)
                 .help("Move Down")
+                .accessibilityLabel("Move script down")
 
                 Button(role: .destructive) {
                     scripts.removeAll { $0.id == currentID }
@@ -405,6 +409,7 @@ public struct ProjectSettingsSheet: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Remove Script")
+                .accessibilityLabel("Remove script \(script.wrappedValue.name.isEmpty ? "unnamed" : script.wrappedValue.name)")
             }
         }
         .padding(.vertical, 2)

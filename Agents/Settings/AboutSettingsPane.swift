@@ -153,6 +153,7 @@ public struct AboutSettingsPane: View {
                                 Capsule()
                                     .strokeBorder(AppTheme.separator, lineWidth: 1)
                             )
+                            .accessibilityLabel("\(provider.displayName), \((provider.isEnabled && (provider.isApproved || provider.state == "ready")) ? "ready" : "not ready")")
                         }
                     }
                     .padding(.vertical, 2)

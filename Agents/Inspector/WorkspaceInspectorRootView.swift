@@ -70,6 +70,7 @@ public struct WorkspaceInspectorRootView: View {
                 .buttonStyle(.borderless)
                 .disabled(isRefreshing)
                 .help("Refresh \(appModel.inspectorTab.title)")
+                .accessibilityLabel("Refresh \(appModel.inspectorTab.title)")
 
                 Button {
                     appModel.inspectorVisible = false
@@ -80,6 +81,7 @@ public struct WorkspaceInspectorRootView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Hide Inspector (⌥⌘I)")
+                .accessibilityLabel("Hide inspector")
             }
 
             HStack(spacing: 4) {
@@ -247,6 +249,6 @@ private struct InspectorTabPillButton: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .help(tab.title)
-        .accessibilityLabel(tab.title)
+        .accessibilityLabel(badgeText.map { "\(tab.title), \($0)" } ?? tab.title)
     }
 }

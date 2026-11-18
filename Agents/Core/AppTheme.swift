@@ -80,6 +80,33 @@ public enum AppTheme {
     public static var diffDeletionBackground: Color { Color(nsColor: .systemRed).opacity(0.12) }
     public static var diffHunkHeaderBackground: Color { Color(nsColor: .systemBlue).opacity(0.10) }
 
+    public static var findHighlightBackground: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor.systemYellow.withAlphaComponent(isDark ? 0.20 : 0.14)
+        })
+    }
+
+    public static var findHighlightBorder: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor.systemYellow.withAlphaComponent(isDark ? 0.75 : 0.65)
+        })
+    }
+
+    public static var searchMatchHighlight: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor.systemYellow.withAlphaComponent(isDark ? 0.42 : 0.34)
+        })
+    }
+
+    public static var favoriteStar: Color { Color(nsColor: .systemYellow) }
+
+    public static var merged: Color { Color(nsColor: .systemPurple) }
+
+    public static var favoriteHeart: Color { Color(nsColor: .systemPink) }
+
     // Card & Subtle Elevation Tokens
     public static var elevatedCardFill: Color {
         Color(nsColor: NSColor(name: nil) { appearance in

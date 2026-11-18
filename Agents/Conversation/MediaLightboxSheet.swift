@@ -181,6 +181,7 @@ private struct MediaThumbnailTile: View {
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
         .help(media.label.isEmpty ? "Open full-size media preview" : media.label)
+        .accessibilityLabel(media.label.isEmpty ? "Open full-size media preview" : "Preview \(media.label)")
         .task(id: "\(threadID.uuidString):\(itemID.uuidString):\(media.index)") {
             await loadThumbnailIfNeeded()
         }
@@ -284,6 +285,7 @@ struct MediaLightboxSheet: View {
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .accessibilityLabel("Zoom out")
 
                         Text("\(Int((zoomScale * 100).rounded()))%")
                             .font(.system(size: 11, design: .monospaced))
@@ -298,6 +300,7 @@ struct MediaLightboxSheet: View {
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .accessibilityLabel("Zoom in")
                     }
 
                     Button {
@@ -326,6 +329,7 @@ struct MediaLightboxSheet: View {
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.cancelAction)
+                .accessibilityLabel("Close preview")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

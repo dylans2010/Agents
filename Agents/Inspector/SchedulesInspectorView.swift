@@ -159,6 +159,7 @@ struct SchedulesInspectorView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                .accessibilityLabel("Schedule scope filter")
                 .controlSize(.small)
 
                 Button {
@@ -499,6 +500,7 @@ private struct ScheduledTaskCard: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Open Target / Last Run Conversation")
+                    .accessibilityLabel("Open target or last run conversation")
                 }
 
                 Spacer(minLength: 0)
@@ -516,6 +518,7 @@ private struct ScheduledTaskCard: View {
                 .buttonStyle(.borderless)
                 .disabled(isBusy)
                 .help("Delete Schedule")
+                .accessibilityLabel("Delete schedule \(task.name.isEmpty ? "Untitled Schedule" : task.name)")
             }
         }
         .padding(10)

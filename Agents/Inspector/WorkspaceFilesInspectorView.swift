@@ -122,6 +122,7 @@ struct WorkspaceFilesInspectorView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                .accessibilityLabel("File browser mode")
                 .controlSize(.small)
 
                 Button {
@@ -132,6 +133,7 @@ struct WorkspaceFilesInspectorView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Reveal \((activeCwd as NSString).abbreviatingWithTildeInPath) in Finder")
+                .accessibilityLabel("Reveal workspace folder in Finder")
             }
 
             HStack(spacing: 6) {
@@ -162,6 +164,7 @@ struct WorkspaceFilesInspectorView: View {
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear file search")
                 }
             }
             .padding(.horizontal, 7)
@@ -417,6 +420,7 @@ struct WorkspaceFilesInspectorView: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
             .help("Mention @\(doc.path) in Composer")
+            .accessibilityLabel("Mention file in composer")
 
             // Reveal in Finder
             Button {
@@ -427,6 +431,7 @@ struct WorkspaceFilesInspectorView: View {
             }
             .buttonStyle(.borderless)
             .help("Reveal in Finder")
+            .accessibilityLabel("Reveal file in Finder")
 
             // Open at Line in External Editor
             Menu {
@@ -461,6 +466,7 @@ struct WorkspaceFilesInspectorView: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
             .help("Open at Line \(cursorLine) in External Editor")
+            .accessibilityLabel("Open file in external editor")
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)

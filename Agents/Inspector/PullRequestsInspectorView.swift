@@ -178,6 +178,7 @@ struct PullRequestsInspectorView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                .accessibilityLabel("Pull request state filter")
                 .controlSize(.small)
 
                 Menu {
@@ -194,6 +195,7 @@ struct PullRequestsInspectorView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .help("Filter by Author / Review (\(involvementScope.title))")
+                .accessibilityLabel("Filter pull requests by author or review, currently \(involvementScope.title)")
 
                 Button {
                     Task { await loadPullRequests() }
@@ -209,6 +211,7 @@ struct PullRequestsInspectorView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Refresh Pull Requests")
+                .accessibilityLabel("Refresh pull requests")
             }
 
             HStack(spacing: 6) {
@@ -227,6 +230,7 @@ struct PullRequestsInspectorView: View {
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear pull request search")
                 }
             }
             .padding(.horizontal, 7)
@@ -658,7 +662,7 @@ struct PullRequestsInspectorView: View {
             }
             switch pr.state {
             case .open: return ("Open", AppTheme.success)
-            case .merged: return ("Merged", Color(nsColor: .systemPurple))
+            case .merged: return ("Merged", AppTheme.merged)
             case .closed: return ("Closed", AppTheme.danger)
             case .unknown: return ("Unknown", AppTheme.secondaryLabel)
             }
@@ -1061,7 +1065,7 @@ private struct PullRequestSummaryRow: View {
         if pr.isDraft && pr.state == .open { return AppTheme.secondaryLabel }
         return switch pr.state {
         case .open: AppTheme.success
-        case .merged: Color(nsColor: .systemPurple)
+        case .merged: AppTheme.merged
         case .closed: AppTheme.danger
         case .unknown: AppTheme.secondaryLabel
         }

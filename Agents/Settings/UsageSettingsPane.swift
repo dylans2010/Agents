@@ -104,7 +104,8 @@ public struct UsageSettingsPane: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 220)
+            .accessibilityLabel("Usage period")
+            .frame(minWidth: 170, idealWidth: 220, maxWidth: 260)
 
             Picker("Provider", selection: $selectedProviderFilter) {
                 Text("All Providers").tag("all")
@@ -113,7 +114,8 @@ public struct UsageSettingsPane: View {
                 }
             }
             .labelsHidden()
-            .frame(width: 175)
+            .accessibilityLabel("Usage provider filter")
+            .frame(minWidth: 140, idealWidth: 175, maxWidth: 220)
 
             Picker("Metric", selection: $chartMetric) {
                 ForEach(ChartMetric.allCases) { metric in
@@ -122,7 +124,8 @@ public struct UsageSettingsPane: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 190)
+            .accessibilityLabel("Chart metric")
+            .frame(minWidth: 150, idealWidth: 190, maxWidth: 230)
 
             Spacer()
 
@@ -152,7 +155,7 @@ public struct UsageSettingsPane: View {
     private var kpiSummaryGrid: some View {
         let totals = report.period
         return LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5),
+            columns: Array(repeating: GridItem(.flexible(minimum: 128), spacing: 10), count: 5),
             spacing: 10
         ) {
             kpiCard(
@@ -171,7 +174,7 @@ public struct UsageSettingsPane: View {
                 title: "Output Tokens",
                 value: formatCompactCount(totals.outputTokens),
                 subtitle: totals.reasoningTokens > 0 ? "+\(formatCompactCount(totals.reasoningTokens)) reasoning" : "Generated tokens",
-                tint: Color(nsColor: .systemPurple)
+                tint: AppTheme.merged
             )
             kpiCard(
                 title: "Cached Input",

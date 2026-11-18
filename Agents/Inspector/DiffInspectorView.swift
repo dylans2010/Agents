@@ -175,6 +175,7 @@ struct DiffInspectorView: View {
                     }
                     .buttonStyle(.borderless)
                     .help(wrapsLines ? "Disable Line Wrapping" : "Wrap Long Diff Lines")
+                    .accessibilityLabel(wrapsLines ? "Disable line wrapping" : "Wrap long diff lines")
 
                     Button {
                         copyAllPatchesToPasteboard()
@@ -185,6 +186,7 @@ struct DiffInspectorView: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Copy Full Unified Patch")
+                    .accessibilityLabel("Copy full unified patch")
                 }
 
                 Button {
@@ -201,6 +203,7 @@ struct DiffInspectorView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Refresh Diff")
+                .accessibilityLabel("Refresh diff")
             }
 
             if rawDiffFiles.count > 3 || !fileFilterQuery.isEmpty {
@@ -220,6 +223,7 @@ struct DiffInspectorView: View {
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Clear file filter")
                     }
                 }
                 .padding(.horizontal, 7)

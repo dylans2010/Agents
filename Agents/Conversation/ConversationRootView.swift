@@ -333,6 +333,7 @@ public struct ConversationRootView: View {
                 .foregroundStyle(appModel.showFindBar ? AppTheme.accent : AppTheme.primaryLabel)
         }
         .help("Find in Conversation (⌘F)")
+        .accessibilityLabel("Find in conversation")
 
         // 4. Integrated Terminal (`terminal`)
         Button {
@@ -342,6 +343,7 @@ public struct ConversationRootView: View {
                 .foregroundStyle(appModel.terminalVisible ? AppTheme.accent : AppTheme.primaryLabel)
         }
         .help("Toggle Integrated Terminal (⌘J)")
+        .accessibilityLabel("Toggle integrated terminal")
 
         // 5. Workspace Inspector (`sidebar.right`) with Uncommitted Diff File Count Badge
         Button {
@@ -365,6 +367,11 @@ public struct ConversationRootView: View {
             uncommittedDiffFileCount > 0
                 ? "Toggle Workspace Inspector (\(uncommittedDiffFileCount) uncommitted \(uncommittedDiffFileCount == 1 ? "file" : "files"))"
                 : "Toggle Workspace Inspector (⌥⌘I)"
+        )
+        .accessibilityLabel(
+            uncommittedDiffFileCount > 0
+                ? "Toggle workspace inspector, \(uncommittedDiffFileCount) uncommitted files"
+                : "Toggle workspace inspector"
         )
     }
 
@@ -469,6 +476,7 @@ public struct ConversationRootView: View {
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
                 }
             }
             .padding(.horizontal, 9)
@@ -502,6 +510,7 @@ public struct ConversationRootView: View {
                 .controlSize(.small)
                 .disabled(matches.isEmpty)
                 .help("Previous match")
+                .accessibilityLabel("Previous match")
 
                 Button {
                     stepFindMatch(delta: 1)
@@ -514,6 +523,7 @@ public struct ConversationRootView: View {
                 .controlSize(.small)
                 .disabled(matches.isEmpty)
                 .help("Next match")
+                .accessibilityLabel("Next match")
             }
 
             Spacer()
@@ -542,7 +552,7 @@ public struct ConversationRootView: View {
             TextField("Conversation title", text: $renameDraft)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 12.5))
-                .frame(width: 260)
+                .frame(minWidth: 240, idealWidth: 280, maxWidth: 340)
                 .onSubmit {
                     commitThreadRename(for: thread)
                 }

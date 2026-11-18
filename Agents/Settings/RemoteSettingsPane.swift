@@ -145,6 +145,7 @@ public struct RemoteSettingsPane: View {
                                     .strokeBorder(AppTheme.separator, lineWidth: 1)
                             )
                             .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+                            .accessibilityLabel("Pairing QR code. Scan with Coincide Remote on iPhone or iPad.")
                     }
 
                     VStack(spacing: 4) {

@@ -186,13 +186,13 @@ struct TranscriptBlockRowView: View {
         }
         .padding(isActiveFindMatch ? 6 : 0)
         .background(
-            isActiveFindMatch ? Color.yellow.opacity(0.08) : Color.clear,
+            isActiveFindMatch ? AppTheme.findHighlightBackground : Color.clear,
             in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
         )
         .overlay {
             if isActiveFindMatch {
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                    .strokeBorder(Color.yellow.opacity(0.65), lineWidth: 1.5)
+                    .strokeBorder(AppTheme.findHighlightBorder, lineWidth: 1.5)
             }
         }
     }
@@ -313,6 +313,7 @@ struct UserTurnRow: View {
                             }
                             .buttonStyle(.plain)
                             .help("Copy message")
+                            .accessibilityLabel("Copy message")
 
                             Button {
                                 quoteInComposer()
@@ -323,6 +324,7 @@ struct UserTurnRow: View {
                             }
                             .buttonStyle(.plain)
                             .help("Quote in composer")
+                            .accessibilityLabel("Quote in composer")
                         }
 
                         if !item.steered {
@@ -335,6 +337,7 @@ struct UserTurnRow: View {
                             }
                             .buttonStyle(.plain)
                             .help("Edit / Rewind Conversation…")
+                            .accessibilityLabel("Edit or rewind conversation")
                         }
                     }
                 }

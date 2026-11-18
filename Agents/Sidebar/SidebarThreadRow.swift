@@ -89,6 +89,7 @@ public struct SidebarThreadRow: View {
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
+        .accessibilityLabel("\(displayTitle), \(Self.compactRelativeAge(from: thread.updatedAt)) ago")
         .onHover { hovering in
             isHovering = hovering
         }
@@ -184,6 +185,7 @@ public struct SidebarThreadRow: View {
                 }
                 .buttonStyle(.plain)
                 .help("Unsnooze Thread")
+                .accessibilityLabel("Unsnooze thread")
             }
 
             if attentionCount > 0 {
@@ -236,7 +238,7 @@ public struct SidebarThreadRow: View {
 
             TextField("Thread Title", text: $renameDraft)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 240)
+                .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
                 .focused($isRenameFieldFocused)
                 .onSubmit {
                     commitRename()

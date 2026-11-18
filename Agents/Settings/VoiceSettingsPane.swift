@@ -81,7 +81,7 @@ public struct VoiceSettingsPane: View {
                     ProgressView(value: Double(dictation.audioLevel), total: 1.0)
                         .progressViewStyle(.linear)
                         .tint(dictation.audioLevel > 0.8 ? AppTheme.warning : AppTheme.success)
-                        .frame(width: 220)
+                        .frame(minWidth: 140, idealWidth: 220, maxWidth: 280)
 
                     Text(approximateDecibelsText)
                         .font(.system(size: 11.5, design: .monospaced))
@@ -116,7 +116,7 @@ public struct VoiceSettingsPane: View {
                 LabeledContent("Downloading Speech Assets") {
                     HStack(spacing: 8) {
                         ProgressView(value: progress, total: 1.0)
-                            .frame(width: 180)
+                            .frame(minWidth: 120, idealWidth: 180, maxWidth: 240)
                         Text("\(Int((progress * 100).rounded()))%")
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.secondaryLabel)

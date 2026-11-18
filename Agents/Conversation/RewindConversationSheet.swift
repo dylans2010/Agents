@@ -147,7 +147,7 @@ struct RewindConversationSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 480)
+        .frame(minWidth: 440, idealWidth: 480, maxWidth: 560)
         .task {
             await fetchOptions()
         }

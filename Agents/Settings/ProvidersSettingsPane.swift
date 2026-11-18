@@ -120,7 +120,8 @@ public struct ProvidersSettingsPane: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 320)
+            .accessibilityLabel("Providers section")
+            .frame(minWidth: 260, idealWidth: 320, maxWidth: 380)
 
             Spacer()
 
@@ -399,6 +400,7 @@ public struct ProvidersSettingsPane: View {
                             Image(systemName: "trash")
                         }
                         .controlSize(.small)
+                        .accessibilityLabel("Delete API key account \(account.name)")
                     }
                 }
             }
@@ -410,7 +412,7 @@ public struct ProvidersSettingsPane: View {
                 HStack(spacing: 8) {
                     TextField("Account Name", text: $newKeyAccountName)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 150)
+                        .frame(minWidth: 120, idealWidth: 150, maxWidth: 190)
 
                     if provider.keyChoices.count > 1 {
                         Picker("", selection: $newKeyEnvName) {
@@ -419,7 +421,8 @@ public struct ProvidersSettingsPane: View {
                             }
                         }
                         .labelsHidden()
-                        .frame(width: 170)
+                        .accessibilityLabel("API key environment variable")
+                        .frame(minWidth: 140, idealWidth: 170, maxWidth: 210)
                     }
 
                     SecureField("Paste \(resolvedKeyEnvName(for: provider))…", text: $newKeySecret)
@@ -484,6 +487,7 @@ public struct ProvidersSettingsPane: View {
                                 Image(systemName: "trash")
                             }
                             .controlSize(.small)
+                            .accessibilityLabel("Delete login profile \(profile.name)")
                         }
                     }
                     .padding(.vertical, 2)
@@ -523,7 +527,7 @@ public struct ProvidersSettingsPane: View {
                         TextField("KEY", text: $pair.key)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11.5, design: .monospaced))
-                            .frame(width: 180)
+                            .frame(minWidth: 140, idealWidth: 180, maxWidth: 240)
 
                         TextField("Value", text: $pair.value)
                             .textFieldStyle(.roundedBorder)
@@ -536,6 +540,7 @@ public struct ProvidersSettingsPane: View {
                                 .foregroundStyle(AppTheme.danger)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Remove environment variable \(pair.key.isEmpty ? "row" : pair.key)")
                     }
                 }
             }
@@ -579,6 +584,7 @@ public struct ProvidersSettingsPane: View {
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Clear agent search")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -756,7 +762,7 @@ public struct ProvidersSettingsPane: View {
             }
         }
         .padding(20)
-        .frame(width: 400)
+        .frame(minWidth: 360, idealWidth: 400, maxWidth: 460)
     }
 
     // MARK: - Helpers & Runtime Calls

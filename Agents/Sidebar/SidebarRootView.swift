@@ -325,6 +325,7 @@ public struct SidebarRootView: View {
                     }
                     .buttonStyle(.plain)
                     .help("New Bot… (⌥⌘N)")
+                    .accessibilityLabel("New bot")
                 }
             }
         }
@@ -395,6 +396,7 @@ public struct SidebarRootView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Add Project Folder… (⇧⌘O)")
+                .accessibilityLabel("Add project folder")
             }
         }
     }
@@ -535,6 +537,7 @@ public struct SidebarRootView: View {
                     }
                     .buttonStyle(.plain)
                     .help("New Chat (⇧⌘N)")
+                    .accessibilityLabel("New chat")
                 }
             }
         }
@@ -630,6 +633,7 @@ public struct SidebarRootView: View {
             }
             .buttonStyle(.borderless)
             .help("New Thread (⌘N)")
+            .accessibilityLabel("New thread")
 
             Spacer()
 
@@ -641,6 +645,7 @@ public struct SidebarRootView: View {
             }
             .buttonStyle(.borderless)
             .help("Add Project… (⇧⌘O)")
+            .accessibilityLabel("Add project")
 
             Button {
                 appModel.showSessionImport = true
@@ -650,6 +655,7 @@ public struct SidebarRootView: View {
             }
             .buttonStyle(.borderless)
             .help("Import CLI Session… (⇧⌘I)")
+            .accessibilityLabel("Import CLI session")
 
             Button {
                 appModel.showArchivedThreads.toggle()
@@ -660,6 +666,7 @@ public struct SidebarRootView: View {
             }
             .buttonStyle(.borderless)
             .help(appModel.showArchivedThreads ? "Hide Archived Threads (⌥⌘A)" : "Show Archived Threads (⌥⌘A)")
+            .accessibilityLabel(appModel.showArchivedThreads ? "Hide archived threads" : "Show archived threads")
 
             sidebarSortMenu
         }
@@ -721,6 +728,7 @@ public struct SidebarRootView: View {
         .menuIndicator(.hidden)
         .frame(width: 22)
         .help("Sidebar Sort Options")
+        .accessibilityLabel("Sidebar sort options")
     }
 
     private nonisolated static func sortDisplayName(_ raw: String) -> String {

@@ -215,6 +215,7 @@ struct WelcomeWorkspaceView: View {
                             }
                             .buttonStyle(.plain)
                             .help("Add Project Folder…")
+                            .accessibilityLabel("Add project folder")
                         }
                     }
                     .padding(.top, 2)
@@ -399,6 +400,7 @@ struct WelcomeWorkspaceView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.regular)
                     .help("Open Antigravity Settings")
+                    .accessibilityLabel("Open Antigravity settings")
                 }
             } else {
                 Button {
