@@ -2224,8 +2224,8 @@ impl Engine {
         .then(|| agent::codex_goals::parse(prompt))
         .flatten();
         if let Some(agent::codex_goals::Command::Set(objective)) = &codex_goal {
-            // The first turn carries any cross-provider history and the
-            // thread's runtime capabilities. Goal state itself receives
+            // The first turn carries any cross-provider history.
+            // Goal state itself receives
             // the exact objective through its native control request.
             ensure!(
                 runtime_prompt.starts_with(prompt),
