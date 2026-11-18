@@ -62,10 +62,10 @@ public nonisolated final class SystemAssetManager: Sendable {
         return search(query, limit: 10)
     }
 
-    public func systemPrompt(for request: String?, provider: String?, model: String?) -> SystemPrompt {
+    public func systemPrompt(for request: String?, provider: String?, model: String?, assistant: AssistantPromptDescriptor? = nil) -> SystemPrompt {
         guard let index else {
             return SystemPromptBuilder.minimalBaselinePrompt(error: loadError)
         }
-        return SystemPromptBuilder().build(index: index, request: request, provider: provider, model: model)
+        return SystemPromptBuilder().build(index: index, request: request, provider: provider, model: model, assistant: assistant)
     }
 }

@@ -503,6 +503,9 @@ impl Session {
             // Only the computer's own command-line tool may open threads in its window.
             Request::ShowThread { .. } => return Err(RemoteError::unsupported("showThread")),
             Request::SteerQueued { .. } => return Err(RemoteError::unsupported("steerQueued")),
+            Request::UpdateStoredPrompt { .. } => {
+                return Err(RemoteError::unsupported("updateStoredPrompt"));
+            }
             Request::Unimplemented(kind) => return Err(RemoteError::unsupported(&kind)),
         }
         Ok(())

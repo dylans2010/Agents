@@ -18,7 +18,7 @@ public nonisolated struct SystemPromptBuilder: Sendable {
     public init() {
     }
 
-    public func build(index: SystemAssetIndex, request: String?, provider: String?, model: String?, maxEstimatedTokens: Int = defaultMaxEstimatedTokens) -> SystemPrompt {
+    public func build(index: SystemAssetIndex, request: String?, provider: String?, model: String?, maxEstimatedTokens: Int = defaultMaxEstimatedTokens, assistant: AssistantPromptDescriptor? = nil) -> SystemPrompt {
         guard let safeguards = index.document(fileName: Self.safeguardsFileName) else {
             return Self.minimalBaselinePrompt(error: .mandatoryDocumentMissing(fileName: Self.safeguardsFileName))
         }
@@ -68,8 +68,49 @@ public nonisolated struct SystemPromptBuilder: Sendable {
             }
             return true
         }
+        func appendText(_ text: String, force: Bool) -> Bool {
+            let normalizedBody = SystemAssetIndex.normalized(text)
+            guard !seenBodies.contains(normalizedBody) else {
+                return false
+            }
+            let cost = max(1, text.count / 4)
+            if !force && usedTokens + cost > maxEstimatedTokens {
+                return false
+            }
+            seenBodies.insert(normalizedBody)
+            parts.append(text)
+            usedTokens += cost
+            return true
+        }
         _ = appendDocument(safeguards, force: true)
         _ = appendDocument(identity, force: true)
+        var assistantID: String?
+        if let assistant {
+            let roleText = assistant.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            let name = assistant.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            var contributed = false
+            if !roleText.isEmpty {
+                let sectionText = name.isEmpty ? roleText : "Assistant \"\(name)\" instructions:\n\(roleText)"
+                if appendText(sectionText, force: true) {
+                    contributed = true
+                }
+            }
+            for fileName in assistant.extraAssetFileNames {
+                if let document = index.document(fileName: fileName) {
+                    if appendDocument(document, force: true) {
+                        contributed = true
+                    }
+                } else {
+                    let omittedID = (fileName as NSString).deletingPathExtension
+                    if !omittedIDs.contains(omittedID) {
+                        omittedIDs.append(omittedID)
+                    }
+                }
+            }
+            if contributed {
+                assistantID = assistant.id
+            }
+        }
         let effectiveQuery = [request, provider, model]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -147,7 +188,8 @@ public nonisolated struct SystemPromptBuilder: Sendable {
             omittedDocumentIDs: omittedIDs,
             estimatedTokens: usedTokens,
             isBaselineFallback: false,
-            loadError: nil
+            loadError: nil,
+            assistantID: assistantID
         )
     }
 

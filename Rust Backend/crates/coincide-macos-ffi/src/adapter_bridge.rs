@@ -205,6 +205,14 @@ fn execute_adapter_call(
             handle_thread_action(runtime, thread_id, &action)?;
             Ok(("ok", Value::Null))
         }
+        Request::UpdateStoredPrompt {
+            thread_id,
+            system_prompt,
+            allowed_tools,
+        } => {
+            adapter.update_stored_prompt(thread_id, &system_prompt, allowed_tools.as_deref())?;
+            Ok(("ok", Value::Null))
+        }
         Request::UsageLimits => {
             let usage = collect_remote_usage_limits(runtime)?;
             Ok(("usage", protocol::value_body(usage)))

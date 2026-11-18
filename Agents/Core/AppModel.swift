@@ -448,8 +448,12 @@ public final class AppModel {
         }
     }
 
-    public func systemPrompt(for request: String?, provider: String?, model: String?) -> SystemPrompt {
-        systemAssets.systemPrompt(for: request, provider: provider, model: model)
+    public func systemPrompt(for request: String?, provider: String?, model: String?, assistant: AssistantPromptDescriptor? = nil) -> SystemPrompt {
+        let effectiveRequest = [assistant?.systemPrompt, request]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return systemAssets.systemPrompt(for: effectiveRequest.isEmpty ? nil : effectiveRequest, provider: provider, model: model, assistant: assistant)
     }
 
     public var systemPromptForSelectedThread: SystemPrompt {
@@ -529,6 +533,19 @@ public final class AppModel {
         }
         do {
             try await client.performThreadAction(thread: threadID, action: action)
+            await refreshWorkspace()
+            if selectedThreadUUID == threadID {
+                await handleSelectedThreadChanged()
+            }
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func updateStoredPrompt(threadID: UUID, prompt: String, allowedTools: [String]? = nil) async {
+        guard let client = runtime else { return }
+        do {
+            try await client.updateStoredPrompt(threadID: threadID, prompt: prompt, allowedTools: allowedTools)
             await refreshWorkspace()
             if selectedThreadUUID == threadID {
                 await handleSelectedThreadChanged()

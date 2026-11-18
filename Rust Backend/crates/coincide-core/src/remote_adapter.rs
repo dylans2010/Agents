@@ -1771,6 +1771,42 @@ impl Adapter {
         Ok(created_id)
     }
 
+    pub fn update_stored_prompt(
+        &self,
+        thread_id: Uuid,
+        system_prompt: &str,
+        allowed_tools: Option<&[String]>,
+    ) -> Result<(), RemoteError> {
+        let (resolved, document) = self.document(thread_id)?;
+        if document["toolset"].as_str() == Some("provider") {
+            return Err(RemoteError::failed(
+                "This thread uses Provider Tools, so a system prompt cannot be applied to it.",
+            ));
+        }
+        crate::agent::validate_system_prompt_and_toolset(
+            Some(system_prompt),
+            Some("system"),
+            allowed_tools,
+        )
+        .map_err(|error| RemoteError::failed(error.to_string()))?;
+        let provider = document["selection"]["provider"]
+            .as_str()
+            .unwrap_or("codex");
+        crate::agent::ensure_system_toolset_supported(provider)
+            .map_err(|error| RemoteError::failed(error.to_string()))?;
+        let mut patch = serde_json::Map::new();
+        patch.insert("systemPrompt".into(), json!(system_prompt));
+        patch.insert("toolset".into(), json!("system"));
+        if let Some(allowed_tools) = allowed_tools {
+            patch.insert("allowedTools".into(), json!(allowed_tools));
+        }
+        self.call(
+            "threads.patch",
+            json!({"threadId": resolved, "patch": patch}),
+        )?;
+        Ok(())
+    }
+
     /// Reuse an untouched bot conversation, or create one without navigating
     /// the Mac or starting a provider. Both reads and creation share the same
     /// engine lock, while the Store repeats its source check transactionally.
@@ -2697,5 +2733,110 @@ mod tests {
             json!(["read_file", "use_workers"])
         );
         assert_eq!(document["toolset"], "system");
+    }
+
+    #[test]
+    fn update_stored_prompt_patches_prompt_and_tools() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let thread = engine.store.new_thread(NO_PROJECT).unwrap();
+        let id = Uuid::parse_str(thread["id"].as_str().unwrap()).unwrap();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let tools = vec!["read_file".to_owned()];
+        adapter
+            .update_stored_prompt(id, "Behave.", Some(&tools))
+            .unwrap();
+        let (_, document) = adapter.document(id).unwrap();
+        assert_eq!(document["systemPrompt"], "Behave.");
+        assert_eq!(document["allowedTools"], json!(["read_file"]));
+        assert_eq!(document["toolset"], "system");
+    }
+
+    #[test]
+    fn update_stored_prompt_keeps_allowed_tools_when_not_supplied() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let thread = engine.store.new_thread(NO_PROJECT).unwrap();
+        let id = Uuid::parse_str(thread["id"].as_str().unwrap()).unwrap();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let tools = vec!["read_file".to_owned()];
+        adapter
+            .update_stored_prompt(id, "Behave.", Some(&tools))
+            .unwrap();
+        adapter.update_stored_prompt(id, "Behave differently.", None).unwrap();
+        let (_, document) = adapter.document(id).unwrap();
+        assert_eq!(document["systemPrompt"], "Behave differently.");
+        assert_eq!(document["allowedTools"], json!(["read_file"]));
+    }
+
+    #[test]
+    fn update_stored_prompt_rejects_oversize_and_empty_prompts() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let thread = engine.store.new_thread(NO_PROJECT).unwrap();
+        let id = Uuid::parse_str(thread["id"].as_str().unwrap()).unwrap();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let oversize = "x".repeat(65 * 1024 + 1);
+        assert!(adapter
+            .update_stored_prompt(id, &oversize, None)
+            .unwrap_err()
+            .message
+            .contains("64 KiB"));
+        assert!(adapter
+            .update_stored_prompt(id, "   ", None)
+            .is_err());
+        let (_, document) = adapter.document(id).unwrap();
+        assert!(document["systemPrompt"].is_null());
+    }
+
+    #[test]
+    fn update_stored_prompt_rejects_provider_toolset_thread() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let thread = engine.store.new_thread(NO_PROJECT).unwrap();
+        let id = Uuid::parse_str(thread["id"].as_str().unwrap()).unwrap();
+        engine
+            .store
+            .patch_thread(thread["id"].as_str().unwrap(), &json!({"toolset": "provider"}))
+            .unwrap();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let error = adapter
+            .update_stored_prompt(id, "Behave.", None)
+            .unwrap_err();
+        assert!(error.message.contains("Provider Tools"));
+        let (_, document) = adapter.document(id).unwrap();
+        assert!(document["systemPrompt"].is_null());
+    }
+
+    #[test]
+    fn update_stored_prompt_rejects_opencode_provider() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let mut thread = engine.store.new_thread(NO_PROJECT).unwrap();
+        thread["selection"] = json!({"provider": "opencode", "modelID": "default"});
+        engine.store.save(&thread).unwrap();
+        let id = Uuid::parse_str(thread["id"].as_str().unwrap()).unwrap();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let error = adapter
+            .update_stored_prompt(id, "Behave.", None)
+            .unwrap_err();
+        assert!(error.message.contains("System Tools are not supported"));
+        let (_, document) = adapter.document(id).unwrap();
+        assert!(document["systemPrompt"].is_null());
     }
 }

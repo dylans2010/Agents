@@ -1,3 +1,4 @@
+import CoincideRemoteKit
 import Foundation
 import Testing
 @testable import Agents
@@ -185,5 +186,104 @@ struct SystemAssetsTests {
         #expect(prompt.isBaselineFallback)
         #expect(!prompt.text.isEmpty)
         #expect(prompt.loadError != nil)
+    }
+
+    private static func assistantDescriptor(extraAssetFileNames: [String] = []) -> AssistantPromptDescriptor {
+        AssistantPromptDescriptor(
+            id: "assistant-review", name: "Reviewer", systemPrompt: "Review every diff for secrets.",
+            extraAssetFileNames: extraAssetFileNames)
+    }
+
+    @Test("Assistant descriptor carries the assistant id, name and system prompt")
+    func descriptorMapsRemoteAssistant() throws {
+        let assistant = RemoteAssistant(
+            id: UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")!, name: "Reviewer",
+            category: .codeReviewSecurity, systemPrompt: "Review every diff for secrets.", description: "Reviews code")
+        let descriptor = AssistantPromptDescriptor(assistant)
+        #expect(descriptor.id == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")
+        #expect(descriptor.name == "Reviewer")
+        #expect(descriptor.systemPrompt == "Review every diff for secrets.")
+        #expect(descriptor.description == "Reviews code")
+        #expect(descriptor.extraAssetFileNames.isEmpty)
+    }
+
+    @Test("Assistant section is forced after Safeguards and Identity and carries its id")
+    func assistantSectionAfterMandatorySections() throws {
+        let manager = Self.manager()
+        let prompt = manager.systemPrompt(
+            for: "Fix the SwiftUI layout bug", provider: "claude", model: "sonnet",
+            assistant: Self.assistantDescriptor())
+        #expect(!prompt.isBaselineFallback)
+        #expect(prompt.assistantID == "assistant-review")
+        #expect(prompt.includedDocumentIDs.first == "Safeguards")
+        #expect(prompt.includedDocumentIDs.dropFirst().first == "Identity")
+        #expect(prompt.text.contains("Assistant \"Reviewer\" instructions:"))
+        #expect(prompt.text.contains("Review every diff for secrets."))
+        let safeguards = try #require(manager.document(fileName: "Safeguards.md"))
+        let identity = try #require(manager.document(fileName: "Identity.md"))
+        let safeguardsRange = try #require(prompt.text.range(of: safeguards.rawText))
+        let identityRange = try #require(prompt.text.range(of: identity.rawText))
+        let assistantRange = try #require(prompt.text.range(of: "Review every diff for secrets."))
+        #expect(identityRange.lowerBound >= safeguardsRange.upperBound)
+        #expect(assistantRange.lowerBound >= identityRange.upperBound)
+    }
+
+    @Test("Assistant instructions survive a token budget that crowds out search results")
+    func assistantSurvivesTinyBudget() throws {
+        let manager = Self.manager()
+        let index = try #require(manager.index)
+        let prompt = SystemPromptBuilder().build(
+            index: index,
+            request: "Run the build and fix the failing tests",
+            provider: "claude",
+            model: nil,
+            maxEstimatedTokens: 1,
+            assistant: Self.assistantDescriptor()
+        )
+        #expect(!prompt.isBaselineFallback)
+        #expect(prompt.assistantID == "assistant-review")
+        #expect(prompt.text.contains("Review every diff for secrets."))
+        #expect(!prompt.omittedDocumentIDs.isEmpty)
+    }
+
+    @Test("A missing extra asset is recorded as omitted instead of failing the prompt")
+    func missingExtraAssetIsRecordedOmitted() {
+        let manager = Self.manager()
+        let prompt = manager.systemPrompt(
+            for: nil, provider: nil, model: nil,
+            assistant: Self.assistantDescriptor(extraAssetFileNames: ["NoSuchAsset.md"]))
+        #expect(!prompt.isBaselineFallback)
+        #expect(prompt.assistantID == "assistant-review")
+        #expect(prompt.omittedDocumentIDs.contains("NoSuchAsset"))
+        #expect(prompt.text.contains("Review every diff for secrets."))
+    }
+
+    @Test("An extra asset file loads into the prompt right after the Assistant section")
+    func extraAssetLoads() throws {
+        let manager = Self.manager()
+        let availableTools = try #require(manager.document(fileName: "AvailableTools.md"))
+        let prompt = manager.systemPrompt(
+            for: nil, provider: nil, model: nil,
+            assistant: Self.assistantDescriptor(extraAssetFileNames: ["AvailableTools.md"]))
+        #expect(!prompt.isBaselineFallback)
+        #expect(prompt.assistantID == "assistant-review")
+        #expect(prompt.includedDocumentIDs.prefix(3) == ["Safeguards", "Identity", "AvailableTools"])
+        #expect(prompt.text.contains(availableTools.rawText))
+    }
+
+    @Test("Without an Assistant the prompt is unchanged and carries no assistant id")
+    func noAssistantPromptUnchanged() throws {
+        let manager = Self.manager()
+        let index = try #require(manager.index)
+        let viaManager = manager.systemPrompt(for: "Fix the SwiftUI layout bug", provider: "claude", model: "sonnet")
+        let viaBuilder = SystemPromptBuilder().build(
+            index: index, request: "Fix the SwiftUI layout bug", provider: "claude", model: "sonnet")
+        #expect(viaManager.assistantID == nil)
+        #expect(viaBuilder.assistantID == nil)
+        #expect(viaManager.text == viaBuilder.text)
+        #expect(viaManager.includedDocumentIDs == viaBuilder.includedDocumentIDs)
+        #expect(viaManager.omittedDocumentIDs == viaBuilder.omittedDocumentIDs)
+        #expect(viaManager.estimatedTokens == viaBuilder.estimatedTokens)
+        #expect(viaManager.includedDocumentIDs.first == "Safeguards")
     }
 }

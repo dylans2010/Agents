@@ -48,6 +48,7 @@ pub const REQUEST_TYPES: &[&str] = &[
     "updateSettings",
     "newThread",
     "threadAction",
+    "updateStoredPrompt",
     "diff",
     "runScript",
     "usageLimits",
@@ -343,6 +344,11 @@ pub enum Request {
         thread_id: Uuid,
         action: ThreadAction,
     },
+    UpdateStoredPrompt {
+        thread_id: Uuid,
+        system_prompt: String,
+        allowed_tools: Option<Vec<String>>,
+    },
     UsageLimits,
     Presence(Presence),
     ShowThread {
@@ -573,6 +579,29 @@ impl ClientMessage {
                         .filter(|a| a.is_object())
                         .ok_or_else(RemoteError::bad_request)?,
                 )?,
+            },
+            "updateStoredPrompt" => Request::UpdateStoredPrompt {
+                thread_id: thread()?,
+                system_prompt: fields
+                    .get("systemPrompt")
+                    .and_then(Value::as_str)
+                    .ok_or_else(RemoteError::bad_request)?
+                    .to_owned(),
+                allowed_tools: match fields.get("allowedTools") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(
+                        value
+                            .as_array()
+                            .ok_or_else(RemoteError::bad_request)?
+                            .iter()
+                            .map(|name| {
+                                name.as_str()
+                                    .ok_or_else(RemoteError::bad_request)
+                                    .map(str::to_owned)
+                            })
+                            .collect::<Result<Vec<_>, _>>()?,
+                    ),
+                },
             },
             "usageLimits" => Request::UsageLimits,
             "presence" => Request::Presence(parse(typed()?)?),
@@ -1155,6 +1184,26 @@ mod tests {
                 ..
             }
         ));
+        let stored = decode(json!({"v":1,"id":"u","type":"updateStoredPrompt","body":{"threadID":thread,"systemPrompt":"Behave.","allowedTools":["read_file"]}})).unwrap();
+        assert_eq!(
+            stored.request,
+            Request::UpdateStoredPrompt {
+                thread_id: Uuid::parse_str(thread).unwrap(),
+                system_prompt: "Behave.".to_owned(),
+                allowed_tools: Some(vec!["read_file".to_owned()]),
+            }
+        );
+        let stored_bare = decode(json!({"v":1,"id":"u","type":"updateStoredPrompt","body":{"threadID":thread,"systemPrompt":"Behave."}})).unwrap();
+        assert_eq!(
+            stored_bare.request,
+            Request::UpdateStoredPrompt {
+                thread_id: Uuid::parse_str(thread).unwrap(),
+                system_prompt: "Behave.".to_owned(),
+                allowed_tools: None,
+            }
+        );
+        assert!(decode(json!({"v":1,"id":"u","type":"updateStoredPrompt","body":{"threadID":thread}})).is_err());
+        assert!(decode(json!({"v":1,"id":"u","type":"updateStoredPrompt","body":{"threadID":thread,"systemPrompt":"Behave.","allowedTools":"read_file"}})).is_err());
         let send = decode(json!({"v":1,"id":"e","type":"send","body":{"threadID":thread,"text":"hi","images":[{"name":"a.png","data":"aGk="}],"delivery":"alternate"}})).unwrap();
         let Request::Send(send) = send.request else {
             panic!("send")

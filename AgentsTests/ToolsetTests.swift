@@ -607,6 +607,78 @@ struct ToolsetTests {
         #expect(try decoder.decode(RemoteSendRequest.self, from: data).allowedTools == ["read_file"])
     }
 
+    @Test("Update-stored-prompt request carries the prompt and tools")
+    func updateStoredPromptRequestCarriesPromptAndTools() throws {
+        let encoder = RemoteProtocol.makeEncoder()
+        let decoder = RemoteProtocol.makeDecoder()
+        let threadID = UUID()
+        let message = RemoteClientMessage(
+            request: .updateStoredPrompt(threadID: threadID, systemPrompt: "Behave.", allowedTools: ["read_file"])
+        )
+        let data = try encoder.encode(message)
+        let decoded = try decoder.decode(RemoteClientMessage.self, from: data)
+        guard case .updateStoredPrompt(let decodedThread, let prompt, let allowedTools) = decoded.request else {
+            Issue.record("Expected updateStoredPrompt request")
+            return
+        }
+        #expect(decodedThread == threadID)
+        #expect(prompt == "Behave.")
+        #expect(allowedTools == ["read_file"])
+    }
+
+    @Test("Update-stored-prompt request without allowed tools encodes an absent list")
+    func updateStoredPromptRequestWithoutAllowedTools() throws {
+        let encoder = RemoteProtocol.makeEncoder()
+        let decoder = RemoteProtocol.makeDecoder()
+        let message = RemoteClientMessage(
+            request: .updateStoredPrompt(threadID: UUID(), systemPrompt: "Behave.", allowedTools: nil)
+        )
+        let data = try encoder.encode(message)
+        let decoded = try decoder.decode(RemoteClientMessage.self, from: data)
+        guard case .updateStoredPrompt(_, let prompt, let allowedTools) = decoded.request else {
+            Issue.record("Expected updateStoredPrompt request")
+            return
+        }
+        #expect(prompt == "Behave.")
+        #expect(allowedTools == nil)
+    }
+
+    @Test("Update-stored-prompt request requires its prompt field")
+    func updateStoredPromptRequestRequiresPrompt() throws {
+        let json = """
+        {"v":1,"id":"old","type":"updateStoredPrompt","body":{"threadID":"\(UUID().uuidString)"}}
+        """
+        #expect(throws: RemoteProtocolError.self) {
+            try RemoteProtocol.makeDecoder().decode(RemoteClientMessage.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test("Stored-prompt update rejects invalid prompts and provider-toolset threads, and accepts a valid one")
+    func updateStoredPromptRejectsInvalidUpdates() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "SliceF4StoredPrompt")
+        let systemThread = try await client.newThread(projectID: projectID, toolset: .system)
+        let oversize = String(repeating: "x", count: 65 * 1024 + 1)
+        await #expect(throws: AgentsRuntimeError.self) {
+            try await client.updateStoredPrompt(threadID: systemThread, prompt: oversize)
+        }
+        await #expect(throws: AgentsRuntimeError.self) {
+            try await client.updateStoredPrompt(threadID: systemThread, prompt: "   ")
+        }
+        try await client.updateStoredPrompt(threadID: systemThread, prompt: "Behave.", allowedTools: ["read_file"])
+        await #expect(throws: AgentsRuntimeError.self) {
+            try await client.updateStoredPrompt(threadID: systemThread, prompt: "Behave.", allowedTools: ["not_a_real_tool"])
+        }
+        let providerThread = try await client.newThread(projectID: projectID, toolset: .provider)
+        await #expect(throws: AgentsRuntimeError.self) {
+            try await client.updateStoredPrompt(threadID: providerThread, prompt: "Behave.")
+        }
+        await client.close()
+    }
+
     @Test("Computer Use tools register with the real engine action")
     func computerUseToolsRegister() {
         let expected: [String] = [

@@ -422,6 +422,19 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         return id
     }
 
+    public func updateStoredPrompt(threadID: UUID, prompt: String, allowedTools: [String]? = nil) async throws {
+        let unknown = SystemToolRegistry.unknownToolNames(in: allowedTools)
+        guard unknown.isEmpty else {
+            throw AgentsRuntimeError.desktopFailure(
+                "Unknown thread tools: \(unknown.joined(separator: ", ")). Threads can only allow tools from the system toolset."
+            )
+        }
+        let res = try await adapterCall(.updateStoredPrompt(threadID: threadID, systemPrompt: prompt, allowedTools: allowedTools))
+        guard case .ok = res else {
+            throw AgentsRuntimeError.unexpectedResult(expected: "ok", actual: "\(res)")
+        }
+    }
+
     public func performThreadAction(thread: UUID, action: RemoteThreadAction) async throws {
         _ = try await adapterCall(.threadAction(threadID: thread, action: action))
     }

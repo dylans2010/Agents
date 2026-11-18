@@ -225,6 +225,7 @@ public enum RemoteRequest: Hashable, Sendable {
     /// Nil starts a chat.
     case newThread(projectID: UUID?, systemPrompt: String?, toolset: String?, allowedTools: [String]?)
     case threadAction(threadID: UUID, action: RemoteThreadAction)
+    case updateStoredPrompt(threadID: UUID, systemPrompt: String, allowedTools: [String]?)
     /// The changes of one turn (the id of the item that opened it), or the thread's uncommitted changes for nil.
     case diff(threadID: UUID, turnID: UUID?)
     case runScript(threadID: UUID, scriptID: UUID)
@@ -333,6 +334,7 @@ public enum RemoteRequest: Hashable, Sendable {
         case .updateSettings: "updateSettings"
         case .newThread: "newThread"
         case .threadAction: "threadAction"
+        case .updateStoredPrompt: "updateStoredPrompt"
         case .diff: "diff"
         case .runScript: "runScript"
         case .usageLimits: "usageLimits"
@@ -484,6 +486,11 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case "threadAction":
             let f = try fields()
             request = .threadAction(threadID: try need(f.threadID, "threadID"), action: try need(f.action, "action"))
+        case "updateStoredPrompt":
+            let f = try fields()
+            request = .updateStoredPrompt(
+                threadID: try need(f.threadID, "threadID"), systemPrompt: try need(f.systemPrompt, "systemPrompt"),
+                allowedTools: f.allowedTools)
         case "diff":
             let f = try fields()
             request = .diff(threadID: try need(f.threadID, "threadID"), turnID: f.turnID)
@@ -634,6 +641,10 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case .threadAction(let threadID, let action):
             f.threadID = threadID
             f.action = action
+        case .updateStoredPrompt(let threadID, let systemPrompt, let allowedTools):
+            f.threadID = threadID
+            f.systemPrompt = systemPrompt
+            f.allowedTools = allowedTools
         case .diff(let threadID, let turnID):
             f.threadID = threadID
             f.turnID = turnID
