@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–118)
+### Hardening wave (Slices 69–119)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–118 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–119 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -915,6 +915,20 @@ no entries in this file either and are not backfilled here. Full record:
   `23a73f2d`, added HARDENING-AUDIT sections for Slices 105 and 107, and
   noted Slice 110 in re-verify. Totals unchanged at 23 defects / 25
   tests.
+- **Slice 112** — Read-only verification of Slice 111: PASS, zero
+  findings. No commit.
+- **Slice 113** — Final full-repo re-verification: PASS WITH MINORs —
+  3 docs findings (hardening range, alias wording, Slice 106 note),
+  fixed in Slice 114. No commit.
+- **Slice 114** — Docs fixes for the Slice 113 findings (local
+  `8f143c6b`, remote `e7097fd1`; 2 files).
+- **Slice 115** — Read-only verification of Slice 114: PASS WITH MINORs
+  — 1 MINOR, the `:412` line cite in the Slice 106 note, fixed in
+  Slice 116. No commit.
+- **Slice 116** — One-line docs fix: the Slice 106 note line cite `:412`
+  → `:417` (local `d6f55594`, remote `cc09b357`; 1 file).
+- **Slice 117** — Read-only verification of Slice 116: PASS, zero
+  findings. No commit.
 - **Slice 118** — OpenCode/Grok/Cursor/Antigravity provider audit:
   2 defects fixed (OpenCode `session.execution.failed` echoed provider
   error text into the turn failure — now a fixed string; Antigravity
@@ -923,6 +937,10 @@ no entries in this file either and are not backfilled here. Full record:
   clean. Registry counts unchanged at 332. Statically verified only.
   Totals now 25 defects / 27 tests. Full record:
   `docs/HARDENING-AUDIT.md`.
+- **Slice 119** — Read-only verification of Slice 118: PASS WITH MINORs
+  — 2 docs findings (the `provider/event` persistence wording; three
+  off-by-one line cites) plus `docs/MAC-GATE.md` staleness, fixed in
+  Slice 120. No commit.
 
 ## The MCP server
 

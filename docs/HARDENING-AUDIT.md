@@ -585,7 +585,7 @@ record. Sweep baseline: local `main` `2a0261d8`, remote `main`
 `02251181` (same tree as remote `23a73f2d`).
 Slice 110 re-verified this slice; see [How to re-verify](#how-to-re-verify).
 
-## Slice 118 — OpenCode/Grok/Cursor/Antigravity provider audit (remote to-backfill)
+## Slice 118 — OpenCode/Grok/Cursor/Antigravity provider audit (remote bf146ce8)
 
 **Audited:** the four provider integrations that had never had a
 dedicated defect audit — OpenCode (`provider_opencode.rs`,
@@ -615,8 +615,13 @@ slice in this record.
    reached the user-visible/persisted turn failure. Same defect class
    Slice 43 fixed in Grok/Cursor stop reasons and Slice 81 fixed in
    Claude result frames. Now a fixed string, `bail!("OpenCode turn
-   failed")` (`:503-505`); the full frame is still available in the
-   persisted raw `provider/event` record, as for every provider.
+   failed")` (`:503-505`); the full frame is still emitted live as a raw
+   `provider/event` frame, as for every provider (`raw()` at
+   `provider_opencode.rs:1071` → `provider_transport.rs:455-460`), though
+   it is not appended to the persisted transcript — the transcript
+   handler's `provider/event` arm only extracts composer commands
+   (`api.rs:3345-3376`), and command-less frames are treated as ignorable
+   (`api.rs:3779-3781`).
 2. **Antigravity resume treated capability presence as capability
    enabled** (`provider_antigravity.rs:385-388`). The stage-2 resume
    branch chose `session/resume` whenever
@@ -636,7 +641,7 @@ identity and validates before completing; questions are capped at 20
 with duplicate-text/ID guards; `question_params` carries the raw
 provider frame only as `providerFrame`, the established pattern.
 Cursor: `error_report` already reduces provider text to fixed
-classifications (`provider_cursor.rs:51-85`), so the held-error bail
+classifications (`provider_cursor.rs:48-85`), so the held-error bail
 at `:378` carries only a classification; stop drains pending requests
 with cancelled replies; stage-2 resume pins the returned session ID;
 the private profile import is size-bounded (64 MiB) and
@@ -644,9 +649,9 @@ symlink-checked. Shared paths also checked clean: `session_servers`
 bails loudly when the MCP binary is missing (`mcp.rs:93-97`);
 `Transport` inbound/outbound frames are capped at 32 MiB with a
 64 MiB queue (`provider_transport.rs:8-10`); OpenCode HTTP responses
-and SSE frames are capped at 8 MiB (`provider_opencode_http.rs:8`);
+and SSE frames are capped at 8 MiB (`provider_opencode_http.rs:6`);
 the OpenCode rejection of System Tools is loud at thread creation
-(`agent.rs:722-727`, via `bot_engine.rs:180`,
+(`agent.rs:721-727`, via `bot_engine.rs:180`,
 `remote_adapter.rs:1670`, `thread_defaults.rs:293`); missing provider
 binaries fail loudly at spawn (`transport.rs`, "Unable to launch
 provider"); `exit_status_text` is numeric only (`agent.rs:830-851`).
@@ -669,8 +674,9 @@ shows only the two provider files plus this record and the
 `SYSTEM-TOOLSET.md` hardening entry. Rust `#[test]` total in `Rust
 Backend/crates/` is 2,222 after this slice (was 2,220). Audit
 baseline: local `main` `d6f55594`, remote `main` `cc09b357`, same tree
-`e6d48ac26eda0705c68c361f4368aa1c8fbf7039`. The local pre-push commit
-SHA and the remote SHA are to-backfill after the push.
+`e6d48ac26eda0705c68c361f4368aa1c8fbf7039`. The local pre-push commit is
+`50a42e70` (tree `29fbdddc9d4095c7934e518af58956406d84fe6f`, same tree as
+remote `bf146ce8`).
 
 ## Documented, not fixed
 
@@ -752,7 +758,7 @@ limitation of the audited component, or a question owed to Dylan.
   count short-form `#[test]` attributes, fully-qualified
   `#[::core::prelude::v1::test]` attributes, and `#[gpui_kit::test]`
   attributes, and sum them. At HEAD the
-  expected total is **3,000** (2,219 + 736 + 45). Method and per-crate table:
+  expected total is **3,002** (2,221 + 736 + 45). Method and per-crate table:
   `docs/MAC-GATE.md:139-173`. Known wrinkle documented there: one `//`
   comment line in `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`
   mentions the glob import and must not be counted as an attribute; and
@@ -801,6 +807,21 @@ limitation of the audited component, or a question owed to Dylan.
   pre-107 parentThreadId pin (2 of 6 pinned, not all 6) and two
   off-by-one line cites in the Slice 109 section; both were fixed in
   Slice 111.
+  **Slice 112 re-verification (no commit):** Slice 112 re-verified Slice
+  111 read-only and passed it with zero findings — the Slice 110 fixes,
+  the Slice 109 SHA backfill, and the Slices 105/107 sections all
+  confirmed as written.
+  **Slice 115 re-verification (no commit):** Slice 115 re-verified Slice
+  114 read-only and passed it with one minor — the `:412` line cite in
+  this record's Slice 106 note, corrected to `:417` in Slice 116.
+  **Slice 117 re-verification (no commit):** Slice 117 re-verified Slice
+  116 read-only and passed it with zero findings — the `:412` → `:417`
+  cite correction confirmed.
+  **Slice 119 re-verification (no commit):** Slice 119 re-verified Slice
+  118 read-only and passed it with minors — the `provider/event`
+  persistence wording overstated what is persisted, three line cites
+  were off by one to three lines, and `docs/MAC-GATE.md` was stale
+  (Rust total 3,000, core 1,822); all fixed in Slice 120.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)

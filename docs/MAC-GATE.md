@@ -141,16 +141,16 @@ time of writing. Three spellings count: the short form `#[test]`, the
 fully-qualified `#[::core::prelude::v1::test]` (used by the UI-test
 modules in `coincide-desktop`, which import it with
 `use ::core::prelude::v1::test;`), and `#[gpui_kit::test]` (used by
-headless UI tests in `coincide-desktop`). Raw short-form grep finds 2,220
+headless UI tests in `coincide-desktop`). Raw short-form grep finds 2,222
 matching lines, but one is prose inside a comment —
 `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`, a `//` comment
 reading "The glob brings GPUI's test attribute, which expands to
 #[test] again." — not a real attribute, so the short-form total is
-2,219. Fully-qualified grep finds 736 real attributes, all in
+2,221. Fully-qualified grep finds 736 real attributes, all in
 `coincide-desktop`; the 7 other lines matching that string are the
 `use ::core::prelude::v1::test;` imports, not attributes. `#[gpui_kit::test]`
 grep finds 45 real attributes, all in `coincide-desktop`. The true
-total is **3,000** test attributes. Do not count the 1,033
+total is **3,002** test attributes. Do not count the 1,033
 `#[gpui::test]` or 25 `#[crate::test]` lines a repo-wide grep finds:
 every one of them is inside `Rust Backend/vendor/` (the vendored gpui
 sources), which is excluded. Reproduce from `Rust Backend` with
@@ -164,13 +164,13 @@ wc -l` for the fully-qualified count and the same shape with
 
 | Crate | `#[test]` | `#[::core::prelude::v1::test]` | `#[gpui_kit::test]` | Total |
 | --- | --- | --- | --- | --- |
-| coincide-core | 1,822 | 0 | 0 | 1,822 |
+| coincide-core | 1,824 | 0 | 0 | 1,824 |
 | coincide-desktop | 367 | 736 | 45 | 1,148 |
 | coincide-awake-helper | 9 | 0 | 0 | 9 |
 | coincide-macos-ffi | 3 | 0 | 0 | 3 |
 | coincide-mcp-server | 18 | 0 | 0 | 18 |
 | coincide-native-host-tests | 0 | 0 | 0 | 0 |
-| **Total** | **2,219** | **736** | **45** | **3,000** |
+| **Total** | **2,221** | **736** | **45** | **3,002** |
 
 Run the workspace suite from `Rust Backend`:
 
@@ -445,8 +445,8 @@ reason. A step that was not run is unchecked, not passed.
 - [ ] Step 3 — Agents Swift tests pass (AgentsTests, 109 `@Test`)
 - [ ] Step 4 — Coincide Remote tests pass (CoincideRemoteTests, 19
   `@Test`; UI tests ran, not skipped)
-- [ ] Step 5 — Rust tests pass (3,000 test attributes excl. vendor:
-  2,219 `#[test]` + 736 `#[::core::prelude::v1::test]` + 45
+- [ ] Step 5 — Rust tests pass (3,002 test attributes excl. vendor:
+  2,221 `#[test]` + 736 `#[::core::prelude::v1::test]` + 45
   `#[gpui_kit::test]`; incl.
   `coincide-mcp-server` and `coincide-macos-ffi`); `cargo fmt --check`
   and clippy clean
