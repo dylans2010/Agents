@@ -3,6 +3,7 @@ import Foundation
 import Observation
 
 public typealias AssistantAutomationRequestHandler = @MainActor (AssistantDefinition) -> Void
+public typealias AssistantLaunchRequestHandler = @MainActor (AssistantDefinition) -> Void
 
 public enum AssistantLibraryScope: String, CaseIterable, Sendable {
     case all
@@ -105,6 +106,7 @@ public final class AssistantLibraryViewModel {
     public var sortOrder: AssistantLibrarySortOrder = .name
     public var selectedDefinitionID: String?
     public var onAddToAutomation: AssistantAutomationRequestHandler?
+    public var onLaunch: AssistantLaunchRequestHandler?
 
     private let store: AssistantLibraryStore
     private let defaults: UserDefaults
@@ -115,12 +117,14 @@ public final class AssistantLibraryViewModel {
         store: AssistantLibraryStore,
         defaults: UserDefaults = .standard,
         initialSelection: AssistantLibrarySidebarSelection? = nil,
-        onAddToAutomation: AssistantAutomationRequestHandler? = nil
+        onAddToAutomation: AssistantAutomationRequestHandler? = nil,
+        onLaunch: AssistantLaunchRequestHandler? = nil
     ) {
         self.catalog = catalog
         self.store = store
         self.defaults = defaults
         self.onAddToAutomation = onAddToAutomation
+        self.onLaunch = onLaunch
         self.recentStableIDs = Self.prunedRecentIDs(in: defaults, catalog: catalog)
         defaults.set(recentStableIDs, forKey: Self.recentIDsDefaultsKey)
         applySidebarSelection(initialSelection)
@@ -345,6 +349,10 @@ public final class AssistantLibraryViewModel {
 
     public func requestAddToAutomation(_ definition: AssistantDefinition) {
         onAddToAutomation?(definition)
+    }
+
+    public func requestLaunch(_ definition: AssistantDefinition) {
+        onLaunch?(definition)
     }
 
     public static func draft(

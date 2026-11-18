@@ -3,6 +3,7 @@ import SwiftUI
 public struct AssistantLibraryView: View {
     @Bindable public var appModel: AppModel
     public let onEdit: @MainActor (AssistantDefinition?) -> Void
+    public let onLaunch: AssistantLaunchRequestHandler
     public let initialSelection: AssistantLibrarySidebarSelection?
 
     @State private var viewModel: AssistantLibraryViewModel
@@ -11,16 +12,19 @@ public struct AssistantLibraryView: View {
         appModel: AppModel,
         onEdit: @escaping @MainActor (AssistantDefinition?) -> Void,
         onAddToAutomation: AssistantAutomationRequestHandler? = nil,
+        onLaunch: AssistantLaunchRequestHandler? = nil,
         initialSelection: AssistantLibrarySidebarSelection? = nil
     ) {
         self.appModel = appModel
         self.onEdit = onEdit
+        self.onLaunch = onLaunch ?? { definition in appModel.openAssistantLaunch(for: definition) }
         self.initialSelection = initialSelection
         _viewModel = State(initialValue: AssistantLibraryViewModel(
             catalog: appModel.assistantCatalog,
             store: .live(appModel: appModel),
             initialSelection: initialSelection,
-            onAddToAutomation: onAddToAutomation
+            onAddToAutomation: onAddToAutomation,
+            onLaunch: self.onLaunch
         ))
     }
 
@@ -189,8 +193,8 @@ public struct AssistantLibraryView: View {
                         onAddToAutomation: {
                             viewModel.requestAddToAutomation(definition)
                         },
-                        onLaunch: { task in
-                            Task { await viewModel.launch(definition, task: task) }
+                        onLaunch: { _ in
+                            viewModel.requestLaunch(definition)
                         }
                     )
                 } else {

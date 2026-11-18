@@ -41,7 +41,8 @@ struct AssistantLibraryViewModelTests {
         stored: [RemoteAssistant] = [],
         seededRecentIDs: [String] = [],
         initialSelection: AssistantLibrarySidebarSelection? = nil,
-        onAddToAutomation: AssistantAutomationRequestHandler? = nil
+        onAddToAutomation: AssistantAutomationRequestHandler? = nil,
+        onLaunch: AssistantLaunchRequestHandler? = nil
     ) -> Harness {
         let suiteName = "com.apoorvdarshan.coincide.tests.assistantLibrary.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -52,7 +53,8 @@ struct AssistantLibraryViewModelTests {
             store: store.store(),
             defaults: defaults,
             initialSelection: initialSelection,
-            onAddToAutomation: onAddToAutomation
+            onAddToAutomation: onAddToAutomation,
+            onLaunch: onLaunch
         )
         return Harness(viewModel: viewModel, store: store, defaults: defaults, suiteName: suiteName)
     }
@@ -523,6 +525,24 @@ struct AssistantLibraryViewModelTests {
         let harnessWithoutCallback = makeHarness(builtIns: [tidy])
         defer { harnessWithoutCallback.defaults.removePersistentDomain(forName: harnessWithoutCallback.suiteName) }
         harnessWithoutCallback.viewModel.requestAddToAutomation(tidy)
+    }
+
+    @Test("Launch request routes through the launch callback and never calls the store directly")
+    @MainActor
+    func launchRequestRoutesThroughCallback() {
+        let tidy = Self.preset()
+        var received: [AssistantDefinition] = []
+        let harness = makeHarness(builtIns: [tidy], onLaunch: { definition in
+            received.append(definition)
+        })
+        defer { harness.defaults.removePersistentDomain(forName: harness.suiteName) }
+        harness.viewModel.requestLaunch(tidy)
+        #expect(received.map(\.id) == [tidy.id])
+        #expect(harness.store.launched.isEmpty)
+        let harnessWithoutCallback = makeHarness(builtIns: [tidy])
+        defer { harnessWithoutCallback.defaults.removePersistentDomain(forName: harnessWithoutCallback.suiteName) }
+        harnessWithoutCallback.viewModel.requestLaunch(tidy)
+        #expect(harnessWithoutCallback.store.launched.isEmpty)
     }
 
     @Test("Search and category filter compose")
