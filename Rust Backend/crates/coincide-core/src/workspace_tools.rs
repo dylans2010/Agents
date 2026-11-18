@@ -23,6 +23,18 @@ fn is_executable(_meta: &fs::Metadata) -> bool {
     false
 }
 
+fn str_param<'a>(params: &'a Value, keys: &[&str]) -> Option<&'a str> {
+    keys.iter()
+        .find_map(|key| params.get(*key).and_then(Value::as_str))
+}
+
+fn req_str<'a>(params: &'a Value, keys: &[&str], label: &str) -> Result<&'a str> {
+    str_param(params, keys)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .with_context(|| format!("Missing required parameter '{label}'"))
+}
+
 pub fn files(params: &Value) -> Result<Value> {
     let cwd = PathBuf::from(req_str(params, &["cwd", "path"], "cwd")?);
     ensure!(cwd.is_dir(), "Workspace directory does not exist");
@@ -109,6 +121,7 @@ pub fn search(params: &Value) -> Result<Value> {
 
     let mut matches = project_search::text(&cwd, query)?;
     let total = matches.len();
+    let truncated = total > limit || total == project_search::TEXT_LIMIT;
     matches.truncate(limit);
     let rows: Vec<Value> = matches
         .into_iter()
@@ -123,7 +136,7 @@ pub fn search(params: &Value) -> Result<Value> {
     Ok(json!({
         "matches": rows,
         "total": total,
-        "truncated": total > limit,
+        "truncated": truncated,
     }))
 }
 
@@ -135,6 +148,11 @@ fn validate_relative_workspace_path(path: &str) -> Result<&Path> {
                 .components()
                 .all(|part| matches!(part, Component::Normal(_))),
         "Path must be a relative workspace path without '.' or '..' components"
+    );
+    ensure!(
+        rel.components()
+            .all(|part| part.as_os_str().as_encoded_bytes() != b".git"),
+        "Refusing to operate on a protected Git directory path"
     );
     Ok(rel)
 }
@@ -229,6 +247,7 @@ pub fn search_regex(params: &Value) -> Result<Value> {
         .clamp(1, 1000);
     let mut matches = project_search::text_regex(&cwd, pattern)?;
     let total = matches.len();
+    let truncated = total > limit || total == project_search::TEXT_LIMIT;
     matches.truncate(limit);
     let rows: Vec<Value> = matches
         .into_iter()
@@ -243,7 +262,7 @@ pub fn search_regex(params: &Value) -> Result<Value> {
     Ok(json!({
         "matches": rows,
         "total": total,
-        "truncated": total > limit,
+        "truncated": truncated,
     }))
 }
 
@@ -356,9 +375,11 @@ pub fn read_dir(params: &Value) -> Result<Value> {
     };
     ensure!(fs::metadata(&base)?.is_dir(), "Path is not a directory");
     let mut entries: Vec<Value> = Vec::new();
+    let mut truncated = false;
     let mut queue = VecDeque::from([(base, 0usize)]);
     while let Some((dir, depth)) = queue.pop_front() {
         if entries.len() >= 5000 {
+            truncated = true;
             break;
         }
         let Ok(read) = fs::read_dir(&dir) else {
@@ -368,6 +389,7 @@ pub fn read_dir(params: &Value) -> Result<Value> {
         rows.sort_by_key(|entry| entry.file_name());
         for entry in rows {
             if entries.len() >= 5000 {
+                truncated = true;
                 break;
             }
             let Ok(kind) = entry.file_type() else {
@@ -419,6 +441,7 @@ pub fn read_dir(params: &Value) -> Result<Value> {
         "path": rel_str,
         "entries": entries,
         "total": total,
+        "truncated": truncated,
     }))
 }
 
@@ -636,13 +659,32 @@ fn write_regular_utf8(target: &Path, bytes: &[u8]) -> Result<()> {
             sync_parent_dir(parent);
         }
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            let parent = target.parent().context("Invalid file path")?;
+            let temp = parent.join(format!(
+                ".coincide-write-{}-{}",
+                std::process::id(),
+                uuid::Uuid::new_v4().as_simple()
+            ));
             let mut options = OpenOptions::new();
             options.write(true).create_new(true);
             #[cfg(unix)]
             options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
-            let mut file = options.open(target)?;
-            file.write_all(bytes)?;
-            file.sync_all()?;
+            let mut file = options.open(&temp)?;
+            let written = (|| -> Result<()> {
+                file.write_all(bytes)?;
+                file.sync_all()?;
+                Ok(())
+            })();
+            if let Err(error) = written {
+                let _ = fs::remove_file(&temp);
+                return Err(error);
+            }
+            drop(file);
+            if let Err(error) = fs::rename(&temp, target) {
+                let _ = fs::remove_file(&temp);
+                return Err(error.into());
+            }
+            sync_parent_dir(parent);
         }
         Err(err) => return Err(err.into()),
     }
@@ -698,5 +740,62 @@ mod tests {
             .map(|entry| entry.unwrap().file_name())
             .collect();
         assert_eq!(entries, vec![std::ffi::OsString::from("script.sh")]);
+    }
+
+    #[test]
+    fn workspace_paths_refuse_git_internals() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git").join("config"), "[core]\n").unwrap();
+        assert!(write_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": ".git/config",
+            "content": "x",
+        }))
+        .is_err());
+        assert!(delete_directory(&json!({
+            "cwd": root.display().to_string(),
+            "path": ".git",
+            "recursive": true,
+        }))
+        .is_err());
+        assert!(delete_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": ".git/config",
+        }))
+        .is_err());
+        assert!(move_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": ".git",
+            "destination": "backup",
+        }))
+        .is_err());
+        assert_eq!(
+            std::fs::read_to_string(root.join(".git").join("config")).unwrap(),
+            "[core]\n"
+        );
+    }
+
+    #[test]
+    fn write_file_creates_new_files_atomically_without_leftovers() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let written = write_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": "notes/new.txt",
+            "content": "hello\n",
+        }))
+        .unwrap();
+        assert_eq!(written["saved"], true);
+        assert_eq!(
+            std::fs::read_to_string(root.join("notes").join("new.txt")).unwrap(),
+            "hello\n"
+        );
+        let entries: Vec<_> = std::fs::read_dir(root.join("notes"))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(entries, vec![std::ffi::OsString::from("new.txt")]);
     }
 }

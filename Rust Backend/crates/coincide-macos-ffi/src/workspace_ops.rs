@@ -958,6 +958,71 @@ pub fn instructions_save(runtime: &CoincideMacOSRuntime, params: &Value) -> Resu
     }))
 }
 
+fn validate_relative_workspace_path(path: &str) -> Result<&Path> {
+    let rel = Path::new(path);
+    ensure!(
+        !rel.as_os_str().is_empty()
+            && rel
+                .components()
+                .all(|part| matches!(part, Component::Normal(_))),
+        "Path must be a relative workspace path without '.' or '..' components"
+    );
+    ensure!(
+        rel.components()
+            .all(|part| part.as_os_str().as_encoded_bytes() != b".git"),
+        "Refusing to operate on a protected Git directory path"
+    );
+    Ok(rel)
+}
+
+fn write_regular_utf8(target: &Path, bytes: &[u8]) -> Result<()> {
+    match fs::symlink_metadata(target) {
+        Ok(meta) => {
+            ensure!(
+                meta.is_file() && !meta.file_type().is_symlink(),
+                "Refusing to overwrite symlink or non-regular file"
+            );
+            let mut file = native_file::open_regular(target, true)?;
+            file.seek(SeekFrom::Start(0))?;
+            file.write_all(bytes)?;
+            file.set_len(bytes.len() as u64)?;
+            file.sync_all()?;
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            let parent = target.parent().context("Invalid file path")?;
+            let temp = parent.join(format!(
+                ".coincide-write-{}-{}",
+                std::process::id(),
+                Uuid::new_v4().as_simple()
+            ));
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+                .open(&temp)?;
+            let written = (|| -> Result<()> {
+                file.write_all(bytes)?;
+                file.sync_all()?;
+                Ok(())
+            })();
+            if let Err(error) = written {
+                let _ = fs::remove_file(&temp);
+                return Err(error);
+            }
+            drop(file);
+            if let Err(error) = fs::rename(&temp, target) {
+                let _ = fs::remove_file(&temp);
+                return Err(error.into());
+            }
+            if let Ok(dir) = OpenOptions::new().read(true).open(parent) {
+                let _ = dir.sync_all();
+            }
+        }
+        Err(err) => return Err(err.into()),
+    }
+    Ok(())
+}
+
 fn resolve_instruction_path(raw: &str, cwd: Option<&Path>) -> Result<PathBuf> {
     if let Some(rest) = raw.strip_prefix("~/") {
         let home = discovery::home_dir().context("HOME is unavailable")?;
@@ -1557,4 +1622,19 @@ fn remote_reset_identity(runtime: &CoincideMacOSRuntime) -> Result<Value> {
         .map_err(|_| anyhow::anyhow!("RemoteServer lock poisoned"))?;
     remote.reset_identity()?;
     Ok(serialize_remote_snapshot(&remote.snapshot()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relative_workspace_paths_reject_dot_components_git_and_absolute_paths() {
+        assert!(validate_relative_workspace_path("notes/a.md").is_ok());
+        assert!(validate_relative_workspace_path(".git/config").is_err());
+        assert!(validate_relative_workspace_path("sub/.git/HEAD").is_err());
+        assert!(validate_relative_workspace_path("../outside.md").is_err());
+        assert!(validate_relative_workspace_path("/abs/path.md").is_err());
+        assert!(validate_relative_workspace_path("").is_err());
+    }
 }
