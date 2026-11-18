@@ -393,7 +393,12 @@ pub static DEFINITIONS: &[ToolDef] = &[
         action: "terminal.create",
         channel: "engine",
         params: &[
-            P_THREAD_ID,
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID; the terminal starts in the thread working directory.",
+            },
             ToolParam {
                 name: "command",
                 kind: "string",
@@ -414,7 +419,12 @@ pub static DEFINITIONS: &[ToolDef] = &[
         action: "terminal.create",
         channel: "engine",
         params: &[
-            P_THREAD_ID,
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID; the terminal starts in the thread working directory.",
+            },
             ToolParam {
                 name: "command",
                 kind: "string",
@@ -7559,7 +7569,12 @@ pub static DEFINITIONS: &[ToolDef] = &[
         params: &[
             P_THREAD_ID,
             P_CWD,
-            P_PATH,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: true,
+                description: "SVG file path relative to the working directory.",
+            },
             ToolParam {
                 name: "output",
                 kind: "string",
@@ -7587,7 +7602,12 @@ pub static DEFINITIONS: &[ToolDef] = &[
         channel: "desktop",
         params: &[
             P_CWD,
-            P_PATH,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: true,
+                description: "Swift source file or directory relative to the working directory.",
+            },
             ToolParam {
                 name: "testPath",
                 kind: "string",
@@ -7614,7 +7634,12 @@ pub static DEFINITIONS: &[ToolDef] = &[
         action: "web.fetch",
         channel: "desktop",
         params: &[
-            P_THREAD_ID,
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
             ToolParam {
                 name: "query",
                 kind: "string",
@@ -7702,7 +7727,12 @@ pub static DEFINITIONS: &[ToolDef] = &[
         channel: "desktop",
         params: &[
             P_CWD,
-            P_PATH,
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: true,
+                description: "Source file relative to the working directory.",
+            },
         ],
     },
 
@@ -15997,6 +16027,34 @@ fn g6_github_repo(
     }
 }
 
+fn iso8601_now() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0);
+    let days = secs.div_euclid(86400);
+    let day_secs = secs.rem_euclid(86400);
+    let shifted = days + 719468;
+    let era = shifted.div_euclid(146097);
+    let day_of_era = shifted.rem_euclid(146097);
+    let year_of_era = (day_of_era - day_of_era / 1460 + day_of_era / 36524 - day_of_era / 146096)
+        / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = if month_prime < 10 {
+        month_prime + 3
+    } else {
+        month_prime - 9
+    };
+    let year = if month <= 2 { year + 1 } else { year };
+    let hour = day_secs / 3600;
+    let minute = (day_secs % 3600) / 60;
+    let second = day_secs % 60;
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
+}
+
 fn g6_misc_call(
     state: &crate::ServerState,
     name: &str,
@@ -16389,11 +16447,8 @@ fn g6_misc_call(
             let title = opt_str(args, "title")
                 .unwrap_or_else(|| "Completion".to_owned())
                 .replace('\n', " ");
-            let stamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            let record = format!("## {title}\n{summary}\n\nRecorded {stamp} seconds since the Unix epoch. The chat reply itself is the delivery to the user; this record marks the turn complete.\n");
+            let stamp = iso8601_now();
+            let record = format!("## {title}\n{summary}\n\nRecorded {stamp}. The chat reply itself is the delivery to the user; this record marks the turn complete.\n");
             let mut existing = read_text_file_at(&cwd, &path).unwrap_or_default();
             if !existing.is_empty() && !existing.ends_with('\n') {
                 existing.push('\n');
@@ -21133,7 +21188,7 @@ mod tests {
         description: String,
         action: String,
         channel: String,
-        params: Vec<(String, String, bool)>,
+        params: Vec<(String, String, bool, String)>,
     }
 
     fn parse_swift_registry() -> Vec<SwiftTool> {
@@ -21168,7 +21223,8 @@ mod tests {
                     .find("required: ")
                     .map(|at| after[at + "required: ".len()..].starts_with("true"))
                     .expect("param required");
-                params.push((param_name, kind, required));
+                let description = swift_field(after, "description").expect("param description");
+                params.push((param_name, kind, required, description));
                 param_rest = after;
             }
             tools.push(SwiftTool {
@@ -21193,12 +21249,13 @@ mod tests {
             assert_eq!(def.action, expected.action, "tool action");
             assert_eq!(def.channel, expected.channel, "tool channel");
             assert_eq!(def.params.len(), expected.params.len(), "param count");
-            for (param, (name, kind, required)) in
+            for (param, (name, kind, required, description)) in
                 def.params.iter().zip(expected.params.iter())
             {
                 assert_eq!(param.name, *name, "param name");
                 assert_eq!(param.kind, *kind, "param type");
                 assert_eq!(param.required, *required, "param required");
+                assert_eq!(param.description, *description, "param description");
             }
         }
     }

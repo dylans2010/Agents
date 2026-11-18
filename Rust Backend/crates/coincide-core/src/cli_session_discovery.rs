@@ -35,6 +35,13 @@ pub struct Scan {
     pub incomplete: bool,
 }
 
+pub fn provider_name(provider: ImportProvider) -> &'static str {
+    match provider {
+        ImportProvider::Codex => "codex",
+        ImportProvider::Claude => "claude",
+    }
+}
+
 /// `CLAUDE_CONFIG_DIR`/projects, and `CODEX_HOME`/sessions and archived_sessions,
 /// falling back to `~/.claude` and `~/.codex` as the CLIs do.
 pub fn default_roots(

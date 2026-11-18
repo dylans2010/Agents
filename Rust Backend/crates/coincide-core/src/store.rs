@@ -157,11 +157,18 @@ fn migrate_memory_entries(db: &mut Connection) -> Result<()> {
     let Some((document, from_documents)) = legacy_document(db, "memory.json")? else {
         return Ok(());
     };
-    let entries = document
-        .get("entries")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
+    let Some(entries) = document.get("entries").and_then(Value::as_object) else {
+        if document
+            .as_object()
+            .is_some_and(|object| object.is_empty())
+        {
+            if from_documents {
+                db.execute("DELETE FROM documents WHERE name='memory.json'", [])?;
+            }
+        }
+        return Ok(());
+    };
+    let entries = entries.clone();
     if entries.is_empty() {
         if from_documents {
             db.execute("DELETE FROM documents WHERE name='memory.json'", [])?;
@@ -197,18 +204,23 @@ fn migrate_worker_documents(db: &mut Connection) -> Result<()> {
     let Some((document, from_documents)) = legacy_document(db, "workers.json")? else {
         return Ok(());
     };
-    let workers = document
-        .get("workers")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-    let plans = document
-        .get("plans")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
+    let workers = document.get("workers").and_then(Value::as_object);
+    let plans = document.get("plans").and_then(Value::as_object);
+    if (document.get("workers").is_some() && workers.is_none())
+        || (document.get("plans").is_some() && plans.is_none())
+    {
+        return Ok(());
+    }
+    let shape_present = workers.is_some() || plans.is_some();
+    let workers = workers.cloned().unwrap_or_default();
+    let plans = plans.cloned().unwrap_or_default();
     if workers.is_empty() && plans.is_empty() {
-        if from_documents {
+        if from_documents
+            && (shape_present
+                || document
+                    .as_object()
+                    .is_some_and(|object| object.is_empty()))
+        {
             db.execute("DELETE FROM documents WHERE name='workers.json'", [])?;
         }
         return Ok(());

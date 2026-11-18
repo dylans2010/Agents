@@ -1,7 +1,7 @@
 # Performance Notes (Slice 15)
 
 All items below were verified in the code before changing. No tool behavior,
-UI layout, or registry count changed (registry stays at 326 tools). No build
+UI layout, or registry count changed (registry stays at 332 tools). No build
 or test was run for this slice: there is no Swift or Rust toolchain in this
 environment, so everything below is statically validated only. The Xcode
 build, `swift test`, and `cargo test` runs on Dylan's Mac remain the gate.
@@ -73,10 +73,22 @@ startup polls fast from the first tick. Local turn starts
 fast-poll window so the loop is already fast when the engine reports the
 new turn; `stopActiveTurn` clears that window. Turns started outside the
 app (remote, CLI, scheduled task) are picked up by the next idle poll
-within 1 s, at which point the loop drops back to 150 ms. No state
-transition is missed: the poll still compares revision, running set, and
-attention count on every tick, and `sendMessage` itself refreshes the
-workspace and transcript immediately.
+within 1 s, at which point the loop drops back to 150 ms. The poll
+compares revision, running set, and attention count on every tick, and
+`sendMessage` itself refreshes the workspace and transcript immediately.
+
+Known limitation: a turn that both starts and finishes inside one 1 s
+idle window never fires `onAgentTurnFinished`. The completion callback
+fires only for threads observed in `previousRunning` that are gone from
+the next poll's running set, and no signal the poll can see identifies a
+turn that completed unseen: the engine `revision` is a global counter
+bumped by unrelated dispatches (memory, schedules, settings), the
+attention count only moves on approvals and questions, and neither the
+poll status nor the thread summaries carry a last-finished-turn marker
+or a turn-history query. A sub-second turn still refreshes the workspace
+through the revision change, so its results appear; only the completion
+callback (notification/sound) is skipped. Fixing this needs a new
+engine-side finished-turn marker; none was invented here.
 
 ## 4. Transcript markdown memoization
 
@@ -111,8 +123,13 @@ alone could open up to 100 connections per git operation.
 After: the engine accepts one connection and serves sequential frames on
 it until the client disconnects or idles. `ControlClient` (new in
 `control.rs`) holds one persistent `UnixStream` per server process and
-reconnects once on a transport failure, then retries the request on the
-fresh connection. The MCP server keeps one `ControlClient` in
+reconnects once when the request frame itself fails to write, then retries
+the request on the fresh connection. A retry happens only on a write
+failure, so no complete request frame reached the server and the retried
+request cannot be a duplicate execution. If the write succeeds but the
+reply read fails or times out, the client does not retry: it drops the
+connection and returns the error, because the server may already have
+executed the request and a retry could run a mutation twice. The MCP server keeps one `ControlClient` in
 `ServerState` (behind a `Mutex`); `engine_request` now calls it instead
 of opening a connection per call. One-shot `control::request` (CLI,
 desktop, tests) keeps working unchanged on top of the same client.
@@ -127,9 +144,13 @@ Protocol constraints, kept deliberately narrow:
   is reaped after 500 ms and its next call reconnects transparently;
   this also bounds engine-shutdown latency to one dispatch plus 500 ms.
   The engine still polls between frames.
-- A retry after a transport failure can re-execute a request whose reply
-  was lost in transit. That failure mode already existed for one-shot
-  clients; no new guarantee is claimed.
+- A retry happens only when the request frame failed to write, so the
+  server never received a complete request and the retry cannot duplicate
+  an execution. A lost reply is reported to the caller as an error, never
+  silently re-executed; the caller sees the read failure and can check
+  engine state before deciding whether to issue the request again. The
+  one-shot `control::request` path shares the same client, so the same
+  guarantee holds there.
 - Windows is unchanged: `ControlClient::call` delegates to the existing
   one-shot named-pipe `request` there, since the Windows transport is
   one frame plus an acknowledgement byte per connection.

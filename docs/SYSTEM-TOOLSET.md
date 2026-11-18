@@ -719,7 +719,7 @@ catalog IDs: 271 registered by exact name, 1 alias-covered
 duplicate (`code_review` of `autonomous_review_engine`), 20 with no real
 backend, and these 6 implementable. This slice registers the 6, so the
 catalog is now covered 278 of 299 (271 exact + 1 alias-covered + 6 new);
-the remaining 22 are 20 NONE plus 1 duplicate plus 1 alias-covered.
+the remaining 21 are 20 NONE plus 1 duplicate.
 
 - `svg_to_png` reuses the exact `sips -s format png` invocation from
   `image_convert_format`, plus `--resampleHeightWidth` when both width

@@ -1,7 +1,4 @@
 //! Local Git primitives. Checkpoints capture the index, never unstaged/untracked data.
-//! Slice 10 amendment: reset and clean are now allowed, only inside the named,
-//! confirmation-gated functions below (rollback, restore_checkpoint); checkout,
-//! worktree removal, network and user hook execution remain excluded everywhere.
 use crate::workspace::{GitRequest, external_git_path, git, git_output};
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};

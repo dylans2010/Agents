@@ -2849,6 +2849,22 @@ struct ToolsetTests {
         #expect(SystemToolRegistry.definition(named: "intel_explain_code", for: .system)?.description.contains("structural overview from regex scans, not an LLM explanation") == true)
     }
 
+    @Test("Slice 22: per-tool parameter descriptions are pinned as the cross-check source of truth")
+    func sliceTwentyTwoParamDescriptionsPinned() {
+        let expected: [(tool: String, param: String, description: String)] = [
+            ("run_build", "threadId", "Owning thread ID; the terminal starts in the thread working directory."),
+            ("run_tests", "threadId", "Owning thread ID; the terminal starts in the thread working directory."),
+            ("svg_to_png", "path", "SVG file path relative to the working directory."),
+            ("intel_generate_tests", "path", "Swift source file or directory relative to the working directory."),
+            ("search_web", "threadId", "Owning thread ID. Only used by the MCP server path."),
+            ("intel_explain_code", "path", "Source file relative to the working directory."),
+        ]
+        for (tool, param, description) in expected {
+            let actual = SystemToolRegistry.definition(named: tool, for: .system)?.parameters.first { $0.name == param }?.description
+            #expect(actual == description)
+        }
+    }
+
     @Test("Slice 18: intel_generate_tests emits one stub per symbol and refuses overwrite")
     func sliceEighteenGenerateTestsRoundTrip() async throws {
         let (client, tempRoot) = try Self.makeClient()
@@ -2890,6 +2906,8 @@ struct ToolsetTests {
         #expect(notes.contains("Second note."))
         #expect(notes.contains("## Completion"))
         #expect(notes.contains("## Done"))
+        #expect(notes.contains("seconds since the Unix epoch") == false)
+        #expect(notes.range(of: #"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"#, options: .regularExpression) != nil)
         await client.close()
     }
 

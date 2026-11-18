@@ -264,8 +264,14 @@ impl ControlClient {
             if self.stream.is_none() {
                 self.stream = Some(connect_stream(&self.path)?);
             }
-            match self.exchange(request) {
-                Ok(reply) => Ok(reply),
+            match self.send(request) {
+                Ok(()) => match self.read_reply() {
+                    Ok(reply) => Ok(reply),
+                    Err(error) => {
+                        self.stream = None;
+                        Err(error)
+                    }
+                },
                 Err(_) => {
                     self.stream = None;
                     self.stream = Some(connect_stream(&self.path)?);
@@ -279,13 +285,25 @@ impl ControlClient {
         }
     }
     #[cfg(unix)]
-    fn exchange(&mut self, request: &Value) -> Result<Value> {
+    fn send(&mut self, request: &Value) -> Result<()> {
         let stream = self
             .stream
             .as_mut()
             .context("Control client is not connected")?;
-        write_frame(stream, request).context("Sending control request")?;
+        write_frame(stream, request).context("Sending control request")
+    }
+    #[cfg(unix)]
+    fn read_reply(&mut self) -> Result<Value> {
+        let stream = self
+            .stream
+            .as_mut()
+            .context("Control client is not connected")?;
         read_frame(stream).context("Reading control reply")
+    }
+    #[cfg(unix)]
+    fn exchange(&mut self, request: &Value) -> Result<Value> {
+        self.send(request)?;
+        self.read_reply()
     }
 }
 
