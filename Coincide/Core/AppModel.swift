@@ -1,0 +1,1104 @@
+import AppKit
+import CoincideRemoteKit
+import Foundation
+import Observation
+
+@Observable
+@MainActor
+public final class AppModel {
+    // MARK: - Core Workspace & Conversation State
+
+    public var workspace: RemoteWorkspace = RemoteWorkspace()
+    public var selectedThreadID: String? {
+        didSet {
+            UserDefaults.standard.set(selectedThreadID, forKey: Self.selectedThreadDefaultsKey)
+            if oldValue?.uppercased() != selectedThreadID?.uppercased() {
+                Task { await handleSelectedThreadChanged() }
+            }
+        }
+    }
+    public var activeTranscript: RemoteTranscript?
+
+    // MARK: - Providers, Models & Runtime Poll Status
+
+    public var providers: [DesktopProviderInfo] = []
+    public var acpRegistry: [ACPRegistryAgentInfo] = []
+    public var status: RuntimePollStatus = RuntimePollStatus()
+
+    // MARK: - Shell Chrome, Inspector & Integrated Terminal State
+
+    public var inspectorVisible: Bool {
+        didSet { UserDefaults.standard.set(inspectorVisible, forKey: Self.inspectorVisibleKey) }
+    }
+    public var inspectorTab: InspectorTab {
+        didSet { UserDefaults.standard.set(inspectorTab.rawValue, forKey: Self.inspectorTabKey) }
+    }
+    public var terminalVisible: Bool {
+        didSet { UserDefaults.standard.set(terminalVisible, forKey: Self.terminalVisibleKey) }
+    }
+    public var activeTerminals: [TerminalSessionSummary] = []
+    public var selectedTerminalID: String?
+
+    // MARK: - Sheets, Search, Find & Settings Navigation
+
+    public var showCommandPalette: Bool = false
+    public var showBotEditor: Bool = false
+    public var editingBot: RemoteBot?
+    public var showSessionImport: Bool = false
+    public var showFindBar: Bool = false
+    public var findQuery: String = ""
+    public var sidebarSearchQuery: String = ""
+    public var showArchivedThreads: Bool = false {
+        didSet {
+            if oldValue != showArchivedThreads {
+                Task { await refreshWorkspace() }
+            }
+        }
+    }
+    public var selectedSettingsTab: SettingsTab = .general
+
+    // MARK: - Typography & Appearance Preferences
+
+    public var fontScale: Double {
+        didSet { UserDefaults.standard.set(fontScale, forKey: Self.fontScaleKey) }
+    }
+    public var usesSerifReplies: Bool {
+        didSet { UserDefaults.standard.set(usesSerifReplies, forKey: Self.usesSerifKey) }
+    }
+    public var appearancePreference: AppearancePreference {
+        didSet {
+            UserDefaults.standard.set(appearancePreference.rawValue, forKey: Self.appearanceKey)
+            applyAppearanceToNSApp()
+        }
+    }
+
+    // MARK: - Notifications, Toasts, Errors & Cross-Pane Requests
+
+    public var toastMessage: ToastMessage?
+    public var lastError: String?
+    public var openFileInInspectorRequest: WorkspaceFileOpenRequest?
+    public var composerInsertedTextRequest: String?
+
+    // MARK: - Rich Contextual Caches & Sub-Services
+
+    public private(set) var isBootstrapped: Bool = false
+    public private(set) var isLoadingTranscript: Bool = false
+    public var activeCheckout: RemoteCheckout?
+    public var activeComposerNotice: RemoteComposerNotice?
+    public var activeDiff: RemoteDiff?
+    public var activeDiffScope: DiffScope = .uncommitted
+    public var activeGitState: RemoteGitState?
+    public var scheduledTasks: RemoteScheduledTasks = RemoteScheduledTasks()
+    public var remoteServer: RemoteServerSnapshot = RemoteServerSnapshot()
+    public var settingsSnapshot: RemoteSettingsSnapshot = RemoteSettingsSnapshot()
+    public var usageLimits: [RemoteUsage] = []
+
+    public let voiceDictation = VoiceDictationController()
+    public var externalEditors: ExternalEditorService { ExternalEditorService.shared }
+
+    @ObservationIgnored public private(set) var runtime: CoincideRuntimeClient?
+    @ObservationIgnored private var pollTask: Task<Void, Never>?
+    @ObservationIgnored private var toastDismissTask: Task<Void, Never>?
+    @ObservationIgnored private var toastUndoHandler: (@MainActor () -> Void)?
+    @ObservationIgnored private var lastObservedRevision: UInt64 = 0
+    @ObservationIgnored private var lastObservedRunningIDs: Set<String> = []
+    @ObservationIgnored private var lastObservedAttentionCount: Int = 0
+
+    /// Lifecycle hooks consumed by `AppDelegate` & `StatusBarController`.
+    @ObservationIgnored public var onStatusChanged: (@MainActor (RuntimePollStatus) -> Void)?
+    @ObservationIgnored public var onAgentTurnFinished: (@MainActor (RemoteThreadSummary) -> Void)?
+    @ObservationIgnored public var onUserAttentionNeeded: (@MainActor (Int, Int) -> Void)?
+
+    // MARK: - UserDefaults Keys
+
+    private static let selectedThreadDefaultsKey = "coincide.selectedThreadID"
+    private static let inspectorVisibleKey = "coincide.inspectorVisible"
+    private static let inspectorTabKey = "coincide.inspectorTab"
+    private static let terminalVisibleKey = "coincide.terminalVisible"
+    private static let fontScaleKey = "coincide.fontScale"
+    private static let usesSerifKey = "coincide.usesSerifReplies"
+    private static let appearanceKey = "coincide.appearancePreference"
+
+    // MARK: - Init
+
+    public init() {
+        let defaults = UserDefaults.standard
+        self.inspectorVisible = defaults.object(forKey: Self.inspectorVisibleKey) as? Bool ?? false
+        self.inspectorTab = InspectorTab(rawValue: defaults.string(forKey: Self.inspectorTabKey) ?? "") ?? .changes
+        self.terminalVisible = defaults.object(forKey: Self.terminalVisibleKey) as? Bool ?? false
+        let savedScale = defaults.double(forKey: Self.fontScaleKey)
+        self.fontScale = savedScale > 0 ? min(1.5, max(0.8, savedScale)) : 1.0
+        self.usesSerifReplies = defaults.object(forKey: Self.usesSerifKey) as? Bool ?? true
+        self.appearancePreference = AppearancePreference(
+            rawValue: defaults.string(forKey: Self.appearanceKey) ?? ""
+        ) ?? .system
+        self.selectedThreadID = defaults.string(forKey: Self.selectedThreadDefaultsKey)
+    }
+
+    // MARK: - Computed Workspace Helpers
+
+    public var selectedThreadUUID: UUID? {
+        guard let selectedThreadID else { return nil }
+        return UUID(uuidString: selectedThreadID)
+    }
+
+    public var selectedThread: RemoteThreadSummary? {
+        guard let uuid = selectedThreadUUID else { return nil }
+        return workspace.threads.first { $0.id == uuid } ?? activeTranscript?.thread
+    }
+
+    public var selectedProject: RemoteProject? {
+        guard let projectID = selectedThread?.projectID else {
+            return workspace.projects.first { !$0.isChats }
+        }
+        return workspace.projects.first { $0.id == projectID }
+    }
+
+    /// Best-effort absolute working directory for the selected thread or project.
+    public var activeWorkingDirectory: String? {
+        if let term = activeTerminals.first(where: { $0.id == selectedTerminalID }), !term.directory.isEmpty {
+            return ExternalEditorService.expandedPath(term.directory)
+        }
+        if let proj = selectedProject, !proj.path.isEmpty {
+            return ExternalEditorService.expandedPath(proj.path)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser.path
+    }
+
+    public var filteredThreads: [RemoteThreadSummary] {
+        let q = sidebarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return workspace.threads.filter { thread in
+            if !showArchivedThreads && thread.isArchived { return false }
+            guard !q.isEmpty else { return true }
+            return thread.title.lowercased().contains(q)
+                || (thread.branch?.lowercased().contains(q) ?? false)
+                || thread.selection.provider.lowercased().contains(q)
+        }
+    }
+
+    public var recentThreads: [RemoteThreadSummary] {
+        Array(
+            workspace.threads
+                .filter { !$0.isArchived }
+                .sorted { $0.updatedAt > $1.updatedAt }
+                .prefix(5)
+        )
+    }
+
+    // MARK: - Runtime Bootstrap, 150ms Poll Loop & Shutdown
+
+    public func bootstrap(dataDir: String? = nil, startPolling: Bool = true) async {
+        guard !isBootstrapped else { return }
+        applyAppearanceToNSApp()
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.2.0"
+
+        do {
+            let client = try CoincideRuntimeClient(dataDir: dataDir, appVersion: version)
+            self.runtime = client
+            self.isBootstrapped = true
+
+            if let initialStatus = try? await client.pollStatus() {
+                self.status = initialStatus
+                self.lastObservedRevision = initialStatus.revision
+                self.lastObservedRunningIDs = Set(initialStatus.runningThreadIDs)
+                self.lastObservedAttentionCount = initialStatus.totalAttentionCount
+                onStatusChanged?(initialStatus)
+            }
+
+            await refreshWorkspace()
+            await refreshProviders()
+            if selectedThreadUUID == nil || selectedThread == nil {
+                selectedThreadID = workspace.threads.first(where: { !$0.isArchived })?.id.uuidString
+            } else {
+                await handleSelectedThreadChanged()
+            }
+
+            Task {
+                await refreshScheduledTasks()
+                await refreshRemoteServer()
+            }
+
+            if startPolling {
+                startPollLoop()
+            }
+        } catch {
+            self.lastError = error.localizedDescription
+            presentToast("Runtime Startup Failed", detail: error.localizedDescription, style: .error)
+        }
+    }
+
+    private func startPollLoop() {
+        pollTask?.cancel()
+        pollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled, let self else { break }
+                await self.performSinglePollTick()
+            }
+        }
+    }
+
+    private func performSinglePollTick() async {
+        guard let client = runtime else { return }
+        guard let polled = try? await client.pollStatus() else { return }
+        if polled.busy {
+            return
+        }
+
+        let previousRunning = lastObservedRunningIDs
+        let currentRunning = Set(polled.runningThreadIDs)
+        let revisionChanged = polled.revision != lastObservedRevision
+        let runningChanged = currentRunning != previousRunning || polled.running != status.running || polled.starting != status.starting
+        let attentionChanged = polled.totalAttentionCount != lastObservedAttentionCount
+
+        self.status = polled
+        onStatusChanged?(polled)
+
+        if polled.activationRequested {
+            NSApp.activate(ignoringOtherApps: true)
+            for window in NSApp.windows where window.canBecomeMain {
+                window.makeKeyAndOrderFront(nil)
+                break
+            }
+        }
+
+        if let openID = polled.requestedOpenThreadID,
+           let uuid = UUID(uuidString: openID)
+        {
+            selectThread(uuid)
+        }
+
+        if attentionChanged && polled.totalAttentionCount > lastObservedAttentionCount {
+            onUserAttentionNeeded?(polled.pendingApprovals, polled.pendingQuestions)
+        }
+
+        lastObservedRevision = polled.revision
+        lastObservedRunningIDs = currentRunning
+        lastObservedAttentionCount = polled.totalAttentionCount
+
+        if revisionChanged || runningChanged || attentionChanged {
+            await refreshWorkspace()
+            if let activeUUID = selectedThreadUUID {
+                if let transcript = try? await client.openThread(activeUUID) {
+                    self.activeTranscript = transcript
+                }
+            }
+            if terminalVisible {
+                await refreshTerminals()
+            }
+
+            // Notify completion for threads whose agent turn just finished
+            let finishedIDs = previousRunning.subtracting(currentRunning)
+            for finishedID in finishedIDs {
+                if let uuid = UUID(uuidString: finishedID),
+                   let summary = workspace.threads.first(where: { $0.id == uuid })
+                {
+                    onAgentTurnFinished?(summary)
+                }
+            }
+        }
+    }
+
+    public func shutdown() async {
+        pollTask?.cancel()
+        pollTask = nil
+        toastDismissTask?.cancel()
+        await voiceDictation.cancelRecording()
+        if let client = runtime {
+            runtime = nil
+            isBootstrapped = false
+            await client.close()
+        }
+    }
+
+    public func shutdownSynchronously() {
+        pollTask?.cancel()
+        pollTask = nil
+        toastDismissTask?.cancel()
+        if let client = runtime {
+            runtime = nil
+            isBootstrapped = false
+            client.closeSynchronously()
+        }
+    }
+
+    public func applyAppearanceToNSApp() {
+        guard NSApp != nil else { return }
+        NSApp.appearance = appearancePreference.nsAppearance
+    }
+
+    // MARK: - Workspace, Projects, Threads & Bots
+
+    public func refreshWorkspace() async {
+        guard let client = runtime else { return }
+        do {
+            let ws = try await client.fetchWorkspace(includeArchived: showArchivedThreads)
+            self.workspace = ws
+        } catch {
+            self.lastError = error.localizedDescription
+        }
+    }
+
+    public func selectThread(_ threadUUID: UUID?) {
+        selectedThreadID = threadUUID?.uuidString
+    }
+
+    public func selectThread(_ threadID: String?) {
+        selectedThreadID = threadID
+    }
+
+    public func selectNextThread() {
+        let list = filteredThreads
+        guard !list.isEmpty else { return }
+        guard let current = selectedThreadUUID,
+              let idx = list.firstIndex(where: { $0.id == current })
+        else {
+            selectThread(list.first?.id)
+            return
+        }
+        let nextIdx = (idx + 1) % list.count
+        selectThread(list[nextIdx].id)
+    }
+
+    public func selectPreviousThread() {
+        let list = filteredThreads
+        guard !list.isEmpty else { return }
+        guard let current = selectedThreadUUID,
+              let idx = list.firstIndex(where: { $0.id == current })
+        else {
+            selectThread(list.last?.id)
+            return
+        }
+        let prevIdx = (idx - 1 + list.count) % list.count
+        selectThread(list[prevIdx].id)
+    }
+
+    private func handleSelectedThreadChanged() async {
+        guard let client = runtime else { return }
+        guard let uuid = selectedThreadUUID else {
+            activeTranscript = nil
+            activeCheckout = nil
+            activeComposerNotice = nil
+            activeDiff = nil
+            activeGitState = nil
+            return
+        }
+
+        isLoadingTranscript = true
+        defer { isLoadingTranscript = false }
+
+        do {
+            let transcript = try await client.openThread(uuid)
+            self.activeTranscript = transcript
+            _ = try? await client.markSeen(uuid)
+            async let checkoutTask = try? client.fetchCheckout(thread: uuid)
+            async let noticeTask = try? client.fetchComposerNotice(thread: uuid)
+            let (checkout, notice) = await (checkoutTask, noticeTask)
+            if self.selectedThreadUUID == uuid {
+                self.activeCheckout = checkout
+                self.activeComposerNotice = notice
+            }
+            if inspectorVisible {
+                await refreshActiveInspectorData()
+            }
+            if terminalVisible {
+                await refreshTerminals()
+            }
+        } catch {
+            self.lastError = error.localizedDescription
+        }
+    }
+
+    @discardableResult
+    public func createNewThread(in projectID: UUID? = nil) async -> UUID? {
+        guard let client = runtime else { return nil }
+        let resolvedProject: UUID? = projectID ?? {
+            if let proj = selectedProject, !proj.isChats { return proj.id }
+            return nil
+        }()
+        do {
+            let newID = try await client.newThread(projectID: resolvedProject)
+            await refreshWorkspace()
+            selectThread(newID)
+            return newID
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func promptAddProjectFolder() {
+        let panel = NSOpenPanel()
+        panel.title = "Add Project Folder"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        if panel.runModal() == .OK, let url = panel.url {
+            Task { await addProject(at: url.path) }
+        }
+    }
+
+    @discardableResult
+    public func addProject(at path: String, name: String? = nil) async -> UUID? {
+        guard let client = runtime else { return nil }
+        do {
+            let id = try await client.createProject(path: path, name: name)
+            await refreshWorkspace()
+            let newThread = try? await client.newThread(projectID: id)
+            await refreshWorkspace()
+            if let newThread {
+                selectThread(newThread)
+            }
+            presentToast("Project Added", detail: (path as NSString).lastPathComponent, style: .success)
+            return id
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func removeProject(_ projectID: UUID) async {
+        guard let client = runtime else { return }
+        do {
+            try await client.removeProject(projectID: projectID)
+            await refreshWorkspace()
+            if selectedThread == nil {
+                selectThread(workspace.threads.first?.id)
+            }
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func setProjectExpanded(_ projectID: UUID, expanded: Bool) async {
+        guard let client = runtime else { return }
+        do {
+            try await client.setProjectExpanded(projectID: projectID, expanded: expanded)
+            await refreshWorkspace()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func performThreadAction(_ action: RemoteThreadAction, on threadID: UUID) async {
+        guard let client = runtime else { return }
+        if case .delete = action {
+            await deleteThreadPermanently(threadID.uuidString)
+            return
+        }
+        do {
+            try await client.performThreadAction(thread: threadID, action: action)
+            await refreshWorkspace()
+            if selectedThreadUUID == threadID {
+                await handleSelectedThreadChanged()
+            }
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func deleteThreadPermanently(_ threadID: String) async {
+        guard let client = runtime else { return }
+        do {
+            let wasSelected = selectedThreadID?.caseInsensitiveCompare(threadID) == .orderedSame
+            let undoID = try await client.deleteThreadPermanently(threadID: threadID)
+            await refreshWorkspace()
+            if wasSelected {
+                selectThread(workspace.threads.first(where: { !$0.isArchived })?.id)
+            }
+            presentToast(
+                "Conversation Deleted",
+                style: .info,
+                undoActionTitle: "Undo"
+            ) { [weak self] in
+                Task { await self?.undoDeleteThread(undoID: undoID) }
+            }
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func undoDeleteThread(undoID: String? = nil) async {
+        guard let client = runtime else { return }
+        do {
+            let restored = try await client.undoDeleteThread(undoID: undoID)
+            await refreshWorkspace()
+            if let first = restored.first {
+                selectThread(first)
+            }
+            presentToast("Conversation Restored", style: .success)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    @discardableResult
+    public func forkThread(_ threadID: UUID, itemID: UUID? = nil) async -> UUID? {
+        guard let client = runtime else { return nil }
+        do {
+            let forked = try await client.forkThread(RemoteForkRequest(threadID: threadID, itemID: itemID))
+            await refreshWorkspace()
+            selectThread(forked)
+            presentToast("Forked Conversation", style: .success)
+            return forked
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func openBotEditor(for bot: RemoteBot? = nil) {
+        editingBot = bot
+        showBotEditor = true
+    }
+
+    public func startBotConversation(_ botID: UUID) async {
+        guard let client = runtime else { return }
+        do {
+            let tid = try await client.newBotConversation(botID: botID)
+            await refreshWorkspace()
+            selectThread(tid)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    @discardableResult
+    public func saveBot(_ draft: RemoteBotDraft) async -> UUID? {
+        guard let client = runtime else { return nil }
+        do {
+            let id = try await client.saveBot(draft)
+            await refreshWorkspace()
+            showBotEditor = false
+            editingBot = nil
+            presentToast("Saved Bot", detail: draft.name, style: .success)
+            return id
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func deleteBot(_ botID: UUID, deletesConversations: Bool = false) async {
+        guard let client = runtime else { return }
+        do {
+            try await client.deleteBot(botID, deletesConversations: deletesConversations)
+            await refreshWorkspace()
+            presentToast("Bot Deleted", style: .info)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    // MARK: - Conversation, Composer, Approvals, Questions & Rewind
+
+    @discardableResult
+    public func sendMessage(
+        text: String,
+        images: [RemoteImage] = [],
+        delivery: RemoteSendRequest.Delivery = .automatic,
+        to threadID: UUID? = nil
+    ) async -> String? {
+        guard let client = runtime else { return nil }
+        let targetThread: UUID?
+        if let threadID {
+            targetThread = threadID
+        } else if let current = selectedThreadUUID {
+            targetThread = current
+        } else {
+            targetThread = await createNewThread()
+        }
+        guard let targetThread else { return nil }
+
+        do {
+            let outcome = try await client.send(
+                RemoteSendRequest(threadID: targetThread, text: text, images: images, delivery: delivery)
+            )
+            await refreshWorkspace()
+            if selectedThreadUUID == targetThread {
+                activeTranscript = try? await client.openThread(targetThread)
+            }
+            return outcome
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func stopActiveTurn(threadID: UUID? = nil) async {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+        do {
+            try await client.stop(thread: tid)
+            if selectedThreadUUID == tid {
+                activeTranscript = try? await client.openThread(tid)
+            }
+            await refreshWorkspace()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func steerQueuedMessage(_ messageID: UUID, threadID: UUID? = nil) async {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+        do {
+            try await client.steerQueued(thread: tid, message: messageID)
+            activeTranscript = try? await client.openThread(tid)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func removeQueuedMessage(_ messageID: UUID, threadID: UUID? = nil) async {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+        do {
+            try await client.removeQueued(thread: tid, message: messageID)
+            activeTranscript = try? await client.openThread(tid)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func respondToApproval(
+        itemID: UUID,
+        optionID: String,
+        text: String? = nil,
+        threadID: UUID? = nil
+    ) async {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+        do {
+            try await client.respond(thread: tid, requestID: itemID, optionID: optionID, text: text)
+            activeTranscript = try? await client.openThread(tid)
+            await refreshWorkspace()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func answerQuestion(
+        itemID: UUID,
+        answers: [String: [String]],
+        threadID: UUID? = nil
+    ) async {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+        do {
+            try await client.answer(thread: tid, requestID: itemID, answers: answers)
+            activeTranscript = try? await client.openThread(tid)
+            await refreshWorkspace()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func dismissQuestion(itemID: UUID, threadID: UUID? = nil) async {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+        do {
+            try await client.dismissQuestion(thread: tid, requestID: itemID)
+            activeTranscript = try? await client.openThread(tid)
+            await refreshWorkspace()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func updateThreadSettings(_ settings: RemoteThreadSettings) async {
+        guard let client = runtime else { return }
+        do {
+            try await client.updateThreadSettings(settings)
+            await refreshWorkspace()
+            if selectedThreadUUID == settings.threadID {
+                activeTranscript = try? await client.openThread(settings.threadID)
+            }
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func loadEarlierMessages(limit: Int = 200) async {
+        guard let client = runtime,
+              let tid = selectedThreadUUID,
+              var transcript = activeTranscript,
+              transcript.hasEarlier,
+              let firstIndex = transcript.items.first?.index
+        else { return }
+
+        do {
+            let page = try await client.loadEarlier(thread: tid, before: firstIndex, limit: limit)
+            var merged = page.items
+            let existingIDs = Set(merged.map(\.id))
+            merged.append(contentsOf: transcript.items.filter { !existingIDs.contains($0.id) })
+            merged.sort { $0.index < $1.index }
+            transcript.items = merged
+            transcript.hasEarlier = page.hasEarlier
+            self.activeTranscript = transcript
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func changeCheckout(_ action: RemoteCheckoutAction) async {
+        guard let client = runtime, let tid = selectedThreadUUID else { return }
+        do {
+            let updated = try await client.changeCheckout(thread: tid, action: action)
+            self.activeCheckout = updated
+            await refreshWorkspace()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func rewindConversation(to itemID: UUID, revertsFiles: Bool) async -> RemoteRewind? {
+        guard let client = runtime, let tid = selectedThreadUUID else { return nil }
+        do {
+            let rw = try await client.rewind(
+                RemoteRewindRequest(threadID: tid, itemID: itemID, revertsFiles: revertsFiles)
+            )
+            activeTranscript = try? await client.openThread(tid)
+            await refreshWorkspace()
+            if !rw.text.isEmpty {
+                insertTextIntoComposer(rw.text)
+            }
+            return rw
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func insertTextIntoComposer(_ text: String) {
+        composerInsertedTextRequest = text
+    }
+
+    // MARK: - Inspector, Diff, Git, Pull Requests, Files & Schedules
+
+    public func toggleInspector() {
+        inspectorVisible.toggle()
+        if inspectorVisible {
+            Task { await refreshActiveInspectorData() }
+        }
+    }
+
+    public func openInspector(tab: InspectorTab) {
+        inspectorTab = tab
+        inspectorVisible = true
+        Task { await refreshActiveInspectorData() }
+    }
+
+    public func openFileInInspector(path: String, line: Int? = nil, column: Int? = nil) {
+        openFileInInspectorRequest = WorkspaceFileOpenRequest(path: path, line: line, column: column)
+        inspectorTab = .files
+        inspectorVisible = true
+    }
+
+    public func refreshActiveInspectorData() async {
+        switch inspectorTab {
+        case .changes:
+            await refreshDiff()
+        case .git:
+            await refreshGitState()
+        case .schedules:
+            await refreshScheduledTasks()
+        case .pullRequests, .files:
+            break
+        }
+    }
+
+    public func refreshDiff(scope: DiffScope? = nil) async {
+        guard let client = runtime, let tid = selectedThreadUUID else { return }
+        if let scope { activeDiffScope = scope }
+        do {
+            activeDiff = try await client.fetchDiff(thread: tid, scope: activeDiffScope)
+        } catch {
+            self.lastError = error.localizedDescription
+        }
+    }
+
+    public func refreshGitState() async {
+        guard let client = runtime, let tid = selectedThreadUUID else { return }
+        do {
+            activeGitState = try await client.fetchGitState(thread: tid)
+        } catch {
+            self.lastError = error.localizedDescription
+        }
+    }
+
+    @discardableResult
+    public func performGitAction(
+        _ action: RemoteGitActionRequest.Action,
+        message: String? = nil,
+        featureBranch: Bool = false
+    ) async -> RemoteGitActionResult? {
+        guard let client = runtime, let tid = selectedThreadUUID else { return nil }
+        do {
+            let outcome = try await client.performGitAction(
+                RemoteGitActionRequest(
+                    threadID: tid,
+                    action: action,
+                    message: message,
+                    featureBranch: featureBranch
+                )
+            )
+            await refreshGitState()
+            await refreshDiff()
+            await refreshWorkspace()
+            presentToast(outcome.title, detail: outcome.detail, style: .success)
+            return outcome
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func refreshScheduledTasks() async {
+        guard let client = runtime else { return }
+        if let tasks = try? await client.fetchScheduledTasks() {
+            self.scheduledTasks = tasks
+        }
+    }
+
+    public func saveScheduledTask(_ draft: RemoteScheduledTaskDraft) async {
+        guard let client = runtime else { return }
+        do {
+            self.scheduledTasks = try await client.saveScheduledTask(draft)
+            await refreshWorkspace()
+            presentToast("Saved Schedule", detail: draft.name, style: .success)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func performScheduledTaskAction(_ command: RemoteScheduledTaskCommand) async {
+        guard let client = runtime else { return }
+        do {
+            self.scheduledTasks = try await client.performScheduledTaskAction(command)
+            await refreshWorkspace()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func approveSchedule(_ id: String) async {
+        guard let client = runtime else { return }
+        do {
+            try await client.approveSchedule(id: id)
+            await refreshScheduledTasks()
+            presentToast("Schedule Approved", style: .success)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    // MARK: - Integrated PTY Terminal Operations
+
+    public func toggleTerminal() {
+        terminalVisible.toggle()
+        if terminalVisible {
+            Task {
+                await refreshTerminals()
+                if activeTerminals.isEmpty {
+                    await createTerminalForSelectedThread()
+                }
+            }
+        }
+    }
+
+    @discardableResult
+    public func createTerminalForSelectedThread() async -> String? {
+        guard let client = runtime else { return nil }
+        do {
+            let id = try await client.createTerminal(threadID: selectedThreadID)
+            await refreshTerminals()
+            selectedTerminalID = id
+            terminalVisible = true
+            return id
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func refreshTerminals() async {
+        guard let client = runtime else { return }
+        if let list = try? await client.listTerminals(threadID: selectedThreadID) {
+            self.activeTerminals = list
+            if selectedTerminalID == nil || !list.contains(where: { $0.id == selectedTerminalID }) {
+                selectedTerminalID = list.first?.id
+            }
+        }
+    }
+
+    public func closeTerminal(_ id: String) async {
+        guard let client = runtime else { return }
+        do {
+            try await client.closeTerminal(id: id)
+            await refreshTerminals()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func sendTerminalContextToComposer(_ output: String) {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        insertTextIntoComposer("\n```sh\n\(trimmed)\n```\n")
+    }
+
+    public func runProjectScript(_ script: RemoteScript, projectID: UUID) async {
+        guard let client = runtime, let tid = selectedThreadUUID else { return }
+        do {
+            try await client.runScript(projectID: projectID, scriptID: script.id, threadID: tid)
+            terminalVisible = true
+            await refreshTerminals()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    // MARK: - Providers, ACP Registry, Models, Remote & Legacy Import
+
+    public func refreshProviders() async {
+        guard let client = runtime else { return }
+        if let list = try? await client.listAllProviders() {
+            self.providers = list
+        }
+    }
+
+    public func refreshACPRegistry(force: Bool = false) async {
+        guard let client = runtime else { return }
+        do {
+            self.acpRegistry = try await client.fetchACPRegistry(refresh: force)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func registerACPAgent(_ agentID: String) async {
+        guard let client = runtime else { return }
+        do {
+            _ = try await client.registerACPAgent(agentID: agentID)
+            await refreshACPRegistry(force: false)
+            await refreshProviders()
+            await refreshWorkspace()
+            presentToast("Registered ACP Agent", detail: agentID, style: .success)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func refreshRemoteServer() async {
+        guard let client = runtime else { return }
+        if let snap = try? await client.fetchRemoteServerStatus() {
+            self.remoteServer = snap
+        }
+    }
+
+    public func setRemoteServerEnabled(_ enabled: Bool) async {
+        guard let client = runtime else { return }
+        do {
+            self.remoteServer = try await client.setRemoteServerEnabled(enabled)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func beginRemotePairing() async {
+        guard let client = runtime else { return }
+        do {
+            self.remoteServer = try await client.beginRemotePairing()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func cancelRemotePairing() async {
+        guard let client = runtime else { return }
+        do {
+            self.remoteServer = try await client.cancelRemotePairing()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func revokeRemoteDevice(_ deviceID: String) async {
+        guard let client = runtime else { return }
+        do {
+            self.remoteServer = try await client.revokeRemoteDevice(deviceID: deviceID)
+            presentToast("Device Revoked", style: .info)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func importLegacyWorkspace() async {
+        guard let client = runtime else { return }
+        do {
+            let report = try await client.importLegacyWorkspace()
+            await refreshWorkspace()
+            presentToast(
+                "Legacy Workspace Imported",
+                detail: "\(report.importedProjects) projects, \(report.importedThreads) threads, \(report.importedBots) bots",
+                style: .success
+            )
+        } catch {
+            presentError(error)
+        }
+    }
+
+    // MARK: - Zoom & Toast Helpers
+
+    public func increaseFontScale() {
+        fontScale = min(1.5, (fontScale * 10 + 1).rounded() / 10)
+    }
+
+    public func decreaseFontScale() {
+        fontScale = max(0.8, (fontScale * 10 - 1).rounded() / 10)
+    }
+
+    public func resetFontScale() {
+        fontScale = 1.0
+    }
+
+    public func presentError(_ error: Error) {
+        let message = error.localizedDescription
+        self.lastError = message
+        presentToast("Action Failed", detail: message, style: .error)
+    }
+
+    public func presentToast(
+        _ title: String,
+        detail: String? = nil,
+        style: ToastMessage.Style = .info,
+        undoActionTitle: String? = nil,
+        onUndo: (@MainActor () -> Void)? = nil
+    ) {
+        toastDismissTask?.cancel()
+        toastUndoHandler = onUndo
+        let toast = ToastMessage(
+            title: title,
+            detail: detail,
+            style: style,
+            undoActionTitle: undoActionTitle
+        )
+        toastMessage = toast
+        toastDismissTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(undoActionTitle != nil ? 6 : 4))
+            guard !Task.isCancelled else { return }
+            if self?.toastMessage?.id == toast.id {
+                self?.toastMessage = nil
+                self?.toastUndoHandler = nil
+            }
+        }
+    }
+
+    public func performToastUndo() {
+        let handler = toastUndoHandler
+        dismissToast()
+        handler?()
+    }
+
+    public func dismissToast() {
+        toastDismissTask?.cancel()
+        toastMessage = nil
+        toastUndoHandler = nil
+    }
+}

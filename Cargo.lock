@@ -1324,6 +1324,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "coincide-macos-ffi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.23.1",
+ "chrono",
+ "coincide-core",
+ "libc",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "uuid",
+]
+
+[[package]]
 name = "coincide-native-host-tests"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,23 @@
+[package]
+name = "coincide-macos-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+coincide-core = { path = "../coincide-core" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+rusqlite.workspace = true
+base64 = "0.23"
+chrono = { version = "0.4", features = ["serde"] }
+libc = "0.2"
+
+[dev-dependencies]
+tempfile.workspace = true

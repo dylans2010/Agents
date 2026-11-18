@@ -1,0 +1,4 @@
+module CoincideMacOSFFI {
+    header "coincide_macos_ffi.h"
+    export *
+}
