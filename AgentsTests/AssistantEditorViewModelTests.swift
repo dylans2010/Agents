@@ -180,7 +180,63 @@ struct AssistantEditorViewModelTests {
 
     @Test("The provider list is exactly the providers the engine accepts by name")
     func providerOptionsAreRealProviders() {
-        #expect(AssistantEditorViewModel.providerIDs == ["codex", "claude", "grok", "opencode", "lithos", "cursor", "antigravity"])
+        #expect(AssistantEditorViewModel.providerIDs == AssistantEditorViewModel.providerOptions.map(\.id))
+        #expect(Set(AssistantEditorViewModel.providerIDs).count == AssistantEditorViewModel.providerIDs.count, "Duplicate provider id in providerOptions")
+        #expect(Set(AssistantEditorViewModel.providerOptions.map(\.name)).count == AssistantEditorViewModel.providerOptions.count, "Duplicate provider display name in providerOptions")
+        for option in AssistantEditorViewModel.providerOptions {
+            #expect(!option.id.isEmpty, "Empty provider id in providerOptions")
+            #expect(AgentBranding.normalizedID(option.id) == option.id, "Provider id \(option.id) is not normalized")
+            #expect(!option.name.isEmpty, "Provider \(option.id) has no display name")
+        }
+        #expect(
+            Set(AssistantEditorViewModel.providerIDs) == ["codex", "claude", "grok", "opencode", "lithos", "cursor", "antigravity"],
+            "Provider list drifted from the engine's supported provider names. There is no Swift-side shared source for supported_names, so update providerOptions here and re-check the engine's supported_names."
+        )
+    }
+
+    @Test("Editing a definition without a stored record keeps the definition version in the draft")
+    func editingDefinitionVersionPreservedWithoutStoredRecord() {
+        var definition = Self.makeCustomDefinition()
+        definition.version = 3
+        let viewModel = AssistantEditorViewModel(editing: definition)
+        #expect(viewModel.version == 3)
+        #expect(viewModel.makeDraft().version == 3)
+    }
+
+    @Test("The editor's test-run handler accepts an AppModel directly and runs without a runtime")
+    func testRunHandlerAcceptsAppModel() async {
+        let model = AppModel()
+        let handler = AssistantEditorView.testRunHandler(appModel: model)
+        let view = AssistantEditorView(
+            viewModel: AssistantEditorViewModel(),
+            onSave: { _ in nil },
+            onCancel: {},
+            onTestRun: handler
+        )
+        #expect(view.onTestRun != nil)
+        let assistant = RemoteAssistant(
+            id: UUID(),
+            name: "Wiring Check",
+            category: .codeMaintenance,
+            systemPrompt: "Check."
+        )
+        await handler(assistant, "Hello")
+    }
+
+    @Test("A new assistant defaults to an icon that is selectable in the icon grid")
+    func newAssistantDefaultIconIsInGrid() {
+        let viewModel = AssistantEditorViewModel()
+        #expect(viewModel.icon == AssistantEditorViewModel.defaultIcon)
+        #expect(AssistantEditorViewModel.iconOptions.contains(viewModel.icon))
+    }
+
+    @Test("Editing a definition with an empty icon falls back to a grid icon")
+    func emptyIconFallsBackToGridIcon() {
+        var definition = Self.makeCustomDefinition()
+        definition.icon = ""
+        let viewModel = AssistantEditorViewModel(editing: definition)
+        #expect(viewModel.icon == AssistantEditorViewModel.defaultIcon)
+        #expect(AssistantEditorViewModel.iconOptions.contains(viewModel.icon))
     }
 
     @Test("Customizing a built-in builds an override draft keyed by the preset persistence ID")

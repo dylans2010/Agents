@@ -207,6 +207,8 @@ public final class AssistantEditorViewModel {
 
     public static let providerIDs: [String] = providerOptions.map(\.id)
 
+    public static let defaultIcon = "bubble.left.and.bubble.right"
+
     public static let iconOptions: [String] = [
         "accessibility", "arrow.triangle.2.circlepath", "arrow.triangle.branch", "arrow.triangle.merge",
         "book.pages", "bubble.left.and.bubble.right", "bug.fill", "building.columns", "chart.bar",
@@ -247,7 +249,7 @@ public final class AssistantEditorViewModel {
     public init() {
         self.name = ""
         self.description = ""
-        self.icon = "sparkles"
+        self.icon = Self.defaultIcon
         self.category = .codeMaintenance
         self.systemPrompt = ""
         self.intendedTasks = []
@@ -268,7 +270,7 @@ public final class AssistantEditorViewModel {
     public init(editing definition: AssistantDefinition, stored: RemoteAssistant? = nil) {
         self.name = definition.name
         self.description = definition.description
-        self.icon = definition.icon.isEmpty ? "sparkles" : definition.icon
+        self.icon = definition.icon.isEmpty ? Self.defaultIcon : definition.icon
         self.category = definition.category
         self.systemPrompt = definition.systemPrompt
         self.intendedTasks = definition.intendedTasks
@@ -316,7 +318,7 @@ public final class AssistantEditorViewModel {
     }
 
     public var version: Int {
-        storedRecord?.version ?? preset?.version ?? 1
+        storedRecord?.version ?? editingDefinition?.version ?? 1
     }
 
     public var stableID: String {

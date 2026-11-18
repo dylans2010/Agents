@@ -34,6 +34,10 @@ public struct AssistantEditorView: View {
         self.onRestoreDefaults = onRestoreDefaults
     }
 
+    public static func testRunHandler(appModel: AppModel) -> (RemoteAssistant, String) async -> Void {
+        { assistant, task in await appModel.launchAssistant(assistant, task: task) }
+    }
+
     private var issues: [AssistantValidationIssue] {
         viewModel.validationIssues
     }
@@ -56,6 +60,9 @@ public struct AssistantEditorView: View {
         }
         if onTestRun == nil {
             return "Live test runs are not wired in this context."
+        }
+        if sampleTask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Enter a sample task to run the live test."
         }
         return nil
     }
@@ -573,9 +580,9 @@ public struct AssistantEditorView: View {
 
                 if let note = testRunNote {
                     HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
+                        Image(systemName: "info.circle.fill")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(AppTheme.success)
+                            .foregroundStyle(AppTheme.accent)
                             .padding(.top, 1)
                         Text(note)
                             .font(.system(size: 12))
@@ -767,7 +774,7 @@ public struct AssistantEditorView: View {
         guard !task.isEmpty else { return }
         testRunNote = nil
         await onTestRun(assistant, task)
-        testRunNote = "Test run started in a new thread using the last saved version of this assistant."
+        testRunNote = "Test run requested using the last saved version of this assistant. A new thread appears when the runtime starts it."
     }
 
     private func restoreDefaults(_ record: RemoteAssistant) async {
