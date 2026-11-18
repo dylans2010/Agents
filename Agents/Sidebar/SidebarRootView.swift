@@ -417,6 +417,15 @@ public struct SidebarRootView: View {
                     librarySelection = .category(category)
                 }
             }
+
+            SidebarLibraryRow(
+                title: "Automated Tasks",
+                systemImage: "timer",
+                count: 0,
+                isSelected: false
+            ) {
+                appModel.openAssistantTasks()
+            }
         } header: {
             HStack(spacing: 6) {
                 Text("Library")

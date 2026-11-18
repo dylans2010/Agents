@@ -896,3 +896,5 @@ public final class AssistantTasksViewModel {
         }
     }
 }
+
+extension AssistantTaskManager: AssistantTaskManaging {}

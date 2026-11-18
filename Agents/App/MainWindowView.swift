@@ -60,6 +60,9 @@ public struct MainWindowView: View {
         .sheet(isPresented: $appModel.showAssistantResult) {
             AssistantResultContainerSheet(appModel: appModel)
         }
+        .sheet(isPresented: $appModel.showAssistantTasks) {
+            AssistantTasksContainerSheet(appModel: appModel)
+        }
     }
 
     @ViewBuilder
@@ -80,6 +83,31 @@ public struct MainWindowView: View {
                         .frame(minHeight: 160, idealHeight: 250, maxHeight: 520)
                 }
             }
+        }
+    }
+}
+
+private struct AssistantTasksContainerSheet: View {
+    @Bindable public var appModel: AppModel
+
+    @State private var viewModel: AssistantTasksViewModel?
+
+    public init(appModel: AppModel) {
+        self.appModel = appModel
+        if let manager = appModel.assistantTaskManager {
+            _viewModel = State(initialValue: AssistantTasksViewModel(
+                manager: manager,
+                catalog: appModel.assistantCatalog,
+                projects: appModel.workspace.projects
+            ))
+        }
+    }
+
+    public var body: some View {
+        if let viewModel {
+            AssistantTasksView(viewModel: viewModel)
+        } else {
+            ProgressView()
         }
     }
 }

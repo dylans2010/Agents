@@ -65,6 +65,7 @@ public final class AppModel {
     public var showAssistantLaunch: Bool = false
     public var assistantResultReport: AssistantReport?
     public var showAssistantResult: Bool = false
+    public var showAssistantTasks: Bool = false
 
     public var agentToolset: AgentToolset {
         didSet { AgentToolset.save(agentToolset) }
@@ -1087,6 +1088,15 @@ public final class AppModel {
     public func closeAssistantEditor() {
         showAssistantEditor = false
         editingAssistantDefinition = nil
+    }
+
+    public func openAssistantTasks() {
+        guard assistantTaskManager != nil else { return }
+        showAssistantTasks = true
+    }
+
+    public func closeAssistantTasks() {
+        showAssistantTasks = false
     }
 
     public func openAssistantLaunch(for definition: AssistantDefinition, paths: [String] = []) {
