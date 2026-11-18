@@ -733,6 +733,7 @@ private struct DiffFileSummaryRow: View {
                         }
                         .buttonStyle(.borderless)
                         .help("Open in Inspector Editor")
+                        .accessibilityLabel("Open in Inspector Editor")
 
                         Button {
                             onOpenInExternalEditor(nil)
@@ -742,6 +743,7 @@ private struct DiffFileSummaryRow: View {
                         }
                         .buttonStyle(.borderless)
                         .help("Open in External Editor")
+                        .accessibilityLabel("Open in external editor")
                     }
 
                     Button(action: onQuoteInComposer) {
@@ -750,6 +752,7 @@ private struct DiffFileSummaryRow: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Quote File in Composer")
+                    .accessibilityLabel("Quote file in composer")
                 }
                 .foregroundStyle(AppTheme.secondaryLabel)
             }
@@ -917,6 +920,7 @@ private struct DiffFilePatchCard: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Quote File in Composer (@\(file.path))")
+                .accessibilityLabel("Quote file in composer")
 
                 if !file.patch.isEmpty {
                     Button(action: onCopyPatch) {
@@ -925,6 +929,7 @@ private struct DiffFilePatchCard: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Copy Patch")
+                    .accessibilityLabel("Copy patch")
                 }
 
                 if file.status.lowercased() != "deleted" {
@@ -936,6 +941,7 @@ private struct DiffFilePatchCard: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Open in Inspector Editor")
+                    .accessibilityLabel("Open in Inspector Editor")
 
                     Menu {
                         Button("Open in Inspector Editor") {
@@ -961,6 +967,7 @@ private struct DiffFilePatchCard: View {
                     .menuStyle(.borderlessButton)
                     .fixedSize()
                     .help("Open in External Editor")
+                    .accessibilityLabel("Open in external editor")
                 }
             }
             .foregroundStyle(AppTheme.secondaryLabel)

@@ -120,6 +120,7 @@ struct ComputerUseInspectorView: View {
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: 80)
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.3)))
+                .accessibilityLabel("Arguments, JSON object, without threadId")
             if let errorText {
                 Text(errorText)
                     .foregroundStyle(.red)

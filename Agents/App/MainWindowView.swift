@@ -113,6 +113,7 @@ private struct ToastBannerOverlay: View {
                     .foregroundStyle(AppTheme.secondaryLabel)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss notification")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

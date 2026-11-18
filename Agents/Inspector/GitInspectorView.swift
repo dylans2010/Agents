@@ -512,6 +512,7 @@ struct GitInspectorView: View {
                         RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
                             .strokeBorder(AppTheme.separator, lineWidth: 0.85)
                     )
+                    .accessibilityLabel("Commit message, leave empty to let Agents draft one")
 
                 if commitMessage.isEmpty {
                     Text("Commit message (leave empty to let Agents draft one)…")

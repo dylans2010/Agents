@@ -115,6 +115,7 @@ public struct MemorySettingsPane: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 190)
+                .accessibilityLabel("Scope for new memory")
                 Button("Save") {
                     Task { await saveEntry() }
                 }
@@ -143,6 +144,7 @@ public struct MemorySettingsPane: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 260)
+                .accessibilityLabel("Filter memories by scope")
                 if isLoading {
                     ProgressView()
                         .controlSize(.small)
@@ -221,6 +223,7 @@ public struct MemorySettingsPane: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 190)
+                .accessibilityLabel("Scope to clear")
                 if clearScopeIsWorkspace {
                     TextField("Workspace identifier (absolute path)", text: $workspaceScopeText)
                         .textFieldStyle(.roundedBorder)

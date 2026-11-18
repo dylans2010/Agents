@@ -1158,6 +1158,7 @@ private struct QueuedMessagesStripView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Remove queued message")
+                    .accessibilityLabel("Remove queued message")
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -1302,6 +1303,7 @@ private struct ComposerUsageWarningBanner: View {
                     .foregroundStyle(AppTheme.secondaryLabel)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss usage warning")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -1355,6 +1357,7 @@ private struct UsageQuotaPopoverContent: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Refresh quota windows")
             }
 
             if appModel.usageLimits.isEmpty {
