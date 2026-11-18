@@ -705,7 +705,7 @@ struct ToolsetTests {
         #expect(SystemToolRegistry.definition(named: "get_window_state", for: .system)?.parameters.first { $0.name == "window_id" }?.required == true)
         #expect(SystemToolRegistry.definition(named: "launch_app", for: .system)?.parameters.first { $0.name == "bundle_id" }?.required == true)
         #expect(SystemToolRegistry.definition(named: "take_screenrecord", for: .system) == nil)
-        #expect(SystemToolRegistry.definition(named: "use_app", for: .system) == nil)
+        #expect(SystemToolRegistry.definition(named: "use_app", for: .system)?.name == "use_app")
     }
 
     @Test("Computer Use tools refuse missing arguments before any runtime call")
