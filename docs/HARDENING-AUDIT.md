@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–122
+# Hardening Audit — Slices 71–124
 
 ## Summary
 
@@ -32,7 +32,10 @@ close-out, dead UI, hardcoded colors): 4 further defects fixed and 0
 regression tests added — bringing the totals to **29 defects fixed and
 27 regression tests**. The Slice 122 correction of the Slice 118
 `provider_transport.rs` line cite is description-only and not counted,
-following the Slice 105/109 precedent. The remaining
+following the Slice 105/109 precedent. Slice 124, appended after that,
+fixed the Slice 123 findings and backfilled the Slice 122 remote SHA —
+all description-only, following the Slice 105/109 precedent, so the
+totals stay at **29 defects fixed and 27 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -684,7 +687,7 @@ baseline: local `main` `d6f55594`, remote `main` `cc09b357`, same tree
 `50a42e70` (tree `29fbdddc9d4095c7934e518af58956406d84fe6f`, same tree as
 remote `bf146ce8`).
 
-## Slice 122 — Swift UI audit: Liquid Glass consistency, accessibility close-out, dead UI
+## Slice 122 — Swift UI audit: Liquid Glass consistency, accessibility close-out, dead UI (remote `1acbed3c`)
 
 **Audited:** the Swift app UI only (`Agents/`, 66 Swift files; Rust and
 the iOS companion untouched) — every `glassEffect` / `glassBackground` /
@@ -715,7 +718,15 @@ run here, as for every slice in this record.
    but not activate it. Now `.accessibilityElement(children: .combine)`
    + `.accessibilityAddTraits(isSelected ? [.isButton, .isSelected] :
    .isButton)` + `.accessibilityAction { onSelect() }`, following the
-   `TerminalDrawerRootView` row precedent. No explicit label: the
+   `TerminalDrawerRootView` row's traits pattern — the identical
+   `.accessibilityAddTraits(isSelected ? [.isButton, .isSelected] :
+   .isButton)` expression at `TerminalDrawerRootView.swift:712` (which
+   additionally carries an explicit label at `:711`; this row relies on
+   the combined children reading naturally instead). The
+   `.accessibilityElement(children: .combine)` +
+   `.accessibilityAction` mechanism itself is new here: those two
+   modifiers appear nowhere else in `Agents/` — this is their first use
+   (`DiffInspectorView.swift:798,800,1122,1125`). No explicit label: the
    combined children (file name, directory, +N/−M counts) already read
    naturally, and a label would duplicate the visible file name (Slice 34
    rule).
@@ -772,9 +783,10 @@ hardcoded UI colors.
 
 **No further defects found in the accessibility sweep or dead-UI check.**
 The only controls added since Slice 32 (`565a293f`) are the
-environment-variable KEY/Value fields
-(`ProvidersSettingsPane.swift:549,553`), which carry placeholder labels,
-and the remove-row button beside them is labelled; no new unlabeled
+environment-variable Value fields
+(`ProvidersSettingsPane.swift:549,553`), which carry placeholder labels
+— the KEY field (`:543`) predates Slice 32 — and the remove-row button
+beside them is labelled; no new unlabeled
 Button/Toggle/Picker/onTapGesture was added in the 15 files changed since
 Slice 32. The other pre-existing `onTapGesture` select rows (pull
 requests, workspace files, sidebar bot row) predate Slice 32 and are
@@ -806,8 +818,9 @@ struct declaration at `tools.rs:14`); `git diff --stat` shows only the
 three Swift files plus this record and the `SYSTEM-TOOLSET.md` hardening
 entry. Audit baseline: local `main` `ede38793`, remote `main`
 `165ef9a81`, same tree
-`6e56794a9bc76c3470a945bc650610c991803c93`. Remote SHA to be backfilled by
-the next slice, as Slice 120 backfilled Slice 118's.
+`6e56794a9bc76c3470a945bc650610c991803c93`. Remote SHA
+`1acbed3c26bd201f835fea76d77056f857b48cf6`, backfilled by Slice 124, as
+Slice 120 backfilled Slice 118's.
 
 **Mac-gate checks owed:** (1) VoiceOver focus on the composer announces
 the placeholder label ("Ask …" / "Steer or queue…") and does not
@@ -815,6 +828,70 @@ double-announce with typed text; (2) VoiceOver can activate the diff file
 row and the diff gutter jump, and the gutter reads as a button only when
 the line is jumpable; (3) the thread context menu on an already-read
 thread shows only "Mark as Unread" (no disabled "Mark as Read").
+
+## Slice 124 — Fix Slice 123 findings: docs precision, Slice 122 SHA backfill
+
+**Audited:** the Slice 123 verification report on Slice 122 — the
+three docs findings and the correlated terminal-row note — re-checked
+against the code at HEAD. Statically verified only — no build or test
+run here, as for every slice in this record.
+
+**Defects fixed (0):** no code change. The correlated Slice 123 note
+asked whether the terminal session row
+(`Agents/Terminal/TerminalDrawerRootView.swift:711-712`) should get the
+same `.accessibilityElement(children: .combine)` +
+`.accessibilityAction` treatment as the Slice 122 diff row. It does not
+apply cleanly: the tap handler is identifiable
+(`.onTapGesture(perform: onSelect)` at `:709`), but the row contains an
+interactive child — the close `Button(action: onClose)` at `:686` with
+its own `.accessibilityLabel("Close terminal \(displayTitle)")` at
+`:695` — and combining the row's children would merge that button into
+the single row element, so VoiceOver users could no longer reach "Close
+terminal …" as a separate control. The diff row's combined children are
+all non-interactive (file name, directory, +N/−M counts; its action
+buttons live in the context menu, outside the combined element), so the
+pattern applied cleanly there and does not here. Left unchanged;
+Mac-gate owed (see below).
+
+**Docs corrections (not counted):** (1) the Slice 122 §2 sentence now
+says the diff row follows the `TerminalDrawerRootView` row's *traits
+pattern* — the identical `.accessibilityAddTraits(isSelected ?
+[.isButton, .isSelected] : .isButton)` expression at
+`TerminalDrawerRootView.swift:712` (which additionally carries an
+explicit label at `:711`) — and records the
+`.accessibilityElement(children: .combine)` +
+`.accessibilityAction` mechanism as the first use of those two modifiers
+in `Agents/` (`DiffInspectorView.swift:798,800,1122,1125`); (2) the
+Slice 122 sweep paragraph now names the environment-variable *Value*
+fields (`ProvidersSettingsPane.swift:549,553`) accurately — the KEY
+field (`:543`) predates Slice 32; (3) the Slice 122 section heading now
+carries the pushed remote SHA `1acbed3c` and the Verification paragraph
+the full `1acbed3c26bd201f835fea76d77056f857b48cf6`, replacing the "to be
+backfilled" note. Description-only, so the totals stay at 29 defects
+fixed and 27 regression tests, following the Slice 105/109 precedent.
+
+**Tests added (0):** docs-only slice. Swift `@Test` total stays 128
+(109 in `AgentsTests/`, 19 in `CoincideRemoteTests/`).
+
+**Verification:** re-read of all changed hunks; the cited lines
+re-verified in the files (`TerminalDrawerRootView.swift:686,695,709,
+711-712`; `DiffInspectorView.swift:798-800,1122-1125`;
+`ProvidersSettingsPane.swift:543,549,553`); registry counts unchanged
+at 332 tools per side (Swift `SystemToolDefinition(` 332; Rust
+`ToolDef {` 333 raw incl. the struct declaration at `tools.rs:14`);
+zero new `//` comments in added lines (docs only, no Swift changed);
+`git diff --stat` shows only this record, `docs/MAC-GATE.md`, and the
+`SYSTEM-TOOLSET.md` hardening entry. Audit baseline: local `main`
+`9df38e0b`, remote `main` `1acbed3c26bd201f835fea76d77056f857b48cf6`,
+same tree `e3beabbdbe21f7312ec747bc5baa5b2afa40d811`. Remote SHA to be
+backfilled by the next slice, as this slice backfilled Slice 122's.
+
+**Mac-gate checks owed:** (1) decide how VoiceOver activates the
+terminal session row without swallowing its close button — the row
+(`TerminalDrawerRootView.swift:709-712`) is tap-to-select with only the
+`.isButton` trait and no action, so it may itself not be
+VoiceOver-activatable, while the close button at `:686` must stay
+separately reachable; any fix must keep both.
 
 ## Documented, not fixed
 
@@ -960,6 +1037,19 @@ limitation of the audited component, or a question owed to Dylan.
   persistence wording overstated what is persisted, three line cites
   were off by one to three lines, and `docs/MAC-GATE.md` was stale
   (Rust total 3,000, core 1,822); all fixed in Slice 120.
+  **Slice 123 re-verification (no commit):** Slice 123 re-verified Slice
+  122 read-only and passed it with minors — (1) MINOR — the Slice 122
+  §2 "TerminalDrawerRootView row precedent" wording was half-right: the
+  terminal row does use the identical traits expression, but it has no
+  `.accessibilityElement(children: .combine)` and no
+  `.accessibilityAction`, and those two modifiers appear nowhere else in
+  `Agents/`; (2) MINOR — `docs/MAC-GATE.md` §2.9 still said Slice 32
+  "left 3 controls unresolved"; (3) TRIVIAL — the Slice 122 sweep
+  paragraph called `ProvidersSettingsPane.swift:549,553` the "KEY/Value
+  fields", but those are the two Value fields and the KEY field is at
+  `:543` and predates Slice 32. Correlated note: the terminal session
+  row itself may not be VoiceOver-activatable (tap-to-select, `.isButton`
+  trait only, no action). All fixed or recorded in Slice 124.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)

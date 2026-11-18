@@ -346,16 +346,16 @@ glass is used most.
 
 ### 2.9 Accessibility spot-check
 
-Slice 32 added 16 accessibility labels and left 3 controls unresolved
-because a label alone cannot fix them. Verify those 3 with VoiceOver on:
+Slice 32 added 16 accessibility labels; 3 controls needed more than a
+label, and Slice 122 fixed all 3. Verify the fixes with VoiceOver on:
 
 - The composer `NSTextView` — `Agents/Conversation/ComposerNSTextView.swift`
   (AppKit text view, no AppKit-side label; SwiftUI-side label
   unverifiable statically).
 - The two `onTapGesture` click targets in
   `Agents/Inspector/DiffInspectorView.swift` — file-row select and
-  diff-line gutter jump — which need `accessibilityElement` / action
-  work, not just a label.
+  diff-line gutter jump — which Slice 122 fixed with
+  `accessibilityElement` / action work, not just a label.
 
 Also check the two Slice 32 labels that restate adjacent hint text, and
 decide whether they help or double-announce with VoiceOver:
@@ -462,7 +462,7 @@ reason. A step that was not run is unchecked, not passed.
 - [ ] 2.7 — Spaces / Device Hub: NOT PRESENT in this checkout (see
   section 2.7; do not check this box as passed)
 - [ ] 2.8 — Liquid Glass visual check, dark and light
-- [ ] 2.9 — Accessibility spot-check of the 3 unresolved controls
+- [ ] 2.9 — Accessibility spot-check of the 3 Slice 122 fixes (VoiceOver verification owed)
 
 Mac-gate result: _pass / fail_ — commit tested: ______________ — date:
 ______________ — notes: ________________________________________
