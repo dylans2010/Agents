@@ -1816,7 +1816,7 @@ impl Store {
     }
     pub(crate) fn memory_total_bytes(&self) -> Result<i64> {
         Ok(self.connection()?.query_row(
-            "SELECT COALESCE(SUM(length(entry)),0) FROM memory_entries",
+            "SELECT COALESCE(SUM(length(CAST(entry AS BLOB))),0) FROM memory_entries",
             [],
             |row| row.get(0),
         )?)
