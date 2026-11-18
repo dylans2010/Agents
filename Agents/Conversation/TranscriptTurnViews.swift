@@ -604,17 +604,20 @@ struct ToolOrReasoningStepRow: View {
         }
     }
 
+    static func reasoningTitle(for text: String) -> String {
+        let firstLine = text
+            .components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+        guard let firstLine else { return "Thinking" }
+        let stripped = firstLine.replacingOccurrences(of: "**", with: "")
+        let redacted = OutputRedactionGate.shared.redactedText(stripped)
+        return redacted.count > 88 ? String(redacted.prefix(88)) + "…" : redacted
+    }
+
     private var stepTitle: String {
         if item.kind == .reasoning {
-            let firstLine = item.text
-                .components(separatedBy: "\n")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .first { !$0.isEmpty }
-            if let firstLine {
-                let stripped = firstLine.replacingOccurrences(of: "**", with: "")
-                return stripped.count > 88 ? String(stripped.prefix(88)) + "…" : stripped
-            }
-            return "Thinking"
+            return Self.reasoningTitle(for: item.text)
         }
         if item.kind == .tool {
             return AssistantToolActivity.displayTitle(for: item)
@@ -623,7 +626,7 @@ struct ToolOrReasoningStepRow: View {
             return title
         }
         if let detail = item.detail, !detail.isEmpty {
-            return detail.components(separatedBy: "\n").first ?? "Tool Call"
+            return OutputRedactionGate.shared.redactedText(detail.components(separatedBy: "\n").first ?? "Tool Call")
         }
         return item.category?.capitalized ?? "Tool Call"
     }
@@ -1407,7 +1410,7 @@ struct InlineApprovalHistoryCard: View {
                             .padding(.vertical, 1.5)
                             .background(AppTheme.warning.opacity(0.14), in: Capsule())
                     } else if let resolution = item.approval?.resolution, !resolution.isEmpty {
-                        Text(resolution)
+                        Text(OutputRedactionGate.shared.redactedText(resolution))
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }

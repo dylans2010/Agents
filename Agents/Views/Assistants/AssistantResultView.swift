@@ -480,7 +480,7 @@ public struct AssistantResultView: View {
             ? file.path
             : "diff --git a/\(oldHeader) b/\(file.path)\n--- a/\(oldHeader)\n+++ b/\(file.path)\n" + file.patch
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.setString(redacted(text), forType: .string)
         copyConfirmation = "Patch copied"
     }
 }
@@ -660,7 +660,7 @@ private struct AssistantDiffLineRow: View {
                     .foregroundStyle(AppTheme.info.opacity(0.85))
                     .frame(width: 72, alignment: .center)
                     .padding(.vertical, 2.5)
-                Text(line.text)
+                Text(OutputRedactionGate.shared.redactedText(line.text))
                     .font(AppTheme.codeFont(size: 11.0))
                     .foregroundStyle(AppTheme.info)
                     .padding(.horizontal, 6)
@@ -687,7 +687,7 @@ private struct AssistantDiffLineRow: View {
                     .frame(width: 16, alignment: .center)
                     .padding(.vertical, 1.5)
 
-                Text(line.text.isEmpty ? " " : line.text)
+                Text(OutputRedactionGate.shared.redactedText(line.text.isEmpty ? " " : line.text))
                     .font(AppTheme.codeFont(size: 11.5))
                     .foregroundStyle(textColor)
                     .lineLimit(1)

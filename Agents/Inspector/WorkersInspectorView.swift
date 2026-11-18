@@ -136,7 +136,7 @@ struct WorkersInspectorView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 11))
                         .foregroundStyle(AppTheme.warning)
-                    Text(errorText)
+                    Text(OutputRedactionGate.shared.redactedText(errorText))
                         .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                         .lineLimit(2)
@@ -596,7 +596,7 @@ struct WorkersInspectorView: View {
                     resultPeekSection(worker)
                 }
                 if let error = worker.error, !error.isEmpty {
-                    Text(error)
+                    Text(OutputRedactionGate.shared.redactedText(error))
                         .font(.system(size: 11))
                         .foregroundStyle(AppTheme.warning)
                 }

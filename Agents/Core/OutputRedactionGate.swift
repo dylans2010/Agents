@@ -44,8 +44,8 @@ public final class OutputRedactionGate: @unchecked Sendable {
             "[^\\s\"']*localharness_external[^\\s\"']*",
             "[^\\s\"']*GEMINI_HOME[^\\s\"']*",
             "AIza[0-9A-Za-z\\-_]{20,}",
-            "com\\.apoorvdarshan\\.coincide\\.remote\\.token",
-            "com\\.apoorvdarshan\\.coincide\\.rust\\.(?:provider-account|remote|voice-transcription)\\.v1",
+            "com\\.apoorvdarshan\\.coincide\\.remote\\.token[^\\s\"']*",
+            "com\\.apoorvdarshan\\.coincide\\.rust\\.(?:provider-account|remote|voice-transcription)\\.v1[^\\s\"']*",
         ]
         let groupedPatterns: [(pattern: String, group: Int)] = [
             ("GEMINI_API_KEY\\s*[\"':=]+\\s*\"?([A-Za-z0-9_\\-]{8,})", 1),

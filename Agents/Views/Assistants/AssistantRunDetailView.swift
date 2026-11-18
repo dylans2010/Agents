@@ -350,7 +350,7 @@ struct AssistantRunDetailView: View {
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }
                     if changesExpanded && !file.patch.isEmpty {
-                        Text(file.patch)
+                        Text(OutputRedactionGate.shared.redactedText(file.patch))
                             .font(AppTheme.codeFont(size: 11))
                             .foregroundStyle(AppTheme.primaryLabel)
                             .textSelection(.enabled)
@@ -376,17 +376,17 @@ struct AssistantRunDetailView: View {
             }
             ForEach(detail.approvalItems) { item in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title ?? item.text)
+                    Text(OutputRedactionGate.shared.redactedText(item.title ?? item.text))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppTheme.primaryLabel)
                         .lineLimit(2)
                     if let approval = item.approval {
                         if let resolution = approval.resolution, !resolution.isEmpty {
-                            Text("Resolved: \(resolution)")
+                            Text("Resolved: \(OutputRedactionGate.shared.redactedText(resolution))")
                                 .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                         } else {
-                            Text("Options: \(approval.options.map(\.label).joined(separator: ", "))")
+                            Text("Options: \(OutputRedactionGate.shared.redactedText(approval.options.map(\.label).joined(separator: ", ")))")
                                 .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                         }
