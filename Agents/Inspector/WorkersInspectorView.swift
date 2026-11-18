@@ -69,6 +69,10 @@ struct WorkersInspectorView: View {
     @State private var isClearingFinished: Bool = false
     @State private var showClearFinishedConfirmation: Bool = false
     @State private var retryingIDs: Set<String> = []
+    @State private var resultPeekByWorker: [String: String] = [:]
+    @State private var resultPeekErrorByWorker: [String: String] = [:]
+    @State private var resultPeekLoadingIDs: Set<String> = []
+    @State private var resultPeekExpandedIDs: Set<String> = []
 
     private var scopedWorkers: [WorkerRecord] {
         switch scopeFilter {
@@ -200,6 +204,14 @@ struct WorkersInspectorView: View {
                 errorText = nil
             }
             Task { await loadWorkers() }
+        }
+        .onChange(of: selectedWorkerID) { _, newID in
+            guard let newID, let worker = filteredWorkers.first(where: { $0.id == newID }) else { return }
+            Task { await loadResultPeek(for: worker) }
+        }
+        .onChange(of: selectedWorker?.status) { _, newStatus in
+            guard newStatus == "completed", let worker = selectedWorker else { return }
+            Task { await loadResultPeek(for: worker) }
         }
         .confirmationDialog(
             "Delete Worker Record?",
@@ -575,19 +587,8 @@ struct WorkersInspectorView: View {
                 .buttonStyle(.borderless)
                 .help("Open the worker thread")
                 .accessibilityLabel("Open worker thread \(worker.name)")
-                if let result = worker.result, !result.isEmpty {
-                    Text("Result")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppTheme.primaryLabel)
-                    Text(result)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(AppTheme.primaryLabel)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else if worker.status == "completed" {
-                    Text("Completed with no text reply.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(AppTheme.secondaryLabel)
+                if worker.isRunning || worker.status == "completed" {
+                    resultPeekSection(worker)
                 }
                 if let error = worker.error, !error.isEmpty {
                     Text(error)
@@ -643,6 +644,72 @@ struct WorkersInspectorView: View {
             .accessibilityLabel("Orphaned worker")
     }
 
+    private func resultPeekSection(_ worker: WorkerRecord) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Result")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(AppTheme.primaryLabel)
+            if worker.isRunning {
+                Text("No result yet — the worker is still running.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+            } else if worker.status == "completed" {
+                if resultPeekLoadingIDs.contains(worker.id), peekedResult(for: worker) == nil {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 12, height: 12)
+                        Text("Loading result…")
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                    }
+                } else if let result = peekedResult(for: worker) {
+                    Text(resultPeekExpandedIDs.contains(worker.id) ? result : Self.resultPeekText(result))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(AppTheme.primaryLabel)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if Self.isResultPeekTruncated(result) {
+                        Button(resultPeekExpandedIDs.contains(worker.id) ? "Show less" : "Show full result") {
+                            if resultPeekExpandedIDs.contains(worker.id) {
+                                resultPeekExpandedIDs.remove(worker.id)
+                            } else {
+                                resultPeekExpandedIDs.insert(worker.id)
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 11, weight: .medium))
+                    }
+                    if let peekError = resultPeekErrorByWorker[worker.id] {
+                        Text("Result refresh failed: \(peekError)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppTheme.warning)
+                    }
+                } else if let peekError = resultPeekErrorByWorker[worker.id] {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppTheme.warning)
+                        Text("Couldn’t load the result: \(peekError)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                            .lineLimit(2)
+                        Spacer()
+                        Button("Retry") {
+                            Task { await loadResultPeek(for: worker, force: true) }
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 11, weight: .medium))
+                    }
+                } else {
+                    Text("Completed with no text reply.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                }
+            }
+        }
+    }
+
     private func statusBadge(_ status: String) -> some View {
         let color: Color
         switch status {
@@ -659,6 +726,61 @@ struct WorkersInspectorView: View {
             .padding(.vertical, 2)
             .background(Capsule().fill(color.opacity(0.14)))
             .accessibilityLabel("Status \(status)")
+    }
+
+    private static let resultPeekMaxLines = 6
+    private static let resultPeekMaxCharacters = 1200
+
+    static func resultPeekText(_ result: String) -> String {
+        let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        let lines = trimmed.components(separatedBy: .newlines)
+        let keptLines = Array(lines.prefix(resultPeekMaxLines))
+        let droppedLines = lines.count - keptLines.count
+        var peek = keptLines.joined(separator: "\n")
+        if peek.count > resultPeekMaxCharacters {
+            peek = String(peek.prefix(resultPeekMaxCharacters)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+            return peek
+        }
+        if droppedLines > 0 {
+            peek += "\n… (\(droppedLines) more \(droppedLines == 1 ? "line" : "lines") — open the worker thread for the full result)"
+        }
+        return peek
+    }
+
+    static func isResultPeekTruncated(_ result: String) -> Bool {
+        resultPeekText(result) != result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func peekedResult(for worker: WorkerRecord) -> String? {
+        if let fetched = resultPeekByWorker[worker.id], !fetched.isEmpty {
+            return fetched
+        }
+        if let listed = worker.result, !listed.isEmpty {
+            return listed
+        }
+        return nil
+    }
+
+    private func loadResultPeek(for worker: WorkerRecord, force: Bool = false) async {
+        guard let client = appModel.runtime else { return }
+        guard worker.status == "completed" else { return }
+        guard force || (resultPeekByWorker[worker.id] == nil && resultPeekErrorByWorker[worker.id] == nil) else { return }
+        guard !resultPeekLoadingIDs.contains(worker.id) else { return }
+        resultPeekLoadingIDs.insert(worker.id)
+        defer { resultPeekLoadingIDs.remove(worker.id) }
+        do {
+            let updated = try await client.workerResult(workerId: worker.id)
+            if let index = workers.firstIndex(where: { $0.id == updated.id }) {
+                workers[index] = updated
+            }
+            resultPeekErrorByWorker.removeValue(forKey: worker.id)
+            if let result = updated.result, !result.isEmpty {
+                resultPeekByWorker[worker.id] = result
+            }
+        } catch {
+            resultPeekErrorByWorker[worker.id] = error.localizedDescription
+        }
     }
 
     private func elapsedLabel(_ seconds: Double) -> String {

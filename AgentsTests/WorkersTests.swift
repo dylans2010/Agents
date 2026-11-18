@@ -407,6 +407,42 @@ struct WorkersTests {
         #expect(Self.makeRecord(parentThreadId: "   ").isOrphan(knownParentThreadIDs: known))
     }
 
+    @Test("Result peek keeps the first lines and notes the rest")
+    func resultPeekKeepsFirstLines() {
+        let long = (1...10).map { "Line \($0)" }.joined(separator: "\n")
+        let peek = WorkersInspectorView.resultPeekText(long)
+        #expect(peek.hasPrefix("Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6"))
+        #expect(peek.contains("4 more lines"))
+        #expect(peek.contains("open the worker thread"))
+        #expect(WorkersInspectorView.isResultPeekTruncated(long))
+        let seven = (1...7).map { "L\($0)" }.joined(separator: "\n")
+        #expect(WorkersInspectorView.resultPeekText(seven).contains("1 more line —"))
+        let six = (1...6).map { "Line \($0)" }.joined(separator: "\n")
+        #expect(WorkersInspectorView.resultPeekText(six) == six)
+        #expect(!WorkersInspectorView.isResultPeekTruncated(six))
+    }
+
+    @Test("Result peek returns short results unchanged and blanks empty ones")
+    func resultPeekLeavesShortResultsAlone() {
+        #expect(WorkersInspectorView.resultPeekText("Done: fixed the leak.") == "Done: fixed the leak.")
+        #expect(!WorkersInspectorView.isResultPeekTruncated("Done: fixed the leak."))
+        #expect(WorkersInspectorView.resultPeekText("") == "")
+        #expect(WorkersInspectorView.resultPeekText("   \n  ") == "")
+        #expect(WorkersInspectorView.resultPeekText("  Done.  \n") == "Done.")
+    }
+
+    @Test("Result peek caps very long single-line results")
+    func resultPeekCapsLongLines() {
+        let long = String(repeating: "x", count: 2000)
+        let peek = WorkersInspectorView.resultPeekText(long)
+        #expect(peek.hasSuffix("…"))
+        #expect(peek.count <= 1201)
+        #expect(WorkersInspectorView.isResultPeekTruncated(long))
+        let exact = String(repeating: "x", count: 1200)
+        #expect(WorkersInspectorView.resultPeekText(exact) == exact)
+        #expect(!WorkersInspectorView.isResultPeekTruncated(exact))
+    }
+
     @Test("Worker record and plan survive a Codable round trip")
     func workerRecordRoundTrips() throws {
         let encoder = RemoteProtocol.makeEncoder()
