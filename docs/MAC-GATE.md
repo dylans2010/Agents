@@ -471,3 +471,11 @@ reason. A step that was not run is unchecked, not passed.
 
 Mac-gate result: _pass / fail_ — commit tested: ______________ — date:
 ______________ — notes: ________________________________________
+
+## Round X12–X15 (2026-11-18, remote 88bdcdc2) — new gate items
+
+- [ ] X12 bulk workers — Cancel All with 2+ running workers (dialog count, per-worker cancel, list refresh, failure banner); Clear Finished with mixed completed/failed/cancelled + running (dialog count, running records survive, selection clears when the selected record is deleted); both buttons disabled in empty states; scope picker interaction (Current Thread vs All Workers counts); toolbar row fits without crowding.
+- [ ] X12/X14 tests — WorkersTests suite passes (18 @Test, incl. 3 new bulk + 3 new orphan tests).
+- [ ] X14 orphan workers — live: spawn a worker, permanently delete its parent thread, All Workers → Orphaned shows it with badge; cancel/delete/tap-to-open work; Retry stays disabled with its explanation; an archived (not deleted) parent does NOT produce a false orphan; six-segment picker and badge visuals in both themes.
+- [ ] X15 type floor — visual check: sidebar thread-row icons, inspector panes, model-picker/checkout popovers, toast dismiss xmark — confirm nothing looks oversized or clipped, especially the 8pt warning triangle (SidebarRootView.swift:940) and 8.5pt icons (SidebarThreadRow.swift:156–194, TerminalDrawerRootView.swift:688) now rendered at 11pt.
+- [ ] X15 follow-up (decision, not a check) — AppTheme.swift:288 computed `max(10, size * 0.78)` can still resolve to 10pt; decide whether the floor should cover computed sizes.
