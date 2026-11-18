@@ -879,7 +879,7 @@ write({result_frame})
         } else {
             "assert '--strict-mcp-config' not in sys.argv\nassert '--mcp-config' not in sys.argv"
         };
-        let mut script = String::from("import json,sys\n");
+        let mut script = String::from("#!/usr/bin/env python3\nimport json,sys\n");
         script.push_str(assertion);
         script.push_str(
             r#"
