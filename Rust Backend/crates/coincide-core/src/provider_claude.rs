@@ -645,14 +645,12 @@ pub(super) fn run(
                 if stopping.is_none() {
                     ensure!(
                         frame["is_error"] != true && frame["subtype"] == "success",
-                        "Claude turn failed: {}",
-                        frame["errors"]
+                        "Claude turn failed"
                     );
                     ensure!(
                         frame["terminal_reason"].is_null()
                             || frame["terminal_reason"] == "completed",
-                        "Claude turn ended: {}",
-                        frame["terminal_reason"]
+                        "Claude turn ended unexpectedly"
                     );
                     if !mapper.emitted_reply
                         && let Some(text) = frame["result"].as_str()
@@ -741,6 +739,71 @@ sys.stdin.readline()
                 _ => {}
             }
         }
+    }
+    #[cfg(unix)]
+    fn failed_turn_message(result_frame: &str) -> String {
+        use std::{fs, os::unix::fs::PermissionsExt};
+        let dir = tempfile::tempdir().unwrap();
+        let executable = dir.path().join("fake-claude");
+        fs::write(
+            &executable,
+            format!(
+                r#"#!/usr/bin/env python3
+import json,sys
+def read(): return json.loads(sys.stdin.readline())
+def write(x): print(json.dumps(x),flush=True)
+r=read(); assert r['request']['subtype']=='initialize'
+write({{'type':'control_response','response':{{'subtype':'success','request_id':r['request_id']}}}})
+r=read(); assert r['message']['content']=='initial message'
+session=sys.argv[sys.argv.index('--session-id')+1]
+write({{'type':'system','subtype':'init','session_id':session}})
+write({result_frame})
+"#
+            ),
+        )
+        .unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+        let session = Session::start_with_images(
+            Provider::Claude,
+            Launch {
+                executable,
+                cwd: dir.path().into(),
+                session: None,
+                prompt: "initial message".into(),
+                model: None,
+                variant: None,
+                full_access: false,
+                mcp: None,
+            },
+            vec![],
+        );
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            assert!(Instant::now() < deadline);
+            match session.events.recv_timeout(Duration::from_secs(1)) {
+                Ok(Event::Failed(error)) => return error,
+                Ok(Event::Finished) => panic!("Claude failure was reported as success"),
+                _ => {}
+            }
+        }
+    }
+    #[cfg(unix)]
+    #[test]
+    fn claude_result_error_text_never_reaches_the_transcript() {
+        let error = failed_turn_message(
+            r#"{'type':'result','subtype':'error','is_error':True,'errors':['sentinel-secret-text'],'terminal_reason':'sentinel-secret-text','session_id':session,'result':'hidden'}"#,
+        );
+        assert_eq!(error, "Claude turn failed");
+        assert!(!error.contains("sentinel-secret-text"));
+    }
+    #[cfg(unix)]
+    #[test]
+    fn claude_terminal_reason_never_reaches_the_transcript() {
+        let error = failed_turn_message(
+            r#"{'type':'result','subtype':'success','is_error':False,'terminal_reason':'sentinel-secret-text','session_id':session,'result':'hidden'}"#,
+        );
+        assert_eq!(error, "Claude turn ended unexpectedly");
+        assert!(!error.contains("sentinel-secret-text"));
     }
     #[test]
     fn approval_preserves_tool_input_but_never_accepts_permission_updates() {
