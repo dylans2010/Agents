@@ -94,6 +94,11 @@ public final class AppModel {
     public var activeGitState: RemoteGitState?
     public var scheduledTasks: RemoteScheduledTasks = RemoteScheduledTasks()
     public var assistants: [RemoteAssistant] = []
+
+    public var assistantCatalog: AssistantCatalog {
+        AssistantCatalog(stored: assistants)
+    }
+
     public var remoteServer: RemoteServerSnapshot = RemoteServerSnapshot()
     public var settingsSnapshot: RemoteSettingsSnapshot = RemoteSettingsSnapshot()
     public var usageLimits: [RemoteUsage] = []
