@@ -2,6 +2,7 @@ import AppKit
 import CoincideRemoteKit
 import CryptoKit
 import Foundation
+@preconcurrency import UserNotifications
 
 public nonisolated struct SystemToolParameter: Codable, Hashable, Sendable {
     public var name: String
@@ -3008,6 +3009,730 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
             ]
         ),
+        SystemToolDefinition(
+            name: "framework_linker_auditor",
+            description: "Audits linked frameworks from the pbxproj against target platforms and weak-linking flags. Text parsing of the project file.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to project.pbxproj. Defaults to the first project.pbxproj found."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "string_catalog_migrator",
+            description: "Migrates legacy .strings and .stringsdict files into a modern .xcstrings catalog, then verifies the catalog by re-reading it.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to migrate, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "sourceLanguage", type: "string", required: false, description: "Source language for the catalog. Defaults to en."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "symbol_reference_graph",
+            description: "Finds definitions and reference sites of one symbol across Swift sources. Regex scan, not semantic analysis.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "symbol", type: "string", required: true, description: "Symbol name to trace."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum reference sites to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "podfile_inspector",
+            description: "Parses and validates CocoaPods Podfile dependencies and target integrations, with versions from Podfile.lock when present.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the Podfile. Defaults to the first Podfile found."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "carthage_cartfile_inspector",
+            description: "Inspects Carthage Cartfile and Cartfile.resolved dependencies with their resolved versions.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the Cartfile. Defaults to the first Cartfile found."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "spm_dependency_tree",
+            description: "Computes the resolved SwiftPM dependency graph from swift package show-dependencies JSON output.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Package directory relative to the working directory. Defaults to the workspace root."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "package_manifest_read",
+            description: "Parses Package.swift: name, platforms, products, targets, and dependencies. Text parsing, no swift invocation.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to Package.swift. Defaults to Package.swift in the workspace root."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "package_manifest_validate",
+            description: "Validates Package.swift with swift package dump-package: exit code plus name and target count from the parsed manifest.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Package directory relative to the working directory. Defaults to the workspace root."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "package_dependency_audit",
+            description: "Audits Package.swift against Package.resolved: manifest dependencies missing from resolved, non-exact requirements, and resolved pins missing from the manifest.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Package directory relative to the working directory. Defaults to the workspace root."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "package_dependency_add",
+            description: "Inserts a .package(url:from:) dependency into Package.swift with optional product and target wiring, then verifies on re-read.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "url", type: "string", required: true, description: "Package repository URL."),
+                SystemToolParameter(name: "version", type: "string", required: true, description: "Minimum version for from:."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to Package.swift. Defaults to Package.swift in the workspace root."),
+                SystemToolParameter(name: "product", type: "string", required: false, description: "Product name to wire into a target."),
+                SystemToolParameter(name: "target", type: "string", required: false, description: "Target name to wire the product into."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "asset_catalog_list",
+            description: "Enumerates .xcassets catalogs with image, color, icon, dataset, and symbol sets plus counts.",
+            action: "workspace.files",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "asset_image_add",
+            description: "Creates an imageName.imageset with a valid Contents.json and copies a workspace image into it, verified on re-read.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "imageName", type: "string", required: true, description: "Image set name without the .imageset suffix."),
+                SystemToolParameter(name: "source", type: "string", required: true, description: "Workspace image file to copy, relative to the working directory."),
+                SystemToolParameter(name: "catalog", type: "string", required: false, description: "Relative path to the .xcassets catalog. Defaults to the first catalog found."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "strings_localization",
+            description: "Gets, sets, or deletes one localization key in a .strings or .xcstrings file, per locale.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: true, description: "Relative path to the .strings or .xcstrings file."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: get, set, or delete."),
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Localization key."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "Value for set."),
+                SystemToolParameter(name: "locale", type: "string", required: false, description: "Locale code for .xcstrings. Defaults to the catalog source language."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "localization_audit",
+            description: "Reports missing keys per locale and keys never referenced in Swift sources.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to audit, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum findings to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "localize_app",
+            description: "Localizes an app: discovers NSLocalizedString keys in Swift, creates or merges Localizable.xcstrings with per-locale state, and sets Info.plist CFBundleLocalizations and CFBundleDevelopmentRegion.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: localize, status, or set_development_region."),
+                SystemToolParameter(name: "languages", type: "array", required: false, description: "Target language codes for localize, at most 3."),
+                SystemToolParameter(name: "translations", type: "array", required: false, description: "Translations for localize, each with locale, key, and value."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "developmentRegion", type: "string", required: false, description: "Development region code for set_development_region."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "asset_catalog_manager",
+            description: "Inspects, manages, and creates .xcassets catalogs, color sets, and image sets.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: list, inspect, create_imageset, or create_colorset."),
+                SystemToolParameter(name: "catalog", type: "string", required: false, description: "Relative path to the .xcassets catalog. Defaults to the first catalog found."),
+                SystemToolParameter(name: "name", type: "string", required: false, description: "Set name for inspect and create actions."),
+                SystemToolParameter(name: "source", type: "string", required: false, description: "Workspace image file to copy for create_imageset."),
+                SystemToolParameter(name: "lightHex", type: "string", required: false, description: "Light-mode hex color for create_colorset."),
+                SystemToolParameter(name: "darkHex", type: "string", required: false, description: "Dark-mode hex color for create_colorset."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "localization_manager",
+            description: "Inspects, extracts, adds translations to, and validates .strings and .xcstrings catalogs.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: list, extract, add, or validate."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to manage, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "key", type: "string", required: false, description: "Localization key for add."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "Translation value for add."),
+                SystemToolParameter(name: "locale", type: "string", required: false, description: "Locale code for add to .xcstrings."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "entitlements_manager",
+            description: "Inspects, adds, or removes App Sandbox, Network Client and Server, and security entitlements in .entitlements plists.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: list, add, or remove."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the .entitlements file. Defaults to the first one found."),
+                SystemToolParameter(name: "key", type: "string", required: false, description: "Entitlement key for add and remove."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "Value for add: true, false, or a string."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "colorset_builder",
+            description: "Generates a .colorset asset catalog JSON with light and dark mode hex definitions.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "name", type: "string", required: true, description: "Color set name without the .colorset suffix."),
+                SystemToolParameter(name: "lightHex", type: "string", required: true, description: "Light-mode hex color, for example #FF8800."),
+                SystemToolParameter(name: "catalog", type: "string", required: false, description: "Relative path to the .xcassets catalog. Defaults to the first catalog found."),
+                SystemToolParameter(name: "darkHex", type: "string", required: false, description: "Dark-mode hex color. Defaults to the light hex."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "icon_generator_tool",
+            description: "Generates a complete AppIcon set for iOS, macOS, or watchOS from source artwork with real sips resizing.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "source", type: "string", required: true, description: "Source artwork file, relative to the working directory."),
+                SystemToolParameter(name: "output", type: "string", required: true, description: "Destination .appiconset directory, relative to the working directory."),
+                SystemToolParameter(name: "platform", type: "string", required: false, description: "Platform: ios, macos, or watchos. Defaults to ios."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_entitlements",
+            description: "Parses .entitlements files and returns their keys and values.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the .entitlements file. Defaults to the first one found."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_info_plist",
+            description: "Gets, sets, or deletes Info.plist keys with real plist serialization.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: get, set, or delete."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the plist. Defaults to the first Info.plist found."),
+                SystemToolParameter(name: "key", type: "string", required: false, description: "Plist key for get, set, and delete."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "Value for set: true, false, a number, or a string."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_capabilities",
+            description: "Lists, enables, or disables Xcode capabilities backed by boolean entitlements. Array-valued capabilities are reported, not silently rewritten.",
+            action: "workspace.write_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: list, enable, or disable."),
+                SystemToolParameter(name: "capability", type: "string", required: false, description: "Capability name for enable and disable, for example app-sandbox or network-client."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to the .entitlements file. Defaults to the first one found."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_signing",
+            description: "Reports CODE_SIGN_STYLE, DEVELOPMENT_TEAM, and bundle ID from the pbxproj plus provisioning profile filenames, never profile contents.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to project.pbxproj. Defaults to the first project.pbxproj found."),
+                SystemToolParameter(name: "scheme", type: "string", required: false, description: "Scheme to query with xcodebuild -showBuildSettings. Defaults to pbxproj text parsing only."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "entry_points_discover",
+            description: "Finds application entry points: @main types, main.swift files, and AppDelegate and SceneDelegate classes.",
+            action: "workspace.search_regex",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum entry points to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "repo_overview",
+            description: "Summarizes the repository: file counts by language, README and license presence, and largest files.",
+            action: "workspace.files",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to summarize, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "project_structure_map",
+            description: "Builds a machine-readable map of directories with file counts plus Xcode targets from the pbxproj.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to map, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "recent_changes",
+            description: "Lists files modified within the last N hours, newest first, from real file modification times.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "hours", type: "integer", required: false, description: "Look-back window in hours. Defaults to 24."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum files to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "readme_locate",
+            description: "Finds README files with their title lines.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to search, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dependency_licenses",
+            description: "Inventories third-party dependencies from Package.resolved and Podfile.lock for license review, with name, version, and source.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to inventory, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "stale_files_report",
+            description: "Reports source files not modified in a long time, from real file modification times.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "days", type: "integer", required: false, description: "Staleness threshold in days. Defaults to 180."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum files to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "file_type_breakdown",
+            description: "Reports file counts and bytes per extension across the workspace.",
+            action: "workspace.files",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to analyze, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "empty_dirs_find",
+            description: "Finds empty directories, candidates for cleanup.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to search, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "symlink_audit",
+            description: "Lists symbolic links with their targets, flagging broken links.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to audit, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "executable_files_scan",
+            description: "Lists files with the executable bit set, from real file metadata.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to scan, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "dir_size_report",
+            description: "Reports recursive disk usage per subdirectory, largest first, from real file sizes.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to analyze, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum directories to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "image_asset_size_report",
+            description: "Reports oversized images inside .xcassets catalogs, from real file sizes.",
+            action: "workspace.read_dir",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to scan, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "maxKilobytes", type: "integer", required: false, description: "Size threshold in kilobytes. Defaults to 500."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "bundle_resource_auditor",
+            description: "Scans target app bundles for missing, duplicated, or bloated resources from pbxproj resource phases and real files.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to project.pbxproj. Defaults to the first project.pbxproj found."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "core_data_model_inspector",
+            description: "Inspects Core Data .xcdatamodeld models: entities, attributes, and relationships.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to inspect, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "swift_data_schema_auditor",
+            description: "Audits SwiftData @Model declarations, relationships, and uniqueness constraints in Swift sources.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory to audit, relative to the working directory. Defaults to the whole workspace."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum findings to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "privacy_manifest_auditor",
+            description: "Audits PrivacyInfo.xcprivacy for required reasons APIs and tracking declarations. Audit only; it does not edit the manifest.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to PrivacyInfo.xcprivacy. Defaults to the first one found."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "env_info",
+            description: "Reports runtime facts from the live process: macOS version, CPU count, physical memory, hostname, and uptime.",
+            action: "system.info",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "process_monitor_tool",
+            description: "Monitors running processes with CPU and memory consumption from real ps output, with an optional name filter.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: false, description: "Absolute working directory for the terminal. Defaults to the thread working directory."),
+                SystemToolParameter(name: "filter", type: "string", required: false, description: "Substring filter for process names."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum processes to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "disk_space_analyzer",
+            description: "Checks disk usage with real df and du output for the workspace and a chosen path.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Path to measure, relative to the working directory. Defaults to the workspace root."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "environment_variable_manager",
+            description: "Lists and reads process environment variables from the live process. The process environment cannot be mutated by a tool; set is refused with an honest error.",
+            action: "system.env",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: list or get."),
+                SystemToolParameter(name: "key", type: "string", required: false, description: "Variable name for get."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "clipboard_manager_tool",
+            description: "Reads, writes, or clears the macOS system clipboard through NSPasteboard.",
+            action: "system.clipboard",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: read, write, or clear."),
+                SystemToolParameter(name: "text", type: "string", required: false, description: "Text for write."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "system_notification_tool",
+            description: "Posts a macOS user notification for task completions and build events through UNUserNotificationCenter.",
+            action: "system.notify",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "title", type: "string", required: true, description: "Notification title."),
+                SystemToolParameter(name: "body", type: "string", required: false, description: "Notification body."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "use_system",
+            description: "Native macOS system diagnostics plus one authorized user-level mutation. Diagnostics use fixed commands only; user_defaults_write requires confirm and verifies by read-back.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "operation", type: "string", required: true, description: "Operation: system_info, dev_environment, process_list, network_interfaces, listening_sockets, connectivity, disk_info, system_log, service_status, config_read, or user_defaults_write."),
+                SystemToolParameter(name: "cwd", type: "string", required: false, description: "Absolute working directory for disk_info. Defaults to the thread working directory."),
+                SystemToolParameter(name: "filter", type: "string", required: false, description: "Name filter for process_list."),
+                SystemToolParameter(name: "interface", type: "string", required: false, description: "Interface name for network_interfaces."),
+                SystemToolParameter(name: "host", type: "string", required: false, description: "Host for connectivity."),
+                SystemToolParameter(name: "port", type: "integer", required: false, description: "Port for connectivity."),
+                SystemToolParameter(name: "minutes", type: "integer", required: false, description: "Look-back minutes for system_log."),
+                SystemToolParameter(name: "predicate", type: "string", required: false, description: "Log predicate for system_log."),
+                SystemToolParameter(name: "sysctlName", type: "string", required: false, description: "Allowlisted sysctl name for config_read."),
+                SystemToolParameter(name: "domain", type: "string", required: false, description: "Defaults domain for user_defaults_write."),
+                SystemToolParameter(name: "key", type: "string", required: false, description: "Defaults key for user_defaults_write."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "Scalar value for user_defaults_write."),
+                SystemToolParameter(name: "valueType", type: "string", required: false, description: "Value type for user_defaults_write: string, bool, or int. Defaults to string."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Must be true for user_defaults_write."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "search_skills",
+            description: "Searches the bundled SystemAssets index of shipped guidance documents by title, filename, section, and text. It searches only that bundled index, never an external skills library.",
+            action: "system.skills",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "query", type: "string", required: true, description: "Search query."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum results. Defaults to 8, at most 20."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "plan-AskUser",
+            description: "Lists pending provider questions for a thread and submits answers to them. It does not present a new question to the user and does not suspend the turn; no 300 second suspension is wired.",
+            action: "agent.pending",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "requestId", type: "string", required: false, description: "Pending request ID to answer. Omit to list pending questions."),
+                SystemToolParameter(name: "answers", type: "array", required: false, description: "Answers for requestId, each with questionId and an answers array of strings."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "tool_capability_lookup",
+            description: "Live registry lookup: description, action, channel, and parameters of any registered system tool.",
+            action: "system.lookup",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "tool", type: "string", required: true, description: "Tool name to look up."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "preflight_checks",
+            description: "Runs environment checks before a build: workspace writable, Xcode tools present, disk space, and artifact storage.",
+            action: "terminal.create",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "session_progress_report",
+            description: "Reports engineering phases from agent_notes.md with worker status and the last agent-notes save time.",
+            action: "workspace.read_file",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Parent thread ID to include worker status for."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to agent_notes.md. Defaults to .assist_temp/artifacts/agent_notes.md."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "manage_memory",
+            description: "Manages entries in the SQLite agent memory store: store, edit, append, delete, clear, or list keys in a scope. There are no sections and no UserMemory.md file.",
+            action: "memory.store",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action: store, edit, append, delete, clear, or list."),
+                SystemToolParameter(name: "key", type: "string", required: false, description: "Memory key for store, edit, append, and delete."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "Value for store, edit, and append."),
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "Memory scope."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Must be true for clear."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "fetch_documentation",
+            description: "Retrieves real Apple Developer documentation pages from developer.apple.com by URL, search query, or framework landing page. Returns raw page text; it does not fabricate signatures or availability.",
+            action: "web.fetch",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "query", type: "string", required: false, description: "Documentation search query."),
+                SystemToolParameter(name: "url", type: "string", required: false, description: "Documentation URL on developer.apple.com."),
+                SystemToolParameter(name: "framework", type: "string", required: false, description: "Framework name to open its documentation landing page."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "external_resource_gateway",
+            description: "Performs an HTTPS-only GET of a JSON API and returns the parsed JSON. Non-2xx responses fail; 30 second timeout.",
+            action: "web.fetch",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "url", type: "string", required: true, description: "HTTPS JSON API URL."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "read_url_content",
+            description: "Fetches HTTPS URL content as text with status and content type. Non-2xx responses fail; 30 second timeout.",
+            action: "web.fetch",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID. Only used by the MCP server path."),
+                SystemToolParameter(name: "url", type: "string", required: true, description: "HTTPS URL to fetch."),
+                SystemToolParameter(name: "maxChars", type: "integer", required: false, description: "Maximum characters to return. Defaults to 8000."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "github_repo",
+            description: "Reads real GitHub repositories through the gh CLI: repository info, file listings, file contents, trees, code search, and tarball download. Read-only against the remote.",
+            action: "github.repo",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "operation", type: "string", required: true, description: "Operation: repository_info, list_files, get_file, get_directory, get_tree, search_code, or fetch_repository."),
+                SystemToolParameter(name: "owner", type: "string", required: false, description: "Repository owner."),
+                SystemToolParameter(name: "repo", type: "string", required: false, description: "Repository name."),
+                SystemToolParameter(name: "url", type: "string", required: false, description: "Repository URL, used when owner and repo are omitted."),
+                SystemToolParameter(name: "ref", type: "string", required: false, description: "Branch, tag, or commit. Defaults to the default branch."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "File or directory path inside the repository."),
+                SystemToolParameter(name: "query", type: "string", required: false, description: "Code search query for search_code."),
+                SystemToolParameter(name: "timeoutSeconds", type: "integer", required: false, description: "Command timeout in seconds."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "use_app",
+            description: "Native macOS application interaction through the real computer-use tools. Dispatches only the 20 real actions and errors honestly on activate, close_application, select_window, get_focused_element, select_all, copy, paste, wait_for_element, and wait_for_window, which have no engine tool.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "Action to perform, for example list_applications, launch, click, type_text, or verify."),
+                SystemToolParameter(name: "app_identifier", type: "string", required: false, description: "Bundle ID for launch."),
+                SystemToolParameter(name: "app_name", type: "string", required: false, description: "Application name for inspect_application."),
+                SystemToolParameter(name: "pid", type: "integer", required: false, description: "Process ID of the running app."),
+                SystemToolParameter(name: "window_id", type: "integer", required: false, description: "Window ID from list_windows or get_desktop_state."),
+                SystemToolParameter(name: "element_token", type: "string", required: false, description: "Element token from a fresh get_window_state observation."),
+                SystemToolParameter(name: "observation", type: "string", required: false, description: "Observation ID from a fresh get_window_state screenshot."),
+                SystemToolParameter(name: "x", type: "number", required: false, description: "Point x in window points."),
+                SystemToolParameter(name: "y", type: "number", required: false, description: "Point y in window points."),
+                SystemToolParameter(name: "from_x", type: "number", required: false, description: "Drag start x in window points."),
+                SystemToolParameter(name: "from_y", type: "number", required: false, description: "Drag start y in window points."),
+                SystemToolParameter(name: "to_x", type: "number", required: false, description: "Drag end x in window points."),
+                SystemToolParameter(name: "to_y", type: "number", required: false, description: "Drag end y in window points."),
+                SystemToolParameter(name: "text", type: "string", required: false, description: "Text to type, set, or find."),
+                SystemToolParameter(name: "key", type: "string", required: false, description: "Key to press: enter, escape, tab, backspace, left, right, up, or down."),
+                SystemToolParameter(name: "keys", type: "array", required: false, description: "Modifiers then one key for press_shortcut, for example cmd shift t."),
+                SystemToolParameter(name: "direction", type: "string", required: false, description: "Scroll direction: up, down, left, or right."),
+                SystemToolParameter(name: "amount", type: "integer", required: false, description: "Scroll amount, 1 to 50. Defaults to 3."),
+                SystemToolParameter(name: "bundle_id", type: "string", required: false, description: "App bundle ID for launch, for example com.apple.TextEdit."),
+                SystemToolParameter(name: "path", type: "array", required: false, description: "Menu path for select_menu, for example File New Window."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: false, description: "Confirmation for destructive actions."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "derived_data_locate",
+            description: "Locates Xcode DerivedData directories with sizes and file counts.",
+            action: "system.info",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "path", type: "string", required: false, description: "DerivedData directory to inspect. Defaults to ~/Library/Developer/Xcode/DerivedData."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum directories to return."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Owning thread ID. Only used by the MCP server path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "build_system_detect",
+            description: "Detects build systems in the workspace: xcworkspace and xcodeproj, SwiftPM, CocoaPods, Carthage, Tuist, xcodegen, Bazel, and CMake.",
+            action: "workspace.files",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
+                SystemToolParameter(name: "path", type: "string", required: false, description: "Directory to inspect, relative to the working directory. Defaults to the whole workspace."),
+            ]
+        ),
 
     ]
 
@@ -5893,6 +6618,488 @@ public nonisolated enum SystemToolRegistry {
             let ignoreWhitespace = optionalBool(arguments, "ignoreWhitespace") ?? false
             let root = try await Self.resolveThreadRoot(threadId: threadId, tool: name, runtime: runtime)
             return try await runWorkspaceApiOperation(method: "git.review.diff", threadId: threadId, params: ["expectedRoot": .string(root), "scope": .string(scope), "ignoreWhitespace": .bool(ignoreWhitespace)], tool: name, timeoutSeconds: 120, runtime: runtime)
+        case "framework_linker_auditor", "string_catalog_migrator", "symbol_reference_graph",
+            "podfile_inspector", "carthage_cartfile_inspector", "package_manifest_read",
+            "package_dependency_add", "asset_catalog_list", "asset_image_add",
+            "strings_localization", "localization_audit", "localize_app",
+            "asset_catalog_manager", "localization_manager", "entitlements_manager",
+            "colorset_builder", "project_entitlements", "project_info_plist",
+            "project_capabilities", "entry_points_discover", "repo_overview",
+            "project_structure_map", "recent_changes", "readme_locate",
+            "dependency_licenses", "stale_files_report", "file_type_breakdown",
+            "empty_dirs_find", "symlink_audit", "executable_files_scan",
+            "dir_size_report", "image_asset_size_report", "bundle_resource_auditor",
+            "core_data_model_inspector", "swift_data_schema_auditor",
+            "privacy_manifest_auditor", "derived_data_locate", "build_system_detect":
+            return try await Self.runG6Tool(tool: name, arguments: arguments, runtime: runtime)
+        case "spm_dependency_tree":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let packageDir = Self.g6JoinPath(cwd: cwd, path: optionalString(arguments, "path"))
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 300
+            let (exitCode, output) = try await Self.g6TerminalJSON(tool: name, threadId: threadId, cwd: packageDir, command: "swift package show-dependencies --format json", timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "swift", exitCode: exitCode, output: output)
+            if exitCode != 0 {
+                return .object([
+                    "dependencies": .null,
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            }
+            return .object([
+                "dependencies": try Self.g3JSONValue(output, tool: name),
+                "exitCode": .int(Int64(exitCode)),
+            ])
+        case "package_manifest_validate":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let packageDir = Self.g6JoinPath(cwd: cwd, path: optionalString(arguments, "path"))
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 300
+            let (exitCode, output) = try await Self.g6TerminalJSON(tool: name, threadId: threadId, cwd: packageDir, command: "swift package dump-package", timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "swift", exitCode: exitCode, output: output)
+            if exitCode != 0 {
+                return .object([
+                    "valid": .bool(false),
+                    "name": .null,
+                    "targetCount": .int(0),
+                    "exitCode": .int(Int64(exitCode)),
+                    "output": .string(output),
+                ])
+            }
+            let dumped = try Self.g3JSONValue(output, tool: name)
+            let targetCount = dumped["targets"]?.arrayValue?.count ?? 0
+            return .object([
+                "valid": .bool(true),
+                "name": dumped["name"] ?? .null,
+                "targetCount": .int(Int64(targetCount)),
+                "exitCode": .int(Int64(exitCode)),
+            ])
+        case "package_dependency_audit":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let packageDir = Self.g6JoinPath(cwd: cwd, path: optionalString(arguments, "path"))
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 300
+            let manifestDoc = try await runtime.readWorkspaceFile(cwd: packageDir, path: "Package.swift")
+            let manifest = Self.g6ParseManifest(manifestDoc.content)
+            var resolvedPins: [[String: String]] = []
+            if let resolvedDoc = try? await runtime.readWorkspaceFile(cwd: packageDir, path: "Package.resolved") {
+                resolvedPins = Self.g6ParseResolved(resolvedDoc.content)
+            }
+            let (exitCode, output) = try await Self.g6TerminalJSON(tool: name, threadId: threadId, cwd: packageDir, command: "swift package show-dependencies --format json", timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "swift", exitCode: exitCode, output: output)
+            var shown: [String] = []
+            if exitCode == 0, let shownValue = try? Self.g3JSONValue(output, tool: name) {
+                shown = Self.g6ShowDependenciesNames(shownValue)
+            }
+            return Self.g6DependencyAudit(tool: name, manifest: manifest, resolvedPins: resolvedPins, shown: shown, exitCode: exitCode, output: output)
+        case "project_signing":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let pbxproj = try await Self.g5ResolvePbxproj(tool: name, cwd: cwd, path: optionalString(arguments, "path"), runtime: runtime)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: pbxproj)
+            var object = Self.g6SigningFromPbxproj(tool: name, path: pbxproj, content: document.content)
+            let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: ".mobileprovision", limit: 100)
+            let profiles = entries.filter { !$0.isDirectory && ($0.path.hasSuffix(".mobileprovision") || $0.path.hasSuffix(".provisionprofile")) }.map { $0.path }
+            if case .object(var dict) = object {
+                dict["provisioningProfiles"] = .array(profiles.map { .string($0) })
+                object = .object(dict)
+            }
+            if let scheme = optionalString(arguments, "scheme") {
+                try Self.g3Identifier(scheme, field: "scheme", tool: name)
+                let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 120
+                let (exitCode, output) = try await Self.g6TerminalJSON(tool: name, threadId: threadId, cwd: cwd, command: "xcodebuild -showBuildSettings -scheme " + Self.shellQuoted(scheme), timeoutSeconds: timeoutSeconds, runtime: runtime)
+                try Self.g3ThrowIfMissingCLI(tool: name, cli: "xcodebuild", exitCode: exitCode, output: output)
+                if case .object(var dict) = object {
+                    dict["showBuildSettings"] = Self.g6BuildSettingsJSON(output)
+                    dict["showBuildSettingsExitCode"] = .int(Int64(exitCode))
+                    object = .object(dict)
+                }
+            }
+            return object
+        case "icon_generator_tool":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let source = try requiredString(arguments, "source", tool: name)
+            let output = try requiredString(arguments, "output", tool: name)
+            let platform = optionalString(arguments, "platform") ?? "ios"
+            guard ["ios", "macos", "watchos"].contains(platform) else {
+                throw SystemToolError.executionFailed(tool: name, message: "icon_generator_tool platform must be ios, macos, or watchos.")
+            }
+            try Self.validateRelativePath(source, tool: name)
+            try Self.validateRelativePath(output, tool: name)
+            guard output.hasSuffix(".appiconset") else {
+                throw SystemToolError.executionFailed(tool: name, message: "icon_generator_tool output must end in .appiconset.")
+            }
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 300
+            try await runtime.createWorkspaceDirectory(cwd: cwd, path: output)
+            let sizes = Self.g6IconSizes(platform: platform)
+            var generated: [[String: JSONValue]] = []
+            for size in sizes {
+                let fileName = "icon-\(size.pixels).png"
+                let destination = output + "/" + fileName
+                _ = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "sips -Z \(size.pixels) " + Self.shellQuoted(source) + " --out " + Self.shellQuoted(destination), timeoutSeconds: timeoutSeconds, runtime: runtime)
+                generated.append([
+                    "size": .string(size.label),
+                    "idiom": .string(size.idiom),
+                    "scale": .string(size.scale),
+                    "filename": .string(fileName),
+                    "pixels": .int(Int64(size.pixels)),
+                ])
+            }
+            let contents = Self.g6AppIconContents(platform: platform, generated: generated)
+            guard let contentsData = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
+                throw SystemToolError.executionFailed(tool: name, message: "Could not serialize AppIcon Contents.json.")
+            }
+            try Self.writeWorkspaceBytes(cwd: cwd, path: output + "/Contents.json", data: contentsData, tool: name)
+            let listed = try await runtime.readWorkspaceDirectory(cwd: cwd, path: output, recursive: false)
+            return .object([
+                "platform": .string(platform),
+                "output": .string(output),
+                "icons": .array(generated),
+                "iconCount": .int(Int64(generated.count)),
+                "filesPresent": .int(Int64(listed.filter { !$0.isDirectory }.count)),
+            ])
+        case "process_monitor_tool":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let (exitCode, output) = try await Self.g3Run(tool: name, threadId: threadId, argv: ["/bin/ps", "-ax", "-o", "pid=,pcpu=,pmem=,comm="], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: name, cli: "ps", exitCode: exitCode, output: output)
+            let filter = optionalString(arguments, "filter")
+            let limit = min(max(optionalInt(arguments, "limit") ?? 50, 1), 500)
+            let processes = Self.g6ParsePs(output, filter: filter, limit: limit)
+            return .object([
+                "processes": .array(processes),
+                "count": .int(Int64(processes.count)),
+                "exitCode": .int(Int64(exitCode)),
+            ])
+        case "disk_space_analyzer":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? "."
+            try Self.validateRelativePath(path, tool: name)
+            let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 60
+            let dfOutput = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "df -k " + Self.shellQuoted(path), timeoutSeconds: timeoutSeconds, runtime: runtime)
+            let duOutput = try await Self.runShellCommand(tool: name, threadId: threadId, cwd: cwd, command: "du -sk " + Self.shellQuoted(path), timeoutSeconds: timeoutSeconds, runtime: runtime)
+            return Self.g6DiskSpace(tool: name, path: path, dfOutput: dfOutput, duOutput: duOutput)
+        case "use_system":
+            return try await Self.runG6UseSystem(tool: name, arguments: arguments, runtime: runtime)
+        case "env_info":
+            return Self.g6EnvInfo(tool: name)
+        case "environment_variable_manager":
+            let action = try requiredString(arguments, "action", tool: name)
+            switch action {
+            case "list":
+                let keys = ProcessInfo.processInfo.environment.keys.sorted()
+                return .object([
+                    "action": .string(action),
+                    "keys": .array(keys.map { .string($0) }),
+                    "count": .int(Int64(keys.count)),
+                ])
+            case "get":
+                let key = try requiredString(arguments, "key", tool: name)
+                if let value = ProcessInfo.processInfo.environment[key] {
+                    return .object([
+                        "action": .string(action),
+                        "key": .string(key),
+                        "found": .bool(true),
+                        "value": .string(value),
+                    ])
+                }
+                return .object([
+                    "action": .string(action),
+                    "key": .string(key),
+                    "found": .bool(false),
+                    "value": .null,
+                ])
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "environment_variable_manager action must be list or get. The process environment cannot be mutated by a tool; use a terminal export instead.")
+            }
+        case "clipboard_manager_tool":
+            let action = try requiredString(arguments, "action", tool: name)
+            let pasteboard = NSPasteboard.general
+            switch action {
+            case "read":
+                let text = pasteboard.string(forType: .string)
+                return .object([
+                    "action": .string(action),
+                    "hasText": .bool(text != nil),
+                    "text": text.map { .string($0) } ?? .null,
+                ])
+            case "write":
+                let text = try requiredString(arguments, "text", tool: name)
+                pasteboard.clearContents()
+                pasteboard.setString(text, forType: .string)
+                return .object([
+                    "action": .string(action),
+                    "written": .bool(true),
+                    "characters": .int(Int64(text.count)),
+                ])
+            case "clear":
+                pasteboard.clearContents()
+                return .object([
+                    "action": .string(action),
+                    "cleared": .bool(true),
+                ])
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "clipboard_manager_tool action must be read, write, or clear.")
+            }
+        case "system_notification_tool":
+            let title = try requiredString(arguments, "title", tool: name)
+            let body = optionalString(arguments, "body") ?? ""
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            let identifier = "agents-tool-\(UUID().uuidString)"
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request)
+            return .object([
+                "posted": .bool(true),
+                "identifier": .string(identifier),
+                "title": .string(title),
+                "note": .string("Delivery requires notification authorization, granted at app launch."),
+            ])
+        case "tool_capability_lookup":
+            let toolName = try requiredString(arguments, "tool", tool: name)
+            guard let found = Self.definition(named: toolName, for: .system) else {
+                throw SystemToolError.unknownTool(toolName)
+            }
+            return .object([
+                "name": .string(found.name),
+                "description": .string(found.description),
+                "action": .string(found.action),
+                "channel": .string(found.channel.rawValue),
+                "parameters": .array(found.parameters.map { parameter in
+                    .object([
+                        "name": .string(parameter.name),
+                        "type": .string(parameter.type),
+                        "required": .bool(parameter.required),
+                        "description": .string(parameter.description),
+                    ])
+                }),
+            ])
+        case "search_skills":
+            let query = try requiredString(arguments, "query", tool: name)
+            let limit = min(max(optionalInt(arguments, "limit") ?? 8, 1), 20)
+            let results = SystemAssetManager.shared.search(query, limit: limit)
+            return .object([
+                "query": .string(query),
+                "searched": .string("bundled SystemAssets index"),
+                "documentCount": .int(Int64(SystemAssetManager.shared.documentCount)),
+                "results": .array(results.map { result in
+                    .object([
+                        "documentID": .string(result.documentID),
+                        "fileName": .string(result.fileName),
+                        "title": .string(result.title),
+                        "sectionHeading": .string(result.sectionHeading),
+                        "headingPath": .array(result.headingPath.map { .string($0) }),
+                        "text": .string(String(result.text.prefix(2000))),
+                        "truncated": .bool(result.text.count > 2000),
+                        "score": .int(Int64(result.score)),
+                        "reason": .string(result.reason),
+                    ])
+                }),
+            ])
+        case "manage_memory":
+            let action = try requiredString(arguments, "action", tool: name)
+            switch action {
+            case "store", "edit":
+                let key = try requiredString(arguments, "key", tool: name)
+                let value = try requiredString(arguments, "value", tool: name)
+                let stored = try await runtime.memoryStore(key: key, value: value, scope: optionalString(arguments, "scope"))
+                if case .object(var dict) = stored {
+                    dict["action"] = .string(action)
+                    return .object(dict)
+                }
+                return stored
+            case "append":
+                let key = try requiredString(arguments, "key", tool: name)
+                let value = try requiredString(arguments, "value", tool: name)
+                let scope = optionalString(arguments, "scope")
+                let existing = try await runtime.memoryRetrieve(key: key, scope: scope)
+                let previous = existing["value"]?.stringValue ?? ""
+                let combined = previous.isEmpty ? value : previous + "\n" + value
+                let stored = try await runtime.memoryStore(key: key, value: combined, scope: scope)
+                if case .object(var dict) = stored {
+                    dict["action"] = .string(action)
+                    return .object(dict)
+                }
+                return stored
+            case "delete":
+                let key = try requiredString(arguments, "key", tool: name)
+                return try await runtime.memoryDelete(key: key, scope: optionalString(arguments, "scope"))
+            case "clear":
+                let scope = try requiredString(arguments, "scope", tool: name)
+                try Self.requireConfirm(arguments, tool: name, message: "manage_memory clear is irreversible; pass confirm=true.")
+                return try await runtime.memoryClear(scope: scope, confirm: true)
+            case "list":
+                let entries = try await runtime.memoryList(scope: optionalString(arguments, "scope"), query: optionalString(arguments, "query"), limit: optionalInt(arguments, "limit") ?? 200)
+                return .array(entries.map { entry in
+                    .object([
+                        "key": .string(entry.key),
+                        "scope": .string(entry.scope),
+                        "value": .string(entry.value),
+                        "updatedAt": .double(entry.updatedAt),
+                    ])
+                })
+            default:
+                throw SystemToolError.executionFailed(tool: name, message: "manage_memory action must be store, edit, append, delete, clear, or list.")
+            }
+        case "plan-AskUser":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            guard let requestId = optionalString(arguments, "requestId") else {
+                let pending = try await runtime.engineRPC(method: "agent.pending", params: ["threadId": .string(threadId)])
+                return .object([
+                    "threadId": .string(threadId),
+                    "pending": pending,
+                    "note": .string("Lists pending provider questions. This tool does not present a new question and does not suspend the turn."),
+                ])
+            }
+            guard let rawAnswers = arguments["answers"]?.arrayValue, !rawAnswers.isEmpty else {
+                throw SystemToolError.missingArgument(tool: name, argument: "answers")
+            }
+            var answersObject: [String: JSONValue] = [:]
+            for raw in rawAnswers {
+                guard let questionId = raw["questionId"]?.stringValue, !questionId.isEmpty else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "questionId")
+                }
+                guard let values = raw["answers"]?.arrayValue, !values.isEmpty, values.allSatisfy({ $0.stringValue?.isEmpty == false }) else {
+                    throw SystemToolError.missingArgument(tool: name, argument: "answers")
+                }
+                answersObject[questionId] = .object(["answers": .array(values)])
+            }
+            return try await runtime.engineRPC(method: "agent.answer", params: [
+                "threadId": .string(threadId),
+                "requestId": .string(requestId),
+                "answers": .object(answersObject),
+            ])
+        case "use_app":
+            return try await Self.runG6UseApp(tool: name, arguments: arguments, runtime: runtime)
+        case "preflight_checks":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            return try await Self.runG6Preflight(tool: name, threadId: threadId, cwd: cwd, runtime: runtime)
+        case "session_progress_report":
+            let cwd = try requiredString(arguments, "cwd", tool: name)
+            let path = optionalString(arguments, "path") ?? ".assist_temp/artifacts/agent_notes.md"
+            try Self.validateRelativePath(path, tool: name)
+            var phases: [[String: JSONValue]] = []
+            var failures: [String] = []
+            var lastSave: JSONValue = .null
+            var found = false
+            if let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: path) {
+                found = true
+                var current: String?
+                var summary: [String] = []
+                for line in Self.g5Lines(document.content) {
+                    if line.hasPrefix("## ") {
+                        if let title = current {
+                            phases.append(["title": .string(title), "summary": .string(summary.joined(separator: " "))])
+                        }
+                        current = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                        summary = []
+                    } else if current != nil {
+                        let trimmed = line.trimmingCharacters(in: .whitespaces)
+                        if !trimmed.isEmpty, summary.count < 3 {
+                            summary.append(trimmed)
+                        }
+                        if trimmed.localizedCaseInsensitiveContains("fail") && failures.count < 20 {
+                            failures.append(trimmed)
+                        }
+                    }
+                }
+                if let title = current {
+                    phases.append(["title": .string(title), "summary": .string(summary.joined(separator: " "))])
+                }
+            }
+            if let entries = try? await runtime.listWorkspaceFiles(cwd: cwd, query: "agent_notes.md", limit: 5),
+               let entry = entries.first(where: { $0.path == path }), let modified = entry.modifiedAt {
+                lastSave = .double(modified)
+            }
+            var workers: [JSONValue] = []
+            if let threadId = optionalString(arguments, "threadId") {
+                if let listed = try? await runtime.listWorkers(parentThreadId: threadId) {
+                    workers = listed.map { workerJSON($0) }
+                }
+            }
+            return .object([
+                "found": .bool(found),
+                "path": .string(path),
+                "phases": .array(phases),
+                "failures": .array(failures.map { .string($0) }),
+                "lastAgentNotesSave": lastSave,
+                "workers": .array(workers),
+            ])
+        case "fetch_documentation":
+            _ = try requiredString(arguments, "threadId", tool: name)
+            let url: URL
+            if let given = optionalString(arguments, "url"), !given.isEmpty {
+                guard let parsed = URL(string: given), parsed.scheme == "https", parsed.host == "developer.apple.com" else {
+                    throw SystemToolError.executionFailed(tool: name, message: "fetch_documentation url must be an https URL on developer.apple.com.")
+                }
+                url = parsed
+            } else if let query = optionalString(arguments, "query"), !query.isEmpty {
+                guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                      let built = URL(string: "https://developer.apple.com/search/?q=" + encoded) else {
+                    throw SystemToolError.executionFailed(tool: name, message: "Could not build a documentation search URL.")
+                }
+                url = built
+            } else if let framework = optionalString(arguments, "framework"), !framework.isEmpty {
+                guard framework.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || $0 == "_" }),
+                      let built = URL(string: "https://developer.apple.com/documentation/" + framework.lowercased() + "/") else {
+                    throw SystemToolError.executionFailed(tool: name, message: "fetch_documentation framework must use only letters, digits, or underscore.")
+                }
+                url = built
+            } else {
+                throw SystemToolError.missingArgument(tool: name, argument: "query")
+            }
+            let fetched = try await Self.g6FetchURL(url, timeoutSeconds: 30, tool: name)
+            return .object([
+                "url": .string(url.absoluteString),
+                "statusCode": .int(Int64(fetched.statusCode)),
+                "contentType": .string(fetched.contentType),
+                "title": fetched.title.map { .string($0) } ?? .null,
+                "text": .string(String(fetched.text.prefix(8000))),
+                "truncated": .bool(fetched.text.count > 8000),
+            ])
+        case "external_resource_gateway":
+            _ = try requiredString(arguments, "threadId", tool: name)
+            let urlString = try requiredString(arguments, "url", tool: name)
+            guard let url = URL(string: urlString), url.scheme == "https", url.host != nil else {
+                throw SystemToolError.executionFailed(tool: name, message: "external_resource_gateway url must be an https URL.")
+            }
+            let fetched = try await Self.g6FetchURL(url, timeoutSeconds: 30, tool: name)
+            guard let data = fetched.text.data(using: .utf8) else {
+                throw SystemToolError.executionFailed(tool: name, message: "Response was not valid UTF-8.")
+            }
+            let value: JSONValue
+            do {
+                value = try JSONDecoder().decode(JSONValue.self, from: data)
+            } catch {
+                throw SystemToolError.executionFailed(tool: name, message: "Response was not JSON: \(error.localizedDescription)")
+            }
+            return .object([
+                "url": .string(url.absoluteString),
+                "statusCode": .int(Int64(fetched.statusCode)),
+                "value": value,
+            ])
+        case "read_url_content":
+            _ = try requiredString(arguments, "threadId", tool: name)
+            let urlString = try requiredString(arguments, "url", tool: name)
+            guard let url = URL(string: urlString), url.scheme == "https", url.host != nil else {
+                throw SystemToolError.executionFailed(tool: name, message: "read_url_content url must be an https URL.")
+            }
+            let maxChars = min(max(optionalInt(arguments, "maxChars") ?? 8000, 1), 100000)
+            let fetched = try await Self.g6FetchURL(url, timeoutSeconds: 30, tool: name)
+            return .object([
+                "url": .string(url.absoluteString),
+                "statusCode": .int(Int64(fetched.statusCode)),
+                "contentType": .string(fetched.contentType),
+                "content": .string(String(fetched.text.prefix(maxChars))),
+                "truncated": .bool(fetched.text.count > maxChars),
+            ])
+        case "github_repo":
+            return try await Self.runG6GitHubRepo(tool: name, arguments: arguments, runtime: runtime)
         case "search_symbol", "dependency_graph", "source_graph_builder", "semantic_query_engine", "code_summary",
             "code_lint", "complexity_analysis", "autonomous_review_engine", "runtime_diagnostics_engine",
             "code_metrics_analyzer", "memory_leak_detector", "dead_code_eliminator", "dead_code_scan",
@@ -5972,6 +7179,2586 @@ public nonisolated enum SystemToolRegistry {
         "UniformTypeIdentifiers", "Dispatch", "Network", "os", "SystemConfiguration",
         "CoreGraphics", "QuartzCore", "StoreKit", "AuthenticationServices",
     ]
+
+    struct G6Manifest {
+        var name: String
+        var platforms: [String]
+        var products: [String]
+        var targets: [String]
+        var dependencies: [[String: String]]
+    }
+
+    struct G6IconSize {
+        var pixels: Int
+        var label: String
+        var idiom: String
+        var scale: String
+    }
+
+    private static func g6JoinPath(cwd: String, path: String?) -> String {
+        guard let path, !path.isEmpty else { return cwd }
+        return (cwd as NSString).appendingPathComponent(path)
+    }
+
+    private static func g6TerminalJSON(tool: String, threadId: String, cwd: String, command: String, timeoutSeconds: Int, runtime: AgentsRuntimeClient) async throws -> (exitCode: Int, output: String) {
+        let fullCommand = "cd " + shellQuoted(ExternalEditorService.expandedPath(cwd)) + " && " + command
+        let result = try await runTerminalCommand(tool: tool, threadId: threadId, command: fullCommand, timeoutSeconds: timeoutSeconds, runtime: runtime)
+        if result["timedOut"]?.boolValue == true {
+            throw SystemToolError.operationTimeout(tool: tool)
+        }
+        let exitCode = result["exitCode"]?.intValue ?? -1
+        return (exitCode, cleanTerminalOutput(result["output"]?.stringValue ?? ""))
+    }
+
+    private static func g6FetchURL(_ url: URL, timeoutSeconds: Int, tool: String) async throws -> (statusCode: Int, contentType: String, title: String?, text: String) {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = TimeInterval(timeoutSeconds)
+        configuration.timeoutIntervalForResource = TimeInterval(timeoutSeconds)
+        let session = URLSession(configuration: configuration)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(from: url)
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "Fetch failed: \(error.localizedDescription)")
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Fetch did not return an HTTP response.")
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Fetch returned HTTP \(http.statusCode).")
+        }
+        let text = String(decoding: data, as: UTF8.self)
+        let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? ""
+        var title: String?
+        if let match = Self.g5RegexMatches(pattern: "<title>([^<]+)</title>", text: text, options: [.caseInsensitive]).first {
+            title = match.1.count > 1 ? match.1[1] : nil
+        }
+        return (http.statusCode, contentType, title, text)
+    }
+
+    private static func g6ResolveFile(cwd: String, path: String?, query: String, match: (WorkspaceFileEntry) -> Bool, tool: String, runtime: AgentsRuntimeClient) async throws -> String {
+        if let path, !path.isEmpty { return path }
+        let entries = try await runtime.listWorkspaceFiles(cwd: cwd, query: query, limit: 100)
+        guard let found = entries.first(where: { !$0.isDirectory && match($0) }) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "No file matching \(query) found in the workspace.")
+        }
+        return found.path
+    }
+
+    private static func g6Entries(cwd: String, path: String?, runtime: AgentsRuntimeClient) async throws -> [WorkspaceFileEntry] {
+        try await runtime.readWorkspaceDirectory(cwd: cwd, path: path ?? "", recursive: true)
+    }
+
+    static func g6PlistObject(data: Data, tool: String) throws -> Any {
+        var format = PropertyListSerialization.PropertyListFormat.xml
+        do {
+            return try PropertyListSerialization.propertyList(from: data, options: [], format: &format)
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "File was not a valid property list: \(error.localizedDescription)")
+        }
+    }
+
+    private static func g6ReadPlist(cwd: String, path: String, tool: String, runtime: AgentsRuntimeClient) async throws -> [String: Any] {
+        let data = try readWorkspaceBytes(cwd: cwd, path: path, tool: tool)
+        let object = try g6PlistObject(data: data, tool: tool)
+        guard let dict = object as? [String: Any] else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Property list root is not a dictionary.")
+        }
+        return dict
+    }
+
+    private static func g6WritePlist(cwd: String, path: String, dict: [String: Any], tool: String) throws {
+        let data: Data
+        do {
+            data = try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize property list: \(error.localizedDescription)")
+        }
+        try writeWorkspaceBytes(cwd: cwd, path: path, data: data, tool: tool)
+    }
+
+    static func g6PlistScalar(_ text: String) -> Any {
+        if text == "true" { return true }
+        if text == "false" { return false }
+        if let int = Int(text) { return int }
+        if let double = Double(text) { return double }
+        return text
+    }
+
+    static func g6StringsUnescape(_ text: String) -> String {
+        var out = ""
+        var escaped = false
+        for char in text {
+            if escaped {
+                switch char {
+                case "n": out.append("\n")
+                case "t": out.append("\t")
+                case "\"": out.append("\"")
+                case "\\": out.append("\\")
+                default: out.append(char)
+                }
+                escaped = false
+            } else if char == "\\" {
+                escaped = true
+            } else {
+                out.append(char)
+            }
+        }
+        return out
+    }
+
+    static func g6StringsEscape(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "\t", with: "\\t")
+    }
+
+    static func g6StringsPairs(_ content: String) -> [(key: String, value: String, line: Int)] {
+        var pairs: [(key: String, value: String, line: Int)] = []
+        for (index, line) in Self.g5Lines(content).enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard let match = Self.g5RegexMatches(pattern: "^\"((?:[^\"\\\\]|\\\\.)*)\"\\s*=\\s*\"((?:[^\"\\\\]|\\\\.)*)\"\\s*;", text: trimmed).first else { continue }
+            let key = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let value = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !key.isEmpty {
+                pairs.append((key: Self.g6StringsUnescape(key), value: Self.g6StringsUnescape(value), line: index + 1))
+            }
+        }
+        return pairs
+    }
+
+    static func g6SerializeStrings(_ pairs: [(key: String, value: String)]) -> String {
+        pairs.map { "\"\(g6StringsEscape($0.key))\" = \"\(g6StringsEscape($0.value))\";" }.joined(separator: "\n") + "\n"
+    }
+
+    static func g6XcstringsDecode(_ content: String, tool: String) throws -> [String: JSONValue] {
+        guard let data = content.data(using: .utf8) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Catalog was not valid UTF-8.")
+        }
+        let value: JSONValue
+        do {
+            value = try JSONDecoder().decode(JSONValue.self, from: data)
+        } catch {
+            throw SystemToolError.executionFailed(tool: tool, message: "Catalog was not valid JSON: \(error.localizedDescription)")
+        }
+        guard case .object(let dict) = value else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Catalog root is not a JSON object.")
+        }
+        return dict
+    }
+
+    static func g6XcstringsEncode(_ dict: [String: JSONValue], tool: String) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(JSONValue.object(dict)), let text = String(data: data, encoding: .utf8) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the catalog as JSON.")
+        }
+        return text + "\n"
+    }
+
+    static func g6XcstringsKeys(_ dict: [String: JSONValue]) -> [String: [String: String]] {
+        var out: [String: [String: String]] = [:]
+        guard let strings = dict["strings"]?.objectValue else { return out }
+        for (key, entry) in strings {
+            var locales: [String: String] = [:]
+            if let localizations = entry["localizations"]?.objectValue {
+                for (locale, loc) in localizations {
+                    if let value = loc["stringUnit"]?["value"]?.stringValue {
+                        locales[locale] = value
+                    }
+                }
+            }
+            out[key] = locales
+        }
+        return out
+    }
+
+    static func g6XcstringsSet(_ dict: [String: JSONValue], key: String, locale: String, value: String, state: String) -> [String: JSONValue] {
+        var dict = dict
+        var strings = dict["strings"]?.objectValue ?? [:]
+        var entry = strings[key]?.objectValue ?? [:]
+        var localizations = entry["localizations"]?.objectValue ?? [:]
+        localizations[locale] = .object(["stringUnit": .object(["state": .string(state), "value": .string(value)])])
+        entry["localizations"] = .object(localizations)
+        strings[key] = .object(entry)
+        dict["strings"] = .object(strings)
+        return dict
+    }
+
+    static func g6ParseManifest(_ content: String) -> G6Manifest {
+        var name = ""
+        if let range = content.range(of: "Package(") {
+            let rest = String(content[range.upperBound...])
+            if let match = Self.g5RegexMatches(pattern: "name:\\s*\"([^\"]+)\"", text: rest).first {
+                name = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            }
+        }
+        var platforms: [String] = []
+        for match in Self.g5RegexMatches(pattern: "\\.([A-Za-z]+)\\(\\.v([0-9_]+)\\)", text: content) {
+            let platform = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let version = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !platform.isEmpty {
+                platforms.append(platform + " " + version.replacingOccurrences(of: "_", with: "."))
+            }
+        }
+        var products: [String] = []
+        for match in Self.g5RegexMatches(pattern: "\\.(library|executable)\\(\\s*name:\\s*\"([^\"]+)\"", text: content) {
+            let product = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !product.isEmpty { products.append(product) }
+        }
+        var targets: [String] = []
+        for match in Self.g5RegexMatches(pattern: "\\.(target|testTarget|executableTarget|binaryTarget|systemLibrary|plugin)\\(\\s*name:\\s*\"([^\"]+)\"", text: content) {
+            let target = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !target.isEmpty { targets.append(target) }
+        }
+        var dependencies: [[String: String]] = []
+        for match in Self.g5RegexMatches(pattern: "\\.package\\(\\s*url:\\s*\"([^\"]+)\"([^)]*)\\)", text: content) {
+            let url = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let rest = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            var dep: [String: String] = ["url": url]
+            if let req = Self.g5RegexMatches(pattern: "(from|exact|branch|revision):\\s*\"([^\"]+)\"", text: rest).first {
+                let kind = req.1.count > 1 ? (req.1[1] ?? "") : ""
+                let version = req.1.count > 2 ? (req.1[2] ?? "") : ""
+                if !kind.isEmpty { dep[kind] = version }
+            }
+            if !url.isEmpty { dependencies.append(dep) }
+        }
+        for match in Self.g5RegexMatches(pattern: "\\.package\\(\\s*path:\\s*\"([^\"]+)\"", text: content) {
+            let path = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            if !path.isEmpty { dependencies.append(["path": path]) }
+        }
+        return G6Manifest(name: name, platforms: platforms, products: products, targets: targets, dependencies: dependencies)
+    }
+
+    static func g6ParseResolved(_ content: String) -> [[String: String]] {
+        guard let data = content.data(using: .utf8),
+              let value = try? JSONDecoder().decode(JSONValue.self, from: data),
+              let pins = value["pins"]?.arrayValue else { return [] }
+        var out: [[String: String]] = []
+        for pin in pins {
+            var entry: [String: String] = [:]
+            if let identity = pin["identity"]?.stringValue ?? pin["package"]?.stringValue {
+                entry["identity"] = identity
+            }
+            if let location = pin["location"]?.stringValue ?? pin["repositoryURL"]?.stringValue {
+                entry["location"] = location
+            }
+            if let version = pin["state"]?["version"]?.stringValue ?? pin["state"]?["revision"]?.stringValue ?? pin["version"]?.stringValue {
+                entry["version"] = version
+            }
+            if !entry.isEmpty { out.append(entry) }
+        }
+        return out
+    }
+
+    static func g6ShowDependenciesNames(_ value: JSONValue) -> [String] {
+        var names: [String] = []
+        guard let dependencies = value["dependencies"]?.arrayValue else { return names }
+        for dep in dependencies {
+            if let identity = dep["identity"]?.stringValue {
+                names.append(identity)
+            }
+            names.append(contentsOf: g6ShowDependenciesNames(dep))
+        }
+        return names
+    }
+
+    static func g6DependencyAudit(tool: String, manifest: G6Manifest, resolvedPins: [[String: String]], shown: [String], exitCode: Int, output: String) -> JSONValue {
+        var missingResolved: [String] = []
+        var nonExact: [[String: JSONValue]] = []
+        var missingFromManifest: [String] = []
+        let resolvedIdentities = resolvedPins.compactMap { $0["identity"] }
+        for dep in manifest.dependencies {
+            if let url = dep["url"] {
+                let identity = (url as NSString).deletingPathExtension.components(separatedBy: "/").last ?? url
+                if !resolvedIdentities.contains(where: { $0.lowercased() == identity.lowercased() }) {
+                    missingResolved.append(url)
+                }
+                if dep["from"] != nil || dep["branch"] != nil {
+                    nonExact.append(["url": .string(url), "requirement": .string(dep["from"] ?? dep["branch"] ?? "")])
+                }
+            }
+        }
+        for pin in resolvedPins {
+            guard let identity = pin["identity"] else { continue }
+            let inManifest = manifest.dependencies.contains { dep in
+                guard let url = dep["url"] else { return false }
+                let name = (url as NSString).deletingPathExtension.components(separatedBy: "/").last ?? url
+                return name.lowercased() == identity.lowercased()
+            }
+            if !inManifest {
+                missingFromManifest.append(identity)
+            }
+        }
+        return .object([
+            "tool": .string(tool),
+            "manifestName": .string(manifest.name),
+            "manifestDependencies": .int(Int64(manifest.dependencies.count)),
+            "resolvedPins": .int(Int64(resolvedPins.count)),
+            "missingResolved": .array(missingResolved.map { .string($0) }),
+            "nonExactRequirements": .array(nonExact),
+            "resolvedMissingFromManifest": .array(missingFromManifest.map { .string($0) }),
+            "showDependencies": .array(shown.map { .string($0) }),
+            "showDependenciesExitCode": .int(Int64(exitCode)),
+            "output": .string(output),
+        ])
+    }
+
+    static func g6SigningFromPbxproj(tool: String, path: String, content: String) -> JSONValue {
+        var values: [String: String] = [:]
+        for key in ["CODE_SIGN_STYLE", "DEVELOPMENT_TEAM", "PRODUCT_BUNDLE_IDENTIFIER", "CODE_SIGN_IDENTITY", "PROVISIONING_PROFILE_SPECIFIER"] {
+            if let found = Self.g5RegexMatches(pattern: key + "\\s*=\\s*([^;]+);", text: content).first,
+               let value = found.1.count > 1 ? found.1[1] : nil {
+                values[key] = value.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            }
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "codeSignStyle": values["CODE_SIGN_STYLE"].map { .string($0) } ?? .null,
+            "developmentTeam": values["DEVELOPMENT_TEAM"].map { .string($0) } ?? .null,
+            "bundleIdentifier": values["PRODUCT_BUNDLE_IDENTIFIER"].map { .string($0) } ?? .null,
+            "codeSignIdentity": values["CODE_SIGN_IDENTITY"].map { .string($0) } ?? .null,
+            "provisioningProfileSpecifier": values["PROVISIONING_PROFILE_SPECIFIER"].map { .string($0) } ?? .null,
+        ])
+    }
+
+    static func g6BuildSettingsJSON(_ output: String) -> JSONValue {
+        var dict: [String: JSONValue] = [:]
+        for line in Self.g5Lines(output) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard let match = Self.g5RegexMatches(pattern: "^([A-Z0-9_]+)\\s*=\\s*(.+)$", text: trimmed).first else { continue }
+            let key = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let value = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !key.isEmpty { dict[key] = .string(value.trimmingCharacters(in: .whitespaces)) }
+        }
+        return .object(dict)
+    }
+
+    static func g6IconSizes(platform: String) -> [G6IconSize] {
+        switch platform {
+        case "macos":
+            return [
+                G6IconSize(pixels: 16, label: "16x16", idiom: "mac", scale: "1x"),
+                G6IconSize(pixels: 32, label: "16x16", idiom: "mac", scale: "2x"),
+                G6IconSize(pixels: 32, label: "32x32", idiom: "mac", scale: "1x"),
+                G6IconSize(pixels: 64, label: "32x32", idiom: "mac", scale: "2x"),
+                G6IconSize(pixels: 128, label: "128x128", idiom: "mac", scale: "1x"),
+                G6IconSize(pixels: 256, label: "128x128", idiom: "mac", scale: "2x"),
+                G6IconSize(pixels: 256, label: "256x256", idiom: "mac", scale: "1x"),
+                G6IconSize(pixels: 512, label: "256x256", idiom: "mac", scale: "2x"),
+                G6IconSize(pixels: 512, label: "512x512", idiom: "mac", scale: "1x"),
+                G6IconSize(pixels: 1024, label: "512x512", idiom: "mac", scale: "2x"),
+            ]
+        case "watchos":
+            return [
+                G6IconSize(pixels: 48, label: "24x24", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 55, label: "27.5x27.5", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 58, label: "29x29", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 87, label: "29x29", idiom: "watch", scale: "3x"),
+                G6IconSize(pixels: 80, label: "40x40", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 88, label: "44x44", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 100, label: "50x50", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 172, label: "86x86", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 196, label: "98x98", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 216, label: "108x108", idiom: "watch", scale: "2x"),
+                G6IconSize(pixels: 1024, label: "1024x1024", idiom: "watch-marketing", scale: "1x"),
+            ]
+        default:
+            return [
+                G6IconSize(pixels: 40, label: "20x20", idiom: "iphone", scale: "2x"),
+                G6IconSize(pixels: 60, label: "20x20", idiom: "iphone", scale: "3x"),
+                G6IconSize(pixels: 58, label: "29x29", idiom: "iphone", scale: "2x"),
+                G6IconSize(pixels: 87, label: "29x29", idiom: "iphone", scale: "3x"),
+                G6IconSize(pixels: 80, label: "40x40", idiom: "iphone", scale: "2x"),
+                G6IconSize(pixels: 120, label: "40x40", idiom: "iphone", scale: "3x"),
+                G6IconSize(pixels: 120, label: "60x60", idiom: "iphone", scale: "2x"),
+                G6IconSize(pixels: 180, label: "60x60", idiom: "iphone", scale: "3x"),
+                G6IconSize(pixels: 76, label: "76x76", idiom: "ipad", scale: "1x"),
+                G6IconSize(pixels: 152, label: "76x76", idiom: "ipad", scale: "2x"),
+                G6IconSize(pixels: 167, label: "83.5x83.5", idiom: "ipad", scale: "2x"),
+                G6IconSize(pixels: 1024, label: "1024x1024", idiom: "ios-marketing", scale: "1x"),
+            ]
+        }
+    }
+
+    static func g6AppIconContents(platform: String, generated: [[String: JSONValue]]) -> [String: Any] {
+        var images: [[String: Any]] = []
+        for entry in generated {
+            guard let size = entry["size"]?.stringValue,
+                  let idiom = entry["idiom"]?.stringValue,
+                  let scale = entry["scale"]?.stringValue,
+                  let filename = entry["filename"]?.stringValue else { continue }
+            images.append(["idiom": idiom, "filename": filename, "scale": scale, "size": size])
+        }
+        return ["images": images, "info": ["author": "xcode", "version": 1]]
+    }
+
+    private static func g6EnvInfo(tool: String) -> JSONValue {
+        let process = ProcessInfo.processInfo
+        var machine = "unknown"
+        var sysinfo = utsname()
+        if uname(&sysinfo) == 0 {
+            machine = withUnsafeBytes(of: sysinfo.machine) { raw in
+                let bytes = raw.prefix(while: { $0 != 0 })
+                return String(bytes: bytes, encoding: .utf8) ?? "unknown"
+            }
+        }
+        let versionString = process.operatingSystemVersionString
+        var build = ""
+        if let start = versionString.firstIndex(of: "("), let end = versionString.firstIndex(of: ")"), start < end {
+            build = String(versionString[versionString.index(after: start)..<end])
+        }
+        return .object([
+            "tool": .string(tool),
+            "osVersion": .string(versionString),
+            "osBuild": .string(build),
+            "arch": .string(machine),
+            "cpuCount": .int(Int64(process.processorCount)),
+            "physicalMemoryBytes": .int(Int64(process.physicalMemory)),
+            "hostName": .string(process.hostName),
+            "uptimeSeconds": .double(process.systemUptime),
+        ])
+    }
+
+    static func g6ParsePs(_ output: String, filter: String?, limit: Int) -> [[String: JSONValue]] {
+        var rows: [[String: JSONValue]] = []
+        for line in Self.g5Lines(output) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+            let parts = trimmed.split(separator: " ", omittingEmptySubsequences: true)
+            guard parts.count >= 4, let pid = Int(parts[0]), let cpu = Double(parts[1]), let mem = Double(parts[2]) else { continue }
+            let command = parts[3...].joined(separator: " ")
+            if let filter, !filter.isEmpty, !command.localizedCaseInsensitiveContains(filter) { continue }
+            rows.append([
+                "pid": .int(Int64(pid)),
+                "cpuPercent": .double(cpu),
+                "memoryPercent": .double(mem),
+                "command": .string(command),
+            ])
+            if rows.count >= limit { break }
+        }
+        return rows
+    }
+
+    static func g6DiskSpace(tool: String, path: String, dfOutput: String, duOutput: String) -> JSONValue {
+        var totalKilobytes: Int64?
+        var availableKilobytes: Int64?
+        var usedKilobytes: Int64?
+        var capacityPercent: Int64?
+        var mountPoint: String?
+        for line in Self.g5Lines(dfOutput) {
+            let parts = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard parts.count >= 9, let total = Int64(parts[1]), let used = Int64(parts[2]), let available = Int64(parts[3]) else { continue }
+            totalKilobytes = total
+            usedKilobytes = used
+            availableKilobytes = available
+            capacityPercent = Int64(parts[4].replacingOccurrences(of: "%", with: "")) ?? nil
+            mountPoint = parts[8...].joined(separator: " ")
+        }
+        var pathKilobytes: Int64?
+        let duParts = duOutput.split(separator: " ", omittingEmptySubsequences: true)
+        if let first = duParts.first, let size = Int64(first) {
+            pathKilobytes = size
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "totalKilobytes": totalKilobytes.map { .int($0) } ?? .null,
+            "usedKilobytes": usedKilobytes.map { .int($0) } ?? .null,
+            "availableKilobytes": availableKilobytes.map { .int($0) } ?? .null,
+            "capacityPercent": capacityPercent.map { .int($0) } ?? .null,
+            "mountPoint": mountPoint.map { .string($0) } ?? .null,
+            "pathKilobytes": pathKilobytes.map { .int($0) } ?? .null,
+        ])
+    }
+
+    private static func runG6Tool(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        if tool == "derived_data_locate" {
+            return Self.g6DerivedData(tool: tool, path: optionalString(arguments, "path"), limit: min(max(optionalInt(arguments, "limit") ?? 20, 1), 100))
+        }
+        let cwd = try requiredString(arguments, "cwd", tool: tool)
+        let path = optionalString(arguments, "path")
+        let limit = max(1, min(1000, optionalInt(arguments, "limit") ?? 200))
+        switch tool {
+        case "framework_linker_auditor":
+            let pbxproj = try await Self.g5ResolvePbxproj(tool: tool, cwd: cwd, path: path, runtime: runtime)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: pbxproj)
+            return Self.g6FrameworkAudit(tool: tool, path: pbxproj, content: document.content)
+        case "string_catalog_migrator":
+            let sourceLanguage = optionalString(arguments, "sourceLanguage") ?? "en"
+            var files: [(path: String, content: String)] = []
+            let singleFile = path.map { $0.hasSuffix(".strings") || $0.hasSuffix(".stringsdict") } ?? false
+            if let path, !path.isEmpty, singleFile {
+                let document = try await runtime.readWorkspaceFile(cwd: cwd, path: path)
+                files = [(path: path, content: document.content)]
+            } else {
+                files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".strings", ".stringsdict"], limit: 100, runtime: runtime)
+            }
+            guard !files.isEmpty else {
+                throw SystemToolError.executionFailed(tool: tool, message: "No .strings or .stringsdict files found.")
+            }
+            var migrated: [[String: JSONValue]] = []
+            var skipped: [[String: JSONValue]] = []
+            for file in files {
+                if file.path.hasSuffix(".stringsdict") {
+                    skipped.append(["path": .string(file.path), "reason": .string("stringsdict plural forms need manual mapping and are not migrated.")])
+                    continue
+                }
+                let pairs = Self.g6StringsPairs(file.content)
+                var strings: [String: JSONValue] = [:]
+                for pair in pairs {
+                    strings[pair.key] = .object(["localizations": .object([sourceLanguage: .object(["stringUnit": .object(["state": .string("translated"), "value": .string(pair.value)])])])])
+                }
+                let catalog: [String: JSONValue] = [
+                    "sourceLanguage": .string(sourceLanguage),
+                    "strings": .object(strings),
+                    "version": .string("1.0"),
+                ]
+                let outPath = (file.path as NSString).deletingPathExtension + ".xcstrings"
+                let text = try Self.g6XcstringsEncode(catalog, tool: tool)
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: outPath, content: text)
+                let verify = try await runtime.readWorkspaceFile(cwd: cwd, path: outPath)
+                let decoded = try Self.g6XcstringsDecode(verify.content, tool: tool)
+                migrated.append([
+                    "source": .string(file.path),
+                    "catalog": .string(outPath),
+                    "keys": .int(Int64(pairs.count)),
+                    "verified": .bool(decoded["strings"]?.objectValue?.count == pairs.count),
+                ])
+            }
+            return .object([
+                "tool": .string(tool),
+                "migrated": .array(migrated),
+                "skipped": .array(skipped),
+                "count": .int(Int64(migrated.count)),
+            ])
+        case "symbol_reference_graph":
+            let symbol = try requiredString(arguments, "symbol", tool: name)
+            let escaped = NSRegularExpression.escapedPattern(for: symbol)
+            let declarationHits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: "(func|class|struct|enum|protocol|let|var|typealias|actor)\\s+" + escaped + "\\b", limit: limit)
+            let referenceHits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: "\\b" + escaped + "\\b", limit: limit)
+            let scoped = { (hits: [WorkspaceSearchHit]) in
+                hits.filter { hit in
+                    guard let path, !path.isEmpty else { return true }
+                    return hit.path == path || hit.path.hasPrefix(path + "/")
+                }
+            }
+            let definitions = scoped(declarationHits).map { hit in
+                .object([
+                    "path": .string(hit.path),
+                    "lineNumber": .int(Int64(hit.lineNumber)),
+                    "column": .int(Int64(hit.column)),
+                    "lineText": .string(hit.lineText),
+                ])
+            }
+            let definitionKeys = Set(definitions.compactMap { def -> String? in
+                guard let p = def["path"]?.stringValue, let l = def["lineNumber"]?.intValue else { return nil }
+                return p + ":\(l)"
+            })
+            let references = scoped(referenceHits).filter { hit in
+                !definitionKeys.contains(hit.path + ":\(hit.lineNumber)")
+            }.map { hit in
+                .object([
+                    "path": .string(hit.path),
+                    "lineNumber": .int(Int64(hit.lineNumber)),
+                    "column": .int(Int64(hit.column)),
+                    "lineText": .string(hit.lineText),
+                ])
+            }
+            return .object([
+                "tool": .string(tool),
+                "symbol": .string(symbol),
+                "definitions": .array(definitions),
+                "references": .array(references),
+                "definitionCount": .int(Int64(definitions.count)),
+                "referenceCount": .int(Int64(references.count)),
+            ])
+        case "podfile_inspector":
+            let podfile = try await Self.g6ResolveFile(cwd: cwd, path: path, query: "Podfile", match: { $0.name == "Podfile" || $0.path.hasSuffix("/Podfile") }, tool: tool, runtime: runtime)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: podfile)
+            var pods: [[String: JSONValue]] = []
+            var targets: [String] = []
+            var currentTarget = ""
+            var platform = ""
+            for line in Self.g5Lines(document.content) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if let match = Self.g5RegexMatches(pattern: "^target\\s+['\"]([^'\"]+)['\"]\\s+do", text: trimmed).first,
+                   let target = match.1.count > 1 ? match.1[1] : nil {
+                    targets.append(target)
+                    currentTarget = target
+                    continue
+                }
+                if trimmed == "end" {
+                    currentTarget = ""
+                    continue
+                }
+                if let match = Self.g5RegexMatches(pattern: "^platform\\s+:(\\w+),\\s*['\"]([^'\"]+)['\"]", text: trimmed).first {
+                    let name = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                    let version = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                    platform = name + " " + version
+                    continue
+                }
+                if let match = Self.g5RegexMatches(pattern: "^pod\\s+['\"]([^'\"]+)['\"](?:\\s*,\\s*['\"]([^'\"]+)['\"])?", text: trimmed).first {
+                    let name = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                    let requirement = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                    pods.append([
+                        "name": .string(name),
+                        "requirement": .string(requirement),
+                        "target": .string(currentTarget),
+                    ])
+                }
+            }
+            var locked: [[String: JSONValue]] = []
+            let dir = (podfile as NSString).deletingLastPathComponent
+            let lockPath = dir.isEmpty ? "Podfile.lock" : dir + "/Podfile.lock"
+            if let lockDoc = try? await runtime.readWorkspaceFile(cwd: cwd, path: lockPath) {
+                var inPods = false
+                for line in Self.g5Lines(lockDoc.content) {
+                    if line.hasPrefix("PODS:") { inPods = true; continue }
+                    if inPods {
+                        if line.isEmpty || (!line.hasPrefix(" ") && !line.hasPrefix("\t")) { break }
+                        if let match = Self.g5RegexMatches(pattern: "^\\s*-\\s*([A-Za-z0-9_./-]+) \\(([^)]+)\\)", text: line).first {
+                            let name = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                            let version = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                            if !name.isEmpty {
+                                locked.append(["name": .string(name), "version": .string(version)])
+                            }
+                        }
+                    }
+                }
+            }
+            return .object([
+                "tool": .string(tool),
+                "path": .string(podfile),
+                "platform": .string(platform),
+                "targets": .array(targets.map { .string($0) }),
+                "pods": .array(pods),
+                "podCount": .int(Int64(pods.count)),
+                "locked": .array(locked),
+                "lockPresent": .bool(!locked.isEmpty),
+            ])
+        case "carthage_cartfile_inspector":
+            let cartfile = try await Self.g6ResolveFile(cwd: cwd, path: path, query: "Cartfile", match: { $0.name == "Cartfile" || $0.path.hasSuffix("/Cartfile") }, tool: tool, runtime: runtime)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: cartfile)
+            var dependencies: [[String: JSONValue]] = []
+            for line in Self.g5Lines(document.content) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if let match = Self.g5RegexMatches(pattern: "^(github|git|binary)\\s+\"([^\"]+)\"(?:\\s+\"([^\"]+)\")?", text: trimmed).first {
+                    let source = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                    let name = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                    let requirement = match.1.count > 3 ? (match.1[3] ?? "") : ""
+                    dependencies.append([
+                        "source": .string(source),
+                        "name": .string(name),
+                        "requirement": .string(requirement),
+                    ])
+                }
+            }
+            var resolved: [[String: JSONValue]] = []
+            let dir = (cartfile as NSString).deletingLastPathComponent
+            let resolvedPath = dir.isEmpty ? "Cartfile.resolved" : dir + "/Cartfile.resolved"
+            if let resolvedDoc = try? await runtime.readWorkspaceFile(cwd: cwd, path: resolvedPath) {
+                for line in Self.g5Lines(resolvedDoc.content) {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if let match = Self.g5RegexMatches(pattern: "^(github|git|binary)\\s+\"([^\"]+)\"\\s+\"([^\"]+)\"", text: trimmed).first {
+                        let source = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                        let name = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                        let version = match.1.count > 3 ? (match.1[3] ?? "") : ""
+                        resolved.append([
+                            "source": .string(source),
+                            "name": .string(name),
+                            "version": .string(version),
+                        ])
+                    }
+                }
+            }
+            return .object([
+                "tool": .string(tool),
+                "path": .string(cartfile),
+                "dependencies": .array(dependencies),
+                "dependencyCount": .int(Int64(dependencies.count)),
+                "resolved": .array(resolved),
+                "resolvedPresent": .bool(!resolved.isEmpty),
+            ])
+        case "package_manifest_read":
+            let manifestPath = path ?? "Package.swift"
+            try Self.validateRelativePath(manifestPath, tool: tool)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: manifestPath)
+            let manifest = Self.g6ParseManifest(document.content)
+            return .object([
+                "tool": .string(tool),
+                "path": .string(manifestPath),
+                "name": .string(manifest.name),
+                "platforms": .array(manifest.platforms.map { .string($0) }),
+                "products": .array(manifest.products.map { .string($0) }),
+                "targets": .array(manifest.targets.map { .string($0) }),
+                "dependencies": .array(manifest.dependencies.map { dep in
+                    .object(dep.mapValues { .string($0) })
+                }),
+            ])
+        case "package_dependency_add":
+            let url = try requiredString(arguments, "url", tool: tool)
+            let version = try requiredString(arguments, "version", tool: tool)
+            let manifestPath = path ?? "Package.swift"
+            try Self.validateRelativePath(manifestPath, tool: tool)
+            guard url.hasPrefix("https://") || url.hasPrefix("git@") else {
+                throw SystemToolError.executionFailed(tool: tool, message: "package_dependency_add url must be an https or git@ URL.")
+            }
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: manifestPath)
+            var content = document.content
+            guard !content.contains(url) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Package.swift already references \(url).")
+            }
+            guard let depRange = content.range(of: "dependencies: [") else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Package.swift has no dependencies array.")
+            }
+            let insertion = "\n        .package(url: \"\(url)\", from: \"\(version)\"),"
+            content.insert(contentsOf: insertion, at: depRange.upperBound)
+            var wired = false
+            var wiringNote = ""
+            if let product = optionalString(arguments, "product"), let target = optionalString(arguments, "target") {
+                let packageName = ((url as NSString).lastPathComponent as NSString).deletingPathExtension
+                let escapedTarget = NSRegularExpression.escapedPattern(for: target)
+                if let targetMatch = Self.g5RegexMatches(pattern: "\\.(target|executableTarget|testTarget)\\(\\s*name:\\s*\"\(escapedTarget)\"[^)]*?dependencies:\\s*\\[", text: content, options: [.dotMatchesLineSeparators]).first {
+                    let afterStart = targetMatch.0.location + targetMatch.0.length
+                    if let swiftRange = Range(NSRange(location: afterStart, length: (content as NSString).length - afterStart), in: content) {
+                        let wiring = "\n            .product(name: \"\(product)\", package: \"\(packageName)\"),"
+                        content.insert(contentsOf: wiring, at: swiftRange.lowerBound)
+                        wired = true
+                    } else {
+                        wiringNote = "Target \(target) found but its dependencies array could not be located."
+                    }
+                } else {
+                    wiringNote = "Target \(target) has no dependencies array to wire into."
+                }
+            }
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: manifestPath, content: content)
+            let verify = try await runtime.readWorkspaceFile(cwd: cwd, path: manifestPath)
+            let parsed = Self.g6ParseManifest(verify.content)
+            guard parsed.dependencies.contains(where: { $0["url"] == url }) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Verification failed: the dependency is not present after writing.")
+            }
+            return .object([
+                "tool": .string(tool),
+                "path": .string(manifestPath),
+                "url": .string(url),
+                "version": .string(version),
+                "added": .bool(true),
+                "wired": .bool(wired),
+                "wiringNote": .string(wiringNote),
+            ])
+        case "asset_catalog_list":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            let catalogs = entries.filter { $0.isDirectory && $0.path.hasSuffix(".xcassets") }
+            var out: [[String: JSONValue]] = []
+            for catalog in catalogs {
+                let prefix = catalog.path + "/"
+                var counts: [String: Int] = ["image": 0, "color": 0, "icon": 0, "dataset": 0, "symbol": 0]
+                var names: [String] = []
+                for entry in entries where entry.isDirectory && entry.path.hasPrefix(prefix) {
+                    let suffix = (entry.path as NSString).lastPathComponent
+                    let kind: String?
+                    if suffix.hasSuffix(".imageset") { kind = "image" }
+                    else if suffix.hasSuffix(".colorset") { kind = "color" }
+                    else if suffix.hasSuffix(".appiconset") { kind = "icon" }
+                    else if suffix.hasSuffix(".dataset") { kind = "dataset" }
+                    else if suffix.hasSuffix(".symbolset") { kind = "symbol" }
+                    else { kind = nil }
+                    if let kind {
+                        counts[kind, default: 0] += 1
+                        names.append(suffix)
+                    }
+                }
+                out.append([
+                    "catalog": .string(catalog.path),
+                    "imageSets": .int(Int64(counts["image"] ?? 0)),
+                    "colorSets": .int(Int64(counts["color"] ?? 0)),
+                    "iconSets": .int(Int64(counts["icon"] ?? 0)),
+                    "dataSets": .int(Int64(counts["dataset"] ?? 0)),
+                    "symbolSets": .int(Int64(counts["symbol"] ?? 0)),
+                    "sets": .array(names.map { .string($0) }),
+                ])
+            }
+            return .object([
+                "tool": .string(tool),
+                "catalogs": .array(out),
+                "catalogCount": .int(Int64(out.count)),
+            ])
+        case "asset_image_add":
+            let imageName = try requiredString(arguments, "imageName", tool: name)
+            let source = try requiredString(arguments, "source", tool: name)
+            try Self.validateRelativePath(source, tool: name)
+            guard !imageName.isEmpty, !imageName.contains("/"), !imageName.contains("\\") else {
+                throw SystemToolError.executionFailed(tool: tool, message: "asset_image_add imageName must be a single name without a path separator.")
+            }
+            let catalog = try await Self.g6ResolveCatalog(cwd: cwd, catalog: optionalString(arguments, "catalog"), tool: tool, runtime: runtime)
+            let setPath = catalog + "/" + imageName + ".imageset"
+            try await runtime.createWorkspaceDirectory(cwd: cwd, path: setPath)
+            let fileName = (source as NSString).lastPathComponent
+            try await runtime.copyWorkspaceFile(cwd: cwd, path: source, destination: setPath + "/" + fileName)
+            let contents: [String: Any] = [
+                "images": [["filename": fileName, "idiom": "universal", "scale": "1x"]],
+                "info": ["author": "xcode", "version": 1],
+            ]
+            guard let data = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the image set Contents.json.")
+            }
+            try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: name)
+            let verify = try await runtime.readWorkspaceFile(cwd: cwd, path: setPath + "/Contents.json")
+            return .object([
+                "tool": .string(tool),
+                "catalog": .string(catalog),
+                "set": .string(setPath),
+                "image": .string(fileName),
+                "verified": .bool(verify.content.contains(fileName)),
+            ])
+        case "strings_localization":
+            let filePath = try requiredString(arguments, "path", tool: tool)
+            let action = try requiredString(arguments, "action", tool: tool)
+            let key = try requiredString(arguments, "key", tool: tool)
+            try Self.validateRelativePath(filePath, tool: tool)
+            guard ["get", "set", "delete"].contains(action) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "strings_localization action must be get, set, or delete.")
+            }
+            if filePath.hasSuffix(".xcstrings") {
+                let document = try await runtime.readWorkspaceFile(cwd: cwd, path: filePath)
+                var catalog = try Self.g6XcstringsDecode(document.content, tool: tool)
+                let locale = optionalString(arguments, "locale") ?? catalog["sourceLanguage"]?.stringValue ?? "en"
+                let keys = Self.g6XcstringsKeys(catalog)
+                switch action {
+                case "get":
+                    let value = keys[key]?[locale]
+                    return .object([
+                        "tool": .string(tool),
+                        "path": .string(filePath),
+                        "key": .string(key),
+                        "locale": .string(locale),
+                        "found": .bool(value != nil),
+                        "value": value.map { .string($0) } ?? .null,
+                    ])
+                case "set":
+                    let value = try requiredString(arguments, "value", tool: tool)
+                    catalog = Self.g6XcstringsSet(catalog, key: key, locale: locale, value: value, state: "translated")
+                    let text = try Self.g6XcstringsEncode(catalog, tool: tool)
+                    try await runtime.writeWorkspaceFile(cwd: cwd, path: filePath, content: text)
+                    return .object([
+                        "tool": .string(tool),
+                        "path": .string(filePath),
+                        "key": .string(key),
+                        "locale": .string(locale),
+                        "value": .string(value),
+                        "updated": .bool(true),
+                    ])
+                default:
+                    var strings = catalog["strings"]?.objectValue ?? [:]
+                    guard strings[key] != nil else {
+                        throw SystemToolError.executionFailed(tool: tool, message: "Key \(key) not found in \(filePath).")
+                    }
+                    var entry = strings[key]?.objectValue ?? [:]
+                    var localizations = entry["localizations"]?.objectValue ?? [:]
+                    localizations.removeValue(forKey: locale)
+                    entry["localizations"] = .object(localizations)
+                    strings[key] = .object(entry)
+                    catalog["strings"] = .object(strings)
+                    let text = try Self.g6XcstringsEncode(catalog, tool: tool)
+                    try await runtime.writeWorkspaceFile(cwd: cwd, path: filePath, content: text)
+                    return .object([
+                        "tool": .string(tool),
+                        "path": .string(filePath),
+                        "key": .string(key),
+                        "locale": .string(locale),
+                        "deleted": .bool(true),
+                    ])
+                }
+            }
+            guard filePath.hasSuffix(".strings") else {
+                throw SystemToolError.executionFailed(tool: tool, message: "strings_localization path must end in .strings or .xcstrings.")
+            }
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: filePath)
+            var pairs = Self.g6StringsPairs(document.content)
+            switch action {
+            case "get":
+                let found = pairs.first { $0.key == key }
+                return .object([
+                    "tool": .string(tool),
+                    "path": .string(filePath),
+                    "key": .string(key),
+                    "found": .bool(found != nil),
+                    "value": found.map { .string($0.value) } ?? .null,
+                ])
+            case "set":
+                let value = try requiredString(arguments, "value", tool: tool)
+                if let index = pairs.firstIndex(where: { $0.key == key }) {
+                    pairs[index] = (key: key, value: value, line: pairs[index].line)
+                } else {
+                    pairs.append((key: key, value: value, line: pairs.count + 1))
+                }
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: filePath, content: Self.g6SerializeStrings(pairs.map { (key: $0.key, value: $0.value) }))
+                return .object([
+                    "tool": .string(tool),
+                    "path": .string(filePath),
+                    "key": .string(key),
+                    "value": .string(value),
+                    "updated": .bool(true),
+                ])
+            default:
+                guard pairs.contains(where: { $0.key == key }) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Key \(key) not found in \(filePath).")
+                }
+                pairs.removeAll { $0.key == key }
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: filePath, content: Self.g6SerializeStrings(pairs.map { (key: $0.key, value: $0.value) }))
+                return .object([
+                    "tool": .string(tool),
+                    "path": .string(filePath),
+                    "key": .string(key),
+                    "deleted": .bool(true),
+                ])
+            }
+        case "localization_audit":
+            let stringsFiles = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".strings"], limit: 200, runtime: runtime)
+            let catalogFiles = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".xcstrings"], limit: 50, runtime: runtime)
+            var keysByLocale: [String: Set<String>] = [:]
+            var allKeys: Set<String> = []
+            for file in stringsFiles {
+                let locale = Self.g6LocaleForStringsPath(file.path)
+                let keys = Set(Self.g6StringsPairs(file.content).map { $0.key })
+                keysByLocale[locale, default: []].formUnion(keys)
+                allKeys.formUnion(keys)
+            }
+            for file in catalogFiles {
+                if let catalog = try? Self.g6XcstringsDecode(file.content, tool: tool) {
+                    for (key, locales) in Self.g6XcstringsKeys(catalog) {
+                        allKeys.insert(key)
+                        for locale in locales.keys {
+                            keysByLocale[locale, default: []].insert(key)
+                        }
+                    }
+                }
+            }
+            var missing: [[String: JSONValue]] = []
+            for locale in keysByLocale.keys.sorted() {
+                let absent = allKeys.subtracting(keysByLocale[locale] ?? []).sorted()
+                if !absent.isEmpty {
+                    missing.append(["locale": .string(locale), "missingKeys": .array(absent.map { .string($0) })])
+                }
+            }
+            let swiftFiles = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            var unreferenced: [String] = []
+            for key in allKeys.sorted() {
+                let referenced = swiftFiles.contains { $0.content.contains("\"\(key)\"") || $0.content.contains("NSLocalizedString(\"\(key)\"") }
+                if !referenced {
+                    unreferenced.append(key)
+                }
+                if unreferenced.count >= limit { break }
+            }
+            return .object([
+                "tool": .string(tool),
+                "locales": .array(keysByLocale.keys.sorted().map { .string($0) }),
+                "totalKeys": .int(Int64(allKeys.count)),
+                "missing": .array(missing),
+                "unreferencedKeys": .array(unreferenced.map { .string($0) }),
+            ])
+        case "localize_app":
+            let action = try requiredString(arguments, "action", tool: tool)
+            guard ["localize", "status", "set_development_region"].contains(action) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "localize_app action must be localize, status, or set_development_region.")
+            }
+            let catalogPath = "Localizable.xcstrings"
+            if action == "status" {
+                if let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: catalogPath),
+                   let catalog = try? Self.g6XcstringsDecode(document.content, tool: tool) {
+                    let keys = Self.g6XcstringsKeys(catalog)
+                    return .object([
+                        "tool": .string(tool),
+                        "action": .string(action),
+                        "exists": .bool(true),
+                        "sourceLanguage": catalog["sourceLanguage"]?.stringValue.map { .string($0) } ?? .null,
+                        "keyCount": .int(Int64(keys.count)),
+                        "locales": .array(Array(Set(keys.values.flatMap { $0.keys })).sorted().map { .string($0) }),
+                    ])
+                }
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "exists": .bool(false),
+                    "keyCount": .int(0),
+                    "locales": .array([]),
+                ])
+            }
+            if action == "set_development_region" {
+                let region = try requiredString(arguments, "developmentRegion", tool: tool)
+                let plistPath = try await Self.g6ResolveFile(cwd: cwd, path: nil, query: "Info.plist", match: { $0.name == "Info.plist" }, tool: tool, runtime: runtime)
+                var plist = try await Self.g6ReadPlist(cwd: cwd, path: plistPath, tool: tool, runtime: runtime)
+                plist["CFBundleDevelopmentRegion"] = region
+                try Self.g6WritePlist(cwd: cwd, path: plistPath, dict: plist, tool: tool)
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "path": .string(plistPath),
+                    "developmentRegion": .string(region),
+                    "updated": .bool(true),
+                ])
+            }
+            guard let languages = optionalStringArray(arguments, "languages"), !languages.isEmpty, languages.count <= 3 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "localize_app localize requires languages with 1 to 3 language codes.")
+            }
+            var translations: [String: [String: String]] = [:]
+            if let rawTranslations = arguments["translations"]?.arrayValue {
+                for raw in rawTranslations {
+                    guard let locale = raw["locale"]?.stringValue, let key = raw["key"]?.stringValue, let value = raw["value"]?.stringValue else {
+                        throw SystemToolError.missingArgument(tool: tool, argument: "translations")
+                    }
+                    translations[locale, default: [:]][key] = value
+                }
+            }
+            let swiftFiles = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 200, runtime: runtime)
+            var keys: Set<String> = []
+            for file in swiftFiles {
+                for match in Self.g5RegexMatches(pattern: "NSLocalizedString\\(\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", text: file.content) {
+                    if let key = match.1.count > 1 ? match.1[1] : nil, !key.isEmpty {
+                        keys.insert(Self.g6StringsUnescape(key))
+                    }
+                }
+                for match in Self.g5RegexMatches(pattern: "String\\(localized:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", text: file.content) {
+                    if let key = match.1.count > 1 ? match.1[1] : nil, !key.isEmpty {
+                        keys.insert(Self.g6StringsUnescape(key))
+                    }
+                }
+            }
+            var catalog: [String: JSONValue] = ["sourceLanguage": .string("en"), "strings": .object([:]), "version": .string("1.0")]
+            if let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: catalogPath),
+               let existing = try? Self.g6XcstringsDecode(document.content, tool: tool) {
+                catalog = existing
+            }
+            let sourceLanguage = catalog["sourceLanguage"]?.stringValue ?? "en"
+            var keysAdded = 0
+            var layoutDirection = "ltr"
+            if languages.contains(where: { ["ar", "he", "fa", "ur"].contains($0.lowercased()) }) {
+                layoutDirection = "rtl"
+            }
+            for key in keys.sorted() {
+                let existing = Self.g6XcstringsKeys(catalog)[key]
+                if existing == nil {
+                    keysAdded += 1
+                }
+                catalog = Self.g6XcstringsSet(catalog, key: key, locale: sourceLanguage, value: key, state: "translated")
+                for language in languages {
+                    if let translated = translations[language]?[key] {
+                        catalog = Self.g6XcstringsSet(catalog, key: key, locale: language, value: translated, state: "translated")
+                    } else if Self.g6XcstringsKeys(catalog)[key]?[language] == nil {
+                        catalog = Self.g6XcstringsSet(catalog, key: key, locale: language, value: key, state: "new")
+                    }
+                }
+            }
+            let text = try Self.g6XcstringsEncode(catalog, tool: tool)
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: catalogPath, content: text)
+            if let plistPath = try? await Self.g6ResolveFile(cwd: cwd, path: nil, query: "Info.plist", match: { $0.name == "Info.plist" }, tool: tool, runtime: runtime),
+               var plist = try? await Self.g6ReadPlist(cwd: cwd, path: plistPath, tool: tool, runtime: runtime) {
+                plist["CFBundleLocalizations"] = languages
+                if plist["CFBundleDevelopmentRegion"] == nil {
+                    plist["CFBundleDevelopmentRegion"] = sourceLanguage
+                }
+                try? Self.g6WritePlist(cwd: cwd, path: plistPath, dict: plist, tool: tool)
+            }
+            return .object([
+                "tool": .string(tool),
+                "action": .string(action),
+                "languages": .array(languages.map { .string($0) }),
+                "layoutDirection": .string(layoutDirection),
+                "sourceLanguage": .string(sourceLanguage),
+                "keysAdded": .int(Int64(keysAdded)),
+                "catalog": .string(catalogPath),
+            ])
+        case "asset_catalog_manager":
+            let action = try requiredString(arguments, "action", tool: tool)
+            switch action {
+            case "list":
+                let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+                let catalogs = entries.filter { $0.isDirectory && $0.path.hasSuffix(".xcassets") }.map { $0.path }
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "catalogs": .array(catalogs.map { .string($0) }),
+                    "catalogCount": .int(Int64(catalogs.count)),
+                ])
+            case "inspect":
+                let setName = try requiredString(arguments, "name", tool: tool)
+                let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+                guard let set = entries.first(where: { $0.isDirectory && ($0.path as NSString).lastPathComponent == setName }) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "No asset set named \(setName) found.")
+                }
+                let contentsPath = set.path + "/Contents.json"
+                let document = try await runtime.readWorkspaceFile(cwd: cwd, path: contentsPath)
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "set": .string(set.path),
+                    "contents": .string(document.content),
+                ])
+            case "create_imageset":
+                let imageName = try requiredString(arguments, "name", tool: tool)
+                let source = try requiredString(arguments, "source", tool: tool)
+                try Self.validateRelativePath(source, tool: tool)
+                let catalog = try await Self.g6ResolveCatalog(cwd: cwd, catalog: optionalString(arguments, "catalog"), tool: tool, runtime: runtime)
+                let setPath = catalog + "/" + imageName + ".imageset"
+                try await runtime.createWorkspaceDirectory(cwd: cwd, path: setPath)
+                let fileName = (source as NSString).lastPathComponent
+                try await runtime.copyWorkspaceFile(cwd: cwd, path: source, destination: setPath + "/" + fileName)
+                let contents: [String: Any] = [
+                    "images": [["filename": fileName, "idiom": "universal", "scale": "1x"]],
+                    "info": ["author": "xcode", "version": 1],
+                ]
+                guard let data = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the image set Contents.json.")
+                }
+                try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: name)
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "set": .string(setPath),
+                    "image": .string(fileName),
+                    "created": .bool(true),
+                ])
+            case "create_colorset":
+                let colorName = try requiredString(arguments, "name", tool: tool)
+                let lightHex = try requiredString(arguments, "lightHex", tool: tool)
+                let darkHex = optionalString(arguments, "darkHex") ?? lightHex
+                let catalog = try await Self.g6ResolveCatalog(cwd: cwd, catalog: optionalString(arguments, "catalog"), tool: tool, runtime: runtime)
+                let setPath = catalog + "/" + colorName + ".colorset"
+                try await runtime.createWorkspaceDirectory(cwd: cwd, path: setPath)
+                let contents = Self.g6ColorsetContents(lightHex: lightHex, darkHex: darkHex)
+                guard let data = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the color set Contents.json.")
+                }
+                try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: name)
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "set": .string(setPath),
+                    "created": .bool(true),
+                ])
+            default:
+                throw SystemToolError.executionFailed(tool: tool, message: "asset_catalog_manager action must be list, inspect, create_imageset, or create_colorset.")
+            }
+        case "localization_manager":
+            let action = try requiredString(arguments, "action", tool: tool)
+            switch action {
+            case "list":
+                let stringsFiles = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".strings"], limit: 200, runtime: runtime)
+                let catalogFiles = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".xcstrings"], limit: 50, runtime: runtime)
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "stringsFiles": .array(stringsFiles.map { .string($0.path) }),
+                    "catalogs": .array(catalogFiles.map { .string($0.path) }),
+                ])
+            case "extract":
+                let stringsFiles = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".strings"], limit: 200, runtime: runtime)
+                let catalogFiles = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".xcstrings"], limit: 50, runtime: runtime)
+                var keys: [String: [String: String]] = [:]
+                for file in stringsFiles {
+                    for pair in Self.g6StringsPairs(file.content) {
+                        keys[pair.key, default: [:]][Self.g6LocaleForStringsPath(file.path)] = pair.value
+                    }
+                }
+                for file in catalogFiles {
+                    if let catalog = try? Self.g6XcstringsDecode(file.content, tool: tool) {
+                        for (key, locales) in Self.g6XcstringsKeys(catalog) {
+                            for (locale, value) in locales {
+                                keys[key, default: [:]][locale] = value
+                            }
+                        }
+                    }
+                }
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "keys": .object(keys.mapValues { locales in
+                        .object(locales.mapValues { .string($0) })
+                    }),
+                    "keyCount": .int(Int64(keys.count)),
+                ])
+            case "add":
+                let key = try requiredString(arguments, "key", tool: tool)
+                let value = try requiredString(arguments, "value", tool: tool)
+                let filePath = try requiredString(arguments, "path", tool: tool)
+                try Self.validateRelativePath(filePath, tool: tool)
+                if filePath.hasSuffix(".xcstrings") {
+                    let document = try await runtime.readWorkspaceFile(cwd: cwd, path: filePath)
+                    var catalog = try Self.g6XcstringsDecode(document.content, tool: tool)
+                    let locale = optionalString(arguments, "locale") ?? catalog["sourceLanguage"]?.stringValue ?? "en"
+                    catalog = Self.g6XcstringsSet(catalog, key: key, locale: locale, value: value, state: "translated")
+                    let text = try Self.g6XcstringsEncode(catalog, tool: tool)
+                    try await runtime.writeWorkspaceFile(cwd: cwd, path: filePath, content: text)
+                    return .object([
+                        "tool": .string(tool),
+                        "action": .string(action),
+                        "path": .string(filePath),
+                        "key": .string(key),
+                        "locale": .string(locale),
+                        "updated": .bool(true),
+                    ])
+                }
+                guard filePath.hasSuffix(".strings") else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "localization_manager add path must end in .strings or .xcstrings.")
+                }
+                let document = try await runtime.readWorkspaceFile(cwd: cwd, path: filePath)
+                var pairs = Self.g6StringsPairs(document.content)
+                if let index = pairs.firstIndex(where: { $0.key == key }) {
+                    pairs[index] = (key: key, value: value, line: pairs[index].line)
+                } else {
+                    pairs.append((key: key, value: value, line: pairs.count + 1))
+                }
+                try await runtime.writeWorkspaceFile(cwd: cwd, path: filePath, content: Self.g6SerializeStrings(pairs.map { (key: $0.key, value: $0.value) }))
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "path": .string(filePath),
+                    "key": .string(key),
+                    "updated": .bool(true),
+                ])
+            case "validate":
+                return try await Self.runG5StringsValidate(tool: tool, cwd: cwd, path: path, limit: limit, runtime: runtime)
+            default:
+                throw SystemToolError.executionFailed(tool: tool, message: "localization_manager action must be list, extract, add, or validate.")
+            }
+        case "entitlements_manager":
+            let action = try requiredString(arguments, "action", tool: tool)
+            let entitlementsPath = try await Self.g6ResolveFile(cwd: cwd, path: path, query: ".entitlements", match: { $0.path.hasSuffix(".entitlements") }, tool: tool, runtime: runtime)
+            try Self.validateRelativePath(entitlementsPath, tool: tool)
+            var plist = try await Self.g6ReadPlist(cwd: cwd, path: entitlementsPath, tool: tool, runtime: runtime)
+            switch action {
+            case "list":
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "path": .string(entitlementsPath),
+                    "entitlements": Self.plistJSONValue(plist),
+                ])
+            case "add":
+                let key = try requiredString(arguments, "key", tool: tool)
+                let value = try requiredString(arguments, "value", tool: tool)
+                plist[key] = Self.g6PlistScalar(value)
+                try Self.g6WritePlist(cwd: cwd, path: entitlementsPath, dict: plist, tool: tool)
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "path": .string(entitlementsPath),
+                    "key": .string(key),
+                    "updated": .bool(true),
+                ])
+            case "remove":
+                let key = try requiredString(arguments, "key", tool: tool)
+                guard plist[key] != nil else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Entitlement \(key) not present in \(entitlementsPath).")
+                }
+                plist.removeValue(forKey: key)
+                try Self.g6WritePlist(cwd: cwd, path: entitlementsPath, dict: plist, tool: tool)
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "path": .string(entitlementsPath),
+                    "key": .string(key),
+                    "removed": .bool(true),
+                ])
+            default:
+                throw SystemToolError.executionFailed(tool: tool, message: "entitlements_manager action must be list, add, or remove.")
+            }
+        case "colorset_builder":
+            let colorName = try requiredString(arguments, "name", tool: name)
+            let lightHex = try requiredString(arguments, "lightHex", tool: tool)
+            let darkHex = optionalString(arguments, "darkHex") ?? lightHex
+            guard !colorName.contains("/"), !colorName.isEmpty else {
+                throw SystemToolError.executionFailed(tool: tool, message: "colorset_builder name must be a single name without a path separator.")
+            }
+            for hex in [lightHex, darkHex] {
+                guard hex.hasPrefix("#"), hex.count == 7, hex.dropFirst().allSatisfy({ $0.isHexDigit }) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Color hex must be #RRGGBB, for example #FF8800.")
+                }
+            }
+            let catalog = try await Self.g6ResolveCatalog(cwd: cwd, catalog: optionalString(arguments, "catalog"), tool: tool, runtime: runtime)
+            let setPath = catalog + "/" + colorName + ".colorset"
+            try await runtime.createWorkspaceDirectory(cwd: cwd, path: setPath)
+            let contents = Self.g6ColorsetContents(lightHex: lightHex, darkHex: darkHex)
+            guard let data = try? JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys]) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Could not serialize the color set Contents.json.")
+            }
+            try Self.writeWorkspaceBytes(cwd: cwd, path: setPath + "/Contents.json", data: data, tool: name)
+            let verify = try await runtime.readWorkspaceFile(cwd: cwd, path: setPath + "/Contents.json")
+            let lightRed = Int(lightHex.dropFirst().prefix(2), radix: 16) ?? 0
+            let expectedRed = String(format: "%.3f", Double(lightRed) / 255.0)
+            return .object([
+                "tool": .string(tool),
+                "set": .string(setPath),
+                "lightHex": .string(lightHex),
+                "darkHex": .string(darkHex),
+                "verified": .bool(verify.content.contains(expectedRed)),
+            ])
+        case "project_entitlements":
+            let entitlementsPath = try await Self.g6ResolveFile(cwd: cwd, path: path, query: ".entitlements", match: { $0.path.hasSuffix(".entitlements") }, tool: tool, runtime: runtime)
+            try Self.validateRelativePath(entitlementsPath, tool: tool)
+            let plist = try await Self.g6ReadPlist(cwd: cwd, path: entitlementsPath, tool: tool, runtime: runtime)
+            return .object([
+                "tool": .string(tool),
+                "path": .string(entitlementsPath),
+                "entitlements": Self.plistJSONValue(plist),
+            ])
+        case "project_info_plist":
+            let action = try requiredString(arguments, "action", tool: tool)
+            let plistPath = try await Self.g6ResolveFile(cwd: cwd, path: path, query: "Info.plist", match: { $0.name == "Info.plist" }, tool: tool, runtime: runtime)
+            try Self.validateRelativePath(plistPath, tool: tool)
+            var plist = try await Self.g6ReadPlist(cwd: cwd, path: plistPath, tool: tool, runtime: runtime)
+            switch action {
+            case "get":
+                let key = try requiredString(arguments, "key", tool: tool)
+                if let value = plist[key] {
+                    return .object([
+                        "tool": .string(tool),
+                        "path": .string(plistPath),
+                        "key": .string(key),
+                        "found": .bool(true),
+                        "value": Self.plistJSONValue(value),
+                    ])
+                }
+                return .object([
+                    "tool": .string(tool),
+                    "path": .string(plistPath),
+                    "key": .string(key),
+                    "found": .bool(false),
+                    "value": .null,
+                ])
+            case "set":
+                let key = try requiredString(arguments, "key", tool: tool)
+                let value = try requiredString(arguments, "value", tool: tool)
+                plist[key] = Self.g6PlistScalar(value)
+                try Self.g6WritePlist(cwd: cwd, path: plistPath, dict: plist, tool: tool)
+                return .object([
+                    "tool": .string(tool),
+                    "path": .string(plistPath),
+                    "key": .string(key),
+                    "value": .string(value),
+                    "updated": .bool(true),
+                ])
+            case "delete":
+                let key = try requiredString(arguments, "key", tool: tool)
+                guard plist[key] != nil else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Key \(key) not present in \(plistPath).")
+                }
+                plist.removeValue(forKey: key)
+                try Self.g6WritePlist(cwd: cwd, path: plistPath, dict: plist, tool: tool)
+                return .object([
+                    "tool": .string(tool),
+                    "path": .string(plistPath),
+                    "key": .string(key),
+                    "deleted": .bool(true),
+                ])
+            default:
+                throw SystemToolError.executionFailed(tool: tool, message: "project_info_plist action must be get, set, or delete.")
+            }
+        case "project_capabilities":
+            let action = try requiredString(arguments, "action", tool: tool)
+            let entitlementsPath = try await Self.g6ResolveFile(cwd: cwd, path: path, query: ".entitlements", match: { $0.path.hasSuffix(".entitlements") }, tool: tool, runtime: runtime)
+            try Self.validateRelativePath(entitlementsPath, tool: tool)
+            var plist = try await Self.g6ReadPlist(cwd: cwd, path: entitlementsPath, tool: tool, runtime: runtime)
+            let supported: [String: String] = [
+                "app-sandbox": "com.apple.security.app-sandbox",
+                "network-client": "com.apple.security.network.client",
+                "network-server": "com.apple.security.network.server",
+                "files-user-selected-read-only": "com.apple.security.files.user-selected.read-only",
+                "files-user-selected-read-write": "com.apple.security.files.user-selected.read-write",
+                "files-downloads-read-only": "com.apple.security.files.downloads.read-only",
+                "files-downloads-read-write": "com.apple.security.files.downloads.read-write",
+                "audio-input": "com.apple.security.device.audio-input",
+                "camera": "com.apple.security.device.camera",
+                "usb": "com.apple.security.device.usb",
+                "bluetooth": "com.apple.security.device.bluetooth",
+                "printing": "com.apple.security.print",
+            ]
+            if action == "list" {
+                var enabled: [String] = []
+                var disabled: [String] = []
+                var present: [[String: JSONValue]] = []
+                for (capability, key) in supported.sorted(by: { $0.key < $1.key }) {
+                    if let value = plist[key] as? Bool, value {
+                        enabled.append(capability)
+                    } else {
+                        disabled.append(capability)
+                    }
+                }
+                for key in plist.keys.sorted() where supported.values.contains(key) == false {
+                    present.append(["key": .string(key), "value": plist[key].map { Self.plistJSONValue($0) } ?? .null])
+                }
+                return .object([
+                    "tool": .string(tool),
+                    "action": .string(action),
+                    "path": .string(entitlementsPath),
+                    "enabled": .array(enabled.map { .string($0) }),
+                    "disabled": .array(disabled.map { .string($0) }),
+                    "otherEntitlements": .array(present),
+                ])
+            }
+            guard ["enable", "disable"].contains(action) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "project_capabilities action must be list, enable, or disable.")
+            }
+            let capability = try requiredString(arguments, "capability", tool: tool)
+            guard let key = supported[capability] else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Capability \(capability) is not a boolean entitlement capability. Supported: \(supported.keys.sorted().joined(separator: ", ")).")
+            }
+            plist[key] = (action == "enable")
+            try Self.g6WritePlist(cwd: cwd, path: entitlementsPath, dict: plist, tool: tool)
+            return .object([
+                "tool": .string(tool),
+                "action": .string(action),
+                "path": .string(entitlementsPath),
+                "capability": .string(capability),
+                "key": .string(key),
+                "enabled": .bool(action == "enable"),
+            ])
+        case "entry_points_discover":
+            let mainHits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: "@main", limit: limit)
+            let delegateHits = try await runtime.searchWorkspaceRegex(cwd: cwd, pattern: "(class|struct)\\s+([A-Za-z0-9_]*(AppDelegate|SceneDelegate)[A-Za-z0-9_]*)", limit: limit)
+            let scoped = { (hits: [WorkspaceSearchHit]) in
+                hits.filter { hit in
+                    guard let path, !path.isEmpty else { return true }
+                    return hit.path == path || hit.path.hasPrefix(path + "/")
+                }
+            }
+            var entries: [[String: JSONValue]] = []
+            for hit in scoped(mainHits) {
+                entries.append(["kind": .string("main"), "path": .string(hit.path), "lineNumber": .int(Int64(hit.lineNumber)), "lineText": .string(hit.lineText)])
+            }
+            for hit in scoped(delegateHits) {
+                entries.append(["kind": .string("delegate"), "path": .string(hit.path), "lineNumber": .int(Int64(hit.lineNumber)), "lineText": .string(hit.lineText)])
+            }
+            let mainFiles = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            for entry in mainFiles where !entry.isDirectory && entry.name == "main.swift" {
+                entries.append(["kind": .string("mainSwift"), "path": .string(entry.path), "lineNumber": .int(1), "lineText": .string("main.swift")])
+            }
+            return .object([
+                "tool": .string(tool),
+                "entryPoints": .array(entries),
+                "count": .int(Int64(entries.count)),
+            ])
+        case "repo_overview":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            let files = entries.filter { !$0.isDirectory }
+            var byLanguage: [String: (count: Int, bytes: Int64)] = [:]
+            for file in files {
+                let ext = (file.path as NSString).pathExtension.lowercased()
+                let language = Self.g6LanguageForExtension(ext)
+                var slot = byLanguage[language] ?? (count: 0, bytes: 0)
+                slot.count += 1
+                slot.bytes += file.sizeBytes ?? 0
+                byLanguage[language] = slot
+            }
+            let largest = files.sorted { ($0.sizeBytes ?? 0) > ($1.sizeBytes ?? 0) }.prefix(10).map { file in
+                .object(["path": .string(file.path), "bytes": .int(file.sizeBytes ?? 0)])
+            }
+            let names = Set(files.map { $0.name.lowercased() })
+            return .object([
+                "tool": .string(tool),
+                "fileCount": .int(Int64(files.count)),
+                "directoryCount": .int(Int64(entries.count - files.count)),
+                "languages": .array(byLanguage.keys.sorted().map { language in
+                    .object([
+                        "language": .string(language),
+                        "files": .int(Int64(byLanguage[language]?.count ?? 0)),
+                        "bytes": .int(byLanguage[language]?.bytes ?? 0),
+                    ])
+                }),
+                "hasReadme": .bool(names.contains { $0.hasPrefix("readme") }),
+                "hasLicense": .bool(names.contains { $0.hasPrefix("license") }),
+                "largestFiles": .array(largest),
+            ])
+        case "project_structure_map":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            var directories: [String: Int] = [:]
+            for entry in entries where !entry.isDirectory {
+                let dir = (entry.path as NSString).deletingLastPathComponent
+                directories[dir, default: 0] += 1
+            }
+            var targets: [String] = []
+            if let pbxproj = try? await Self.g5ResolvePbxproj(tool: tool, cwd: cwd, path: nil, runtime: runtime),
+               let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: pbxproj) {
+                targets = Self.g6PbxprojTargets(document.content)
+            }
+            return .object([
+                "tool": .string(tool),
+                "directories": .array(directories.keys.sorted().map { dir in
+                    .object(["path": .string(dir), "files": .int(Int64(directories[dir] ?? 0))])
+                }),
+                "targets": .array(targets.map { .string($0) }),
+            ])
+        case "recent_changes":
+            let hours = min(max(optionalInt(arguments, "hours") ?? 24, 1), 24 * 365)
+            let cutoff = Date().timeIntervalSince1970 - Double(hours) * 3600
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            let changed = entries.filter { !$0.isDirectory && ($0.modifiedAt ?? 0) >= cutoff }
+                .sorted { ($0.modifiedAt ?? 0) > ($1.modifiedAt ?? 0) }
+                .prefix(limit)
+                .map { entry in
+                    .object([
+                        "path": .string(entry.path),
+                        "modifiedAt": .double(entry.modifiedAt ?? 0),
+                        "sizeBytes": .int(entry.sizeBytes ?? 0),
+                    ])
+                }
+            return .object([
+                "tool": .string(tool),
+                "hours": .int(Int64(hours)),
+                "files": .array(changed),
+                "count": .int(Int64(changed.count)),
+            ])
+        case "readme_locate":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            var readmes: [[String: JSONValue]] = []
+            for entry in entries where !entry.isDirectory && entry.name.lowercased().hasPrefix("readme") {
+                var title = ""
+                if let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: entry.path) {
+                    for line in Self.g5Lines(document.content) {
+                        let trimmed = line.trimmingCharacters(in: .whitespaces)
+                        if trimmed.hasPrefix("# ") {
+                            title = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                            break
+                        }
+                    }
+                }
+                readmes.append(["path": .string(entry.path), "title": .string(title)])
+            }
+            return .object([
+                "tool": .string(tool),
+                "readmes": .array(readmes),
+                "count": .int(Int64(readmes.count)),
+            ])
+        case "dependency_licenses":
+            var dependencies: [[String: JSONValue]] = []
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            if let resolvedEntry = entries.first(where: { !$0.isDirectory && $0.name == "Package.resolved" }),
+               let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: resolvedEntry.path) {
+                for pin in Self.g6ParseResolved(document.content) {
+                    dependencies.append([
+                        "name": .string(pin["identity"] ?? ""),
+                        "version": .string(pin["version"] ?? ""),
+                        "source": .string("Package.resolved"),
+                        "location": .string(pin["location"] ?? ""),
+                    ])
+                }
+            }
+            if let lockEntry = entries.first(where: { !$0.isDirectory && $0.name == "Podfile.lock" }),
+               let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: lockEntry.path) {
+                var inPods = false
+                for line in Self.g5Lines(document.content) {
+                    if line.hasPrefix("PODS:") { inPods = true; continue }
+                    if inPods {
+                        if line.isEmpty || (!line.hasPrefix(" ") && !line.hasPrefix("\t")) { break }
+                        if let match = Self.g5RegexMatches(pattern: "^\\s*-\\s*([A-Za-z0-9_./-]+) \\(([^)]+)\\)", text: line).first {
+                            let name = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                            let version = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                            if !name.isEmpty {
+                                dependencies.append([
+                                    "name": .string(name),
+                                    "version": .string(version),
+                                    "source": .string("Podfile.lock"),
+                                    "location": .string(""),
+                                ])
+                            }
+                        }
+                    }
+                }
+            }
+            let hasLicense = entries.contains { !$0.isDirectory && $0.name.lowercased().hasPrefix("license") }
+            return .object([
+                "tool": .string(tool),
+                "dependencies": .array(dependencies),
+                "count": .int(Int64(dependencies.count)),
+                "hasLicenseFile": .bool(hasLicense),
+                "note": .string("License text is not stored in Package.resolved or Podfile.lock; check each package LICENSE file for the license terms."),
+            ])
+        case "stale_files_report":
+            let days = min(max(optionalInt(arguments, "days") ?? 180, 1), 3650)
+            let cutoff = Date().timeIntervalSince1970 - Double(days) * 86400
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            let stale = entries.filter { entry in
+                guard !entry.isDirectory, let modified = entry.modifiedAt else { return false }
+                let ext = (entry.path as NSString).pathExtension.lowercased()
+                return modified < cutoff && ["swift", "m", "mm", "h", "c", "cpp", "ts", "tsx", "js", "jsx", "py", "rs", "kt", "java"].contains(ext)
+            }
+            .sorted { ($0.modifiedAt ?? 0) < ($1.modifiedAt ?? 0) }
+            .prefix(limit)
+            .map { entry in
+                .object([
+                    "path": .string(entry.path),
+                    "modifiedAt": .double(entry.modifiedAt ?? 0),
+                    "sizeBytes": .int(entry.sizeBytes ?? 0),
+                ])
+            }
+            return .object([
+                "tool": .string(tool),
+                "days": .int(Int64(days)),
+                "files": .array(stale),
+                "count": .int(Int64(stale.count)),
+            ])
+        case "file_type_breakdown":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            var byExtension: [String: (count: Int, bytes: Int64)] = [:]
+            for entry in entries where !entry.isDirectory {
+                let ext = (entry.path as NSString).pathExtension.lowercased()
+                let key = ext.isEmpty ? "(none)" : "." + ext
+                var slot = byExtension[key] ?? (count: 0, bytes: 0)
+                slot.count += 1
+                slot.bytes += entry.sizeBytes ?? 0
+                byExtension[key] = slot
+            }
+            return .object([
+                "tool": .string(tool),
+                "types": .array(byExtension.keys.sorted().map { ext in
+                    .object([
+                        "extension": .string(ext),
+                        "files": .int(Int64(byExtension[ext]?.count ?? 0)),
+                        "bytes": .int(byExtension[ext]?.bytes ?? 0),
+                    ])
+                }),
+            ])
+        case "empty_dirs_find":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            var children: [String: Int] = [:]
+            for entry in entries {
+                let dir = (entry.path as NSString).deletingLastPathComponent
+                if !dir.isEmpty {
+                    children[dir, default: 0] += 1
+                }
+            }
+            let empty = entries.filter { entry in
+                entry.isDirectory && (children[entry.path] ?? 0) == 0
+            }.map { $0.path }
+            return .object([
+                "tool": .string(tool),
+                "emptyDirectories": .array(empty.map { .string($0) }),
+                "count": .int(Int64(empty.count)),
+            ])
+        case "symlink_audit":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            var links: [[String: JSONValue]] = []
+            for entry in entries where entry.isSymlink == true {
+                let target = entry.symlinkTarget ?? ""
+                var broken = false
+                if !target.isEmpty {
+                    let base = URL(fileURLWithPath: ExternalEditorService.expandedPath(cwd))
+                    let resolved: URL
+                    if target.hasPrefix("/") {
+                        resolved = URL(fileURLWithPath: target)
+                    } else {
+                        resolved = base.appendingPathComponent((entry.path as NSString).deletingLastPathComponent).appendingPathComponent(target)
+                    }
+                    broken = !FileManager.default.fileExists(atPath: resolved.standardized.path)
+                }
+                links.append([
+                    "path": .string(entry.path),
+                    "target": .string(target),
+                    "broken": .bool(broken),
+                ])
+            }
+            return .object([
+                "tool": .string(tool),
+                "links": .array(links),
+                "count": .int(Int64(links.count)),
+                "brokenCount": .int(Int64(links.filter { $0["broken"]?.boolValue == true }.count)),
+            ])
+        case "executable_files_scan":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            let executables = entries.filter { !$0.isDirectory && $0.isExecutable == true }.map { entry in
+                .object([
+                    "path": .string(entry.path),
+                    "sizeBytes": .int(entry.sizeBytes ?? 0),
+                ])
+            }
+            return .object([
+                "tool": .string(tool),
+                "executables": .array(executables),
+                "count": .int(Int64(executables.count)),
+            ])
+        case "dir_size_report":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            let root = path ?? ""
+            var totals: [String: Int64] = [:]
+            var fileCounts: [String: Int] = [:]
+            for entry in entries where !entry.isDirectory {
+                let relative = root.isEmpty ? entry.path : String(entry.path.dropFirst(root.count + 1))
+                let top = relative.split(separator: "/").first.map(String.init) ?? "(root)"
+                totals[top, default: 0] += entry.sizeBytes ?? 0
+                fileCounts[top, default: 0] += 1
+            }
+            let sorted = totals.keys.sorted { (totals[$0] ?? 0) > (totals[$1] ?? 0) }.prefix(limit).map { dir in
+                .object([
+                    "directory": .string(dir),
+                    "bytes": .int(totals[dir] ?? 0),
+                    "files": .int(Int64(fileCounts[dir] ?? 0)),
+                ])
+            }
+            return .object([
+                "tool": .string(tool),
+                "directories": .array(sorted),
+                "totalBytes": .int(entries.filter { !$0.isDirectory }.reduce(0) { $0 + ($1.sizeBytes ?? 0) }),
+            ])
+        case "image_asset_size_report":
+            let maxBytes = Int64(min(max(optionalInt(arguments, "maxKilobytes") ?? 500, 1), 100000)) * 1024
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            let oversized = entries.filter { entry in
+                guard !entry.isDirectory, entry.path.contains(".xcassets/") else { return false }
+                let ext = (entry.path as NSString).pathExtension.lowercased()
+                return ["png", "jpg", "jpeg", "heic", "webp", "gif", "pdf"].contains(ext) && (entry.sizeBytes ?? 0) > maxBytes
+            }
+            .sorted { ($0.sizeBytes ?? 0) > ($1.sizeBytes ?? 0) }
+            .map { entry in
+                .object([
+                    "path": .string(entry.path),
+                    "sizeBytes": .int(entry.sizeBytes ?? 0),
+                ])
+            }
+            return .object([
+                "tool": .string(tool),
+                "maxKilobytes": .int(maxBytes / 1024),
+                "images": .array(oversized),
+                "count": .int(Int64(oversized.count)),
+            ])
+        case "bundle_resource_auditor":
+            let pbxproj = try await Self.g5ResolvePbxproj(tool: tool, cwd: cwd, path: path, runtime: runtime)
+            let document = try await runtime.readWorkspaceFile(cwd: cwd, path: pbxproj)
+            let entries = try await Self.g6Entries(cwd: cwd, path: nil, runtime: runtime)
+            return Self.g6BundleResources(tool: tool, path: pbxproj, content: document.content, entries: entries)
+        case "core_data_model_inspector":
+            var modelPaths: [String] = []
+            if let path, !path.isEmpty {
+                modelPaths = [path]
+            } else {
+                let entries = try await Self.g6Entries(cwd: cwd, path: nil, runtime: runtime)
+                modelPaths = entries.filter { $0.path.hasSuffix(".xcdatamodeld") }.map { $0.path }
+            }
+            var models: [[String: JSONValue]] = []
+            for modelPath in modelPaths {
+                let entries = try await Self.g6Entries(cwd: cwd, path: modelPath, runtime: runtime)
+                for entry in entries where entry.path.hasSuffix(".xcdatamodel/contents") || entry.path.hasSuffix("contents") {
+                    guard let document = try? await runtime.readWorkspaceFile(cwd: cwd, path: entry.path) else { continue }
+                    models.append(Self.g6CoreDataModel(tool: tool, path: entry.path, content: document.content))
+                }
+            }
+            return .object([
+                "tool": .string(tool),
+                "models": .array(models),
+                "modelCount": .int(Int64(models.count)),
+            ])
+        case "swift_data_schema_auditor":
+            let files = try await Self.g5ReadTextFiles(cwd: cwd, path: path, extensions: [".swift"], limit: 100, runtime: runtime)
+            var models: [[String: JSONValue]] = []
+            var issues: [String] = []
+            for file in files {
+                var currentModel: String?
+                var expectingModel = false
+                var relationships: [[String: JSONValue]] = []
+                var uniques: [String] = []
+                for line in Self.g5Lines(file.content) {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed.hasPrefix("@Model") {
+                        expectingModel = true
+                        if let match = Self.g5RegexMatches(pattern: "class\\s+([A-Za-z0-9_]+)", text: trimmed).first,
+                           let name = match.1.count > 1 ? match.1[1] : nil {
+                            currentModel = name
+                            expectingModel = false
+                        }
+                        continue
+                    }
+                    if expectingModel, let match = Self.g5RegexMatches(pattern: "^(final\\s+)?class\\s+([A-Za-z0-9_]+)", text: trimmed).first,
+                       let name = match.1.count > 2 ? match.1[2] : nil {
+                        currentModel = name
+                        expectingModel = false
+                        continue
+                    }
+                    guard currentModel != nil else { continue }
+                    if let match = Self.g5RegexMatches(pattern: "@Relationship\\(deleteRule:\\s*\\.([A-Za-z]+)[^)]*\\)\\s*var\\s+([A-Za-z0-9_]+)", text: trimmed).first {
+                        let rule = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                        let name = match.1.count > 2 ? (match.1[2] ?? "") : ""
+                        relationships.append(["name": .string(name), "deleteRule": .string(rule)])
+                    } else if let match = Self.g5RegexMatches(pattern: "@Relationship[^\\n]*?var\\s+([A-Za-z0-9_]+)", text: trimmed).first {
+                        let name = match.1.count > 1 ? (match.1[1] ?? "") : ""
+                        relationships.append(["name": .string(name), "deleteRule": .string("nullify")])
+                    }
+                    if trimmed.contains("@Attribute(.unique)"), let match = Self.g5RegexMatches(pattern: "var\\s+([A-Za-z0-9_]+)", text: trimmed).first,
+                       let name = match.1.count > 1 ? match.1[1] : nil {
+                        uniques.append(name)
+                    }
+                }
+                if let model = currentModel {
+                    models.append([
+                        "model": .string(model),
+                        "path": .string(file.path),
+                        "relationships": .array(relationships),
+                        "uniqueAttributes": .array(uniques.map { .string($0) }),
+                    ])
+                    if relationships.isEmpty && uniques.isEmpty {
+                        issues.append("\(model) in \(file.path) declares no relationships or unique constraints.")
+                    }
+                }
+            }
+            return .object([
+                "tool": .string(tool),
+                "models": .array(models),
+                "modelCount": .int(Int64(models.count)),
+                "issues": .array(issues.map { .string($0) }),
+            ])
+        case "privacy_manifest_auditor":
+            let manifestPath = try await Self.g6ResolveFile(cwd: cwd, path: path, query: "PrivacyInfo.xcprivacy", match: { $0.name == "PrivacyInfo.xcprivacy" }, tool: tool, runtime: runtime)
+            try Self.validateRelativePath(manifestPath, tool: tool)
+            let plist = try await Self.g6ReadPlist(cwd: cwd, path: manifestPath, tool: tool, runtime: runtime)
+            return Self.g6PrivacyAudit(tool: tool, path: manifestPath, plist: plist)
+        case "build_system_detect":
+            let entries = try await Self.g6Entries(cwd: cwd, path: path, runtime: runtime)
+            var detected: [[String: JSONValue]] = []
+            let hasSuffix = { (suffix: String) in entries.contains { !$0.isDirectory && $0.path.hasSuffix(suffix) } }
+            let hasName = { (name: String) in entries.contains { !$0.isDirectory && $0.name == name } }
+            if entries.contains(where: { $0.isDirectory && $0.path.hasSuffix(".xcworkspace") }) {
+                detected.append(["system": .string("xcworkspace"), "evidence": .string(".xcworkspace")])
+            }
+            if entries.contains(where: { $0.isDirectory && $0.path.hasSuffix(".xcodeproj") }) {
+                detected.append(["system": .string("xcodeproj"), "evidence": .string(".xcodeproj")])
+            }
+            if hasName("Package.swift") {
+                detected.append(["system": .string("SwiftPM"), "evidence": .string("Package.swift")])
+            }
+            if hasName("Podfile") {
+                detected.append(["system": .string("CocoaPods"), "evidence": .string("Podfile")])
+            }
+            if hasName("Cartfile") {
+                detected.append(["system": .string("Carthage"), "evidence": .string("Cartfile")])
+            }
+            if hasName("Project.swift") {
+                detected.append(["system": .string("Tuist"), "evidence": .string("Project.swift")])
+            }
+            if hasName("project.yml") {
+                detected.append(["system": .string("xcodegen"), "evidence": .string("project.yml")])
+            }
+            if hasName("WORKSPACE") || hasName("WORKSPACE.bazel") || hasSuffix("BUILD") || hasSuffix("BUILD.bazel") {
+                detected.append(["system": .string("Bazel"), "evidence": .string("WORKSPACE or BUILD file")])
+            }
+            if hasName("CMakeLists.txt") {
+                detected.append(["system": .string("CMake"), "evidence": .string("CMakeLists.txt")])
+            }
+            return .object([
+                "tool": .string(tool),
+                "systems": .array(detected),
+                "count": .int(Int64(detected.count)),
+            ])
+        default:
+            throw SystemToolError.unknownTool(tool)
+        }
+    }
+
+    static func g6FrameworkAudit(tool: String, path: String, content: String) -> JSONValue {
+        var linked: [[String: JSONValue]] = []
+        var seen: Set<String> = []
+        for line in Self.g5Lines(content) {
+            guard line.contains("PBXBuildFile"), line.contains(".framework") else { continue }
+            if let match = Self.g5RegexMatches(pattern: "/\\*\\s*([A-Za-z0-9_.\\-]+\\.framework)\\s*\\*/", text: line).first,
+               let name = match.1.count > 1 ? match.1[1] : nil, !name.isEmpty, !seen.contains(name) {
+                seen.insert(name)
+                linked.append(["name": .string(name), "weak": .bool(line.contains("Weak"))])
+            }
+        }
+        var available: [String] = []
+        for line in Self.g5Lines(content) {
+            guard line.contains("PBXFileReference"), line.contains(".framework") else { continue }
+            if let match = Self.g5RegexMatches(pattern: "/\\*\\s*([A-Za-z0-9_.\\-]+\\.framework)\\s*\\*/", text: line).first,
+               let name = match.1.count > 1 ? match.1[1] : nil, !name.isEmpty, !available.contains(name) {
+                available.append(name)
+            }
+        }
+        var sdkroots: [String] = []
+        var deploymentTargets: [String] = []
+        for key in ["SDKROOT", "IPHONEOS_DEPLOYMENT_TARGET", "MACOSX_DEPLOYMENT_TARGET", "TVOS_DEPLOYMENT_TARGET", "WATCHOS_DEPLOYMENT_TARGET"] {
+            for match in Self.g5RegexMatches(pattern: key + "\\s*=\\s*([^;]+);", text: content) {
+                let value = (match.1.count > 1 ? (match.1[1] ?? "") : "").trimmingCharacters(in: .whitespaces)
+                if key == "SDKROOT" {
+                    if !value.isEmpty, !sdkroots.contains(value) { sdkroots.append(value) }
+                } else if !value.isEmpty, !deploymentTargets.contains(key + " " + value) {
+                    deploymentTargets.append(key + " " + value)
+                }
+            }
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "linkedFrameworks": .array(linked),
+            "linkedCount": .int(Int64(linked.count)),
+            "availableFrameworks": .array(available.map { .string($0) }),
+            "sdkroots": .array(sdkroots.map { .string($0) }),
+            "deploymentTargets": .array(deploymentTargets.map { .string($0) }),
+        ])
+    }
+
+    private static func g6ResolveCatalog(cwd: String, catalog: String?, tool: String, runtime: AgentsRuntimeClient) async throws -> String {
+        if let catalog, !catalog.isEmpty {
+            guard catalog.hasSuffix(".xcassets") else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Catalog path must end in .xcassets.")
+            }
+            return catalog
+        }
+        let entries = try await Self.g6Entries(cwd: cwd, path: nil, runtime: runtime)
+        guard let found = entries.first(where: { $0.isDirectory && $0.path.hasSuffix(".xcassets") }) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "No .xcassets catalog found in the workspace.")
+        }
+        return found.path
+    }
+
+    static func g6ColorsetContents(lightHex: String, darkHex: String) -> [String: Any] {
+        func components(_ hex: String) -> [String: Any] {
+            let clean = hex.dropFirst()
+            let red = Int(clean.prefix(2), radix: 16) ?? 0
+            let green = Int(clean.dropFirst(2).prefix(2), radix: 16) ?? 0
+            let blue = Int(clean.dropFirst(4).prefix(2), radix: 16) ?? 0
+            return [
+                "red": String(format: "%.3f", Double(red) / 255.0),
+                "green": String(format: "%.3f", Double(green) / 255.0),
+                "blue": String(format: "%.3f", Double(blue) / 255.0),
+                "alpha": "1.000",
+            ]
+        }
+        return [
+            "colors": [
+                ["color": ["color-space": "srgb", "components": components(lightHex)], "idiom": "universal"],
+                ["appearances": [["appearance": "luminosity", "value": "dark"]], "color": ["color-space": "srgb", "components": components(darkHex)], "idiom": "universal"],
+            ],
+            "info": ["author": "xcode", "version": 1],
+        ]
+    }
+
+    static func g6LocaleForStringsPath(_ path: String) -> String {
+        for part in path.split(separator: "/") where part.hasSuffix(".lproj") {
+            return String(part.dropLast(6))
+        }
+        return "base"
+    }
+
+    static func g6LanguageForExtension(_ ext: String) -> String {
+        switch ext {
+        case "swift": return "Swift"
+        case "m", "mm", "h": return "Objective-C"
+        case "c", "cpp", "cc", "hpp": return "C/C++"
+        case "ts", "tsx": return "TypeScript"
+        case "js", "jsx": return "JavaScript"
+        case "py": return "Python"
+        case "rs": return "Rust"
+        case "kt", "kts": return "Kotlin"
+        case "java": return "Java"
+        case "md": return "Markdown"
+        case "json": return "JSON"
+        case "plist": return "Property List"
+        case "yaml", "yml": return "YAML"
+        case "xml": return "XML"
+        case "png", "jpg", "jpeg", "heic", "webp", "gif": return "Image"
+        case "": return "No extension"
+        default: return "." + ext
+        }
+    }
+
+    static func g6PbxprojTargets(_ content: String) -> [String] {
+        var targets: [String] = []
+        for match in Self.g5RegexMatches(pattern: "isa = PBXNativeTarget;[^}]*?name = ([^;]+);", text: content, options: [.dotMatchesLineSeparators]) {
+            let name = (match.1.count > 1 ? (match.1[1] ?? "") : "").trimmingCharacters(in: .whitespaces)
+            if !name.isEmpty, !targets.contains(name) { targets.append(name) }
+        }
+        return targets
+    }
+
+    static func g6BundleResources(tool: String, path: String, content: String, entries: [WorkspaceFileEntry]) -> JSONValue {
+        var buildFiles: [String: String] = [:]
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24}) = \\{isa = PBXBuildFile; fileRef = ([0-9A-F]{24})", text: content) {
+            let id = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let ref = match.1.count > 2 ? (match.1[2] ?? "") : ""
+            if !id.isEmpty, !ref.isEmpty { buildFiles[id] = ref }
+        }
+        var filePaths: [String: String] = [:]
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24}) /\\* ([^*]+) \\*/ = \\{isa = PBXFileReference;[^}]*?path = ([^;]+);", text: content, options: [.dotMatchesLineSeparators]) {
+            let id = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let name = (match.1.count > 2 ? (match.1[2] ?? "") : "").trimmingCharacters(in: .whitespaces)
+            var filePath = (match.1.count > 3 ? (match.1[3] ?? "") : "").trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            if filePath.isEmpty { filePath = name }
+            if !id.isEmpty, !filePath.isEmpty { filePaths[id] = filePath }
+        }
+        let sizes: [String: Int64] = Dictionary(uniqueKeysWithValues: entries.filter { !$0.isDirectory }.map { ($0.path, $0.sizeBytes ?? 0) })
+        let existing = Set(sizes.keys)
+        guard let sectionStart = content.range(of: "Begin PBXResourcesBuildPhase section"),
+              let sectionEnd = content.range(of: "End PBXResourcesBuildPhase section") else {
+            return .object([
+                "tool": .string(tool),
+                "path": .string(path),
+                "resources": .array([]),
+                "missing": .array([]),
+                "duplicates": .array([]),
+                "note": .string("No PBXResourcesBuildPhase section found."),
+            ])
+        }
+        let section = String(content[sectionStart.upperBound..<sectionEnd.lowerBound])
+        var resources: [[String: JSONValue]] = []
+        var seenNames: [String: Int] = [:]
+        var missing: [String] = []
+        for match in Self.g5RegexMatches(pattern: "([0-9A-F]{24}) /\\*", text: section) {
+            let id = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            guard let ref = buildFiles[id], let filePath = filePaths[ref] else { continue }
+            let name = (filePath as NSString).lastPathComponent
+            seenNames[name, default: 0] += 1
+            let found = existing.contains(filePath) || existing.contains { $0.hasSuffix("/" + filePath) }
+            if !found { missing.append(filePath) }
+            let bytes = sizes[filePath] ?? sizes.first { $0.key.hasSuffix("/" + filePath) }?.value ?? 0
+            resources.append([
+                "path": .string(filePath),
+                "found": .bool(found),
+                "bytes": .int(bytes),
+            ])
+        }
+        let duplicates = seenNames.filter { $0.value > 1 }.map { $0.key }.sorted()
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "resources": .array(resources),
+            "resourceCount": .int(Int64(resources.count)),
+            "missing": .array(missing.map { .string($0) }),
+            "duplicates": .array(duplicates.map { .string($0) }),
+        ])
+    }
+
+    static func g6CoreDataModel(tool: String, path: String, content: String) -> JSONValue {
+        let entityMatches = Self.g5RegexMatches(pattern: "<entity\\s+name=\"([^\"]+)\"", text: content)
+        var entities: [[String: JSONValue]] = []
+        for (index, match) in entityMatches.enumerated() {
+            let name = match.1.count > 1 ? (match.1[1] ?? "") : ""
+            let start = match.0.location
+            let end = index + 1 < entityMatches.count ? entityMatches[index + 1].0.location : (content as NSString).length
+            guard let range = Range(NSRange(location: start, length: end - start), in: content) else { continue }
+            let chunk = String(content[range])
+            var attributes: [[String: JSONValue]] = []
+            for attr in Self.g5RegexMatches(pattern: "<attribute\\s+name=\"([^\"]+)\"[^>]*attributeType=\"([^\"]+)\"", text: chunk) {
+                attributes.append([
+                    "name": .string(attr.1.count > 1 ? (attr.1[1] ?? "") : ""),
+                    "type": .string(attr.1.count > 2 ? (attr.1[2] ?? "") : ""),
+                ])
+            }
+            var relationships: [[String: JSONValue]] = []
+            for rel in Self.g5RegexMatches(pattern: "<relationship\\s+name=\"([^\"]+)\"[^>]*destinationEntity=\"([^\"]+)\"", text: chunk) {
+                relationships.append([
+                    "name": .string(rel.1.count > 1 ? (rel.1[1] ?? "") : ""),
+                    "destination": .string(rel.1.count > 2 ? (rel.1[2] ?? "") : ""),
+                ])
+            }
+            entities.append([
+                "name": .string(name),
+                "attributes": .array(attributes),
+                "relationships": .array(relationships),
+            ])
+        }
+        return .object([
+            "path": .string(path),
+            "entities": .array(entities),
+            "entityCount": .int(Int64(entities.count)),
+        ])
+    }
+
+    static func g6PrivacyAudit(tool: String, path: String, plist: [String: Any]) -> JSONValue {
+        var issues: [String] = []
+        let tracking = plist["NSPrivacyTracking"] as? Bool ?? false
+        if tracking {
+            if let domains = plist["NSPrivacyTrackingDomains"] as? [String], !domains.isEmpty {
+            } else {
+                issues.append("NSPrivacyTracking is true but NSPrivacyTrackingDomains is missing or empty.")
+            }
+        }
+        if let collected = plist["NSPrivacyCollectedDataTypes"] as? [[String: Any]] {
+            for (index, entry) in collected.enumerated() {
+                for key in ["NSPrivacyCollectedDataType", "NSPrivacyCollectedDataTypeLinked", "NSPrivacyCollectedDataTypeTracking", "NSPrivacyCollectedDataTypePurposes"] {
+                    if entry[key] == nil {
+                        issues.append("Collected data type at index \(index) is missing \(key).")
+                    }
+                }
+            }
+        } else if plist["NSPrivacyCollectedDataTypes"] != nil {
+            issues.append("NSPrivacyCollectedDataTypes is present but is not an array of dictionaries.")
+        }
+        let categoriesRequiringReasons: Set<String> = [
+            "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPICategoryActiveKeyboards",
+            "NSPrivacyAccessedAPICategoryUserDefaults",
+        ]
+        if let accessed = plist["NSPrivacyAccessedAPITypes"] as? [[String: Any]] {
+            for (index, entry) in accessed.enumerated() {
+                guard let category = entry["NSPrivacyAccessedAPICategory"] as? String else {
+                    issues.append("Accessed API type at index \(index) is missing NSPrivacyAccessedAPICategory.")
+                    continue
+                }
+                if categoriesRequiringReasons.contains(category) {
+                    if let reasons = entry["NSPrivacyAccessedAPITypeReasons"] as? [String], !reasons.isEmpty {
+                    } else {
+                        issues.append("\(category) requires NSPrivacyAccessedAPITypeReasons.")
+                    }
+                }
+            }
+        }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(path),
+            "tracking": .bool(tracking),
+            "collectedDataTypes": .int(Int64((plist["NSPrivacyCollectedDataTypes"] as? [[String: Any]])?.count ?? 0)),
+            "accessedApiTypes": .int(Int64((plist["NSPrivacyAccessedAPITypes"] as? [[String: Any]])?.count ?? 0)),
+            "issues": .array(issues.map { .string($0) }),
+            "issueCount": .int(Int64(issues.count)),
+        ])
+    }
+
+    static func g6DerivedData(tool: String, path: String?, limit: Int) -> JSONValue {
+        let expanded = ExternalEditorService.expandedPath(path ?? "~/Library/Developer/Xcode/DerivedData")
+        let root = URL(fileURLWithPath: expanded).standardized
+        var directories: [[String: JSONValue]] = []
+        var exists = false
+        if let names = try? FileManager.default.contentsOfDirectory(atPath: root.path) {
+            exists = true
+            for name in names.sorted() {
+                let dir = root.appendingPathComponent(name)
+                var isDir: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else { continue }
+                var bytes: Int64 = 0
+                var files = 0
+                if let enumerator = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey]) {
+                    for case let fileURL as URL in enumerator {
+                        if let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey]), values.isDirectory != true {
+                            bytes += Int64(values.fileSize ?? 0)
+                            files += 1
+                        }
+                    }
+                }
+                directories.append([
+                    "path": .string(dir.path),
+                    "name": .string(name),
+                    "bytes": .int(bytes),
+                    "files": .int(Int64(files)),
+                ])
+            }
+        }
+        directories.sort { ($0["bytes"]?.intValue ?? 0) > ($1["bytes"]?.intValue ?? 0) }
+        let totalBytes = directories.reduce(0) { $0 + ($1["bytes"]?.intValue ?? 0) }
+        return .object([
+            "tool": .string(tool),
+            "path": .string(root.path),
+            "exists": .bool(exists),
+            "directories": .array(Array(directories.prefix(limit))),
+            "totalBytes": .int(Int64(totalBytes)),
+        ])
+    }
+
+    static func g6ParseLsof(_ output: String) -> [[String: JSONValue]] {
+        var rows: [[String: JSONValue]] = []
+        for line in Self.g5Lines(output) {
+            let parts = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard parts.count >= 9, parts[0] != "COMMAND" else { continue }
+            let address = parts[8...].joined(separator: " ")
+            rows.append([
+                "command": .string(String(parts[0])),
+                "pid": .int(Int64(parts[1]) ?? 0),
+                "user": .string(String(parts[2])),
+                "address": .string(address),
+            ])
+        }
+        return rows
+    }
+
+    static func g6ParseLaunchctl(_ output: String) -> [[String: JSONValue]] {
+        var rows: [[String: JSONValue]] = []
+        for line in Self.g5Lines(output) {
+            let parts = line.split(separator: "\t", omittingEmptySubsequences: false)
+            guard parts.count >= 3 else { continue }
+            let pid = String(parts[0]).trimmingCharacters(in: .whitespaces)
+            let status = String(parts[1]).trimmingCharacters(in: .whitespaces)
+            let label = String(parts[2]).trimmingCharacters(in: .whitespaces)
+            if label.isEmpty || label == "Label" { continue }
+            rows.append([
+                "pid": .string(pid),
+                "status": .string(status),
+                "label": .string(label),
+            ])
+        }
+        return rows
+    }
+
+    private static func g6FindPid(_ value: JSONValue, name: String) -> Int? {
+        switch value {
+        case .array(let items):
+            for item in items {
+                if let pid = Self.g6FindPid(item, name: name) { return pid }
+            }
+            return nil
+        case .object(let dict):
+            if dict["name"]?.stringValue == name || dict["bundleIdentifier"]?.stringValue == name {
+                return dict["pid"]?.intValue
+            }
+            for item in dict.values {
+                if let pid = Self.g6FindPid(item, name: name) { return pid }
+            }
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    private static func runG6UseSystem(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let threadId = try requiredString(arguments, "threadId", tool: tool)
+        let operation = try requiredString(arguments, "operation", tool: tool)
+        let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 60
+        switch operation {
+        case "system_info":
+            return Self.g6EnvInfo(tool: tool)
+        case "dev_environment":
+            var tools: [[String: JSONValue]] = []
+            for (name, argv) in [("xcodebuild", ["xcodebuild", "-version"]), ("swift", ["swift", "--version"])] {
+                let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: argv, timeoutSeconds: timeoutSeconds, runtime: runtime)
+                tools.append(["tool": .string(name), "available": .bool(exitCode == 0), "output": .string(output)])
+            }
+            return .object(["operation": .string(operation), "tools": .array(tools)])
+        case "process_list":
+            let filter = optionalString(arguments, "filter")
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["/bin/ps", "-ax", "-o", "pid=,pcpu=,pmem=,comm="], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            let processes = Self.g6ParsePs(output, filter: filter, limit: 200)
+            return .object(["operation": .string(operation), "processes": .array(processes), "count": .int(Int64(processes.count)), "exitCode": .int(Int64(exitCode))])
+        case "network_interfaces":
+            var argv = ["/sbin/ifconfig"]
+            if let interface = optionalString(arguments, "interface") {
+                try Self.g3Identifier(interface, field: "interface", tool: tool)
+                argv.append(interface)
+            }
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: argv, timeoutSeconds: timeoutSeconds, runtime: runtime)
+            return .object(["operation": .string(operation), "output": .string(output), "exitCode": .int(Int64(exitCode))])
+        case "listening_sockets":
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["/usr/sbin/lsof", "-i", "-P", "-n", "-sTCP:LISTEN"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            return .object([
+                "operation": .string(operation),
+                "listening": .array(Self.g6ParseLsof(output)),
+                "exitCode": .int(Int64(exitCode)),
+                "output": .string(output),
+                "note": exitCode == 0 ? .string("") : .string("lsof exited non-zero; output may be incomplete where permission was denied."),
+            ])
+        case "connectivity":
+            let host = try requiredString(arguments, "host", tool: tool)
+            guard let port = optionalInt(arguments, "port"), (1...65535).contains(port) else {
+                throw SystemToolError.missingArgument(tool: tool, argument: "port")
+            }
+            try Self.g3Token(host, field: "host", tool: tool)
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["nc", "-z", "-w", "5", host, String(port)], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: tool, cli: "nc", exitCode: exitCode, output: output)
+            return .object(["operation": .string(operation), "host": .string(host), "port": .int(Int64(port)), "reachable": .bool(exitCode == 0), "exitCode": .int(Int64(exitCode))])
+        case "disk_info":
+            let root = optionalString(arguments, "cwd") ?? "/"
+            let attributes = try FileManager.default.attributesOfFileSystem(forPath: ExternalEditorService.expandedPath(root))
+            let total = (attributes[.systemSize] as? NSNumber)?.int64Value ?? 0
+            let free = (attributes[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
+            let used = max(0, total - free)
+            return .object(["operation": .string(operation), "path": .string(root), "totalBytes": .int(total), "availableBytes": .int(free), "usedBytes": .int(used), "usedPercent": .double(total > 0 ? Double(used) / Double(total) * 100 : 0)])
+        case "system_log":
+            let minutes = min(max(optionalInt(arguments, "minutes") ?? 5, 1), 60)
+            var argv = ["/usr/bin/log", "show", "--last", "\(minutes)m"]
+            if let predicate = optionalString(arguments, "predicate") {
+                try Self.g3Token(predicate, field: "predicate", tool: tool)
+                argv += ["--predicate", predicate]
+            }
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: argv, timeoutSeconds: timeoutSeconds, runtime: runtime)
+            return .object(["operation": .string(operation), "minutes": .int(Int64(minutes)), "output": .string(String(output.prefix(20000))), "truncated": .bool(output.count > 20000), "exitCode": .int(Int64(exitCode))])
+        case "service_status":
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["/bin/launchctl", "list"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            return .object(["operation": .string(operation), "services": .array(Self.g6ParseLaunchctl(output)), "exitCode": .int(Int64(exitCode))])
+        case "config_read":
+            let name = try requiredString(arguments, "sysctlName", tool: tool)
+            let allowed: Set<String> = ["hw.memsize", "hw.ncpu", "hw.model", "hw.machine", "kern.osrelease", "kern.osversion", "kern.version", "hw.physicalcpu", "hw.logicalcpu", "machdep.cpu.brand_string"]
+            guard allowed.contains(name) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "config_read sysctlName must be one of: \(allowed.sorted().joined(separator: ", ")).")
+            }
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["/usr/sbin/sysctl", "-n", name], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            return .object(["operation": .string(operation), "sysctlName": .string(name), "value": .string(output.trimmingCharacters(in: .whitespacesAndNewlines)), "exitCode": .int(Int64(exitCode))])
+        case "user_defaults_write":
+            try Self.requireConfirm(arguments, tool: tool, message: "user_defaults_write is a mutation; pass confirm=true.")
+            let domain = try requiredString(arguments, "domain", tool: tool)
+            let key = try requiredString(arguments, "key", tool: tool)
+            let value = try requiredString(arguments, "value", tool: tool)
+            let valueType = optionalString(arguments, "valueType") ?? "string"
+            guard ["string", "bool", "int"].contains(valueType) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "user_defaults_write valueType must be string, bool, or int.")
+            }
+            guard domain != "NSGlobalDomain", !domain.hasPrefix("/"), !domain.contains(".."), !domain.hasPrefix("-") else {
+                throw SystemToolError.executionFailed(tool: tool, message: "user_defaults_write refuses NSGlobalDomain and non-user domains.")
+            }
+            try Self.g3Token(key, field: "key", tool: tool)
+            let (beforeExit, beforeOutput) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["defaults", "read", domain, key], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            let previous: JSONValue = beforeExit == 0 ? .string(beforeOutput.trimmingCharacters(in: .whitespacesAndNewlines)) : .null
+            let flag: String
+            let written: String
+            switch valueType {
+            case "bool":
+                guard value == "true" || value == "false" else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "user_defaults_write bool value must be true or false.")
+                }
+                flag = "-bool"
+                written = value == "true" ? "1" : "0"
+            case "int":
+                guard Int(value) != nil else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "user_defaults_write int value must be an integer.")
+                }
+                flag = "-int"
+                written = value
+            default:
+                flag = "-string"
+                written = value
+            }
+            let (writeExit, writeOutput) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["defaults", "write", domain, key, flag, value], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            guard writeExit == 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "defaults write failed: \(writeOutput)")
+            }
+            let (afterExit, afterOutput) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["defaults", "read", domain, key], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            let after = afterOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+            let verified = afterExit == 0 && (valueType == "string" ? after == value : after == written)
+            return .object(["operation": .string(operation), "domain": .string(domain), "key": .string(key), "previousValue": previous, "newValue": .string(value), "verified": .bool(verified)])
+        default:
+            throw SystemToolError.executionFailed(tool: tool, message: "use_system operation must be system_info, dev_environment, process_list, network_interfaces, listening_sockets, connectivity, disk_info, system_log, service_status, config_read, or user_defaults_write.")
+        }
+    }
+
+    private static func runG6UseApp(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let threadId = try requiredString(arguments, "threadId", tool: tool)
+        let action = try requiredString(arguments, "action", tool: tool)
+        let missing: Set<String> = ["activate", "close_application", "select_window", "get_focused_element", "select_all", "copy", "paste", "wait_for_element", "wait_for_window"]
+        if missing.contains(action) {
+            throw SystemToolError.executionFailed(tool: tool, message: "use_app action \(action) has no engine tool; the capability is not implemented.")
+        }
+        let mapped: String
+        var mappedArguments = arguments
+        switch action {
+        case "list_applications": mapped = "list_apps"
+        case "inspect_application":
+            mapped = "list_windows"
+            if mappedArguments["pid"] == nil, let appName = optionalString(arguments, "app_name") {
+                let apps = try await runComputerUseTool(tool: "list_apps", threadId: threadId, arguments: [:], runtime: runtime)
+                guard let pid = Self.g6FindPid(apps, name: appName) else {
+                    throw SystemToolError.executionFailed(tool: tool, message: "No running app named \(appName) found.")
+                }
+                mappedArguments["pid"] = .int(Int64(pid))
+            }
+        case "launch":
+            mapped = "launch_app"
+            if mappedArguments["bundle_id"] == nil, let identifier = optionalString(arguments, "app_identifier") {
+                mappedArguments["bundle_id"] = .string(identifier)
+            }
+        case "list_windows": mapped = "list_windows"
+        case "inspect_ui", "get_accessibility_tree": mapped = "get_window_state"
+        case "take_screenshot":
+            return try await runComputerUseTool(tool: "get_desktop_state", threadId: threadId, arguments: ["include_screenshot": .bool(true)], runtime: runtime)
+        case "click", "activate_element": mapped = "click"
+        case "double_click": mapped = "double_click"
+        case "right_click": mapped = "right_click"
+        case "move_pointer": mapped = "move_cursor"
+        case "drag": mapped = "drag"
+        case "scroll": mapped = "scroll"
+        case "type_text": mapped = "type_text"
+        case "press_key": mapped = "press_key"
+        case "press_shortcut": mapped = "hotkey"
+        case "set_element_value": mapped = "set_value"
+        case "select_menu": mapped = "invoke_menu"
+        case "verify": mapped = "verify_state"
+        default:
+            throw SystemToolError.executionFailed(tool: tool, message: "use_app action \(action) is not a known action.")
+        }
+        guard let target = Self.definition(named: mapped, for: .system) else {
+            throw SystemToolError.unknownTool(mapped)
+        }
+        let toolArguments = try Self.computerUseArguments(mappedArguments, definition: target, tool: tool)
+        let result = try await runComputerUseTool(tool: mapped, threadId: threadId, arguments: toolArguments, runtime: runtime)
+        return .object(["action": .string(action), "tool": .string(mapped), "result": result])
+    }
+
+    private static func runG6Preflight(tool: String, threadId: String, cwd: String, runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        var checks: [[String: JSONValue]] = []
+        let probe = ".preflight-check-\(UUID().uuidString)"
+        var writable = false
+        do {
+            try Self.writeWorkspaceBytes(cwd: cwd, path: probe, data: Data("ok".utf8), tool: tool)
+            let url = try resolveWorkspaceFileURL(cwd: cwd, path: probe, tool: tool)
+            try FileManager.default.removeItem(at: url)
+            writable = true
+        } catch {
+            writable = false
+        }
+        checks.append(["check": .string("workspaceWritable"), "passed": .bool(writable)])
+        let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["xcodebuild", "-version"], timeoutSeconds: 60, runtime: runtime)
+        checks.append(["check": .string("xcodebuild"), "passed": .bool(exitCode == 0), "detail": .string(Self.g5Lines(output).first ?? "")])
+        let attributes = try FileManager.default.attributesOfFileSystem(forPath: ExternalEditorService.expandedPath(cwd))
+        let free = (attributes[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
+        checks.append(["check": .string("diskSpace"), "passed": .bool(free > 1024 * 1024 * 1024), "detail": .string("\(free) bytes free")])
+        var artifactsWritable = false
+        do {
+            let dir = try resolveWorkspaceFileURL(cwd: cwd, path: ".assist_temp/artifacts", tool: tool)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            artifactsWritable = FileManager.default.isWritableFile(atPath: dir.path)
+        } catch {
+            artifactsWritable = false
+        }
+        checks.append(["check": .string("artifactStorage"), "passed": .bool(artifactsWritable)])
+        return .object([
+            "tool": .string(tool),
+            "checks": .array(checks),
+            "allPassed": .bool(checks.allSatisfy { $0["passed"]?.boolValue == true }),
+        ])
+    }
+
+    private static func g6GitHubDefaultBranch(tool: String, threadId: String, repository: String, timeoutSeconds: Int, runtime: AgentsRuntimeClient) async throws -> String {
+        let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["gh", "repo", "view", repository, "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+        try Self.g3ThrowIfMissingCLI(tool: tool, cli: "gh", exitCode: exitCode, output: output)
+        guard exitCode == 0 else {
+            throw SystemToolError.executionFailed(tool: tool, message: "gh repo view failed: \(output)")
+        }
+        let branch = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !branch.isEmpty else {
+            throw SystemToolError.executionFailed(tool: tool, message: "gh repo view returned no default branch for \(repository).")
+        }
+        return branch
+    }
+
+    private static func g6ValidateRepoPath(_ path: String, tool: String) throws {
+        guard !path.contains("\n"), !path.contains("\r"), !path.hasPrefix("-") else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Repository path must not contain newlines or start with a dash.")
+        }
+        guard path.split(separator: "/").allSatisfy({ $0 != ".." }) else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Repository path must not contain .. components.")
+        }
+    }
+
+    private static func runG6GitHubRepo(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
+        let threadId = try requiredString(arguments, "threadId", tool: tool)
+        let operation = try requiredString(arguments, "operation", tool: tool)
+        let timeoutSeconds = optionalInt(arguments, "timeoutSeconds") ?? 120
+        let repository: String
+        if let owner = optionalString(arguments, "owner"), let repo = optionalString(arguments, "repo") {
+            try Self.g3Identifier(owner, field: "owner", tool: tool)
+            try Self.g3Identifier(repo, field: "repo", tool: tool)
+            repository = owner + "/" + repo
+        } else if let url = optionalString(arguments, "url"), !url.isEmpty {
+            guard let parsed = URL(string: url), parsed.host == "github.com" else {
+                throw SystemToolError.executionFailed(tool: tool, message: "github_repo url must be a github.com repository URL.")
+            }
+            let parts = parsed.path.split(separator: "/").map(String.init)
+            guard parts.count >= 2 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "github_repo url must name an owner and repository.")
+            }
+            repository = parts[0] + "/" + parts[1].replacingOccurrences(of: ".git", with: "")
+        } else {
+            throw SystemToolError.missingArgument(tool: tool, argument: "owner")
+        }
+        let ref = optionalString(arguments, "ref")
+        if let ref { try Self.g3Token(ref, field: "ref", tool: tool) }
+        switch operation {
+        case "repository_info":
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["gh", "repo", "view", repository, "--json", "name,description,defaultBranchRef,createdAt,updatedAt,licenseInfo,primaryLanguage,stargazerCount,forkCount,isPrivate"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: tool, cli: "gh", exitCode: exitCode, output: output)
+            guard exitCode == 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "gh repo view failed: \(output)")
+            }
+            return try Self.g3JSONValue(output, tool: tool)
+        case "list_files", "get_directory":
+            let repoPath = optionalString(arguments, "path") ?? ""
+            try Self.g6ValidateRepoPath(repoPath, tool: tool)
+            var apiPath = "repos/" + repository + "/contents"
+            if !repoPath.isEmpty { apiPath += "/" + repoPath }
+            if let ref { apiPath += "?ref=" + ref }
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["gh", "api", apiPath], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: tool, cli: "gh", exitCode: exitCode, output: output)
+            guard exitCode == 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "gh api failed: \(output)")
+            }
+            return try Self.g3JSONValue(output, tool: tool)
+        case "get_file":
+            let repoPath = try requiredString(arguments, "path", tool: tool)
+            try Self.g6ValidateRepoPath(repoPath, tool: tool)
+            var apiPath = "repos/" + repository + "/contents/" + repoPath
+            if let ref { apiPath += "?ref=" + ref }
+            let (metaExit, metaOutput) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["gh", "api", apiPath], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: tool, cli: "gh", exitCode: metaExit, output: metaOutput)
+            guard metaExit == 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "gh api failed: \(metaOutput)")
+            }
+            let metadata = try Self.g3JSONValue(metaOutput, tool: tool)
+            guard metadata["type"]?.stringValue == "file" else {
+                throw SystemToolError.executionFailed(tool: tool, message: "Path \(repoPath) is not a file in \(repository).")
+            }
+            guard (metadata["size"]?.intValue ?? 0) <= 200000 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "File \(repoPath) exceeds 200000 bytes; fetch it with fetch_repository instead.")
+            }
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["gh", "api", apiPath, "-H", "Accept: application/vnd.github.raw"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            guard exitCode == 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "gh api failed: \(output)")
+            }
+            return .object([
+                "repository": .string(repository),
+                "path": .string(repoPath),
+                "size": metadata["size"] ?? .null,
+                "content": .string(output),
+            ])
+        case "get_tree":
+            let treeRef = ref ?? (try await Self.g6GitHubDefaultBranch(tool: tool, threadId: threadId, repository: repository, timeoutSeconds: timeoutSeconds, runtime: runtime))
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["gh", "api", "repos/" + repository + "/git/trees/" + treeRef + "?recursive=1"], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: tool, cli: "gh", exitCode: exitCode, output: output)
+            guard exitCode == 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "gh api failed: \(output)")
+            }
+            let value = try Self.g3JSONValue(output, tool: tool)
+            let tree = value["tree"]?.arrayValue ?? []
+            return .object([
+                "repository": .string(repository),
+                "ref": .string(treeRef),
+                "truncated": value["truncated"] ?? .null,
+                "entries": .array(Array(tree.prefix(500))),
+                "entryCount": .int(Int64(tree.count)),
+            ])
+        case "search_code":
+            let query = try requiredString(arguments, "query", tool: tool)
+            try Self.g3Token(query, field: "query", tool: tool)
+            guard query.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || "_.:+- ".contains($0) }) else {
+                throw SystemToolError.executionFailed(tool: tool, message: "search_code query must use only letters, digits, space, underscore, dot, colon, plus, or dash.")
+            }
+            let encoded = query.replacingOccurrences(of: " ", with: "+")
+            let (exitCode, output) = try await Self.g3Run(tool: tool, threadId: threadId, argv: ["gh", "api", "search/code?q=repo:" + repository + "+" + encoded], timeoutSeconds: timeoutSeconds, runtime: runtime)
+            try Self.g3ThrowIfMissingCLI(tool: tool, cli: "gh", exitCode: exitCode, output: output)
+            guard exitCode == 0 else {
+                throw SystemToolError.executionFailed(tool: tool, message: "gh api failed: \(output)")
+            }
+            let value = try Self.g3JSONValue(output, tool: tool)
+            let items = value["items"]?.arrayValue ?? []
+            return .object([
+                "repository": .string(repository),
+                "query": .string(query),
+                "totalCount": value["total_count"] ?? .null,
+                "items": .array(Array(items.prefix(20))),
+            ])
+        case "fetch_repository":
+            let treeRef = ref ?? (try await Self.g6GitHubDefaultBranch(tool: tool, threadId: threadId, repository: repository, timeoutSeconds: timeoutSeconds, runtime: runtime))
+            let root = try await Self.resolveThreadRoot(threadId: threadId, tool: tool, runtime: runtime)
+            let safeRef = treeRef.replacingOccurrences(of: "/", with: "-")
+            let fileName = (repository.split(separator: "/").last.map(String.init) ?? "repo") + "-" + safeRef + ".tar.gz"
+            let command = "gh api repos/" + repository + "/tarball/" + treeRef + " > " + Self.shellQuoted(fileName)
+            _ = try await Self.runShellCommand(tool: tool, threadId: threadId, cwd: root, command: command, timeoutSeconds: timeoutSeconds, runtime: runtime)
+            let url = URL(fileURLWithPath: root).appendingPathComponent(fileName)
+            let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
+            return .object([
+                "repository": .string(repository),
+                "ref": .string(treeRef),
+                "path": .string(fileName),
+                "bytes": .int(size),
+            ])
+        default:
+            throw SystemToolError.executionFailed(tool: tool, message: "github_repo operation must be repository_info, list_files, get_file, get_directory, get_tree, search_code, or fetch_repository.")
+        }
+    }
 
     private static func runG5Tool(tool: String, arguments: [String: JSONValue], runtime: AgentsRuntimeClient) async throws -> JSONValue {
         let cwd = try requiredString(arguments, "cwd", tool: tool)

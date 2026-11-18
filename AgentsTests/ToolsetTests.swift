@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 265)
+        #expect(tools.count == 326)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -87,11 +87,13 @@ struct ToolsetTests {
             "mcp.tools", "git.stash", "git.blame", "git.bisect", "git.cherry_pick",
             "git.rollback", "git.checkpoints.create", "git.checkpoints.list",
             "git.checkpoints.restore", "git.review.diff",
+            "system.lookup", "system.skills", "system.info", "system.env",
+            "system.clipboard", "system.notify", "agent.pending", "web.fetch", "github.repo",
         ])
         #expect(tools.allSatisfy { !$0.parameters.isEmpty })
         let allOptionalTools: Set<String> = [
             "create_terminal", "view_memory", "mem_context_snapshot", "list_workers",
-            "env_capture_logs",
+            "env_capture_logs", "env_info", "derived_data_locate",
         ]
         #expect(tools.allSatisfy {
             allOptionalTools.contains($0.name) || $0.parameters.contains { $0.required }
@@ -1919,5 +1921,875 @@ struct ToolsetTests {
         await client.close()
     }
 
+
+
+    @Test("Slice 14: G5 part 2 tools register with expected actions and channels")
+    func sliceFourteenToolsRegister() {
+        let tools = SystemToolRegistry.tools(for: .system)
+        let expected: [(name: String, action: String, channel: SystemToolChannel)] = [
+            ("framework_linker_auditor", "workspace.read_file", .desktop),
+            ("string_catalog_migrator", "workspace.write_file", .desktop),
+            ("symbol_reference_graph", "workspace.search_regex", .desktop),
+            ("podfile_inspector", "workspace.read_file", .desktop),
+            ("carthage_cartfile_inspector", "workspace.read_file", .desktop),
+            ("spm_dependency_tree", "terminal.create", .engine),
+            ("package_manifest_read", "workspace.read_file", .desktop),
+            ("package_manifest_validate", "terminal.create", .engine),
+            ("package_dependency_audit", "terminal.create", .engine),
+            ("package_dependency_add", "workspace.write_file", .desktop),
+            ("asset_catalog_list", "workspace.files", .desktop),
+            ("asset_image_add", "workspace.write_file", .desktop),
+            ("strings_localization", "workspace.write_file", .desktop),
+            ("localization_audit", "workspace.read_file", .desktop),
+            ("localize_app", "workspace.write_file", .desktop),
+            ("asset_catalog_manager", "workspace.write_file", .desktop),
+            ("localization_manager", "workspace.write_file", .desktop),
+            ("entitlements_manager", "workspace.write_file", .desktop),
+            ("colorset_builder", "workspace.write_file", .desktop),
+            ("icon_generator_tool", "terminal.create", .engine),
+            ("project_entitlements", "workspace.read_file", .desktop),
+            ("project_info_plist", "workspace.write_file", .desktop),
+            ("project_capabilities", "workspace.write_file", .desktop),
+            ("project_signing", "terminal.create", .engine),
+            ("entry_points_discover", "workspace.search_regex", .desktop),
+            ("repo_overview", "workspace.files", .desktop),
+            ("project_structure_map", "workspace.read_dir", .desktop),
+            ("recent_changes", "workspace.read_dir", .desktop),
+            ("readme_locate", "workspace.read_file", .desktop),
+            ("dependency_licenses", "workspace.read_file", .desktop),
+            ("stale_files_report", "workspace.read_dir", .desktop),
+            ("file_type_breakdown", "workspace.files", .desktop),
+            ("empty_dirs_find", "workspace.read_dir", .desktop),
+            ("symlink_audit", "workspace.read_dir", .desktop),
+            ("executable_files_scan", "workspace.read_dir", .desktop),
+            ("dir_size_report", "workspace.read_dir", .desktop),
+            ("image_asset_size_report", "workspace.read_dir", .desktop),
+            ("bundle_resource_auditor", "workspace.read_file", .desktop),
+            ("core_data_model_inspector", "workspace.read_file", .desktop),
+            ("swift_data_schema_auditor", "workspace.read_file", .desktop),
+            ("privacy_manifest_auditor", "workspace.read_file", .desktop),
+            ("env_info", "system.info", .desktop),
+            ("process_monitor_tool", "terminal.create", .engine),
+            ("disk_space_analyzer", "terminal.create", .engine),
+            ("environment_variable_manager", "system.env", .desktop),
+            ("clipboard_manager_tool", "system.clipboard", .desktop),
+            ("system_notification_tool", "system.notify", .desktop),
+            ("use_system", "terminal.create", .engine),
+            ("search_skills", "system.skills", .desktop),
+            ("plan-AskUser", "agent.pending", .engine),
+            ("tool_capability_lookup", "system.lookup", .desktop),
+            ("preflight_checks", "terminal.create", .engine),
+            ("session_progress_report", "workspace.read_file", .desktop),
+            ("manage_memory", "memory.store", .desktop),
+            ("fetch_documentation", "web.fetch", .desktop),
+            ("external_resource_gateway", "web.fetch", .desktop),
+            ("read_url_content", "web.fetch", .desktop),
+            ("github_repo", "github.repo", .engine),
+            ("use_app", "computer_use.request", .engine),
+            ("derived_data_locate", "system.info", .desktop),
+            ("build_system_detect", "workspace.files", .desktop),
+        ]
+        #expect(expected.count == 61)
+        for row in expected {
+            guard let definition = SystemToolRegistry.definition(named: row.name, for: .system) else {
+                Issue.record("Slice 14 tool missing from registry: \(row.name)")
+                continue
+            }
+            #expect(definition.action == row.action)
+            #expect(definition.channel == row.channel)
+            #expect(!definition.parameters.isEmpty)
+        }
+        let cwdParams = ["framework_linker_auditor", "repo_overview", "build_system_detect"]
+        for name in cwdParams {
+            let params = SystemToolRegistry.definition(named: name, for: .system)?.parameters ?? []
+            #expect(params.contains { $0.name == "cwd" && $0.required && $0.type == "string" })
+        }
+    }
+
+    @Test("Slice 14: G6 parsers read real text shapes")
+    func sliceFourteenParsersReadRealTextShapes() throws {
+        let manifestText = """
+        // swift-tools-version: 5.10
+        import PackageDescription
+
+        let package = Package(
+            name: "MyApp",
+            platforms: [.macOS(.v14), .iOS(.v17)],
+            products: [
+                .library(name: "MyApp", targets: ["MyApp"]),
+            ],
+            dependencies: [
+                .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
+            ],
+            targets: [
+                .target(name: "MyApp"),
+                .testTarget(name: "MyAppTests"),
+            ]
+        )
+        """
+        let manifest = SystemToolRegistry.g6ParseManifest(manifestText)
+        #expect(manifest.name == "MyApp")
+        #expect(manifest.platforms == ["macOS 14", "iOS 17"])
+        #expect(manifest.products == ["MyApp"])
+        #expect(manifest.targets == ["MyApp", "MyAppTests"])
+        #expect(manifest.dependencies.count == 1)
+        #expect(manifest.dependencies[0]["url"] == "https://github.com/apple/swift-argument-parser")
+        #expect(manifest.dependencies[0]["from"] == "1.3.0")
+
+        let resolvedJSON = """
+        {
+          "pins": [
+            { "identity": "swift-argument-parser", "location": "https://github.com/apple/swift-argument-parser", "state": { "branch": null, "revision": "aabbcc", "version": "1.3.0" } },
+            { "identity": "swift-collections", "location": "https://github.com/apple/swift-collections", "state": { "branch": null, "revision": "ddeeff", "version": "1.1.0" } }
+          ],
+          "version": 2
+        }
+        """
+        let pins = SystemToolRegistry.g6ParseResolved(resolvedJSON)
+        #expect(pins.count == 2)
+        #expect(pins[0]["identity"] == "swift-argument-parser")
+        #expect(pins[0]["version"] == "1.3.0")
+        #expect(pins[1]["identity"] == "swift-collections")
+        #expect(pins[1]["version"] == "1.1.0")
+
+        let audit = SystemToolRegistry.g6DependencyAudit(
+            tool: "package_dependency_audit",
+            manifest: manifest,
+            resolvedPins: pins,
+            shown: ["swift-argument-parser"],
+            exitCode: 0,
+            output: ""
+        )
+        #expect(audit["missingResolved"]?.arrayValue?.isEmpty == true)
+        #expect(audit["nonExactRequirements"]?.arrayValue?.count == 1)
+        #expect(audit["resolvedMissingFromManifest"]?.arrayValue?.compactMap { $0.stringValue } == ["swift-collections"])
+
+        let shownJSON = """
+        {
+          "name": "MyApp",
+          "dependencies": [
+            { "identity": "swift-argument-parser", "dependencies": [{ "identity": "swift-nio" }] }
+          ]
+        }
+        """
+        let shownValue = try JSONDecoder().decode(JSONValue.self, from: Data(shownJSON.utf8))
+        #expect(SystemToolRegistry.g6ShowDependenciesNames(shownValue) == ["swift-argument-parser", "swift-nio"])
+
+        let stringsText = "\"hello\" = \"Hello\";\n\"bye\" = \"Bye\";\n// a comment\n"
+        let pairs = SystemToolRegistry.g6StringsPairs(stringsText)
+        #expect(pairs.count == 2)
+        #expect(pairs[0].key == "hello" && pairs[0].value == "Hello")
+        #expect(pairs[1].key == "bye" && pairs[1].value == "Bye")
+        let serialized = SystemToolRegistry.g6SerializeStrings(pairs.map { (key: $0.key, value: $0.value) })
+        #expect(serialized == "\"hello\" = \"Hello\";\n\"bye\" = \"Bye\";\n")
+        #expect(SystemToolRegistry.g6StringsUnescape("a\\n\\t\\\"b") == "a\n\t\"b")
+        #expect(SystemToolRegistry.g6StringsEscape("a\nb") == "a\\nb")
+
+        let xcstringsJSON = """
+        {"sourceLanguage":"en","strings":{"hello":{"localizations":{"en":{"stringUnit":{"state":"translated","value":"Hello"}}}}},"version":"1.0"}
+        """
+        let xcstrings = try JSONDecoder().decode(JSONValue.self, from: Data(xcstringsJSON.utf8))
+        let xcstringsDict = xcstrings.objectValue ?? [:]
+        let keys = SystemToolRegistry.g6XcstringsKeys(xcstringsDict)
+        #expect(keys["hello"]?["en"] == "Hello")
+        let updated = SystemToolRegistry.g6XcstringsSet(xcstringsDict, key: "bye", locale: "fr", value: "Au revoir", state: "new")
+        let updatedKeys = SystemToolRegistry.g6XcstringsKeys(updated)
+        #expect(updatedKeys["bye"]?["fr"] == "Au revoir")
+        #expect(updatedKeys["hello"]?["en"] == "Hello")
+
+        let pbxproj = """
+        /* Begin PBXBuildFile section */
+            111111111111111111111111 = {isa = PBXBuildFile; fileRef = 222222222222222222222222; /* Foundation.framework */ settings = {ATTRIBUTES = (Weak, ); }; };
+            555555555555555555555555 = {isa = PBXBuildFile; fileRef = 666666666666666666666666; };
+        /* End PBXBuildFile section */
+        /* Begin PBXFileReference section */
+            222222222222222222222222 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+            666666666666666666666666 /* Logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Logo.png; path = Logo.png; sourceTree = "<group>"; };
+        /* End PBXFileReference section */
+        /* Begin PBXResourcesBuildPhase section */
+            777777777777777777777777 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (
+                555555555555555555555555 /* Logo.png in Resources */,
+            ); runOnlyForDeploymentPostprocessing = 0; };
+        /* End PBXResourcesBuildPhase section */
+        /* Begin PBXNativeTarget section */
+            333333333333333333333333 /* MyApp */ = {isa = PBXNativeTarget; name = MyApp; };
+        /* End PBXNativeTarget section */
+        /* Begin XCBuildConfiguration section */
+            444444444444444444444444 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = ABCDE12345; PRODUCT_BUNDLE_IDENTIFIER = com.example.myapp; CODE_SIGN_IDENTITY = "Apple Development"; SDKROOT = macosx; MACOSX_DEPLOYMENT_TARGET = 14.0; }; name = Debug; };
+        /* End XCBuildConfiguration section */
+        """
+        let frameworkAudit = SystemToolRegistry.g6FrameworkAudit(tool: "framework_linker_auditor", path: "MyApp.xcodeproj/project.pbxproj", content: pbxproj)
+        #expect(frameworkAudit["linkedCount"]?.intValue == 1)
+        #expect(frameworkAudit["linkedFrameworks"]?.arrayValue?.first?["name"]?.stringValue == "Foundation.framework")
+        #expect(frameworkAudit["linkedFrameworks"]?.arrayValue?.first?["weak"]?.boolValue == true)
+        #expect(frameworkAudit["sdkroots"]?.arrayValue?.compactMap { $0.stringValue }.contains("macosx") == true)
+        #expect(frameworkAudit["deploymentTargets"]?.arrayValue?.compactMap { $0.stringValue }.contains("MACOSX_DEPLOYMENT_TARGET 14.0") == true)
+        let signing = SystemToolRegistry.g6SigningFromPbxproj(tool: "project_signing", path: "MyApp.xcodeproj/project.pbxproj", content: pbxproj)
+        #expect(signing["codeSignStyle"]?.stringValue == "Automatic")
+        #expect(signing["developmentTeam"]?.stringValue == "ABCDE12345")
+        #expect(signing["bundleIdentifier"]?.stringValue == "com.example.myapp")
+        #expect(signing["codeSignIdentity"]?.stringValue == "Apple Development")
+        #expect(SystemToolRegistry.g6PbxprojTargets(pbxproj) == ["MyApp"])
+
+        let settings = SystemToolRegistry.g6BuildSettingsJSON("PRODUCT_NAME = MyApp\nSWIFT_VERSION = 5.0\n")
+        #expect(settings["PRODUCT_NAME"]?.stringValue == "MyApp")
+        #expect(settings["SWIFT_VERSION"]?.stringValue == "5.0")
+
+        let ps = SystemToolRegistry.g6ParsePs("  123  1.5  2.0 /usr/bin/foo\n  456  0.0  0.1 /bin/bar\n", filter: nil, limit: 200)
+        #expect(ps.count == 2)
+        #expect(ps[0]["pid"]?.intValue == 123)
+        #expect(ps[0]["cpuPercent"]?.doubleValue == 1.5)
+        #expect(ps[0]["command"]?.stringValue == "/usr/bin/foo")
+        let filtered = SystemToolRegistry.g6ParsePs("  123  1.5  2.0 /usr/bin/foo\n  456  0.0  0.1 /bin/bar\n", filter: "bar", limit: 200)
+        #expect(filtered.count == 1)
+        #expect(filtered[0]["pid"]?.intValue == 456)
+
+        let df = "Filesystem 1024-blocks Used Available Capacity iused ifree %iused Mounted on\n/dev/disk1 1000000 400000 600000 40% 100 200 1% /\n"
+        let disk = SystemToolRegistry.g6DiskSpace(tool: "disk_space_analyzer", path: ".", dfOutput: df, duOutput: "1234\t.")
+        #expect(disk["totalKilobytes"]?.intValue == 1000000)
+        #expect(disk["usedKilobytes"]?.intValue == 400000)
+        #expect(disk["availableKilobytes"]?.intValue == 600000)
+        #expect(disk["capacityPercent"]?.intValue == 40)
+        #expect(disk["mountPoint"]?.stringValue == "/")
+        #expect(disk["pathKilobytes"]?.intValue == 1234)
+
+        let bundleEntries = [
+            WorkspaceFileEntry(path: "Sources/Logo.png", sizeBytes: 2048),
+            WorkspaceFileEntry(path: "Sources/App.swift", sizeBytes: 100),
+        ]
+        let bundle = SystemToolRegistry.g6BundleResources(tool: "bundle_resource_auditor", path: "MyApp.xcodeproj/project.pbxproj", content: pbxproj, entries: bundleEntries)
+        #expect(bundle["resources"]?.arrayValue?.first?["path"]?.stringValue == "Logo.png")
+        #expect(bundle["resources"]?.arrayValue?.first?["found"]?.boolValue == true)
+        #expect(bundle["missing"]?.arrayValue?.isEmpty == true)
+        #expect(bundle["duplicates"]?.arrayValue?.isEmpty == true)
+
+        let modelContents = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0">
+          <entity name="Item" representedClassName="Item">
+            <attribute name="name" attributeType="String"/>
+            <attribute name="createdAt" attributeType="Date"/>
+            <relationship name="owner" destinationEntity="Owner" maxCount="1"/>
+          </entity>
+          <entity name="Owner" representedClassName="Owner">
+            <attribute name="email" attributeType="String"/>
+          </entity>
+        </model>
+        """
+        let coreData = SystemToolRegistry.g6CoreDataModel(tool: "core_data_model_inspector", path: "Model.xcdatamodeld/Model.xcdatamodel/contents", content: modelContents)
+        #expect(coreData["entityCount"]?.intValue == 2)
+        #expect(coreData["entities"]?.arrayValue?.first?["name"]?.stringValue == "Item")
+        #expect(coreData["entities"]?.arrayValue?.first?["attributes"]?.arrayValue?.count == 2)
+        #expect(coreData["entities"]?.arrayValue?.first?["relationships"]?.arrayValue?.first?["destination"]?.stringValue == "Owner")
+
+        let goodPlist: [String: Any] = [
+            "NSPrivacyTracking": false,
+            "NSPrivacyCollectedDataTypes": [["NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeEmailAddress", "NSPrivacyCollectedDataTypeLinked": false, "NSPrivacyCollectedDataTypeTracking": false, "NSPrivacyCollectedDataTypePurposes": ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]]],
+            "NSPrivacyAccessedAPITypes": [["NSPrivacyAccessedAPICategory": "NSPrivacyAccessedAPICategoryFileTimestamp", "NSPrivacyAccessedAPITypeReasons": ["C617.1"]]],
+        ]
+        let goodAudit = SystemToolRegistry.g6PrivacyAudit(tool: "privacy_manifest_auditor", path: "PrivacyInfo.xcprivacy", plist: goodPlist)
+        #expect(goodAudit["issueCount"]?.intValue == 0)
+        #expect(goodAudit["collectedDataTypes"]?.intValue == 1)
+        #expect(goodAudit["accessedApiTypes"]?.intValue == 1)
+        let badAudit = SystemToolRegistry.g6PrivacyAudit(tool: "privacy_manifest_auditor", path: "PrivacyInfo.xcprivacy", plist: ["NSPrivacyTracking": true])
+        #expect(badAudit["issueCount"]?.intValue == 1)
+        #expect(badAudit["issues"]?.arrayValue?.first?["message"]?.stringValue?.contains("NSPrivacyTrackingDomains") == true)
+
+        let colorset = SystemToolRegistry.g6ColorsetContents(lightHex: "#FF8800", darkHex: "#112233")
+        let colors = colorset["colors"] as? [[String: Any]]
+        #expect(colors?.count == 2)
+        let lightComponents = (colors?[0]["color"] as? [String: Any])?["components"] as? [String: String]
+        #expect(lightComponents?["red"] == "1.000")
+        #expect(lightComponents?["green"] == "0.533")
+        #expect(lightComponents?["blue"] == "0.000")
+        let darkComponents = (colors?[1]["color"] as? [String: Any])?["components"] as? [String: String]
+        #expect(darkComponents?["red"] == "0.067")
+
+        #expect(SystemToolRegistry.g6PlistScalar("true") as? Bool == true)
+        #expect(SystemToolRegistry.g6PlistScalar("42") as? Int == 42)
+        #expect(SystemToolRegistry.g6PlistScalar("hello") as? String == "hello")
+
+        #expect(SystemToolRegistry.g6LanguageForExtension("swift") == "Swift")
+        #expect(SystemToolRegistry.g6LanguageForExtension("py") == "Python")
+        #expect(SystemToolRegistry.g6LanguageForExtension("xyz") == ".xyz")
+        #expect(SystemToolRegistry.g6LanguageForExtension("") == "No extension")
+        #expect(SystemToolRegistry.g6LocaleForStringsPath("en.lproj/Localizable.strings") == "en")
+        #expect(SystemToolRegistry.g6LocaleForStringsPath("Base.lproj/Main.strings") == "Base")
+        #expect(SystemToolRegistry.g6LocaleForStringsPath("Localizable.strings") == "base")
+
+        let iosSizes = SystemToolRegistry.g6IconSizes(platform: "ios")
+        #expect(iosSizes.count == 12)
+        #expect(iosSizes[0].pixels == 40)
+        #expect(SystemToolRegistry.g6IconSizes(platform: "macos").count == 10)
+        #expect(SystemToolRegistry.g6IconSizes(platform: "watchos").count == 11)
+    }
+
+    @Test("Slice 14: G5 part 2 tools round-trip against a real temp workspace")
+    func sliceFourteenInventoryRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        try Self.writeText("""
+        // swift-tools-version: 5.10
+        import PackageDescription
+
+        let package = Package(
+            name: "MyApp",
+            platforms: [.macOS(.v14), .iOS(.v17)],
+            products: [
+                .library(name: "MyApp", targets: ["MyApp"]),
+            ],
+            dependencies: [
+                .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
+            ],
+            targets: [
+                .target(
+                    name: "MyApp",
+                    dependencies: []
+                ),
+                .testTarget(name: "MyAppTests"),
+            ]
+        )
+        """, to: "Package.swift", in: tempRoot)
+        try Self.writeText("""
+        {
+          "pins": [
+            { "identity": "swift-argument-parser", "location": "https://github.com/apple/swift-argument-parser", "state": { "branch": null, "revision": "aabbcc", "version": "1.3.0" } },
+            { "identity": "swift-collections", "location": "https://github.com/apple/swift-collections", "state": { "branch": null, "revision": "ddeeff", "version": "1.1.0" } }
+          ],
+          "version": 2
+        }
+        """, to: "Package.resolved", in: tempRoot)
+        try Self.writeText("""
+        platform :ios, '17.0'
+        target 'MyApp' do
+          pod 'Alamofire', '5.9.0'
+          pod 'SnapKit'
+        end
+        """, to: "Podfile", in: tempRoot)
+        try Self.writeText("""
+        PODS:
+          - Alamofire (5.9.0)
+          - SnapKit (5.7.1)
+
+        DEPENDENCIES:
+          - Alamofire
+          - SnapKit
+        """, to: "Podfile.lock", in: tempRoot)
+        try Self.writeText("""
+        github "Alamofire/Alamofire" "5.9.0"
+        github "realm/realm-swift"
+        """, to: "Cartfile", in: tempRoot)
+        try Self.writeText("""
+        github "Alamofire/Alamofire" "5.9.1"
+        github "realm/realm-swift" "10.54.0"
+        """, to: "Cartfile.resolved", in: tempRoot)
+        try Self.writeText("""
+        import Foundation
+        @main
+        struct MyApp: App {
+            var body: some Scene { WindowGroup { ContentView() } }
+        }
+        final class Foo {
+            func greet() -> String { NSLocalizedString("welcome", comment: "") }
+        }
+        let foo = Foo()
+        struct ContentView {
+            let label = String(localized: "settings")
+        }
+        """, to: "Sources/App.swift", in: tempRoot)
+        try Self.writeText("""
+        import SwiftData
+        @Model
+        final class Item {
+            @Attribute(.unique) var identifier: String
+            @Relationship(deleteRule: .cascade) var owner: Owner?
+            var name: String
+        }
+        """, to: "Sources/Models/Item.swift", in: tempRoot)
+        try Self.writeText("""
+        import SwiftData
+        @Model
+        final class Owner {
+            var email: String
+        }
+        """, to: "Sources/Models/Owner.swift", in: tempRoot)
+        try Self.writeText("print(\"hello\")\n", to: "Sources/main.swift", in: tempRoot)
+        try Self.writeText("fake-png-bytes", to: "Sources/hero.png", in: tempRoot)
+        try Self.writeText("#!/bin/sh\necho hi\n", to: "Sources/run.sh", in: tempRoot)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: (tempRoot as NSString).appendingPathComponent("Sources/run.sh"))
+        try FileManager.default.createSymbolicLink(atPath: (tempRoot as NSString).appendingPathComponent("Sources/LinkToApp"), withDestinationPath: "App.swift")
+        try FileManager.default.createSymbolicLink(atPath: (tempRoot as NSString).appendingPathComponent("Sources/BrokenLink"), withDestinationPath: "Nope.swift")
+        try Self.writeText("""
+        /* Begin PBXBuildFile section */
+            111111111111111111111111 = {isa = PBXBuildFile; fileRef = 222222222222222222222222; /* Foundation.framework */ settings = {ATTRIBUTES = (Weak, ); }; };
+            555555555555555555555555 = {isa = PBXBuildFile; fileRef = 666666666666666666666666; };
+        /* End PBXBuildFile section */
+        /* Begin PBXFileReference section */
+            222222222222222222222222 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+            666666666666666666666666 /* Logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Logo.png; path = Logo.png; sourceTree = "<group>"; };
+            888888888888888888888888 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = App.swift; path = App.swift; sourceTree = "<group>"; };
+        /* End PBXFileReference section */
+        /* Begin PBXResourcesBuildPhase section */
+            777777777777777777777777 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (
+                555555555555555555555555 /* Logo.png in Resources */,
+            ); runOnlyForDeploymentPostprocessing = 0; };
+        /* End PBXResourcesBuildPhase section */
+        /* Begin PBXNativeTarget section */
+            333333333333333333333333 /* MyApp */ = {isa = PBXNativeTarget; name = MyApp; };
+        /* End PBXNativeTarget section */
+        /* Begin XCBuildConfiguration section */
+            444444444444444444444444 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = ABCDE12345; PRODUCT_BUNDLE_IDENTIFIER = com.example.myapp; CODE_SIGN_IDENTITY = "Apple Development"; SDKROOT = macosx; MACOSX_DEPLOYMENT_TARGET = 14.0; }; name = Debug; };
+        /* End XCBuildConfiguration section */
+        """, to: "MyApp.xcodeproj/project.pbxproj", in: tempRoot)
+        try Self.writeText("{\"images\":[],\"info\":{\"author\":\"xcode\",\"version\":1}}", to: "Assets.xcassets/AppIcon.appiconset/Contents.json", in: tempRoot)
+        try Self.writeText("{\"images\":[{\"filename\":\"Logo.png\",\"idiom\":\"universal\",\"scale\":\"1x\"}],\"info\":{\"author\":\"xcode\",\"version\":1}}", to: "Assets.xcassets/Logo.imageset/Contents.json", in: tempRoot)
+        try Self.writeText(String(repeating: "x", count: 2048), to: "Assets.xcassets/Logo.imageset/Logo.png", in: tempRoot)
+        try Self.writeText("\"welcome\" = \"Welcome\";\n\"goodbye\" = \"Goodbye\";\n", to: "en.lproj/Localizable.strings", in: tempRoot)
+        try Self.writeText("\"welcome\" = \"Bienvenue\";\n", to: "fr.lproj/Localizable.strings", in: tempRoot)
+        try Self.writeText("{\"sourceLanguage\":\"en\",\"strings\":{\"hello\":{\"localizations\":{\"en\":{\"stringUnit\":{\"state\":\"translated\",\"value\":\"Hello\"}}}}},\"version\":\"1.0\"}", to: "Localizable.xcstrings", in: tempRoot)
+        try Self.writeText("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>com.apple.security.app-sandbox</key>
+            <true/>
+            <key>com.apple.security.network.client</key>
+            <false/>
+            <key>com.apple.application-identifier</key>
+            <string>TEAM.com.example.myapp</string>
+        </dict>
+        </plist>
+        """, to: "App.entitlements", in: tempRoot)
+        try Self.writeText("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleName</key>
+            <string>Demo</string>
+        </dict>
+        </plist>
+        """, to: "Info.plist", in: tempRoot)
+        try Self.writeText("""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>NSPrivacyTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypes</key>
+            <array>
+                <dict>
+                    <key>NSPrivacyCollectedDataType</key>
+                    <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+                    <key>NSPrivacyCollectedDataTypeLinked</key>
+                    <false/>
+                    <key>NSPrivacyCollectedDataTypeTracking</key>
+                    <false/>
+                    <key>NSPrivacyCollectedDataTypePurposes</key>
+                    <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+                </dict>
+            </array>
+            <key>NSPrivacyAccessedAPITypes</key>
+            <array>
+                <dict>
+                    <key>NSPrivacyAccessedAPICategory</key>
+                    <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+                    <key>NSPrivacyAccessedAPITypeReasons</key>
+                    <array><string>C617.1</string></array>
+                </dict>
+                <dict>
+                    <key>NSPrivacyAccessedAPICategory</key>
+                    <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+                    <key>NSPrivacyAccessedAPITypeReasons</key>
+                    <array><string>CA92.1</string></array>
+                </dict>
+            </array>
+        </dict>
+        </plist>
+        """, to: "PrivacyInfo.xcprivacy", in: tempRoot)
+        try Self.writeText("""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0">
+          <entity name="Item" representedClassName="Item">
+            <attribute name="name" attributeType="String"/>
+            <attribute name="createdAt" attributeType="Date"/>
+            <relationship name="owner" destinationEntity="Owner" maxCount="1"/>
+          </entity>
+          <entity name="Owner" representedClassName="Owner">
+            <attribute name="email" attributeType="String"/>
+          </entity>
+        </model>
+        """, to: "Model.xcdatamodeld/Model.xcdatamodel/contents", in: tempRoot)
+        try Self.writeText("# Demo App\n", to: "README.md", in: tempRoot)
+        try Self.writeText("MIT License\n", to: "LICENSE", in: tempRoot)
+        try Self.writeText("name: MyApp\n", to: "project.yml", in: tempRoot)
+        try Self.writeText("# Agent Notes\n## Setup\nInstalled dependencies.\n## Build\nBuild failed on first try.\n", to: ".assist_temp/artifacts/agent_notes.md", in: tempRoot)
+        try FileManager.default.createDirectory(atPath: (tempRoot as NSString).appendingPathComponent("EmptyDir"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(atPath: (tempRoot as NSString).appendingPathComponent("EmptyDD"), withIntermediateDirectories: true)
+
+        let cwd = tempRoot.path
+        let stringsOf: (JSONValue?, String) -> [String] = { value, key in
+            value?[key]?.arrayValue?.compactMap { $0.stringValue } ?? []
+        }
+
+        let manifest = try await Self.run("package_manifest_read", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(manifest["name"]?.stringValue == "MyApp")
+        #expect(stringsOf(manifest, "platforms") == ["macOS 14", "iOS 17"])
+        #expect(stringsOf(manifest, "products") == ["MyApp"])
+        #expect(stringsOf(manifest, "targets") == ["MyApp", "MyAppTests"])
+        #expect(manifest["dependencies"]?.arrayValue?.first?["url"]?.stringValue == "https://github.com/apple/swift-argument-parser")
+        #expect(manifest["dependencies"]?.arrayValue?.first?["from"]?.stringValue == "1.3.0")
+
+        let added = try await Self.run("package_dependency_add", arguments: [
+            "cwd": .string(cwd),
+            "url": .string("https://github.com/apple/swift-collections"),
+            "version": .string("1.1.0"),
+            "product": .string("Collections"),
+            "target": .string("MyApp"),
+        ], client: client)
+        #expect(added["added"]?.boolValue == true)
+        #expect(added["wired"]?.boolValue == true)
+        #expect(try Self.readText("Package.swift", in: tempRoot).contains("https://github.com/apple/swift-collections"))
+        #expect(try Self.readText("Package.swift", in: tempRoot).contains(".product(name: \"Collections\", package: \"swift-collections\")"))
+
+        let framework = try await Self.run("framework_linker_auditor", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(framework["linkedCount"]?.intValue == 1)
+        #expect(framework["linkedFrameworks"]?.arrayValue?.first?["name"]?.stringValue == "Foundation.framework")
+        #expect(framework["linkedFrameworks"]?.arrayValue?.first?["weak"]?.boolValue == true)
+        #expect(stringsOf(framework, "sdkroots").contains("macosx"))
+        #expect(stringsOf(framework, "deploymentTargets").contains("MACOSX_DEPLOYMENT_TARGET 14.0"))
+
+        let signing = try await Self.run("project_signing", arguments: ["cwd": .string(cwd), "threadId": .string("test-thread")], client: client)
+        #expect(signing["codeSignStyle"]?.stringValue == "Automatic")
+        #expect(signing["developmentTeam"]?.stringValue == "ABCDE12345")
+        #expect(signing["bundleIdentifier"]?.stringValue == "com.example.myapp")
+        #expect(signing["codeSignIdentity"]?.stringValue == "Apple Development")
+
+        let bundle = try await Self.run("bundle_resource_auditor", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(bundle["resources"]?.arrayValue?.count == 1)
+        #expect(bundle["resources"]?.arrayValue?.first?["path"]?.stringValue == "Logo.png")
+        #expect(bundle["resources"]?.arrayValue?.first?["found"]?.boolValue == true)
+        #expect(bundle["missing"]?.arrayValue?.isEmpty == true)
+        #expect(bundle["duplicates"]?.arrayValue?.isEmpty == true)
+
+        let podfile = try await Self.run("podfile_inspector", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(podfile["platform"]?.stringValue == "ios 17.0")
+        #expect(stringsOf(podfile, "targets") == ["MyApp"])
+        #expect(podfile["podCount"]?.intValue == 2)
+        #expect(podfile["pods"]?.arrayValue?.first?["name"]?.stringValue == "Alamofire")
+        #expect(podfile["pods"]?.arrayValue?.first?["requirement"]?.stringValue == "5.9.0")
+        #expect(podfile["locked"]?.arrayValue?.count == 2)
+        #expect(podfile["lockPresent"]?.boolValue == true)
+
+        let carthage = try await Self.run("carthage_cartfile_inspector", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(carthage["dependencyCount"]?.intValue == 2)
+        #expect(carthage["dependencies"]?.arrayValue?.first?["name"]?.stringValue == "Alamofire/Alamofire")
+        #expect(carthage["dependencies"]?.arrayValue?.first?["requirement"]?.stringValue == "5.9.0")
+        #expect(carthage["resolved"]?.arrayValue?.count == 2)
+        #expect(carthage["resolvedPresent"]?.boolValue == true)
+
+        let graph = try await Self.run("symbol_reference_graph", arguments: ["cwd": .string(cwd), "symbol": .string("Foo"), "path": .string("Sources")], client: client)
+        #expect(graph["definitionCount"]?.intValue == 1)
+        #expect(graph["referenceCount"]?.intValue == 1)
+        #expect(graph["definitions"]?.arrayValue?.first?["path"]?.stringValue == "Sources/App.swift")
+
+        let audit = try await Self.run("localization_audit", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(stringsOf(audit, "locales") == ["en", "fr"])
+        #expect(audit["totalKeys"]?.intValue == 3)
+        let frMissing = audit["missing"]?.arrayValue?.first { $0["locale"]?.stringValue == "fr" }
+        #expect(stringsOf(frMissing, "missingKeys") == ["goodbye", "hello"])
+        #expect(stringsOf(audit, "unreferencedKeys") == ["goodbye", "hello"])
+
+        let getWelcome = try await Self.run("strings_localization", arguments: ["cwd": .string(cwd), "path": .string("en.lproj/Localizable.strings"), "action": .string("get"), "key": .string("welcome")], client: client)
+        #expect(getWelcome["found"]?.boolValue == true)
+        #expect(getWelcome["value"]?.stringValue == "Welcome")
+        let setFarewell = try await Self.run("strings_localization", arguments: ["cwd": .string(cwd), "path": .string("en.lproj/Localizable.strings"), "action": .string("set"), "key": .string("farewell"), "value": .string("Farewell")], client: client)
+        #expect(setFarewell["updated"]?.boolValue == true)
+        let getFarewell = try await Self.run("strings_localization", arguments: ["cwd": .string(cwd), "path": .string("en.lproj/Localizable.strings"), "action": .string("get"), "key": .string("farewell")], client: client)
+        #expect(getFarewell["value"]?.stringValue == "Farewell")
+        let deleteFarewell = try await Self.run("strings_localization", arguments: ["cwd": .string(cwd), "path": .string("en.lproj/Localizable.strings"), "action": .string("delete"), "key": .string("farewell")], client: client)
+        #expect(deleteFarewell["deleted"]?.boolValue == true)
+        let getGone = try await Self.run("strings_localization", arguments: ["cwd": .string(cwd), "path": .string("en.lproj/Localizable.strings"), "action": .string("get"), "key": .string("farewell")], client: client)
+        #expect(getGone["found"]?.boolValue == false)
+
+        let locList = try await Self.run("localization_manager", arguments: ["cwd": .string(cwd), "action": .string("list")], client: client)
+        #expect(stringsOf(locList, "stringsFiles").contains("en.lproj/Localizable.strings"))
+        #expect(stringsOf(locList, "stringsFiles").contains("fr.lproj/Localizable.strings"))
+        #expect(stringsOf(locList, "catalogs").contains("Localizable.xcstrings"))
+        let extracted = try await Self.run("localization_manager", arguments: ["cwd": .string(cwd), "action": .string("extract")], client: client)
+        #expect(extracted["keyCount"]?.intValue == 3)
+        #expect(extracted["keys"]?["welcome"]?["en"]?.stringValue == "Welcome")
+        #expect(extracted["keys"]?["welcome"]?["fr"]?.stringValue == "Bienvenue")
+        #expect(extracted["keys"]?["goodbye"]?["en"]?.stringValue == "Goodbye")
+        #expect(extracted["keys"]?["hello"]?["en"]?.stringValue == "Hello")
+        let addedThanks = try await Self.run("localization_manager", arguments: ["cwd": .string(cwd), "action": .string("add"), "key": .string("thanks"), "value": .string("Thanks"), "path": .string("en.lproj/Localizable.strings")], client: client)
+        #expect(addedThanks["updated"]?.boolValue == true)
+        #expect(try Self.readText("en.lproj/Localizable.strings", in: tempRoot).contains("\"thanks\" = \"Thanks\";"))
+
+        let migrated = try await Self.run("string_catalog_migrator", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(migrated["count"]?.intValue == 2)
+        #expect(migrated["migrated"]?.arrayValue?.allSatisfy { $0["verified"]?.boolValue == true } == true)
+        #expect(migrated["skipped"]?.arrayValue?.isEmpty == true)
+        #expect(try Self.readText("en.lproj/Localizable.xcstrings", in: tempRoot).contains("thanks"))
+
+        let statusBefore = try await Self.run("localize_app", arguments: ["cwd": .string(cwd), "action": .string("status")], client: client)
+        #expect(statusBefore["exists"]?.boolValue == true)
+        #expect(statusBefore["keyCount"]?.intValue == 1)
+        #expect(stringsOf(statusBefore, "locales") == ["en"])
+        let localized = try await Self.run("localize_app", arguments: [
+            "cwd": .string(cwd),
+            "action": .string("localize"),
+            "languages": .array([.string("fr"), .string("de")]),
+            "translations": .array([.object(["locale": .string("fr"), "key": .string("welcome"), "value": .string("Bienvenue")])]),
+        ], client: client)
+        #expect(localized["keysAdded"]?.intValue == 2)
+        #expect(localized["layoutDirection"]?.stringValue == "ltr")
+        let statusAfter = try await Self.run("localize_app", arguments: ["cwd": .string(cwd), "action": .string("status")], client: client)
+        #expect(statusAfter["keyCount"]?.intValue == 3)
+        #expect(stringsOf(statusAfter, "locales").contains("fr"))
+        #expect(stringsOf(statusAfter, "locales").contains("de"))
+        #expect(stringsOf(statusAfter, "locales").contains("en"))
+
+        let plistName = try await Self.run("project_info_plist", arguments: ["cwd": .string(cwd), "action": .string("get"), "key": .string("CFBundleName")], client: client)
+        #expect(plistName["found"]?.boolValue == true)
+        #expect(plistName["value"]?.stringValue == "Demo")
+        let plistLocales = try await Self.run("project_info_plist", arguments: ["cwd": .string(cwd), "action": .string("get"), "key": .string("CFBundleLocalizations")], client: client)
+        #expect(stringsOf(plistLocales, "value") == ["fr", "de"])
+        let plistRegion = try await Self.run("project_info_plist", arguments: ["cwd": .string(cwd), "action": .string("get"), "key": .string("CFBundleDevelopmentRegion")], client: client)
+        #expect(plistRegion["value"]?.stringValue == "en")
+        let plistSet = try await Self.run("project_info_plist", arguments: ["cwd": .string(cwd), "action": .string("set"), "key": .string("CFBundleVersion"), "value": .string("2")], client: client)
+        #expect(plistSet["updated"]?.boolValue == true)
+        let plistVersion = try await Self.run("project_info_plist", arguments: ["cwd": .string(cwd), "action": .string("get"), "key": .string("CFBundleVersion")], client: client)
+        #expect(plistVersion["value"]?.intValue == 2)
+        let plistDelete = try await Self.run("project_info_plist", arguments: ["cwd": .string(cwd), "action": .string("delete"), "key": .string("CFBundleVersion")], client: client)
+        #expect(plistDelete["deleted"]?.boolValue == true)
+        let plistGone = try await Self.run("project_info_plist", arguments: ["cwd": .string(cwd), "action": .string("get"), "key": .string("CFBundleVersion")], client: client)
+        #expect(plistGone["found"]?.boolValue == false)
+
+        let entitlements = try await Self.run("project_entitlements", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(entitlements["entitlements"]?["com.apple.security.app-sandbox"]?.boolValue == true)
+        #expect(entitlements["entitlements"]?["com.apple.security.network.client"]?.boolValue == false)
+
+        let capsList = try await Self.run("project_capabilities", arguments: ["cwd": .string(cwd), "action": .string("list")], client: client)
+        #expect(stringsOf(capsList, "enabled").contains("app-sandbox"))
+        #expect(stringsOf(capsList, "disabled").contains("network-client"))
+        #expect(capsList["otherEntitlements"]?.arrayValue?.contains { $0["key"]?.stringValue == "com.apple.application-identifier" } == true)
+        let capsEnable = try await Self.run("project_capabilities", arguments: ["cwd": .string(cwd), "action": .string("enable"), "capability": .string("network-client")], client: client)
+        #expect(capsEnable["enabled"]?.boolValue == true)
+        let capsListAfterEnable = try await Self.run("project_capabilities", arguments: ["cwd": .string(cwd), "action": .string("list")], client: client)
+        #expect(stringsOf(capsListAfterEnable, "enabled").contains("network-client"))
+        let capsDisable = try await Self.run("project_capabilities", arguments: ["cwd": .string(cwd), "action": .string("disable"), "capability": .string("app-sandbox")], client: client)
+        #expect(capsDisable["enabled"]?.boolValue == false)
+        await #expect(throws: SystemToolError.executionFailed(tool: "project_capabilities", message: "Capability bogus-capability is not a boolean entitlement capability. Supported: app-sandbox, audio-input, bluetooth, camera, files-downloads-read-only, files-downloads-read-write, files-user-selected-read-only, files-user-selected-read-write, network-client, network-server, printing, usb.")) {
+            try await Self.run("project_capabilities", arguments: ["cwd": .string(cwd), "action": .string("enable"), "capability": .string("bogus-capability")], client: client)
+        }
+
+        let entList = try await Self.run("entitlements_manager", arguments: ["cwd": .string(cwd), "action": .string("list")], client: client)
+        #expect(entList["entitlements"]?["com.apple.security.network.client"]?.boolValue == true)
+        let entAdd = try await Self.run("entitlements_manager", arguments: ["cwd": .string(cwd), "action": .string("add"), "key": .string("com.apple.security.device.camera"), "value": .string("true")], client: client)
+        #expect(entAdd["updated"]?.boolValue == true)
+        let entRemove = try await Self.run("entitlements_manager", arguments: ["cwd": .string(cwd), "action": .string("remove"), "key": .string("com.apple.security.device.camera")], client: client)
+        #expect(entRemove["removed"]?.boolValue == true)
+
+        let colorset = try await Self.run("colorset_builder", arguments: ["cwd": .string(cwd), "name": .string("Accent"), "lightHex": .string("#FF8800")], client: client)
+        #expect(colorset["verified"]?.boolValue == true)
+        #expect(try Self.readText("Assets.xcassets/Accent.colorset/Contents.json", in: tempRoot).contains("1.000"))
+
+        let imageAdded = try await Self.run("asset_image_add", arguments: ["cwd": .string(cwd), "imageName": .string("Hero"), "source": .string("Sources/hero.png")], client: client)
+        #expect(imageAdded["verified"]?.boolValue == true)
+        #expect(imageAdded["set"]?.stringValue == "Assets.xcassets/Hero.imageset")
+
+        let catalogList = try await Self.run("asset_catalog_manager", arguments: ["cwd": .string(cwd), "action": .string("list")], client: client)
+        #expect(stringsOf(catalogList, "catalogs") == ["Assets.xcassets"])
+        let catalogInspect = try await Self.run("asset_catalog_manager", arguments: ["cwd": .string(cwd), "action": .string("inspect"), "name": .string("Logo.imageset")], client: client)
+        #expect(catalogInspect["contents"]?.stringValue?.contains("Logo.png") == true)
+        let createdImageset = try await Self.run("asset_catalog_manager", arguments: ["cwd": .string(cwd), "action": .string("create_imageset"), "name": .string("Badge"), "source": .string("Sources/hero.png")], client: client)
+        #expect(createdImageset["created"]?.boolValue == true)
+        let createdColorset = try await Self.run("asset_catalog_manager", arguments: ["cwd": .string(cwd), "action": .string("create_colorset"), "name": .string("Brand"), "lightHex": .string("#112233"), "darkHex": .string("#445566")], client: client)
+        #expect(createdColorset["created"]?.boolValue == true)
+
+        let catalogs = try await Self.run("asset_catalog_list", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(catalogs["catalogCount"]?.intValue == 1)
+        #expect(catalogs["catalogs"]?.arrayValue?.first?["imageSets"]?.intValue == 3)
+        #expect(catalogs["catalogs"]?.arrayValue?.first?["colorSets"]?.intValue == 2)
+        #expect(catalogs["catalogs"]?.arrayValue?.first?["iconSets"]?.intValue == 1)
+
+        let entries = try await Self.run("entry_points_discover", arguments: ["cwd": .string(cwd), "path": .string("Sources")], client: client)
+        #expect(entries["count"]?.intValue == 2)
+        #expect(entries["entryPoints"]?.arrayValue?.contains { $0["kind"]?.stringValue == "main" && $0["path"]?.stringValue == "Sources/App.swift" } == true)
+        #expect(entries["entryPoints"]?.arrayValue?.contains { $0["kind"]?.stringValue == "mainSwift" && $0["path"]?.stringValue == "Sources/main.swift" } == true)
+
+        let overview = try await Self.run("repo_overview", arguments: ["cwd": .string(cwd)], client: client)
+        #expect((overview["fileCount"]?.intValue ?? 0) >= 15)
+        #expect(overview["hasReadme"]?.boolValue == true)
+        #expect(overview["hasLicense"]?.boolValue == true)
+        #expect(overview["languages"]?.arrayValue?.contains { $0["language"]?.stringValue == "Swift" && ($0["files"]?.intValue ?? 0) >= 4 } == true)
+        #expect((overview["largestFiles"]?.arrayValue?.isEmpty ?? true) == false)
+
+        let structure = try await Self.run("project_structure_map", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(structure["directories"]?.arrayValue?.contains { $0["path"]?.stringValue == "Sources" && ($0["files"]?.intValue ?? 0) >= 3 } == true)
+        #expect(stringsOf(structure, "targets") == ["MyApp"])
+
+        let recent = try await Self.run("recent_changes", arguments: ["cwd": .string(cwd), "hours": .int(24)], client: client)
+        #expect(recent["files"]?.arrayValue?.contains { $0["path"]?.stringValue == "Sources/App.swift" } == true)
+
+        let readme = try await Self.run("readme_locate", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(readme["count"]?.intValue == 1)
+        #expect(readme["readmes"]?.arrayValue?.first?["title"]?.stringValue == "Demo App")
+
+        let licenses = try await Self.run("dependency_licenses", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(licenses["count"]?.intValue == 4)
+        #expect(licenses["hasLicenseFile"]?.boolValue == true)
+        #expect(licenses["dependencies"]?.arrayValue?.contains { $0["name"]?.stringValue == "swift-argument-parser" && $0["source"]?.stringValue == "Package.resolved" } == true)
+        #expect(licenses["dependencies"]?.arrayValue?.contains { $0["name"]?.stringValue == "Alamofire" && $0["source"]?.stringValue == "Podfile.lock" } == true)
+
+        let stale = try await Self.run("stale_files_report", arguments: ["cwd": .string(cwd), "days": .int(1)], client: client)
+        #expect(stale["files"]?.arrayValue?.contains { $0["path"]?.stringValue == "Sources/App.swift" } == false)
+
+        let breakdown = try await Self.run("file_type_breakdown", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(breakdown["types"]?.arrayValue?.contains { $0["extension"]?.stringValue == ".swift" && ($0["files"]?.intValue ?? 0) >= 4 } == true)
+
+        let empty = try await Self.run("empty_dirs_find", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(stringsOf(empty, "emptyDirectories").contains("EmptyDir"))
+
+        let links = try await Self.run("symlink_audit", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(links["count"]?.intValue == 2)
+        #expect(links["brokenCount"]?.intValue == 1)
+        #expect(links["links"]?.arrayValue?.contains { $0["path"]?.stringValue == "Sources/BrokenLink" && $0["broken"]?.boolValue == true } == true)
+        #expect(links["links"]?.arrayValue?.contains { $0["path"]?.stringValue == "Sources/LinkToApp" && $0["broken"]?.boolValue == false } == true)
+
+        let executables = try await Self.run("executable_files_scan", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(executables["executables"]?.arrayValue?.contains { $0["path"]?.stringValue == "Sources/run.sh" } == true)
+
+        let sizes = try await Self.run("dir_size_report", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(sizes["directories"]?.arrayValue?.contains { $0["directory"]?.stringValue == "Sources" } == true)
+        #expect((sizes["totalBytes"]?.intValue ?? 0) > 0)
+
+        let images = try await Self.run("image_asset_size_report", arguments: ["cwd": .string(cwd), "maxKilobytes": .int(1)], client: client)
+        #expect(images["count"]?.intValue == 1)
+        #expect(images["images"]?.arrayValue?.first?["path"]?.stringValue == "Assets.xcassets/Logo.imageset/Logo.png")
+        #expect(images["images"]?.arrayValue?.first?["sizeBytes"]?.intValue == 2048)
+
+        let coreData = try await Self.run("core_data_model_inspector", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(coreData["modelCount"]?.intValue == 1)
+        #expect(coreData["models"]?.arrayValue?.first?["entityCount"]?.intValue == 2)
+        let itemEntity = coreData["models"]?.arrayValue?.first?["entities"]?.arrayValue?.first { $0["name"]?.stringValue == "Item" }
+        #expect(itemEntity?["attributes"]?.arrayValue?.count == 2)
+        #expect(itemEntity?["relationships"]?.arrayValue?.first?["destination"]?.stringValue == "Owner")
+
+        let schema = try await Self.run("swift_data_schema_auditor", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(schema["modelCount"]?.intValue == 2)
+        #expect(schema["issues"]?.arrayValue?.count == 1)
+        #expect(schema["issues"]?.arrayValue?.first?.stringValue?.contains("Owner") == true)
+        #expect(schema["models"]?.arrayValue?.contains { $0["model"]?.stringValue == "Item" && ($0["relationships"]?.arrayValue?.count ?? 0) == 1 } == true)
+
+        let privacy = try await Self.run("privacy_manifest_auditor", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(privacy["tracking"]?.boolValue == false)
+        #expect(privacy["collectedDataTypes"]?.intValue == 1)
+        #expect(privacy["accessedApiTypes"]?.intValue == 2)
+        #expect(privacy["issueCount"]?.intValue == 0)
+
+        let systems = try await Self.run("build_system_detect", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(systems["count"]?.intValue == 5)
+        let systemNames = systems["systems"]?.arrayValue?.compactMap { $0["system"]?.stringValue } ?? []
+        #expect(systemNames.contains("xcodeproj"))
+        #expect(systemNames.contains("SwiftPM"))
+        #expect(systemNames.contains("CocoaPods"))
+        #expect(systemNames.contains("Carthage"))
+        #expect(systemNames.contains("xcodegen"))
+
+        let progress = try await Self.run("session_progress_report", arguments: ["cwd": .string(cwd)], client: client)
+        #expect(progress["found"]?.boolValue == true)
+        #expect(progress["phases"]?.arrayValue?.compactMap { $0["title"]?.stringValue } == ["Setup", "Build"])
+        #expect(progress["failures"]?.arrayValue?.contains { $0.stringValue == "Build failed on first try." } == true)
+
+        let env = try await Self.run("env_info", arguments: [:], client: client)
+        #expect((env["arch"]?.stringValue?.isEmpty ?? true) == false)
+        #expect((env["cpuCount"]?.intValue ?? 0) > 0)
+        #expect((env["physicalMemoryBytes"]?.intValue ?? 0) > 0)
+        #expect((env["hostName"]?.stringValue?.isEmpty ?? true) == false)
+
+        let derived = try await Self.run("derived_data_locate", arguments: ["path": .string(cwd + "/EmptyDD")], client: client)
+        #expect(derived["exists"]?.boolValue == true)
+        #expect(derived["directories"]?.arrayValue?.isEmpty == true)
+        #expect(derived["totalBytes"]?.intValue == 0)
+        #expect(derived["path"]?.stringValue?.hasSuffix("/EmptyDD") == true)
+
+        let envList = try await Self.run("environment_variable_manager", arguments: ["action": .string("list")], client: client)
+        #expect(stringsOf(envList, "keys").contains("PATH"))
+        let envGet = try await Self.run("environment_variable_manager", arguments: ["action": .string("get"), "key": .string("PATH")], client: client)
+        #expect(envGet["found"]?.boolValue == true)
+        #expect((envGet["value"]?.stringValue?.isEmpty ?? true) == false)
+        let envMissing = try await Self.run("environment_variable_manager", arguments: ["action": .string("get"), "key": .string("DEFINITELY_NOT_SET_XYZ")], client: client)
+        #expect(envMissing["found"]?.boolValue == false)
+
+        let lookup = try await Self.run("tool_capability_lookup", arguments: ["tool": .string("read_file")], client: client)
+        #expect(lookup["action"]?.stringValue == "workspace.read_file")
+        #expect(lookup["channel"]?.stringValue == "desktop")
+        #expect(lookup["parameters"]?.arrayValue?.contains { $0["name"]?.stringValue == "cwd" } == true)
+
+        _ = try await Self.run("manage_memory", arguments: ["action": .string("store"), "key": .string("slice14-memory"), "value": .string("remember this"), "scope": .string("test")], client: client)
+        let listed = try await Self.run("manage_memory", arguments: ["action": .string("list"), "scope": .string("test")], client: client)
+        #expect(listed.arrayValue?.contains { $0["key"]?.stringValue == "slice14-memory" && $0["value"]?.stringValue == "remember this" } == true)
+        _ = try await Self.run("manage_memory", arguments: ["action": .string("delete"), "key": .string("slice14-memory"), "scope": .string("test")], client: client)
+        let listedAfterDelete = try await Self.run("manage_memory", arguments: ["action": .string("list"), "scope": .string("test")], client: client)
+        #expect(listedAfterDelete.arrayValue?.contains { $0["key"]?.stringValue == "slice14-memory" } == false)
+
+        let skills = try await Self.run("search_skills", arguments: ["query": .string("system"), "limit": .int(5)], client: client)
+        #expect(skills["searched"]?.stringValue == "bundled SystemAssets index")
+        #expect(skills["results"]?.arrayValue != nil)
+
+        await #expect(throws: SystemToolError.executionFailed(tool: "use_app", message: "use_app action activate has no engine tool; the capability is not implemented.")) {
+            try await Self.run("use_app", arguments: ["threadId": .string("test-thread"), "action": .string("activate")], client: client)
+        }
+
+        await client.close()
+    }
+
+    @Test("Slice 14: invalid Slice 14 arguments are refused before any runtime call")
+    func sliceFourteenValidationRefused() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+
+        await #expect(throws: SystemToolError.missingArgument(tool: "package_dependency_add", argument: "url")) {
+            try await Self.run("package_dependency_add", arguments: ["cwd": .string(cwd), "version": .string("1.0.0")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "package_dependency_add", message: "package_dependency_add url must be an https or git@ URL.")) {
+            try await Self.run("package_dependency_add", arguments: ["cwd": .string(cwd), "url": .string("ftp://example.com/x.git"), "version": .string("1.0.0")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "colorset_builder", message: "Color hex must be #RRGGBB, for example #FF8800.")) {
+            try await Self.run("colorset_builder", arguments: ["cwd": .string(cwd), "name": .string("Bad"), "lightHex": .string("#XYZ")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "strings_localization", message: "strings_localization action must be get, set, or delete.")) {
+            try await Self.run("strings_localization", arguments: ["cwd": .string(cwd), "path": .string("en.lproj/Localizable.strings"), "action": .string("bogus"), "key": .string("welcome")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "environment_variable_manager", message: "environment_variable_manager action must be list or get. The process environment cannot be mutated by a tool; use a terminal export instead.")) {
+            try await Self.run("environment_variable_manager", arguments: ["action": .string("set"), "key": .string("FOO"), "value": .string("bar")], client: client)
+        }
+        await #expect(throws: SystemToolError.missingArgument(tool: "manage_memory", argument: "confirm")) {
+            try await Self.run("manage_memory", arguments: ["action": .string("clear"), "scope": .string("test")], client: client)
+        }
+        await #expect(throws: SystemToolError.missingArgument(tool: "use_app", argument: "action")) {
+            try await Self.run("use_app", arguments: ["threadId": .string("test-thread")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "fetch_documentation", message: "fetch_documentation url must be an https URL on developer.apple.com.")) {
+            try await Self.run("fetch_documentation", arguments: ["threadId": .string("test-thread"), "url": .string("https://example.com/x")], client: client)
+        }
+        await #expect(throws: SystemToolError.missingArgument(tool: "fetch_documentation", argument: "query")) {
+            try await Self.run("fetch_documentation", arguments: ["threadId": .string("test-thread")], client: client)
+        }
+        await #expect(throws: SystemToolError.missingArgument(tool: "github_repo", argument: "owner")) {
+            try await Self.run("github_repo", arguments: ["threadId": .string("test-thread"), "operation": .string("repository_info")], client: client)
+        }
+        await #expect(throws: SystemToolError.executionFailed(tool: "localization_manager", message: "localization_manager add path must end in .strings or .xcstrings.")) {
+            try await Self.run("localization_manager", arguments: ["cwd": .string(cwd), "action": .string("add"), "key": .string("x"), "value": .string("y"), "path": .string("notes.txt")], client: client)
+        }
+
+        await client.close()
+    }
 
 }

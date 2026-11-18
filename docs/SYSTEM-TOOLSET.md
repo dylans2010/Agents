@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 265 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 326 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -51,9 +51,9 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
 
-## The 265-tool registry
+## The 326-tool registry
 
-Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 265 tools, 54 distinct actions: several tools share one action (`workspace.write_file` x33, `computer_use.request` x21, `terminal.create` x49, `workspace.read_file` x45, `workspace.read_dir` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `workspace.search_regex` x35, `workspace.files` x3, `workspace.search` x3, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.store` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, plus 31 single-tool actions).
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 326 tools, 63 distinct actions: several tools share one action (`workspace.read_file` x58, `terminal.create` x58, `workspace.write_file` x44, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x5, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x3, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 38 single-tool actions).
 
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
@@ -322,6 +322,67 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `api_docs_coverage` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
 | `markdown_link_check` | `workspace.read_file` | desktop | Swift read-and-parse composition over `readWorkspaceFile` + Rust `read_text_file_at` arm |
 | `docs_index_build` | `workspace.files` | desktop | Swift list-and-read composition over `listWorkspaceFiles` + Rust `read_dir_entries` arm |
+| `framework_linker_auditor` | `workspace.read_file` | desktop | Swift pbxproj text parse for linked frameworks (weak flag), SDKROOT, deployment targets |
+| `string_catalog_migrator` | `workspace.write_file` | desktop | Swift `.strings` pair parse -> new `.xcstrings` JSON, verified by re-read; `.stringsdict` skipped with reason |
+| `symbol_reference_graph` | `workspace.search_regex` | desktop | FFI regex search for declarations + word references, path-scoped |
+| `podfile_inspector` | `workspace.read_file` | desktop | Swift Podfile + Podfile.lock PODS parse |
+| `carthage_cartfile_inspector` | `workspace.read_file` | desktop | Swift Cartfile + Cartfile.resolved parse |
+| `spm_dependency_tree` | `terminal.create` | engine | Engine terminal `swift package show-dependencies --format json` |
+| `package_manifest_read` | `workspace.read_file` | desktop | Swift Package.swift regex parse (name/platforms/products/targets/dependencies) |
+| `package_manifest_validate` | `terminal.create` | engine | Engine terminal `swift package dump-package` |
+| `package_dependency_audit` | `terminal.create` | engine | Engine terminal manifest vs Package.resolved vs `show-dependencies` comparison |
+| `package_dependency_add` | `workspace.write_file` | desktop | Swift Package.swift text insert of `.package(url:from:)` + optional `.product` wiring, verified on re-read |
+| `asset_catalog_list` | `workspace.files` | desktop | Swift recursive directory listing, counted by `.imageset`/`.colorset`/`.appiconset` suffix |
+| `asset_image_add` | `workspace.write_file` | desktop | Swift FFI copy into a new `.imageset` + generated Contents.json, verified by re-read |
+| `strings_localization` | `workspace.write_file` | desktop | Swift `.strings` pair rewrite or `.xcstrings` JSON edit via JSONValue |
+| `localization_audit` | `workspace.read_file` | desktop | Swift `.strings` + `.xcstrings` key sets vs Swift source references |
+| `localize_app` | `workspace.write_file` | desktop | Swift NSLocalizedString/String(localized:) key discovery, merges root Localizable.xcstrings, sets Info.plist CFBundleLocalizations + CFBundleDevelopmentRegion |
+| `asset_catalog_manager` | `workspace.write_file` | desktop | Swift list/inspect/create_imageset/create_colorset over the real `.xcassets` tree |
+| `localization_manager` | `workspace.write_file` | desktop | Swift list/extract/add over `.strings` + `.xcstrings`; validate delegates to the G5 strings validator |
+| `entitlements_manager` | `workspace.write_file` | desktop | Swift plist read/write via PropertyListSerialization |
+| `colorset_builder` | `workspace.write_file` | desktop | Swift `.colorset` Contents.json from #RRGGBB components, verified by re-read |
+| `icon_generator_tool` | `terminal.create` | engine | Engine terminal real `sips -Z` resize per size + generated Contents.json |
+| `project_entitlements` | `workspace.read_file` | desktop | Swift plist read via PropertyListSerialization |
+| `project_info_plist` | `workspace.write_file` | desktop | Swift plist read/write via PropertyListSerialization |
+| `project_capabilities` | `workspace.write_file` | desktop | Swift plist read/write; only the 11 boolean entitlement capabilities are rewritten |
+| `project_signing` | `terminal.create` | engine | Swift pbxproj signing parse; optional `xcodebuild -showBuildSettings -scheme` when a scheme is given |
+| `entry_points_discover` | `workspace.search_regex` | desktop | FFI `@main` + AppDelegate/SceneDelegate regex + main.swift discovery |
+| `repo_overview` | `workspace.files` | desktop | Swift recursive listing, language counts by extension, README/LICENSE presence, 10 largest files |
+| `project_structure_map` | `workspace.read_dir` | desktop | Swift recursive listing, file counts per directory + pbxproj targets |
+| `recent_changes` | `workspace.read_dir` | desktop | Swift recursive listing filtered by modifiedAt |
+| `readme_locate` | `workspace.read_file` | desktop | Swift recursive listing for README* + first `# ` title |
+| `dependency_licenses` | `workspace.read_file` | desktop | Swift Package.resolved + Podfile.lock parse (name/version/source; license text is not in those files) |
+| `stale_files_report` | `workspace.read_dir` | desktop | Swift recursive listing, source files older than N days by modifiedAt |
+| `file_type_breakdown` | `workspace.files` | desktop | Swift recursive listing, counts + bytes per extension |
+| `empty_dirs_find` | `workspace.read_dir` | desktop | Swift recursive listing, directories with no children |
+| `symlink_audit` | `workspace.read_dir` | desktop | Swift recursive listing, isSymlink + broken-target check via FileManager |
+| `executable_files_scan` | `workspace.read_dir` | desktop | Swift recursive listing filtered by isExecutable |
+| `dir_size_report` | `workspace.read_dir` | desktop | Swift recursive listing, summed sizeBytes per top-level directory |
+| `image_asset_size_report` | `workspace.read_dir` | desktop | Swift recursive listing, images under `.xcassets/` over the size threshold |
+| `bundle_resource_auditor` | `workspace.read_file` | desktop | Swift pbxproj resource phases vs real files |
+| `core_data_model_inspector` | `workspace.read_file` | desktop | Swift `.xcdatamodel/contents` XML parse (entities/attributes/relationships) |
+| `swift_data_schema_auditor` | `workspace.read_file` | desktop | Swift `@Model`/`@Relationship`/`@Attribute(.unique)` scan |
+| `privacy_manifest_auditor` | `workspace.read_file` | desktop | Swift PrivacyInfo.xcprivacy plist audit only (never edits) |
+| `env_info` | `system.info` | desktop | Swift ProcessInfo + utsname in-process |
+| `process_monitor_tool` | `terminal.create` | engine | Engine terminal `/bin/ps -ax -o pid=,pcpu=,pmem=,comm=` |
+| `disk_space_analyzer` | `terminal.create` | engine | Engine terminal `df -k` + `du -sk` |
+| `environment_variable_manager` | `system.env` | desktop | Swift ProcessInfo.processInfo.environment in-process (list/get only; set is refused) |
+| `clipboard_manager_tool` | `system.clipboard` | desktop | Swift NSPasteboard.general |
+| `system_notification_tool` | `system.notify` | desktop | Swift UNUserNotificationCenter fire-and-forget (delivery needs launch-time authorization) |
+| `use_system` | `terminal.create` | engine | Engine terminal fixed-argv ps/ifconfig/lsof/log/launchctl/defaults/sysctl; allow-listed only |
+| `search_skills` | `system.skills` | desktop | Swift SystemAssetManager.shared.search over the bundled SystemAssets index only |
+| `plan-AskUser` | `agent.pending` | engine | Engine RPC `agent.pending` list / `agent.answer` submit; does not present a question or suspend the turn |
+| `tool_capability_lookup` | `system.lookup` | desktop | Swift SystemToolRegistry.definition(named:for:) in-process |
+| `preflight_checks` | `terminal.create` | engine | Engine terminal writable probe + `xcodebuild -version` + disk space + artifact-storage probe |
+| `session_progress_report` | `workspace.read_file` | desktop | Swift read of agent_notes.md (`## ` phases, "fail" lines) + workers.list when a threadId is given |
+| `manage_memory` | `memory.store` | desktop | Swift SQLite KV via AgentsRuntimeClient memoryStore/Retrieve/List/Delete/Clear (no sections, no UserMemory.md) |
+| `fetch_documentation` | `web.fetch` | desktop | Swift URLSession GET, developer.apple.com only, returns raw page text |
+| `external_resource_gateway` | `web.fetch` | desktop | Swift URLSession https-only JSON GET, 30 s, non-2xx fails |
+| `read_url_content` | `web.fetch` | desktop | Swift URLSession https-only text GET |
+| `github_repo` | `github.repo` | engine | Engine terminal real `gh` CLI (repo view, contents API, code search, tarball fetch) |
+| `use_app` | `computer_use.request` | engine | Swift dispatch of the 20 real computer-use tools only; the 9 missing actions error honestly |
+| `derived_data_locate` | `system.info` | desktop | Swift FileManager enumeration of ~/Library/Developer/Xcode/DerivedData with recursive sizes |
+| `build_system_detect` | `workspace.files` | desktop | Swift recursive listing for xcworkspace/xcodeproj/SwiftPM/CocoaPods/Carthage/Tuist/xcodegen/Bazel/CMake markers |
 
 ### Slice 10: Git completion, snapshots, and aliases
 
@@ -585,6 +646,62 @@ left unimplemented and none was already registered.
   265 with the full name list. No build or test run was performed in this
   environment; the tests are written, not executed.
 
+### Slice 14: G5 part 2 — Apple formats + repo intelligence + system/lookup/workflow
+
+61 new tools, taking the registry from 265 to 326 tools; distinct actions
+54 -> 63 with 9 new actions (`system.lookup`, `system.skills`,
+`system.info`, `system.env`, `system.clipboard`, `system.notify`,
+`agent.pending`, `web.fetch`, `github.repo`). All 61 G5 part 2 tools
+landed; none was left unimplemented. `file_checksum_verifier` was already
+registered in Slice 11, so it is skipped, not double-registered.
+
+- Count correction: the slice was scoped as 61 tools (24 + 17 + 20), but
+  the system/lookup/workflow list enumerates 21 names, so the lists name
+  62; minus the already-registered `file_checksum_verifier`, the true new
+  count is 61. The registry therefore goes 265 -> 326.
+- Three prior-decision conflicts, resolved by reading the code (see the
+  superseded notes below):
+  - `search_skills` IS registered. `SystemAssetIndex.search` indexes the
+    bundled SystemAssets and `SystemAssetManager.shared.search` is the real
+    primitive; the tool's description says exactly that it searches only
+    the bundled SystemAssets index, never an external skills library. This
+    supersedes the Slice 10 note that claimed no skills-library backend
+    exists.
+  - `manage_memory` IS registered as a SQLite KV dispatcher
+    (store/edit/append/delete/clear/list via the runtime memory client;
+    no sections, no `UserMemory.md` file — that file does not exist
+    anywhere in the Swift code). This supersedes the Slice 3 note.
+  - `use_app` IS registered in narrowed form: it dispatches only the 20
+    real computer-use actions and errors honestly on the 9 missing ones
+    (`activate`, `close_application`, `select_window`,
+    `get_focused_element`, `select_all`, `copy`, `paste`,
+    `wait_for_element`, `wait_for_window`).
+  - `plan-AskUser` IS registered in narrowed form: the async-question
+    machinery lists and answers pending provider questions
+    (`agent.pending` / `agent.answer`); there is no 300 s suspension wired
+    through the provider turn, and the tool does not present a new
+    question or suspend the turn.
+- Swift/Rust shape divergences (deliberate, both sides real): the Rust
+  `symbol_reference_graph` / `entry_points_discover` omit the `column`
+  field (the Rust regex helper returns path/line/text only); the Rust
+  `manage_memory` list returns the engine result as-is while Swift maps
+  entries to {key, scope, value, updatedAt} objects; the Rust
+  `search_skills` is a token scorer over SystemAssets files while Swift
+  uses the real `SystemAssetManager` index.
+- Bug fixes in this slice: `g6DiskSpace` took the mount point from the
+  `iused` column of `df` output; it now takes columns 8+ like the Rust
+  side. `colorset_builder` verified by checking the written Contents.json
+  for the hex string, which the file never contains (it holds float
+  components); it now verifies against the formatted red component.
+  `G6Manifest` and `G6IconSize` are internal (not private) so the parser
+  tests can call them via `@testable`.
+- Tests: four new `@Test` functions in `AgentsTests/ToolsetTests.swift`
+  (registration of all 61 with actions and channels; pure-parser unit
+  tests; round-trips against a real temp workspace with known fixtures;
+  missing-argument / invalid-value refusals). The MCP integration test
+  now asserts 326 with the full name list. No build or test run was
+  performed in this environment; the tests are written, not executed.
+
 ## The MCP server
 
 `Rust Backend/crates/coincide-mcp-server/` is a standalone stdio binary
@@ -603,7 +720,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 265-tool registry, with the same names, descriptions,
+- `tools/list` — the real 326-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -924,15 +1041,17 @@ What is enforced for real in this slice:
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 13, 265 tools are real. These catalog tools are NOT
+registry. After slice 14, 326 tools are real. These catalog tools are NOT
 implemented, and why:
 
 - Memory (`manage_memory`, `conversation_context_manager`):
-  not registered as separate tools. `save_to_memory` is now real as
-  `memory.store`. `manage_memory` describes writing to a `UserMemory.md`
-  file, which does not exist in this repo; its real function is covered by
-  `mem_store`, `mem_delete`, and `mem_clear` against the SQLite memory
-  store. `conversation_context_manager` describes a per-conversation
+  `manage_memory` is now real (Slice 14) as a SQLite KV dispatcher —
+  store/edit/append/delete/clear/list via the runtime memory client. It
+  has no sections and no `UserMemory.md` file; the Slice 3 note saying it
+  was unimplemented because that file does not exist is superseded — the
+  file still does not exist, and the tool does not pretend it does.
+  `save_to_memory` is now real as `memory.store`.
+  `conversation_context_manager` describes a per-conversation
   context file; no such file backend exists, so it is unavailable.
   `mem_store`, `mem_retrieve`, `mem_clear`, `mem_context_snapshot`,
   `context_persistence_store`, and `view_memory` are real — see the
@@ -947,20 +1066,23 @@ implemented, and why:
   calls.
 - Computer use (`use_app`, `take_screenrecord`): `take_screenshot` is now
   real as `computer_use.request` (`get_desktop_state` with
-  `include_screenshot`). `use_app` has no engine tool. The real 21
-  computer-use tools are wired — see the Enforcement boundary above.
-  `take_screenrecord` needs a whole new ScreenCaptureKit recorder and is
-  unavailable.
+  `include_screenshot`). `use_app` is now real (Slice 14) in narrowed
+  form: it dispatches only the 20 real computer-use actions and errors
+  honestly on the 9 missing ones (`activate`, `close_application`,
+  `select_window`, `get_focused_element`, `select_all`, `copy`, `paste`,
+  `wait_for_element`, `wait_for_window`) — see the Enforcement boundary
+  above. `take_screenrecord` needs a whole new ScreenCaptureKit recorder
+  and is unavailable.
 - Artboards ×8, `use_extension`, `reverse_analyze`, `use_composio`,
   `report_to_user`: whole subsystems or external services that do not
   exist in this repo. Out of scope for the 10-hour program.
-  `search_skills` is not a registered tool either: the catalog's indexed
-  skills library does not exist in this repo. What exists is the composer
+  `search_skills` is now real (Slice 14): it searches only the bundled
+  SystemAssets index via `SystemAssetManager.shared.search` — the
+  catalog's indexed skills library does not exist in this repo, and the
+  tool never claims otherwise. This supersedes the Slice 10 note that
+  said no skills-library backend exists. What also exists is the composer
   `$` skills picker (`composer_suggestions.rs`, skills reported by agent
-  sessions) and the SystemAssets `Skills.md` discovery discipline; the
-  catalog function is reachable by `search_text` / `file_read` composition
-  over workspace `SKILL.md` files, but there is no skills-library backend,
-  so it is not claimed as implemented.
+  sessions) and the SystemAssets `Skills.md` discovery discipline.
 - LLM tools (`intel_autofix`, `intel_generate_tests`, `intel_explain_code`,
   `code_review`, `task_runner`): there is no LLM client in the core. Out of
   scope.
@@ -978,7 +1100,7 @@ implemented, and why:
   `git.worktrees.useExisting`, but the Swift checkout action enum exposes
   only local/new/previous worktrees, so the Worktrees card is a read-only
   list until that action is wired.
-- Everything else in the catalog (~182 IDs) stays PARTIAL: reachable in
+- Everything else in the catalog (~121 IDs) stays PARTIAL: reachable in
   principle via the real terminal RPC or read/write/search composition, but
   not tool-shaped, and not claimed as implemented. The heuristic
   "intelligence" tools (`complexity_analysis`, `autonomous_review_engine`,

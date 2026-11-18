@@ -5647,6 +5647,1910 @@ pub static DEFINITIONS: &[ToolDef] = &[
             },
         ],
     },
+    ToolDef {
+        name: "framework_linker_auditor",
+        description: "Audits linked frameworks from the pbxproj against target platforms and weak-linking flags. Text parsing of the project file.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to project.pbxproj. Defaults to the first project.pbxproj found.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "string_catalog_migrator",
+        description: "Migrates legacy .strings and .stringsdict files into a modern .xcstrings catalog, then verifies the catalog by re-reading it.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to migrate, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "sourceLanguage",
+                kind: "string",
+                required: false,
+                description: "Source language for the catalog. Defaults to en.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "symbol_reference_graph",
+        description: "Finds definitions and reference sites of one symbol across Swift sources. Regex scan, not semantic analysis.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "symbol",
+                kind: "string",
+                required: true,
+                description: "Symbol name to trace.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum reference sites to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "podfile_inspector",
+        description: "Parses and validates CocoaPods Podfile dependencies and target integrations, with versions from Podfile.lock when present.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to the Podfile. Defaults to the first Podfile found.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "carthage_cartfile_inspector",
+        description: "Inspects Carthage Cartfile and Cartfile.resolved dependencies with their resolved versions.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to the Cartfile. Defaults to the first Cartfile found.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "spm_dependency_tree",
+        description: "Computes the resolved SwiftPM dependency graph from swift package show-dependencies JSON output.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Package directory relative to the working directory. Defaults to the workspace root.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "package_manifest_read",
+        description: "Parses Package.swift: name, platforms, products, targets, and dependencies. Text parsing, no swift invocation.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to Package.swift. Defaults to Package.swift in the workspace root.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "package_manifest_validate",
+        description: "Validates Package.swift with swift package dump-package: exit code plus name and target count from the parsed manifest.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Package directory relative to the working directory. Defaults to the workspace root.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "package_dependency_audit",
+        description: "Audits Package.swift against Package.resolved: manifest dependencies missing from resolved, non-exact requirements, and resolved pins missing from the manifest.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Package directory relative to the working directory. Defaults to the workspace root.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "package_dependency_add",
+        description: "Inserts a .package(url:from:) dependency into Package.swift with optional product and target wiring, then verifies on re-read.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "url",
+                kind: "string",
+                required: true,
+                description: "Package repository URL.",
+            },
+            ToolParam {
+                name: "version",
+                kind: "string",
+                required: true,
+                description: "Minimum version for from:.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to Package.swift. Defaults to Package.swift in the workspace root.",
+            },
+            ToolParam {
+                name: "product",
+                kind: "string",
+                required: false,
+                description: "Product name to wire into a target.",
+            },
+            ToolParam {
+                name: "target",
+                kind: "string",
+                required: false,
+                description: "Target name to wire the product into.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "asset_catalog_list",
+        description: "Enumerates .xcassets catalogs with image, color, icon, dataset, and symbol sets plus counts.",
+        action: "workspace.files",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "asset_image_add",
+        description: "Creates an imageName.imageset with a valid Contents.json and copies a workspace image into it, verified on re-read.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "imageName",
+                kind: "string",
+                required: true,
+                description: "Image set name without the .imageset suffix.",
+            },
+            ToolParam {
+                name: "source",
+                kind: "string",
+                required: true,
+                description: "Workspace image file to copy, relative to the working directory.",
+            },
+            ToolParam {
+                name: "catalog",
+                kind: "string",
+                required: false,
+                description: "Relative path to the .xcassets catalog. Defaults to the first catalog found.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "strings_localization",
+        description: "Gets, sets, or deletes one localization key in a .strings or .xcstrings file, per locale.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: true,
+                description: "Relative path to the .strings or .xcstrings file.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: get, set, or delete.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: true,
+                description: "Localization key.",
+            },
+            ToolParam {
+                name: "value",
+                kind: "string",
+                required: false,
+                description: "Value for set.",
+            },
+            ToolParam {
+                name: "locale",
+                kind: "string",
+                required: false,
+                description: "Locale code for .xcstrings. Defaults to the catalog source language.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "localization_audit",
+        description: "Reports missing keys per locale and keys never referenced in Swift sources.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to audit, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum findings to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "localize_app",
+        description: "Localizes an app: discovers NSLocalizedString keys in Swift, creates or merges Localizable.xcstrings with per-locale state, and sets Info.plist CFBundleLocalizations and CFBundleDevelopmentRegion.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: localize, status, or set_development_region.",
+            },
+            ToolParam {
+                name: "languages",
+                kind: "array",
+                required: false,
+                description: "Target language codes for localize, at most 3.",
+            },
+            ToolParam {
+                name: "translations",
+                kind: "array",
+                required: false,
+                description: "Translations for localize, each with locale, key, and value.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "developmentRegion",
+                kind: "string",
+                required: false,
+                description: "Development region code for set_development_region.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "asset_catalog_manager",
+        description: "Inspects, manages, and creates .xcassets catalogs, color sets, and image sets.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: list, inspect, create_imageset, or create_colorset.",
+            },
+            ToolParam {
+                name: "catalog",
+                kind: "string",
+                required: false,
+                description: "Relative path to the .xcassets catalog. Defaults to the first catalog found.",
+            },
+            ToolParam {
+                name: "name",
+                kind: "string",
+                required: false,
+                description: "Set name for inspect and create actions.",
+            },
+            ToolParam {
+                name: "source",
+                kind: "string",
+                required: false,
+                description: "Workspace image file to copy for create_imageset.",
+            },
+            ToolParam {
+                name: "lightHex",
+                kind: "string",
+                required: false,
+                description: "Light-mode hex color for create_colorset.",
+            },
+            ToolParam {
+                name: "darkHex",
+                kind: "string",
+                required: false,
+                description: "Dark-mode hex color for create_colorset.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "localization_manager",
+        description: "Inspects, extracts, adds translations to, and validates .strings and .xcstrings catalogs.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: list, extract, add, or validate.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to manage, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: false,
+                description: "Localization key for add.",
+            },
+            ToolParam {
+                name: "value",
+                kind: "string",
+                required: false,
+                description: "Translation value for add.",
+            },
+            ToolParam {
+                name: "locale",
+                kind: "string",
+                required: false,
+                description: "Locale code for add to .xcstrings.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "entitlements_manager",
+        description: "Inspects, adds, or removes App Sandbox, Network Client and Server, and security entitlements in .entitlements plists.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: list, add, or remove.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to the .entitlements file. Defaults to the first one found.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: false,
+                description: "Entitlement key for add and remove.",
+            },
+            ToolParam {
+                name: "value",
+                kind: "string",
+                required: false,
+                description: "Value for add: true, false, or a string.",
+            },
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: false,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "colorset_builder",
+        description: "Generates a .colorset asset catalog JSON with light and dark mode hex definitions.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "name",
+                kind: "string",
+                required: true,
+                description: "Color set name without the .colorset suffix.",
+            },
+            ToolParam {
+                name: "lightHex",
+                kind: "string",
+                required: true,
+                description: "Light-mode hex color, for example #FF8800.",
+            },
+            ToolParam {
+                name: "catalog",
+                kind: "string",
+                required: false,
+                description: "Relative path to the .xcassets catalog. Defaults to the first catalog found.",
+            },
+            ToolParam {
+                name: "darkHex",
+                kind: "string",
+                required: false,
+                description: "Dark-mode hex color. Defaults to the light hex.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "icon_generator_tool",
+        description: "Generates a complete AppIcon set for iOS, macOS, or watchOS from source artwork with real sips resizing.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "source",
+                kind: "string",
+                required: true,
+                description: "Source artwork file, relative to the working directory.",
+            },
+            ToolParam {
+                name: "output",
+                kind: "string",
+                required: true,
+                description: "Destination .appiconset directory, relative to the working directory.",
+            },
+            ToolParam {
+                name: "platform",
+                kind: "string",
+                required: false,
+                description: "Platform: ios, macos, or watchos. Defaults to ios.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_entitlements",
+        description: "Parses .entitlements files and returns their keys and values.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to the .entitlements file. Defaults to the first one found.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_info_plist",
+        description: "Gets, sets, or deletes Info.plist keys with real plist serialization.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: get, set, or delete.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to the plist. Defaults to the first Info.plist found.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: false,
+                description: "Plist key for get, set, and delete.",
+            },
+            ToolParam {
+                name: "value",
+                kind: "string",
+                required: false,
+                description: "Value for set: true, false, a number, or a string.",
+            },
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: false,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_capabilities",
+        description: "Lists, enables, or disables Xcode capabilities backed by boolean entitlements. Array-valued capabilities are reported, not silently rewritten.",
+        action: "workspace.write_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: list, enable, or disable.",
+            },
+            ToolParam {
+                name: "capability",
+                kind: "string",
+                required: false,
+                description: "Capability name for enable and disable, for example app-sandbox or network-client.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to the .entitlements file. Defaults to the first one found.",
+            },
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: false,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_signing",
+        description: "Reports CODE_SIGN_STYLE, DEVELOPMENT_TEAM, and bundle ID from the pbxproj plus provisioning profile filenames, never profile contents.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to project.pbxproj. Defaults to the first project.pbxproj found.",
+            },
+            ToolParam {
+                name: "scheme",
+                kind: "string",
+                required: false,
+                description: "Scheme to query with xcodebuild -showBuildSettings. Defaults to pbxproj text parsing only.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "entry_points_discover",
+        description: "Finds application entry points: @main types, main.swift files, and AppDelegate and SceneDelegate classes.",
+        action: "workspace.search_regex",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum entry points to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "repo_overview",
+        description: "Summarizes the repository: file counts by language, README and license presence, and largest files.",
+        action: "workspace.files",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to summarize, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "project_structure_map",
+        description: "Builds a machine-readable map of directories with file counts plus Xcode targets from the pbxproj.",
+        action: "workspace.read_dir",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to map, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "recent_changes",
+        description: "Lists files modified within the last N hours, newest first, from real file modification times.",
+        action: "workspace.read_dir",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "hours",
+                kind: "integer",
+                required: false,
+                description: "Look-back window in hours. Defaults to 24.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum files to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "readme_locate",
+        description: "Finds README files with their title lines.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to search, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "dependency_licenses",
+        description: "Inventories third-party dependencies from Package.resolved and Podfile.lock for license review, with name, version, and source.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to inventory, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "stale_files_report",
+        description: "Reports source files not modified in a long time, from real file modification times.",
+        action: "workspace.read_dir",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "days",
+                kind: "integer",
+                required: false,
+                description: "Staleness threshold in days. Defaults to 180.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum files to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "file_type_breakdown",
+        description: "Reports file counts and bytes per extension across the workspace.",
+        action: "workspace.files",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to analyze, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "empty_dirs_find",
+        description: "Finds empty directories, candidates for cleanup.",
+        action: "workspace.read_dir",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to search, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "symlink_audit",
+        description: "Lists symbolic links with their targets, flagging broken links.",
+        action: "workspace.read_dir",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to audit, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "executable_files_scan",
+        description: "Lists files with the executable bit set, from real file metadata.",
+        action: "workspace.read_dir",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "dir_size_report",
+        description: "Reports recursive disk usage per subdirectory, largest first, from real file sizes.",
+        action: "workspace.read_dir",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to analyze, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum directories to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "image_asset_size_report",
+        description: "Reports oversized images inside .xcassets catalogs, from real file sizes.",
+        action: "workspace.read_dir",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to scan, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "maxKilobytes",
+                kind: "integer",
+                required: false,
+                description: "Size threshold in kilobytes. Defaults to 500.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "bundle_resource_auditor",
+        description: "Scans target app bundles for missing, duplicated, or bloated resources from pbxproj resource phases and real files.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to project.pbxproj. Defaults to the first project.pbxproj found.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "core_data_model_inspector",
+        description: "Inspects Core Data .xcdatamodeld models: entities, attributes, and relationships.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to inspect, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "swift_data_schema_auditor",
+        description: "Audits SwiftData @Model declarations, relationships, and uniqueness constraints in Swift sources.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory to audit, relative to the working directory. Defaults to the whole workspace.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum findings to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "privacy_manifest_auditor",
+        description: "Audits PrivacyInfo.xcprivacy for required reasons APIs and tracking declarations. Audit only; it does not edit the manifest.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to PrivacyInfo.xcprivacy. Defaults to the first one found.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "env_info",
+        description: "Reports runtime facts from the live process: macOS version, CPU count, physical memory, hostname, and uptime.",
+        action: "system.info",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: false,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "process_monitor_tool",
+        description: "Monitors running processes with CPU and memory consumption from real ps output, with an optional name filter.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: false,
+                description: "Absolute working directory for the terminal. Defaults to the thread working directory.",
+            },
+            ToolParam {
+                name: "filter",
+                kind: "string",
+                required: false,
+                description: "Substring filter for process names.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum processes to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "disk_space_analyzer",
+        description: "Checks disk usage with real df and du output for the workspace and a chosen path.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Path to measure, relative to the working directory. Defaults to the workspace root.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "environment_variable_manager",
+        description: "Lists and reads process environment variables from the live process. The process environment cannot be mutated by a tool; set is refused with an honest error.",
+        action: "system.env",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: list or get.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: false,
+                description: "Variable name for get.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "clipboard_manager_tool",
+        description: "Reads, writes, or clears the macOS system clipboard through NSPasteboard.",
+        action: "system.clipboard",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: read, write, or clear.",
+            },
+            ToolParam {
+                name: "text",
+                kind: "string",
+                required: false,
+                description: "Text for write.",
+            },
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: false,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "system_notification_tool",
+        description: "Posts a macOS user notification for task completions and build events through UNUserNotificationCenter.",
+        action: "system.notify",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "title",
+                kind: "string",
+                required: true,
+                description: "Notification title.",
+            },
+            ToolParam {
+                name: "body",
+                kind: "string",
+                required: false,
+                description: "Notification body.",
+            },
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: false,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "use_system",
+        description: "Native macOS system diagnostics plus one authorized user-level mutation. Diagnostics use fixed commands only; user_defaults_write requires confirm and verifies by read-back.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "operation",
+                kind: "string",
+                required: true,
+                description: "Operation: system_info, dev_environment, process_list, network_interfaces, listening_sockets, connectivity, disk_info, system_log, service_status, config_read, or user_defaults_write.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: false,
+                description: "Absolute working directory for disk_info. Defaults to the thread working directory.",
+            },
+            ToolParam {
+                name: "filter",
+                kind: "string",
+                required: false,
+                description: "Name filter for process_list.",
+            },
+            ToolParam {
+                name: "interface",
+                kind: "string",
+                required: false,
+                description: "Interface name for network_interfaces.",
+            },
+            ToolParam {
+                name: "host",
+                kind: "string",
+                required: false,
+                description: "Host for connectivity.",
+            },
+            ToolParam {
+                name: "port",
+                kind: "integer",
+                required: false,
+                description: "Port for connectivity.",
+            },
+            ToolParam {
+                name: "minutes",
+                kind: "integer",
+                required: false,
+                description: "Look-back minutes for system_log.",
+            },
+            ToolParam {
+                name: "predicate",
+                kind: "string",
+                required: false,
+                description: "Log predicate for system_log.",
+            },
+            ToolParam {
+                name: "sysctlName",
+                kind: "string",
+                required: false,
+                description: "Allowlisted sysctl name for config_read.",
+            },
+            ToolParam {
+                name: "domain",
+                kind: "string",
+                required: false,
+                description: "Defaults domain for user_defaults_write.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: false,
+                description: "Defaults key for user_defaults_write.",
+            },
+            ToolParam {
+                name: "value",
+                kind: "string",
+                required: false,
+                description: "Scalar value for user_defaults_write.",
+            },
+            ToolParam {
+                name: "valueType",
+                kind: "string",
+                required: false,
+                description: "Value type for user_defaults_write: string, bool, or int. Defaults to string.",
+            },
+            ToolParam {
+                name: "confirm",
+                kind: "boolean",
+                required: false,
+                description: "Must be true for user_defaults_write.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "search_skills",
+        description: "Searches the bundled SystemAssets index of shipped guidance documents by title, filename, section, and text. It searches only that bundled index, never an external skills library.",
+        action: "system.skills",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "query",
+                kind: "string",
+                required: true,
+                description: "Search query.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum results. Defaults to 8, at most 20.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "plan-AskUser",
+        description: "Lists pending provider questions for a thread and submits answers to them. It does not present a new question to the user and does not suspend the turn; no 300 second suspension is wired.",
+        action: "agent.pending",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "requestId",
+                kind: "string",
+                required: false,
+                description: "Pending request ID to answer. Omit to list pending questions.",
+            },
+            ToolParam {
+                name: "answers",
+                kind: "array",
+                required: false,
+                description: "Answers for requestId, each with questionId and an answers array of strings.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "tool_capability_lookup",
+        description: "Live registry lookup: description, action, channel, and parameters of any registered system tool.",
+        action: "system.lookup",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "tool",
+                kind: "string",
+                required: true,
+                description: "Tool name to look up.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "preflight_checks",
+        description: "Runs environment checks before a build: workspace writable, Xcode tools present, disk space, and artifact storage.",
+        action: "terminal.create",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "session_progress_report",
+        description: "Reports engineering phases from agent_notes.md with worker status and the last agent-notes save time.",
+        action: "workspace.read_file",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: false,
+                description: "Parent thread ID to include worker status for.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Relative path to agent_notes.md. Defaults to .assist_temp/artifacts/agent_notes.md.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "manage_memory",
+        description: "Manages entries in the SQLite agent memory store: store, edit, append, delete, clear, or list keys in a scope. There are no sections and no UserMemory.md file.",
+        action: "memory.store",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action: store, edit, append, delete, clear, or list.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: false,
+                description: "Memory key for store, edit, append, and delete.",
+            },
+            ToolParam {
+                name: "value",
+                kind: "string",
+                required: false,
+                description: "Value for store, edit, and append.",
+            },
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: false,
+                description: "Memory scope.",
+            },
+            ToolParam {
+                name: "confirm",
+                kind: "boolean",
+                required: false,
+                description: "Must be true for clear.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "fetch_documentation",
+        description: "Retrieves real Apple Developer documentation pages from developer.apple.com by URL, search query, or framework landing page. Returns raw page text; it does not fabricate signatures or availability.",
+        action: "web.fetch",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+            ToolParam {
+                name: "query",
+                kind: "string",
+                required: false,
+                description: "Documentation search query.",
+            },
+            ToolParam {
+                name: "url",
+                kind: "string",
+                required: false,
+                description: "Documentation URL on developer.apple.com.",
+            },
+            ToolParam {
+                name: "framework",
+                kind: "string",
+                required: false,
+                description: "Framework name to open its documentation landing page.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "external_resource_gateway",
+        description: "Performs an HTTPS-only GET of a JSON API and returns the parsed JSON. Non-2xx responses fail; 30 second timeout.",
+        action: "web.fetch",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+            ToolParam {
+                name: "url",
+                kind: "string",
+                required: true,
+                description: "HTTPS JSON API URL.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "read_url_content",
+        description: "Fetches HTTPS URL content as text with status and content type. Non-2xx responses fail; 30 second timeout.",
+        action: "web.fetch",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+            ToolParam {
+                name: "url",
+                kind: "string",
+                required: true,
+                description: "HTTPS URL to fetch.",
+            },
+            ToolParam {
+                name: "maxChars",
+                kind: "integer",
+                required: false,
+                description: "Maximum characters to return. Defaults to 8000.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "github_repo",
+        description: "Reads real GitHub repositories through the gh CLI: repository info, file listings, file contents, trees, code search, and tarball download. Read-only against the remote.",
+        action: "github.repo",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "operation",
+                kind: "string",
+                required: true,
+                description: "Operation: repository_info, list_files, get_file, get_directory, get_tree, search_code, or fetch_repository.",
+            },
+            ToolParam {
+                name: "owner",
+                kind: "string",
+                required: false,
+                description: "Repository owner.",
+            },
+            ToolParam {
+                name: "repo",
+                kind: "string",
+                required: false,
+                description: "Repository name.",
+            },
+            ToolParam {
+                name: "url",
+                kind: "string",
+                required: false,
+                description: "Repository URL, used when owner and repo are omitted.",
+            },
+            ToolParam {
+                name: "ref",
+                kind: "string",
+                required: false,
+                description: "Branch, tag, or commit. Defaults to the default branch.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "File or directory path inside the repository.",
+            },
+            ToolParam {
+                name: "query",
+                kind: "string",
+                required: false,
+                description: "Code search query for search_code.",
+            },
+            ToolParam {
+                name: "timeoutSeconds",
+                kind: "integer",
+                required: false,
+                description: "Command timeout in seconds.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "use_app",
+        description: "Native macOS application interaction through the real computer-use tools. Dispatches only the 20 real actions and errors honestly on activate, close_application, select_window, get_focused_element, select_all, copy, paste, wait_for_element, and wait_for_window, which have no engine tool.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: true,
+                description: "Owning thread ID.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "Action to perform, for example list_applications, launch, click, type_text, or verify.",
+            },
+            ToolParam {
+                name: "app_identifier",
+                kind: "string",
+                required: false,
+                description: "Bundle ID for launch.",
+            },
+            ToolParam {
+                name: "app_name",
+                kind: "string",
+                required: false,
+                description: "Application name for inspect_application.",
+            },
+            ToolParam {
+                name: "pid",
+                kind: "integer",
+                required: false,
+                description: "Process ID of the running app.",
+            },
+            ToolParam {
+                name: "window_id",
+                kind: "integer",
+                required: false,
+                description: "Window ID from list_windows or get_desktop_state.",
+            },
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: false,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+            ToolParam {
+                name: "observation",
+                kind: "string",
+                required: false,
+                description: "Observation ID from a fresh get_window_state screenshot.",
+            },
+            ToolParam {
+                name: "x",
+                kind: "number",
+                required: false,
+                description: "Point x in window points.",
+            },
+            ToolParam {
+                name: "y",
+                kind: "number",
+                required: false,
+                description: "Point y in window points.",
+            },
+            ToolParam {
+                name: "from_x",
+                kind: "number",
+                required: false,
+                description: "Drag start x in window points.",
+            },
+            ToolParam {
+                name: "from_y",
+                kind: "number",
+                required: false,
+                description: "Drag start y in window points.",
+            },
+            ToolParam {
+                name: "to_x",
+                kind: "number",
+                required: false,
+                description: "Drag end x in window points.",
+            },
+            ToolParam {
+                name: "to_y",
+                kind: "number",
+                required: false,
+                description: "Drag end y in window points.",
+            },
+            ToolParam {
+                name: "text",
+                kind: "string",
+                required: false,
+                description: "Text to type, set, or find.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: false,
+                description: "Key to press: enter, escape, tab, backspace, left, right, up, or down.",
+            },
+            ToolParam {
+                name: "keys",
+                kind: "array",
+                required: false,
+                description: "Modifiers then one key for press_shortcut, for example cmd shift t.",
+            },
+            ToolParam {
+                name: "direction",
+                kind: "string",
+                required: false,
+                description: "Scroll direction: up, down, left, or right.",
+            },
+            ToolParam {
+                name: "amount",
+                kind: "integer",
+                required: false,
+                description: "Scroll amount, 1 to 50. Defaults to 3.",
+            },
+            ToolParam {
+                name: "bundle_id",
+                kind: "string",
+                required: false,
+                description: "App bundle ID for launch, for example com.apple.TextEdit.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "array",
+                required: false,
+                description: "Menu path for select_menu, for example File New Window.",
+            },
+            ToolParam {
+                name: "confirm",
+                kind: "boolean",
+                required: false,
+                description: "Confirmation for destructive actions.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "derived_data_locate",
+        description: "Locates Xcode DerivedData directories with sizes and file counts.",
+        action: "system.info",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "DerivedData directory to inspect. Defaults to ~/Library/Developer/Xcode/DerivedData.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum directories to return.",
+            },
+            ToolParam {
+                name: "threadId",
+                kind: "string",
+                required: false,
+                description: "Owning thread ID. Only used by the MCP server path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "build_system_detect",
+        description: "Detects build systems in the workspace: xcworkspace and xcodeproj, SwiftPM, CocoaPods, Carthage, Tuist, xcodegen, Bazel, and CMake.",
+        action: "workspace.files",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "cwd",
+                kind: "string",
+                required: true,
+                description: "Absolute working directory.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "string",
+                required: false,
+                description: "Directory to inspect, relative to the working directory. Defaults to the whole workspace.",
+            },
+        ],
+    },
 
 ];
 
@@ -9542,6 +11446,5037 @@ fn g5_call(state: &crate::ServerState, name: &str, args: &Value) -> Result<Value
     }
 }
 
+
+fn g6_entries(cwd: &str, path: Option<&str>) -> Result<Vec<Value>, CallError> {
+    read_dir_entries(cwd, path.unwrap_or(""), true)
+}
+
+fn g6_entry_path(entry: &Value) -> String {
+    entry["path"].as_str().unwrap_or("").to_owned()
+}
+
+fn g6_entry_name(entry: &Value) -> String {
+    entry["name"].as_str().unwrap_or("").to_owned()
+}
+
+fn g6_is_dir(entry: &Value) -> bool {
+    entry["isDirectory"].as_bool() == Some(true)
+}
+
+fn g6_size(entry: &Value) -> i64 {
+    entry["sizeBytes"].as_i64().unwrap_or(0)
+}
+
+fn g6_mtime(entry: &Value) -> f64 {
+    entry["modifiedAt"].as_f64().unwrap_or(0.0)
+}
+
+fn g6_ext(path: &str) -> String {
+    Path::new(path)
+        .extension()
+        .map(|ext| ext.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
+}
+
+fn g6_basename(path: &str) -> String {
+    Path::new(path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+fn g6_dirname(path: &str) -> String {
+    Path::new(path)
+        .parent()
+        .map(|parent| parent.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+fn g6_join(cwd: &str, path: Option<&str>) -> String {
+    match path.filter(|p| !p.is_empty()) {
+        Some(rel) => Path::new(cwd).join(rel).to_string_lossy().into_owned(),
+        None => cwd.to_owned(),
+    }
+}
+
+fn g6_validate_relative(path: &str, tool: &str) -> Result<(), CallError> {
+    if path.starts_with('/') || path.split('/').any(|part| part == "..") {
+        return Err(failed(format!(
+            "{tool} path must be relative and must not contain .. components."
+        )));
+    }
+    Ok(())
+}
+
+fn g6_missing_cli(output: &str, exit_code: i64) -> bool {
+    exit_code == 127 || output.contains("command not found")
+}
+
+fn g6_command_output(argv: &[&str]) -> Option<String> {
+    let mut command = std::process::Command::new(argv[0]);
+    if argv.len() > 1 {
+        command.args(&argv[1..]);
+    }
+    let output = command.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+fn g6_strings_unescape(text: &str) -> String {
+    let mut out = String::new();
+    let mut escaped = false;
+    for ch in text.chars() {
+        if escaped {
+            match ch {
+                'n' => out.push('\n'),
+                't' => out.push('\t'),
+                '"' => out.push('"'),
+                '\\' => out.push('\\'),
+                _ => out.push(ch),
+            }
+            escaped = false;
+        } else if ch == '\\' {
+            escaped = true;
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+fn g6_strings_escape(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\t', "\\t")
+}
+
+fn g6_strings_pairs(content: &str) -> Vec<(String, String, usize)> {
+    let mut pairs: Vec<(String, String, usize)> = Vec::new();
+    for (index, line) in content.lines().enumerate() {
+        let trimmed = line.trim();
+        let matches = g5_regex_captures(
+            r#"^"((?:[^"\\]|\\.)*)"\s*=\s*"((?:[^"\\]|\\.)*)"\s*;"#,
+            trimmed,
+        );
+        let Some(first) = matches.first() else {
+            continue;
+        };
+        let key = first.get(1).cloned().flatten().unwrap_or_default();
+        let value = first.get(2).cloned().flatten().unwrap_or_default();
+        if !key.is_empty() {
+            pairs.push((
+                g6_strings_unescape(&key),
+                g6_strings_unescape(&value),
+                index + 1,
+            ));
+        }
+    }
+    pairs
+}
+
+fn g6_serialize_strings(pairs: &[(String, String)]) -> String {
+    let mut out = String::new();
+    for (key, value) in pairs {
+        out.push_str(&format!(
+            "\"{}\" = \"{}\";\n",
+            g6_strings_escape(key),
+            g6_strings_escape(value)
+        ));
+    }
+    out
+}
+
+fn g6_xcstrings_keys(value: &Value) -> Vec<(String, Vec<(String, String)>)> {
+    let mut out: Vec<(String, Vec<(String, String)>)> = Vec::new();
+    let Some(strings) = value.get("strings").and_then(Value::as_object) else {
+        return out;
+    };
+    for (key, entry) in strings {
+        let mut locales: Vec<(String, String)> = Vec::new();
+        if let Some(locs) = entry.get("localizations").and_then(Value::as_object) {
+            for (locale, loc) in locs {
+                if let Some(text) = loc
+                    .get("stringUnit")
+                    .and_then(|unit| unit.get("value"))
+                    .and_then(Value::as_str)
+                {
+                    locales.push((locale.clone(), text.to_owned()));
+                }
+            }
+        }
+        out.push((key.clone(), locales));
+    }
+    out
+}
+
+fn g6_xcstrings_set(value: &mut Value, key: &str, locale: &str, text: &str, state: &str) {
+    if !value.is_object() {
+        *value = json!({});
+    }
+    let object = value.as_object_mut().unwrap();
+    if !object.contains_key("strings") {
+        object.insert("strings".to_owned(), json!({}));
+    }
+    let strings = object
+        .get_mut("strings")
+        .unwrap()
+        .as_object_mut()
+        .unwrap();
+    let entry = strings.entry(key.to_owned()).or_insert_with(|| json!({}));
+    if !entry.is_object() {
+        *entry = json!({});
+    }
+    let entry_object = entry.as_object_mut().unwrap();
+    if !entry_object.contains_key("localizations") {
+        entry_object.insert("localizations".to_owned(), json!({}));
+    }
+    let localizations = entry_object
+        .get_mut("localizations")
+        .unwrap()
+        .as_object_mut()
+        .unwrap();
+    localizations.insert(
+        locale.to_owned(),
+        json!({"stringUnit": {"state": state, "value": text}}),
+    );
+}
+
+fn g6_xcstrings_encode(value: &Value, tool: &str) -> Result<String, CallError> {
+    serde_json::to_string_pretty(value)
+        .map(|text| format!("{text}\n"))
+        .map_err(|error| failed(format!("{tool} could not serialize the catalog as JSON: {error}")))
+}
+
+fn g6_plist_path(cwd: &str, path: &str) -> std::path::PathBuf {
+    Path::new(cwd).join(path)
+}
+
+fn g6_plist_json(cwd: &str, path: &str, tool: &str) -> Result<Value, CallError> {
+    let full = g6_plist_path(cwd, path);
+    let output = std::process::Command::new("plutil")
+        .args([
+            "-convert",
+            "json",
+            "-o",
+            "-",
+            full.to_str().unwrap_or(""),
+        ])
+        .output()
+        .map_err(|error| failed(format!("{tool} could not run plutil: {error}")))?;
+    if !output.status.success() {
+        return Err(failed(format!(
+            "{tool} could not read {path} as a property list: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    serde_json::from_slice(&output.stdout)
+        .map_err(|error| failed(format!("{tool} could not parse {path} as a property list: {error}")))
+}
+
+fn g6_plist_set(cwd: &str, path: &str, key: &str, value: &Value, tool: &str) -> Result<(), CallError> {
+    let full = g6_plist_path(cwd, path);
+    let full_str = full.to_str().unwrap_or("");
+    let value_json = serde_json::to_string(value).unwrap_or_else(|_| "\"\"".to_owned());
+    let replaced = std::process::Command::new("plutil")
+        .args(["-replace", key, "-json", &value_json, full_str])
+        .output()
+        .map_err(|error| failed(format!("{tool} could not run plutil: {error}")))?;
+    if replaced.status.success() {
+        return Ok(());
+    }
+    let inserted = std::process::Command::new("plutil")
+        .args(["-insert", key, "-json", &value_json, full_str])
+        .output()
+        .map_err(|error| failed(format!("{tool} could not run plutil: {error}")))?;
+    if inserted.status.success() {
+        return Ok(());
+    }
+    Err(failed(format!(
+        "{tool} could not set {key} in {path}: {}",
+        String::from_utf8_lossy(&inserted.stderr).trim()
+    )))
+}
+
+fn g6_plist_remove(cwd: &str, path: &str, key: &str, tool: &str) -> Result<(), CallError> {
+    let full = g6_plist_path(cwd, path);
+    let output = std::process::Command::new("plutil")
+        .args(["-remove", key, full.to_str().unwrap_or("")])
+        .output()
+        .map_err(|error| failed(format!("{tool} could not run plutil: {error}")))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(failed(format!(
+        "{tool} could not remove {key} from {path}: {}",
+        String::from_utf8_lossy(&output.stderr).trim()
+    )))
+}
+
+fn g6_plist_scalar(text: &str) -> Value {
+    if text == "true" {
+        return json!(true);
+    }
+    if text == "false" {
+        return json!(false);
+    }
+    if let Ok(value) = text.parse::<i64>() {
+        return json!(value);
+    }
+    if let Ok(value) = text.parse::<f64>() {
+        return json!(value);
+    }
+    json!(text)
+}
+
+fn g6_locale_for_path(path: &str) -> String {
+    for part in path.split('/') {
+        if let Some(locale) = part.strip_suffix(".lproj") {
+            return locale.to_owned();
+        }
+    }
+    "base".to_owned()
+}
+
+fn g6_language_for_extension(ext: &str) -> &'static str {
+    match ext {
+        "swift" => "Swift",
+        "m" | "mm" | "h" => "Objective-C",
+        "c" | "cpp" | "cc" | "hpp" => "C/C++",
+        "ts" | "tsx" => "TypeScript",
+        "js" | "jsx" => "JavaScript",
+        "py" => "Python",
+        "rs" => "Rust",
+        "kt" | "kts" => "Kotlin",
+        "java" => "Java",
+        "md" => "Markdown",
+        "json" => "JSON",
+        "plist" => "Property List",
+        "yaml" | "yml" => "YAML",
+        "xml" => "XML",
+        "png" | "jpg" | "jpeg" | "heic" | "webp" | "gif" => "Image",
+        "" => "No extension",
+        _ => "Other",
+    }
+}
+
+fn g6_pbxproj_targets(content: &str) -> Vec<String> {
+    let mut targets: Vec<String> = Vec::new();
+    for caps in g5_regex_captures(r"isa = PBXNativeTarget;[^}]*?name = ([^;]+);", content) {
+        let name = caps
+            .get(1)
+            .cloned()
+            .flatten()
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
+        if !name.is_empty() && !targets.contains(&name) {
+            targets.push(name);
+        }
+    }
+    targets
+}
+
+fn g6_resolve_file(
+    cwd: &str,
+    path: Option<&str>,
+    query: &str,
+    suffix: &str,
+    tool: &str,
+) -> Result<String, CallError> {
+    if let Some(path) = path.filter(|p| !p.is_empty()) {
+        return Ok(path.to_owned());
+    }
+    let entries = g5_list_workspace_files(cwd, query, 100)?;
+    for entry in entries {
+        if g6_is_dir(&entry) {
+            continue;
+        }
+        let entry_path = g6_entry_path(&entry);
+        if entry_path.ends_with(suffix) {
+            return Ok(entry_path);
+        }
+    }
+    Err(failed(format!(
+        "{tool} found no file matching {query} in the workspace."
+    )))
+}
+
+fn g6_resolve_catalog(cwd: &str, catalog: Option<&str>, tool: &str) -> Result<String, CallError> {
+    if let Some(catalog) = catalog.filter(|c| !c.is_empty()) {
+        if !catalog.ends_with(".xcassets") {
+            return Err(failed(format!(
+                "{tool} catalog path must end in .xcassets."
+            )));
+        }
+        return Ok(catalog.to_owned());
+    }
+    let entries = g6_entries(cwd, None)?;
+    for entry in entries {
+        if g6_is_dir(&entry) && g6_entry_path(&entry).ends_with(".xcassets") {
+            return Ok(g6_entry_path(&entry));
+        }
+    }
+    Err(failed(format!(
+        "{tool} found no .xcassets catalog in the workspace."
+    )))
+}
+
+fn g6_colorset_contents(light_hex: &str, dark_hex: &str) -> Value {
+    fn components(hex: &str) -> Value {
+        let clean = hex.strip_prefix('#').unwrap_or(hex);
+        let red = u32::from_str_radix(clean.get(0..2).unwrap_or("00"), 16).unwrap_or(0);
+        let green = u32::from_str_radix(clean.get(2..4).unwrap_or("00"), 16).unwrap_or(0);
+        let blue = u32::from_str_radix(clean.get(4..6).unwrap_or("00"), 16).unwrap_or(0);
+        json!({
+            "red": format!("{:.3}", red as f64 / 255.0),
+            "green": format!("{:.3}", green as f64 / 255.0),
+            "blue": format!("{:.3}", blue as f64 / 255.0),
+            "alpha": "1.000",
+        })
+    }
+    json!({
+        "colors": [
+            {"color": {"color-space": "srgb", "components": components(light_hex)}, "idiom": "universal"},
+            {"appearances": [{"appearance": "luminosity", "value": "dark"}], "color": {"color-space": "srgb", "components": components(dark_hex)}, "idiom": "universal"},
+        ],
+        "info": {"author": "xcode", "version": 1},
+    })
+}
+
+fn g6_parse_manifest(content: &str) -> Value {
+    let mut name = String::new();
+    if let Some(at) = content.find("Package(") {
+        let rest = &content[at + "Package(".len()..];
+        if let Some(found) = g5_first_capture(r#"name:\s*"([^"]+)""#, rest, 1) {
+            name = found;
+        }
+    }
+    let mut platforms: Vec<String> = Vec::new();
+    for caps in g5_regex_captures(r"\.([A-Za-z]+)\(\.v([0-9_]+)\)", content) {
+        let platform = caps.get(1).cloned().flatten().unwrap_or_default();
+        let version = caps
+            .get(2)
+            .cloned()
+            .flatten()
+            .unwrap_or_default()
+            .replace('_', ".");
+        if !platform.is_empty() {
+            platforms.push(format!("{platform} {version}"));
+        }
+    }
+    let mut products: Vec<String> = Vec::new();
+    for caps in g5_regex_captures(r#"\.(library|executable)\(\s*name:\s*"([^"]+)""#, content) {
+        let product = caps.get(2).cloned().flatten().unwrap_or_default();
+        if !product.is_empty() {
+            products.push(product);
+        }
+    }
+    let mut targets: Vec<String> = Vec::new();
+    for caps in g5_regex_captures(
+        r#"\.(target|testTarget|executableTarget|binaryTarget|systemLibrary|plugin)\(\s*name:\s*"([^"]+)""#,
+        content,
+    ) {
+        let target = caps.get(2).cloned().flatten().unwrap_or_default();
+        if !target.is_empty() {
+            targets.push(target);
+        }
+    }
+    let mut dependencies: Vec<Value> = Vec::new();
+    for caps in g5_regex_captures(r#"\.package\(\s*url:\s*"([^"]+)"([^)]*)\)"#, content) {
+        let url = caps.get(1).cloned().flatten().unwrap_or_default();
+        let rest = caps.get(2).cloned().flatten().unwrap_or_default();
+        let mut dep = serde_json::Map::new();
+        dep.insert("url".to_owned(), json!(url));
+        if let Some(req) =
+            g5_regex_captures(r#"(from|exact|branch|revision):\s*"([^"]+)""#, &rest).into_iter().next()
+        {
+            let kind = req.get(1).cloned().flatten().unwrap_or_default();
+            let version = req.get(2).cloned().flatten().unwrap_or_default();
+            if !kind.is_empty() {
+                dep.insert(kind, json!(version));
+            }
+        }
+        if !url.is_empty() {
+            dependencies.push(Value::Object(dep));
+        }
+    }
+    for caps in g5_regex_captures(r#"\.package\(\s*path:\s*"([^"]+)""#, content) {
+        let path = caps.get(1).cloned().flatten().unwrap_or_default();
+        if !path.is_empty() {
+            dependencies.push(json!({"path": path}));
+        }
+    }
+    json!({
+        "name": name,
+        "platforms": platforms,
+        "products": products,
+        "targets": targets,
+        "dependencies": dependencies,
+    })
+}
+
+fn g6_parse_resolved(content: &str) -> Vec<(String, String, String)> {
+    let mut out: Vec<(String, String, String)> = Vec::new();
+    let Ok(value) = serde_json::from_str::<Value>(content) else {
+        return out;
+    };
+    let Some(pins) = value.get("pins").and_then(Value::as_array) else {
+        return out;
+    };
+    for pin in pins {
+        let identity = pin
+            .get("identity")
+            .and_then(Value::as_str)
+            .or_else(|| pin.get("package").and_then(Value::as_str))
+            .unwrap_or("")
+            .to_owned();
+        let location = pin
+            .get("location")
+            .and_then(Value::as_str)
+            .or_else(|| pin.get("repositoryURL").and_then(Value::as_str))
+            .unwrap_or("")
+            .to_owned();
+        let version = pin
+            .get("state")
+            .and_then(|state| state.get("version"))
+            .and_then(Value::as_str)
+            .or_else(|| {
+                pin.get("state")
+                    .and_then(|state| state.get("revision"))
+                    .and_then(Value::as_str)
+            })
+            .or_else(|| pin.get("version").and_then(Value::as_str))
+            .unwrap_or("")
+            .to_owned();
+        if !identity.is_empty() || !location.is_empty() || !version.is_empty() {
+            out.push((identity, location, version));
+        }
+    }
+    out
+}
+
+fn g6_show_dependencies_names(value: &Value) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    let Some(dependencies) = value.get("dependencies").and_then(Value::as_array) else {
+        return names;
+    };
+    for dep in dependencies {
+        if let Some(identity) = dep.get("identity").and_then(Value::as_str) {
+            names.push(identity.to_owned());
+        }
+        names.extend(g6_show_dependencies_names(dep));
+    }
+    names
+}
+
+fn g6_dependency_audit(
+    tool: &str,
+    manifest: &Value,
+    resolved_pins: &[(String, String, String)],
+    shown: &[String],
+    exit_code: i64,
+    output: &str,
+) -> Value {
+    let mut missing_resolved: Vec<String> = Vec::new();
+    let mut non_exact: Vec<Value> = Vec::new();
+    let mut missing_from_manifest: Vec<String> = Vec::new();
+    let resolved_identities: Vec<String> = resolved_pins
+        .iter()
+        .map(|(identity, _, _)| identity.clone())
+        .collect();
+    let manifest_deps: Vec<&Value> = manifest
+        .get("dependencies")
+        .and_then(Value::as_array)
+        .map(|deps| deps.iter().collect())
+        .unwrap_or_default();
+    for dep in &manifest_deps {
+        if let Some(url) = dep.get("url").and_then(Value::as_str) {
+            let identity = Path::new(url)
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+                .unwrap_or_else(|| url.to_owned());
+            if !resolved_identities
+                .iter()
+                .any(|known| known.to_lowercase() == identity.to_lowercase())
+            {
+                missing_resolved.push(url.to_owned());
+            }
+            if dep.get("from").is_some() || dep.get("branch").is_some() {
+                let requirement = dep
+                    .get("from")
+                    .and_then(Value::as_str)
+                    .or_else(|| dep.get("branch").and_then(Value::as_str))
+                    .unwrap_or("");
+                non_exact.push(json!({"url": url, "requirement": requirement}));
+            }
+        }
+    }
+    for (identity, _, _) in resolved_pins {
+        let in_manifest = manifest_deps.iter().any(|dep| {
+            let Some(url) = dep.get("url").and_then(Value::as_str) else {
+                return false;
+            };
+            let name = Path::new(url)
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+                .unwrap_or_else(|| url.to_owned());
+            name.to_lowercase() == identity.to_lowercase()
+        });
+        if !in_manifest {
+            missing_from_manifest.push(identity.clone());
+        }
+    }
+    json!({
+        "tool": tool,
+        "manifestName": manifest.get("name").cloned().unwrap_or(Value::Null),
+        "manifestDependencies": manifest_deps.len(),
+        "resolvedPins": resolved_pins.len(),
+        "missingResolved": missing_resolved,
+        "nonExactRequirements": non_exact,
+        "resolvedMissingFromManifest": missing_from_manifest,
+        "showDependencies": shown,
+        "showDependenciesExitCode": exit_code,
+        "output": output,
+    })
+}
+
+fn g6_signing_from_pbxproj(tool: &str, path: &str, content: &str) -> Value {
+    let mut values: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for key in [
+        "CODE_SIGN_STYLE",
+        "DEVELOPMENT_TEAM",
+        "PRODUCT_BUNDLE_IDENTIFIER",
+        "CODE_SIGN_IDENTITY",
+        "PROVISIONING_PROFILE_SPECIFIER",
+    ] {
+        let pattern = format!("{key}\\s*=\\s*([^;]+);");
+        if let Some(found) = g5_first_capture(&pattern, content, 1) {
+            values.insert(
+                key.to_owned(),
+                found.trim().trim_matches('"').to_owned(),
+            );
+        }
+    }
+    let get = |key: &str| -> Value {
+        values
+            .get(key)
+            .map(|value| json!(value))
+            .unwrap_or(Value::Null)
+    };
+    json!({
+        "tool": tool,
+        "path": path,
+        "codeSignStyle": get("CODE_SIGN_STYLE"),
+        "developmentTeam": get("DEVELOPMENT_TEAM"),
+        "bundleIdentifier": get("PRODUCT_BUNDLE_IDENTIFIER"),
+        "codeSignIdentity": get("CODE_SIGN_IDENTITY"),
+        "provisioningProfileSpecifier": get("PROVISIONING_PROFILE_SPECIFIER"),
+    })
+}
+
+fn g6_build_settings_json(output: &str) -> Value {
+    let mut object = serde_json::Map::new();
+    for line in output.lines() {
+        let trimmed = line.trim();
+        let matches = g5_regex_captures(r"^([A-Z0-9_]+)\s*=\s*(.+)$", trimmed);
+        if let Some(first) = matches.first() {
+            let key = first.get(1).cloned().flatten().unwrap_or_default();
+            let value = first
+                .get(2)
+                .cloned()
+                .flatten()
+                .unwrap_or_default()
+                .trim()
+                .to_owned();
+            if !key.is_empty() {
+                object.insert(key, json!(value));
+            }
+        }
+    }
+    Value::Object(object)
+}
+
+fn g6_icon_sizes(platform: &str) -> Vec<(u32, &'static str, &'static str, &'static str)> {
+    match platform {
+        "macos" => vec![
+            (16, "16x16", "mac", "1x"),
+            (32, "16x16", "mac", "2x"),
+            (32, "32x32", "mac", "1x"),
+            (64, "32x32", "mac", "2x"),
+            (128, "128x128", "mac", "1x"),
+            (256, "128x128", "mac", "2x"),
+            (256, "256x256", "mac", "1x"),
+            (512, "256x256", "mac", "2x"),
+            (512, "512x512", "mac", "1x"),
+            (1024, "512x512", "mac", "2x"),
+        ],
+        "watchos" => vec![
+            (48, "24x24", "watch", "2x"),
+            (55, "27.5x27.5", "watch", "2x"),
+            (58, "29x29", "watch", "2x"),
+            (87, "29x29", "watch", "3x"),
+            (80, "40x40", "watch", "2x"),
+            (88, "44x44", "watch", "2x"),
+            (100, "50x50", "watch", "2x"),
+            (172, "86x86", "watch", "2x"),
+            (196, "98x98", "watch", "2x"),
+            (216, "108x108", "watch", "2x"),
+            (1024, "1024x1024", "watch-marketing", "1x"),
+        ],
+        _ => vec![
+            (40, "20x20", "iphone", "2x"),
+            (60, "20x20", "iphone", "3x"),
+            (58, "29x29", "iphone", "2x"),
+            (87, "29x29", "iphone", "3x"),
+            (80, "40x40", "iphone", "2x"),
+            (120, "40x40", "iphone", "3x"),
+            (120, "60x60", "iphone", "2x"),
+            (180, "60x60", "iphone", "3x"),
+            (76, "76x76", "ipad", "1x"),
+            (152, "76x76", "ipad", "2x"),
+            (167, "83.5x83.5", "ipad", "2x"),
+            (1024, "1024x1024", "ios-marketing", "1x"),
+        ],
+    }
+}
+
+fn g6_app_icon_contents(generated: &[Value]) -> Value {
+    let mut images: Vec<Value> = Vec::new();
+    for entry in generated {
+        let Some(size) = entry.get("size").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(idiom) = entry.get("idiom").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(scale) = entry.get("scale").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(filename) = entry.get("filename").and_then(Value::as_str) else {
+            continue;
+        };
+        images.push(json!({
+            "idiom": idiom,
+            "filename": filename,
+            "scale": scale,
+            "size": size,
+        }));
+    }
+    json!({"images": images, "info": {"author": "xcode", "version": 1}})
+}
+
+fn g6_parse_ps(output: &str, filter: Option<&str>, limit: usize) -> Vec<Value> {
+    let mut rows: Vec<Value> = Vec::new();
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+        if parts.len() < 4 {
+            continue;
+        }
+        let Ok(pid) = parts[0].parse::<i64>() else {
+            continue;
+        };
+        let Ok(cpu) = parts[1].parse::<f64>() else {
+            continue;
+        };
+        let Ok(mem) = parts[2].parse::<f64>() else {
+            continue;
+        };
+        let command = parts[3..].join(" ");
+        if let Some(filter) = filter.filter(|f| !f.is_empty()) {
+            if !command.to_lowercase().contains(&filter.to_lowercase()) {
+                continue;
+            }
+        }
+        rows.push(json!({
+            "pid": pid,
+            "cpuPercent": cpu,
+            "memoryPercent": mem,
+            "command": command,
+        }));
+        if rows.len() >= limit {
+            break;
+        }
+    }
+    rows
+}
+
+fn g6_disk_space(tool: &str, path: &str, df_output: &str, du_output: &str) -> Value {
+    let mut total_kilobytes: Option<i64> = None;
+    let mut available_kilobytes: Option<i64> = None;
+    let mut used_kilobytes: Option<i64> = None;
+    let mut capacity_percent: Option<i64> = None;
+    let mut mount_point: Option<String> = None;
+    for line in df_output.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 9 {
+            continue;
+        }
+        let Ok(total) = parts[1].parse::<i64>() else {
+            continue;
+        };
+        let Ok(used) = parts[2].parse::<i64>() else {
+            continue;
+        };
+        let Ok(available) = parts[3].parse::<i64>() else {
+            continue;
+        };
+        total_kilobytes = Some(total);
+        used_kilobytes = Some(used);
+        available_kilobytes = Some(available);
+        capacity_percent = parts[4].trim_end_matches('%').parse::<i64>().ok();
+        mount_point = Some(parts[8..].join(" "));
+    }
+    let mut path_kilobytes: Option<i64> = None;
+    if let Some(first) = du_output.split_whitespace().next() {
+        path_kilobytes = first.parse::<i64>().ok();
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "totalKilobytes": total_kilobytes,
+        "availableKilobytes": available_kilobytes,
+        "usedKilobytes": used_kilobytes,
+        "capacityPercent": capacity_percent,
+        "mountPoint": mount_point,
+        "pathKilobytes": path_kilobytes,
+    })
+}
+
+fn g6_framework_audit(tool: &str, path: &str, content: &str) -> Value {
+    let mut linked: Vec<Value> = Vec::new();
+    let mut seen: Vec<String> = Vec::new();
+    for line in content.lines() {
+        if !line.contains("PBXBuildFile") || !line.contains(".framework") {
+            continue;
+        }
+        let matches = g5_regex_captures(r"/\*\s*([A-Za-z0-9_.\-]+\.framework)\s*\*/", line);
+        if let Some(first) = matches.first() {
+            let name = first.get(1).cloned().flatten().unwrap_or_default();
+            if !name.is_empty() && !seen.contains(&name) {
+                seen.push(name.clone());
+                linked.push(json!({"name": name, "weak": line.contains("Weak")}));
+            }
+        }
+    }
+    let mut available: Vec<String> = Vec::new();
+    for line in content.lines() {
+        if !line.contains("PBXFileReference") || !line.contains(".framework") {
+            continue;
+        }
+        let matches = g5_regex_captures(r"/\*\s*([A-Za-z0-9_.\-]+\.framework)\s*\*/", line);
+        if let Some(first) = matches.first() {
+            let name = first.get(1).cloned().flatten().unwrap_or_default();
+            if !name.is_empty() && !available.contains(&name) {
+                available.push(name);
+            }
+        }
+    }
+    let mut sdkroots: Vec<String> = Vec::new();
+    let mut deployment_targets: Vec<String> = Vec::new();
+    for key in [
+        "SDKROOT",
+        "IPHONEOS_DEPLOYMENT_TARGET",
+        "MACOSX_DEPLOYMENT_TARGET",
+        "TVOS_DEPLOYMENT_TARGET",
+        "WATCHOS_DEPLOYMENT_TARGET",
+    ] {
+        let pattern = format!("{key}\\s*=\\s*([^;]+);");
+        for caps in g5_regex_captures(&pattern, content) {
+            let value = caps
+                .get(1)
+                .cloned()
+                .flatten()
+                .unwrap_or_default()
+                .trim()
+                .to_owned();
+            if value.is_empty() {
+                continue;
+            }
+            if key == "SDKROOT" {
+                if !sdkroots.contains(&value) {
+                    sdkroots.push(value);
+                }
+            } else {
+                let entry = format!("{key} {value}");
+                if !deployment_targets.contains(&entry) {
+                    deployment_targets.push(entry);
+                }
+            }
+        }
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "linkedFrameworks": linked,
+        "linkedCount": linked.len(),
+        "availableFrameworks": available,
+        "sdkroots": sdkroots,
+        "deploymentTargets": deployment_targets,
+    })
+}
+
+fn g6_bundle_resources(tool: &str, path: &str, content: &str, entries: &[Value]) -> Value {
+    let mut build_files: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    for caps in g5_regex_captures(
+        r"([0-9A-F]{24}) = \{isa = PBXBuildFile; fileRef = ([0-9A-F]{24})",
+        content,
+    ) {
+        let id = caps.get(1).cloned().flatten().unwrap_or_default();
+        let reference = caps.get(2).cloned().flatten().unwrap_or_default();
+        if !id.is_empty() && !reference.is_empty() {
+            build_files.insert(id, reference);
+        }
+    }
+    let mut file_paths: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    for caps in g5_regex_captures(
+        r"([0-9A-F]{24}) /\* ([^*]+) \*/ = \{isa = PBXFileReference;[^}]*?path = ([^;]+);",
+        content,
+    ) {
+        let id = caps.get(1).cloned().flatten().unwrap_or_default();
+        let name = caps
+            .get(2)
+            .cloned()
+            .flatten()
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
+        let mut file_path = caps
+            .get(3)
+            .cloned()
+            .flatten()
+            .unwrap_or_default()
+            .trim()
+            .trim_matches('"')
+            .to_owned();
+        if file_path.is_empty() {
+            file_path = name;
+        }
+        if !id.is_empty() && !file_path.is_empty() {
+            file_paths.insert(id, file_path);
+        }
+    }
+    let mut sizes: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    for entry in entries {
+        if !g6_is_dir(entry) {
+            sizes.insert(g6_entry_path(entry), g6_size(entry));
+        }
+    }
+    let Some(section_start) = content.find("Begin PBXResourcesBuildPhase section") else {
+        return json!({
+            "tool": tool,
+            "path": path,
+            "resources": [],
+            "missing": [],
+            "duplicates": [],
+            "note": "No PBXResourcesBuildPhase section found.",
+        });
+    };
+    let Some(section_end) = content.find("End PBXResourcesBuildPhase section") else {
+        return json!({
+            "tool": tool,
+            "path": path,
+            "resources": [],
+            "missing": [],
+            "duplicates": [],
+            "note": "No PBXResourcesBuildPhase section found.",
+        });
+    };
+    let section = &content[section_start + "Begin PBXResourcesBuildPhase section".len()..section_end];
+    let mut resources: Vec<Value> = Vec::new();
+    let mut seen_names: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut missing: Vec<String> = Vec::new();
+    for caps in g5_regex_captures(r"([0-9A-F]{24}) /\*", section) {
+        let id = caps.get(1).cloned().flatten().unwrap_or_default();
+        let Some(reference) = build_files.get(&id) else {
+            continue;
+        };
+        let Some(file_path) = file_paths.get(reference) else {
+            continue;
+        };
+        let name = g6_basename(file_path);
+        *seen_names.entry(name).or_insert(0) += 1;
+        let found = sizes.contains_key(file_path)
+            || sizes.keys().any(|key| key.ends_with(&format!("/{file_path}")));
+        if !found {
+            missing.push(file_path.clone());
+        }
+        let bytes = sizes
+            .get(file_path)
+            .copied()
+            .or_else(|| {
+                sizes
+                    .iter()
+                    .find(|(key, _)| key.ends_with(&format!("/{file_path}")))
+                    .map(|(_, value)| *value)
+            })
+            .unwrap_or(0);
+        resources.push(json!({"path": file_path, "found": found, "bytes": bytes}));
+    }
+    let mut duplicates: Vec<String> = seen_names
+        .iter()
+        .filter(|(_, count)| **count > 1)
+        .map(|(name, _)| name.clone())
+        .collect();
+    duplicates.sort();
+    json!({
+        "tool": tool,
+        "path": path,
+        "resources": resources,
+        "resourceCount": resources.len(),
+        "missing": missing,
+        "duplicates": duplicates,
+    })
+}
+
+fn g6_core_data_model(tool: &str, path: &str, content: &str) -> Value {
+    let Some(regex) = g5_regex(r#"<entity\s+name="([^"]+)""#) else {
+        return json!({"path": path, "entities": [], "entityCount": 0});
+    };
+    let starts: Vec<(usize, String)> = regex
+        .captures_iter(content)
+        .filter_map(|caps| {
+            let m = caps.get(0)?;
+            let name = caps.get(1)?.as_str().to_owned();
+            Some((m.start(), name))
+        })
+        .collect();
+    let mut entities: Vec<Value> = Vec::new();
+    for (index, (start, name)) in starts.iter().enumerate() {
+        let end = starts
+            .get(index + 1)
+            .map(|(next, _)| *next)
+            .unwrap_or(content.len());
+        let chunk = &content[*start..end];
+        let mut attributes: Vec<Value> = Vec::new();
+        for caps in g5_regex_captures(
+            r#"<attribute\s+name="([^"]+)"[^>]*attributeType="([^"]+)""#,
+            chunk,
+        ) {
+            attributes.push(json!({
+                "name": caps.get(1).cloned().flatten().unwrap_or_default(),
+                "type": caps.get(2).cloned().flatten().unwrap_or_default(),
+            }));
+        }
+        let mut relationships: Vec<Value> = Vec::new();
+        for caps in g5_regex_captures(
+            r#"<relationship\s+name="([^"]+)"[^>]*destinationEntity="([^"]+)""#,
+            chunk,
+        ) {
+            relationships.push(json!({
+                "name": caps.get(1).cloned().flatten().unwrap_or_default(),
+                "destination": caps.get(2).cloned().flatten().unwrap_or_default(),
+            }));
+        }
+        entities.push(json!({
+            "name": name,
+            "attributes": attributes,
+            "relationships": relationships,
+        }));
+    }
+    json!({
+        "path": path,
+        "entities": entities,
+        "entityCount": entities.len(),
+    })
+}
+
+fn g6_privacy_audit(tool: &str, path: &str, plist: &Value) -> Value {
+    let mut issues: Vec<String> = Vec::new();
+    let tracking = plist
+        .get("NSPrivacyTracking")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if tracking {
+        let domains_ok = plist
+            .get("NSPrivacyTrackingDomains")
+            .and_then(Value::as_array)
+            .map(|domains| !domains.is_empty())
+            .unwrap_or(false);
+        if !domains_ok {
+            issues.push(
+                "NSPrivacyTracking is true but NSPrivacyTrackingDomains is missing or empty."
+                    .to_owned(),
+            );
+        }
+    }
+    if let Some(collected) = plist
+        .get("NSPrivacyCollectedDataTypes")
+        .and_then(Value::as_array)
+    {
+        for (index, entry) in collected.iter().enumerate() {
+            for key in [
+                "NSPrivacyCollectedDataType",
+                "NSPrivacyCollectedDataTypeLinked",
+                "NSPrivacyCollectedDataTypeTracking",
+                "NSPrivacyCollectedDataTypePurposes",
+            ] {
+                if entry.get(key).is_none() {
+                    issues.push(format!(
+                        "Collected data type at index {index} is missing {key}."
+                    ));
+                }
+            }
+        }
+    } else if plist.get("NSPrivacyCollectedDataTypes").is_some() {
+        issues.push(
+            "NSPrivacyCollectedDataTypes is present but is not an array of dictionaries."
+                .to_owned(),
+        );
+    }
+    let categories_requiring_reasons = [
+        "NSPrivacyAccessedAPICategoryFileTimestamp",
+        "NSPrivacyAccessedAPICategorySystemBootTime",
+        "NSPrivacyAccessedAPICategoryDiskSpace",
+        "NSPrivacyAccessedAPICategoryActiveKeyboards",
+        "NSPrivacyAccessedAPICategoryUserDefaults",
+    ];
+    if let Some(accessed) = plist.get("NSPrivacyAccessedAPITypes").and_then(Value::as_array) {
+        for (index, entry) in accessed.iter().enumerate() {
+            let Some(category) = entry
+                .get("NSPrivacyAccessedAPICategory")
+                .and_then(Value::as_str)
+            else {
+                issues.push(format!(
+                    "Accessed API type at index {index} is missing NSPrivacyAccessedAPICategory."
+                ));
+                continue;
+            };
+            if categories_requiring_reasons.contains(&category) {
+                let reasons_ok = entry
+                    .get("NSPrivacyAccessedAPITypeReasons")
+                    .and_then(Value::as_array)
+                    .map(|reasons| !reasons.is_empty())
+                    .unwrap_or(false);
+                if !reasons_ok {
+                    issues.push(format!(
+                        "{category} requires NSPrivacyAccessedAPITypeReasons."
+                    ));
+                }
+            }
+        }
+    }
+    json!({
+        "tool": tool,
+        "path": path,
+        "tracking": tracking,
+        "collectedDataTypes": plist.get("NSPrivacyCollectedDataTypes").and_then(Value::as_array).map(|v| v.len()).unwrap_or(0),
+        "accessedApiTypes": plist.get("NSPrivacyAccessedAPITypes").and_then(Value::as_array).map(|v| v.len()).unwrap_or(0),
+        "issues": issues,
+        "issueCount": issues.len(),
+    })
+}
+
+fn g6_dir_size_recursive(dir: &Path) -> (i64, usize) {
+    let mut bytes: i64 = 0;
+    let mut files: usize = 0;
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return (0, 0);
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if let Ok(metadata) = entry.metadata() {
+            if metadata.is_dir() {
+                let (child_bytes, child_files) = g6_dir_size_recursive(&path);
+                bytes += child_bytes;
+                files += child_files;
+            } else {
+                bytes += metadata.len() as i64;
+                files += 1;
+            }
+        }
+    }
+    (bytes, files)
+}
+
+fn g6_derived_data(tool: &str, path: Option<&str>, limit: usize) -> Value {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let default_path = format!("{home}/Library/Developer/Xcode/DerivedData");
+    let root = path
+        .filter(|p| !p.is_empty())
+        .map(|p| {
+            if let Some(rest) = p.strip_prefix("~/") {
+                format!("{home}/{rest}")
+            } else {
+                p.to_owned()
+            }
+        })
+        .unwrap_or(default_path);
+    let root_path = Path::new(&root);
+    let mut directories: Vec<Value> = Vec::new();
+    let mut exists = false;
+    if let Ok(entries) = std::fs::read_dir(root_path) {
+        exists = true;
+        let mut names: Vec<String> = entries
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        for name in names {
+            let dir = root_path.join(&name);
+            if !dir.is_dir() {
+                continue;
+            }
+            let (bytes, files) = g6_dir_size_recursive(&dir);
+            directories.push(json!({
+                "path": dir.to_string_lossy(),
+                "name": name,
+                "bytes": bytes,
+                "files": files,
+            }));
+        }
+    }
+    directories.sort_by(|a, b| {
+        b["bytes"]
+            .as_i64()
+            .unwrap_or(0)
+            .cmp(&a["bytes"].as_i64().unwrap_or(0))
+    });
+    let total_bytes: i64 = directories
+        .iter()
+        .map(|dir| dir["bytes"].as_i64().unwrap_or(0))
+        .sum();
+    let shown: Vec<Value> = directories.into_iter().take(limit).collect();
+    json!({
+        "tool": tool,
+        "path": root,
+        "exists": exists,
+        "directories": shown,
+        "totalBytes": total_bytes,
+    })
+}
+
+fn g6_env_info(tool: &str) -> Value {
+    let arch = g6_command_output(&["uname", "-m"]).unwrap_or_else(|| "unknown".to_owned());
+    let os_version =
+        g6_command_output(&["sw_vers", "-productVersion"]).unwrap_or_else(|| "unknown".to_owned());
+    let os_build =
+        g6_command_output(&["sw_vers", "-buildVersion"]).unwrap_or_default();
+    let cpu_count = g6_command_output(&["sysctl", "-n", "hw.ncpu"])
+        .and_then(|text| text.parse::<i64>().ok())
+        .unwrap_or(0);
+    let physical_memory = g6_command_output(&["sysctl", "-n", "hw.memsize"])
+        .and_then(|text| text.parse::<i64>().ok())
+        .unwrap_or(0);
+    let host_name = g6_command_output(&["hostname"]).unwrap_or_default();
+    let uptime_seconds = g6_command_output(&["sysctl", "-n", "kern.boottime"])
+        .and_then(|text| {
+            let caps = g5_regex_captures(r"sec = ([0-9]+)", &text);
+            caps.first()
+                .and_then(|first| first.get(1).cloned().flatten())
+                .and_then(|sec| sec.parse::<u64>().ok())
+        })
+        .map(|boot| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|now| now.as_secs().saturating_sub(boot) as f64)
+                .unwrap_or(0.0)
+        })
+        .unwrap_or(0.0);
+    json!({
+        "tool": tool,
+        "osVersion": os_version,
+        "osBuild": os_build,
+        "arch": arch,
+        "cpuCount": cpu_count,
+        "physicalMemoryBytes": physical_memory,
+        "hostName": host_name,
+        "uptimeSeconds": uptime_seconds,
+    })
+}
+
+fn g6_find_pid(value: &Value, name: &str) -> Option<i64> {
+    match value {
+        Value::Array(items) => items.iter().find_map(|item| g6_find_pid(item, name)),
+        Value::Object(map) => {
+            if map.get("name").and_then(Value::as_str) == Some(name)
+                || map.get("bundleIdentifier").and_then(Value::as_str) == Some(name)
+            {
+                return map.get("pid").and_then(Value::as_i64);
+            }
+            map.values().find_map(|item| g6_find_pid(item, name))
+        }
+        _ => None,
+    }
+}
+
+fn g6_scope_hits(
+    hits: Vec<(String, i64, String)>,
+    path: Option<&str>,
+) -> Vec<(String, i64, String)> {
+    let Some(path) = path.filter(|p| !p.is_empty()) else {
+        return hits;
+    };
+    hits.into_iter()
+        .filter(|(hit_path, _, _)| hit_path == path || hit_path.starts_with(&format!("{path}/")))
+        .collect()
+}
+
+fn g6_call(state: &crate::ServerState, name: &str, args: &Value) -> Result<Value, CallError> {
+    let _ = state;
+    let cwd = req_str(args, "cwd", name)?;
+    let path = opt_str(args, "path");
+    let limit = opt_u64(args, "limit").unwrap_or(200).clamp(1, 1000) as usize;
+    match name {
+        "framework_linker_auditor" => {
+            let pbxproj = g5_resolve_pbxproj(&cwd, path.as_deref(), name)?;
+            let content = read_text_file_at(&cwd, &pbxproj)?;
+            Ok(g6_framework_audit(name, &pbxproj, &content))
+        }
+        "string_catalog_migrator" => {
+            let source_language = opt_str(args, "sourceLanguage").unwrap_or_else(|| "en".to_owned());
+            let mut files: Vec<(String, String)> = Vec::new();
+            let single_file = path
+                .as_deref()
+                .map(|p| p.ends_with(".strings") || p.ends_with(".stringsdict"))
+                .unwrap_or(false);
+            if let Some(path) = path.as_deref().filter(|p| !p.is_empty()) {
+                if single_file {
+                    let content = read_text_file_at(&cwd, path)?;
+                    files.push((path.to_owned(), content));
+                }
+            }
+            if files.is_empty() {
+                files = g5_read_text_files(&cwd, path.as_deref(), &[".strings", ".stringsdict"], 100)?;
+            }
+            if files.is_empty() {
+                return Err(failed(format!(
+                    "{name} found no .strings or .stringsdict files."
+                )));
+            }
+            let mut migrated: Vec<Value> = Vec::new();
+            let mut skipped: Vec<Value> = Vec::new();
+            for (file_path, content) in &files {
+                if file_path.ends_with(".stringsdict") {
+                    skipped.push(json!({
+                        "path": file_path,
+                        "reason": "stringsdict plural forms need manual mapping and are not migrated.",
+                    }));
+                    continue;
+                }
+                let pairs = g6_strings_pairs(content);
+                let mut strings = serde_json::Map::new();
+                for (key, value, _) in &pairs {
+                    strings.insert(
+                        key.clone(),
+                        json!({"localizations": {source_language.clone(): {"stringUnit": {"state": "translated", "value": value}}}}),
+                    );
+                }
+                let catalog = json!({
+                    "sourceLanguage": source_language,
+                    "strings": strings,
+                    "version": "1.0",
+                });
+                let out_path = format!(
+                    "{}.xcstrings",
+                    file_path.strip_suffix(".strings").unwrap_or(file_path)
+                );
+                let text = g6_xcstrings_encode(&catalog, name)?;
+                write_text_file(&cwd, &out_path, &text)?;
+                let verify = read_text_file_at(&cwd, &out_path)?;
+                let decoded: Value = serde_json::from_str(&verify)
+                    .map_err(|error| failed(format!("{name} verification failed: {error}")))?;
+                let decoded_count = decoded
+                    .get("strings")
+                    .and_then(Value::as_object)
+                    .map(|strings| strings.len())
+                    .unwrap_or(0);
+                migrated.push(json!({
+                    "source": file_path,
+                    "catalog": out_path,
+                    "keys": pairs.len(),
+                    "verified": decoded_count == pairs.len(),
+                }));
+            }
+            Ok(json!({
+                "tool": name,
+                "migrated": migrated,
+                "skipped": skipped,
+                "count": migrated.len(),
+            }))
+        }
+        "symbol_reference_graph" => {
+            let symbol = req_str(args, "symbol", name)?;
+            let escaped = g5_escape_regex(&symbol);
+            let declaration_hits = g5_search_regex_hits(
+                &cwd,
+                &format!(r"(func|class|struct|enum|protocol|let|var|typealias|actor)\s+{escaped}\b"),
+                limit as u64,
+            )?;
+            let reference_hits = g5_search_regex_hits(
+                &cwd,
+                &format!(r"\b{escaped}\b"),
+                limit as u64,
+            )?;
+            let scoped_declarations = g6_scope_hits(declaration_hits, path.as_deref());
+            let scoped_references = g6_scope_hits(reference_hits, path.as_deref());
+            let definitions: Vec<Value> = scoped_declarations
+                .iter()
+                .map(|(hit_path, line, text)| {
+                    json!({"path": hit_path, "lineNumber": line, "lineText": text})
+                })
+                .collect();
+            let definition_keys: Vec<String> = scoped_declarations
+                .iter()
+                .map(|(hit_path, line, _)| format!("{hit_path}:{line}"))
+                .collect();
+            let references: Vec<Value> = scoped_references
+                .iter()
+                .filter(|(hit_path, line, _)| {
+                    !definition_keys.contains(&format!("{hit_path}:{line}"))
+                })
+                .map(|(hit_path, line, text)| {
+                    json!({"path": hit_path, "lineNumber": line, "lineText": text})
+                })
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "symbol": symbol,
+                "definitions": definitions,
+                "references": references,
+                "definitionCount": definitions.len(),
+                "referenceCount": references.len(),
+            }))
+        }
+        "podfile_inspector" => {
+            let podfile = g6_resolve_file(&cwd, path.as_deref(), "Podfile", "/Podfile", name)
+                .or_else(|_| {
+                    g6_resolve_file(&cwd, path.as_deref(), "Podfile", "Podfile", name)
+                })?;
+            let content = read_text_file_at(&cwd, &podfile)?;
+            let mut pods: Vec<Value> = Vec::new();
+            let mut targets: Vec<String> = Vec::new();
+            let mut current_target = String::new();
+            let mut platform = String::new();
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if let Some(first) = g5_regex_captures(
+                    r#"^target\s+['"]([^'"]+)['"]\s+do"#,
+                    trimmed,
+                )
+                .into_iter()
+                .next()
+                {
+                    let target = first.get(1).cloned().flatten().unwrap_or_default();
+                    targets.push(target.clone());
+                    current_target = target;
+                    continue;
+                }
+                if trimmed == "end" {
+                    current_target = String::new();
+                    continue;
+                }
+                if let Some(first) = g5_regex_captures(
+                    r#"^platform\s+:(\w+),\s*['"]([^'"]+)['"]"#,
+                    trimmed,
+                )
+                .into_iter()
+                .next()
+                {
+                    let platform_name = first.get(1).cloned().flatten().unwrap_or_default();
+                    let version = first.get(2).cloned().flatten().unwrap_or_default();
+                    platform = format!("{platform_name} {version}");
+                    continue;
+                }
+                if let Some(first) = g5_regex_captures(
+                    r#"^pod\s+['"]([^'"]+)['"](?:\s*,\s*['"]([^'"]+)['"])?"#,
+                    trimmed,
+                )
+                .into_iter()
+                .next()
+                {
+                    let pod_name = first.get(1).cloned().flatten().unwrap_or_default();
+                    let requirement = first.get(2).cloned().flatten().unwrap_or_default();
+                    pods.push(json!({
+                        "name": pod_name,
+                        "requirement": requirement,
+                        "target": current_target,
+                    }));
+                }
+            }
+            let mut locked: Vec<Value> = Vec::new();
+            let dir = g6_dirname(&podfile);
+            let lock_path = if dir.is_empty() {
+                "Podfile.lock".to_owned()
+            } else {
+                format!("{dir}/Podfile.lock")
+            };
+            if let Ok(lock_content) = read_text_file_at(&cwd, &lock_path) {
+                let mut in_pods = false;
+                for line in lock_content.lines() {
+                    if line.starts_with("PODS:") {
+                        in_pods = true;
+                        continue;
+                    }
+                    if in_pods {
+                        if line.is_empty()
+                            || (!line.starts_with(' ') && !line.starts_with('\t'))
+                        {
+                            break;
+                        }
+                        if let Some(first) = g5_regex_captures(
+                            r"^\s*-\s*([A-Za-z0-9_./-]+) \(([^)]+)\)",
+                            line,
+                        )
+                        .into_iter()
+                        .next()
+                        {
+                            let pod_name = first.get(1).cloned().flatten().unwrap_or_default();
+                            let version = first.get(2).cloned().flatten().unwrap_or_default();
+                            if !pod_name.is_empty() {
+                                locked.push(json!({"name": pod_name, "version": version}));
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(json!({
+                "tool": name,
+                "path": podfile,
+                "platform": platform,
+                "targets": targets,
+                "pods": pods,
+                "podCount": pods.len(),
+                "locked": locked,
+                "lockPresent": !locked.is_empty(),
+            }))
+        }
+        "carthage_cartfile_inspector" => {
+            let cartfile = g6_resolve_file(&cwd, path.as_deref(), "Cartfile", "/Cartfile", name)
+                .or_else(|_| {
+                    g6_resolve_file(&cwd, path.as_deref(), "Cartfile", "Cartfile", name)
+                })?;
+            let content = read_text_file_at(&cwd, &cartfile)?;
+            let mut dependencies: Vec<Value> = Vec::new();
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if let Some(first) = g5_regex_captures(
+                    r#"^(github|git|binary)\s+"([^"]+)"(?:\s+"([^"]+)")?"#,
+                    trimmed,
+                )
+                .into_iter()
+                .next()
+                {
+                    dependencies.push(json!({
+                        "source": first.get(1).cloned().flatten().unwrap_or_default(),
+                        "name": first.get(2).cloned().flatten().unwrap_or_default(),
+                        "requirement": first.get(3).cloned().flatten().unwrap_or_default(),
+                    }));
+                }
+            }
+            let mut resolved: Vec<Value> = Vec::new();
+            let dir = g6_dirname(&cartfile);
+            let resolved_path = if dir.is_empty() {
+                "Cartfile.resolved".to_owned()
+            } else {
+                format!("{dir}/Cartfile.resolved")
+            };
+            if let Ok(resolved_content) = read_text_file_at(&cwd, &resolved_path) {
+                for line in resolved_content.lines() {
+                    let trimmed = line.trim();
+                    if let Some(first) = g5_regex_captures(
+                        r#"^(github|git|binary)\s+"([^"]+)"\s+"([^"]+)""#,
+                        trimmed,
+                    )
+                    .into_iter()
+                    .next()
+                    {
+                        resolved.push(json!({
+                            "source": first.get(1).cloned().flatten().unwrap_or_default(),
+                            "name": first.get(2).cloned().flatten().unwrap_or_default(),
+                            "version": first.get(3).cloned().flatten().unwrap_or_default(),
+                        }));
+                    }
+                }
+            }
+            Ok(json!({
+                "tool": name,
+                "path": cartfile,
+                "dependencies": dependencies,
+                "dependencyCount": dependencies.len(),
+                "resolved": resolved,
+                "resolvedPresent": !resolved.is_empty(),
+            }))
+        }
+        "package_manifest_read" => {
+            let manifest_path = path.unwrap_or_else(|| "Package.swift".to_owned());
+            g6_validate_relative(&manifest_path, name)?;
+            let content = read_text_file_at(&cwd, &manifest_path)?;
+            let manifest = g6_parse_manifest(&content);
+            Ok(json!({
+                "tool": name,
+                "path": manifest_path,
+                "name": manifest.get("name").cloned().unwrap_or(Value::Null),
+                "platforms": manifest.get("platforms").cloned().unwrap_or(Value::Null),
+                "products": manifest.get("products").cloned().unwrap_or(Value::Null),
+                "targets": manifest.get("targets").cloned().unwrap_or(Value::Null),
+                "dependencies": manifest.get("dependencies").cloned().unwrap_or(Value::Null),
+            }))
+        }
+        "package_dependency_add" => {
+            let url = req_str(args, "url", name)?;
+            let version = req_str(args, "version", name)?;
+            let manifest_path = path.unwrap_or_else(|| "Package.swift".to_owned());
+            g6_validate_relative(&manifest_path, name)?;
+            if !url.starts_with("https://") && !url.starts_with("git@") {
+                return Err(failed(format!(
+                    "{name} url must be an https or git@ URL."
+                )));
+            }
+            let mut content = read_text_file_at(&cwd, &manifest_path)?;
+            if content.contains(&url) {
+                return Err(failed(format!(
+                    "Package.swift already references {url}."
+                )));
+            }
+            let Some(dep_at) = content.find("dependencies: [") else {
+                return Err(failed(format!(
+                    "{name} found no dependencies array in Package.swift."
+                )));
+            };
+            let insertion = format!("\n        .package(url: \"{url}\", from: \"{version}\"),");
+            content.insert_str(dep_at + "dependencies: [".len(), &insertion);
+            let mut wired = false;
+            let mut wiring_note = String::new();
+            if let (Some(product), Some(target)) =
+                (opt_str(args, "product"), opt_str(args, "target"))
+            {
+                let package_name = Path::new(&url)
+                    .file_stem()
+                    .map(|stem| stem.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let escaped_target = g5_escape_regex(&target);
+                let pattern = format!(
+                    r#"\.(target|executableTarget|testTarget)\(\s*name:\s*"{escaped_target}"[^)]*?dependencies:\s*\["#
+                );
+                if let Some(regex) = g5_regex(&pattern) {
+                    if let Some(matched) = regex.find(&content) {
+                        let wiring = format!(
+                            "\n            .product(name: \"{product}\", package: \"{package_name}\"),"
+                        );
+                        content.insert_str(matched.end(), &wiring);
+                        wired = true;
+                    } else {
+                        wiring_note =
+                            format!("Target {target} has no dependencies array to wire into.");
+                    }
+                } else {
+                    wiring_note =
+                        format!("Target {target} has no dependencies array to wire into.");
+                }
+            }
+            write_text_file(&cwd, &manifest_path, &content)?;
+            let verify = read_text_file_at(&cwd, &manifest_path)?;
+            let parsed = g6_parse_manifest(&verify);
+            let present = parsed
+                .get("dependencies")
+                .and_then(Value::as_array)
+                .map(|deps| {
+                    deps.iter()
+                        .any(|dep| dep.get("url").and_then(Value::as_str) == Some(url.as_str()))
+                })
+                .unwrap_or(false);
+            if !present {
+                return Err(failed(format!(
+                    "{name} verification failed: the dependency is not present after writing."
+                )));
+            }
+            Ok(json!({
+                "tool": name,
+                "path": manifest_path,
+                "url": url,
+                "version": version,
+                "added": true,
+                "wired": wired,
+                "wiringNote": wiring_note,
+            }))
+        }
+        "asset_catalog_list" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let catalogs: Vec<&Value> = entries
+                .iter()
+                .filter(|entry| g6_is_dir(entry) && g6_entry_path(entry).ends_with(".xcassets"))
+                .collect();
+            let mut out: Vec<Value> = Vec::new();
+            for catalog in catalogs {
+                let catalog_path = g6_entry_path(catalog);
+                let prefix = format!("{catalog_path}/");
+                let mut counts: std::collections::HashMap<&str, usize> =
+                    std::collections::HashMap::new();
+                let mut names: Vec<String> = Vec::new();
+                for entry in &entries {
+                    if !g6_is_dir(entry) {
+                        continue;
+                    }
+                    let entry_path = g6_entry_path(entry);
+                    if !entry_path.starts_with(&prefix) {
+                        continue;
+                    }
+                    let suffix = g6_basename(&entry_path);
+                    let kind = if suffix.ends_with(".imageset") {
+                        Some("image")
+                    } else if suffix.ends_with(".colorset") {
+                        Some("color")
+                    } else if suffix.ends_with(".appiconset") {
+                        Some("icon")
+                    } else if suffix.ends_with(".dataset") {
+                        Some("dataset")
+                    } else if suffix.ends_with(".symbolset") {
+                        Some("symbol")
+                    } else {
+                        None
+                    };
+                    if let Some(kind) = kind {
+                        *counts.entry(kind).or_insert(0) += 1;
+                        names.push(suffix);
+                    }
+                }
+                out.push(json!({
+                    "catalog": catalog_path,
+                    "imageSets": counts.get("image").copied().unwrap_or(0),
+                    "colorSets": counts.get("color").copied().unwrap_or(0),
+                    "iconSets": counts.get("icon").copied().unwrap_or(0),
+                    "dataSets": counts.get("dataset").copied().unwrap_or(0),
+                    "symbolSets": counts.get("symbol").copied().unwrap_or(0),
+                    "sets": names,
+                }));
+            }
+            Ok(json!({
+                "tool": name,
+                "catalogs": out,
+                "catalogCount": out.len(),
+            }))
+        }
+        "asset_image_add" => {
+            let image_name = req_str(args, "imageName", name)?;
+            let source = req_str(args, "source", name)?;
+            g6_validate_relative(&source, name)?;
+            if image_name.is_empty()
+                || image_name.contains('/')
+                || image_name.contains('\\')
+            {
+                return Err(failed(format!(
+                    "{name} imageName must be a single name without a path separator."
+                )));
+            }
+            let catalog = g6_resolve_catalog(&cwd, opt_str(args, "catalog").as_deref(), name)?;
+            let set_path = format!("{catalog}/{image_name}.imageset");
+            let file_name = g6_basename(&source);
+            let set_dir = Path::new(&cwd).join(&set_path);
+            std::fs::create_dir_all(&set_dir)
+                .map_err(|error| failed(format!("{name} could not create {set_path}: {error}")))?;
+            std::fs::copy(Path::new(&cwd).join(&source), set_dir.join(&file_name))
+                .map_err(|error| failed(format!("{name} could not copy {source}: {error}")))?;
+            let contents = json!({
+                "images": [{"filename": file_name, "idiom": "universal", "scale": "1x"}],
+                "info": {"author": "xcode", "version": 1},
+            });
+            let contents_text = serde_json::to_string_pretty(&contents)
+                .map_err(|error| failed(format!("{name} could not serialize Contents.json: {error}")))?;
+            write_text_file(&cwd, &format!("{set_path}/Contents.json"), &contents_text)?;
+            let verify = read_text_file_at(&cwd, &format!("{set_path}/Contents.json"))?;
+            Ok(json!({
+                "tool": name,
+                "catalog": catalog,
+                "set": set_path,
+                "image": file_name,
+                "verified": verify.contains(&file_name),
+            }))
+        }
+        "strings_localization" => {
+            let file_path = req_str(args, "path", name)?;
+            let action = req_str(args, "action", name)?;
+            let key = req_str(args, "key", name)?;
+            g6_validate_relative(&file_path, name)?;
+            if !["get", "set", "delete"].contains(&action.as_str()) {
+                return Err(failed(format!(
+                    "{name} action must be get, set, or delete."
+                )));
+            }
+            if file_path.ends_with(".xcstrings") {
+                let content = read_text_file_at(&cwd, &file_path)?;
+                let mut catalog: Value = serde_json::from_str(&content)
+                    .map_err(|error| failed(format!("{name} catalog was not valid JSON: {error}")))?;
+                if !catalog.is_object() {
+                    return Err(failed(format!("{name} catalog root is not a JSON object.")));
+                }
+                let locale = opt_str(args, "locale").unwrap_or_else(|| {
+                    catalog
+                        .get("sourceLanguage")
+                        .and_then(Value::as_str)
+                        .unwrap_or("en")
+                        .to_owned()
+                });
+                let keys = g6_xcstrings_keys(&catalog);
+                match action.as_str() {
+                    "get" => {
+                        let value = keys
+                            .iter()
+                            .find(|(found_key, _)| found_key == &key)
+                            .and_then(|(_, locales)| {
+                                locales
+                                    .iter()
+                                    .find(|(found_locale, _)| found_locale == &locale)
+                                    .map(|(_, value)| value.clone())
+                            });
+                        return Ok(json!({
+                            "tool": name,
+                            "path": file_path,
+                            "key": key,
+                            "locale": locale,
+                            "found": value.is_some(),
+                            "value": value,
+                        }));
+                    }
+                    "set" => {
+                        let value = req_str(args, "value", name)?;
+                        g6_xcstrings_set(&mut catalog, &key, &locale, &value, "translated");
+                        let text = g6_xcstrings_encode(&catalog, name)?;
+                        write_text_file(&cwd, &file_path, &text)?;
+                        return Ok(json!({
+                            "tool": name,
+                            "path": file_path,
+                            "key": key,
+                            "locale": locale,
+                            "value": value,
+                            "updated": true,
+                        }));
+                    }
+                    _ => {
+                        let mut strings = catalog
+                            .get("strings")
+                            .and_then(Value::as_object)
+                            .cloned()
+                            .unwrap_or_default();
+                        let Some(entry) = strings.get_mut(&key) else {
+                            return Err(failed(format!("Key {key} not found in {file_path}.")));
+                        };
+                        if let Some(localizations) = entry
+                            .get_mut("localizations")
+                            .and_then(Value::as_object_mut)
+                        {
+                            localizations.remove(&locale);
+                        }
+                        if let Some(object) = catalog.as_object_mut() {
+                            object.insert("strings".to_owned(), Value::Object(strings));
+                        }
+                        let text = g6_xcstrings_encode(&catalog, name)?;
+                        write_text_file(&cwd, &file_path, &text)?;
+                        return Ok(json!({
+                            "tool": name,
+                            "path": file_path,
+                            "key": key,
+                            "locale": locale,
+                            "deleted": true,
+                        }));
+                    }
+                }
+            }
+            if !file_path.ends_with(".strings") {
+                return Err(failed(format!(
+                    "{name} path must end in .strings or .xcstrings."
+                )));
+            }
+            let content = read_text_file_at(&cwd, &file_path)?;
+            let mut pairs = g6_strings_pairs(&content);
+            match action.as_str() {
+                "get" => {
+                    let found = pairs.iter().find(|(found_key, _, _)| found_key == &key);
+                    return Ok(json!({
+                        "tool": name,
+                        "path": file_path,
+                        "key": key,
+                        "found": found.is_some(),
+                        "value": found.map(|(_, value, _)| value.clone()),
+                    }));
+                }
+                "set" => {
+                    let value = req_str(args, "value", name)?;
+                    if let Some(existing) = pairs.iter_mut().find(|(found_key, _, _)| found_key == &key) {
+                        existing.1 = value.clone();
+                    } else {
+                        pairs.push((key.clone(), value.clone(), pairs.len() + 1));
+                    }
+                    let serialized = g6_serialize_strings(
+                        &pairs
+                            .iter()
+                            .map(|(pair_key, pair_value, _)| (pair_key.clone(), pair_value.clone()))
+                            .collect::<Vec<(String, String)>>(),
+                    );
+                    write_text_file(&cwd, &file_path, &serialized)?;
+                    return Ok(json!({
+                        "tool": name,
+                        "path": file_path,
+                        "key": key,
+                        "value": value,
+                        "updated": true,
+                    }));
+                }
+                _ => {
+                    if !pairs.iter().any(|(found_key, _, _)| found_key == &key) {
+                        return Err(failed(format!("Key {key} not found in {file_path}.")));
+                    }
+                    pairs.retain(|(found_key, _, _)| found_key != &key);
+                    let serialized = g6_serialize_strings(
+                        &pairs
+                            .iter()
+                            .map(|(pair_key, pair_value, _)| (pair_key.clone(), pair_value.clone()))
+                            .collect::<Vec<(String, String)>>(),
+                    );
+                    write_text_file(&cwd, &file_path, &serialized)?;
+                    return Ok(json!({
+                        "tool": name,
+                        "path": file_path,
+                        "key": key,
+                        "deleted": true,
+                    }));
+                }
+            }
+        }
+        "localization_audit" => {
+            let strings_files = g5_read_text_files(&cwd, path.as_deref(), &[".strings"], 200)?;
+            let catalog_files = g5_read_text_files(&cwd, path.as_deref(), &[".xcstrings"], 50)?;
+            let mut keys_by_locale: std::collections::HashMap<String, std::collections::HashSet<String>> =
+                std::collections::HashMap::new();
+            let mut all_keys: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for (file_path, content) in &strings_files {
+                let locale = g6_locale_for_path(file_path);
+                let keys: std::collections::HashSet<String> = g6_strings_pairs(content)
+                    .into_iter()
+                    .map(|(key, _, _)| key)
+                    .collect();
+                keys_by_locale
+                    .entry(locale)
+                    .or_default()
+                    .extend(keys.iter().cloned());
+                all_keys.extend(keys);
+            }
+            for (_, content) in &catalog_files {
+                if let Ok(catalog) = serde_json::from_str::<Value>(content) {
+                    for (key, locales) in g6_xcstrings_keys(&catalog) {
+                        all_keys.insert(key);
+                        for (locale, _) in locales {
+                            keys_by_locale.entry(locale).or_default().insert(key.clone());
+                        }
+                    }
+                }
+            }
+            let mut locales: Vec<String> = keys_by_locale.keys().cloned().collect();
+            locales.sort();
+            let mut missing: Vec<Value> = Vec::new();
+            for locale in &locales {
+                let known = keys_by_locale.get(locale);
+                let absent: Vec<String> = all_keys
+                    .iter()
+                    .filter(|key| !known.map(|set| set.contains(*key)).unwrap_or(false))
+                    .cloned()
+                    .collect();
+                let mut absent = absent;
+                absent.sort();
+                if !absent.is_empty() {
+                    missing.push(json!({"locale": locale, "missingKeys": absent}));
+                }
+            }
+            let swift_files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            let total_keys = all_keys.len();
+            let mut all_keys_sorted: Vec<String> = all_keys.into_iter().collect();
+            all_keys_sorted.sort();
+            let mut unreferenced: Vec<String> = Vec::new();
+            for key in all_keys_sorted {
+                let referenced = swift_files.iter().any(|(_, content)| {
+                    content.contains(&format!("\"{key}\""))
+                        || content.contains(&format!("NSLocalizedString(\"{key}\""))
+                });
+                if !referenced {
+                    unreferenced.push(key);
+                }
+                if unreferenced.len() >= limit {
+                    break;
+                }
+            }
+            Ok(json!({
+                "tool": name,
+                "locales": locales,
+                "totalKeys": total_keys,
+                "missing": missing,
+                "unreferencedKeys": unreferenced,
+            }))
+        }
+        "localize_app" => {
+            let action = req_str(args, "action", name)?;
+            if !["localize", "status", "set_development_region"].contains(&action.as_str()) {
+                return Err(failed(format!(
+                    "{name} action must be localize, status, or set_development_region."
+                )));
+            }
+            let catalog_path = "Localizable.xcstrings";
+            if action == "status" {
+                if let Ok(content) = read_text_file_at(&cwd, catalog_path) {
+                    if let Ok(catalog) = serde_json::from_str::<Value>(&content) {
+                        let keys = g6_xcstrings_keys(&catalog);
+                        let mut locales: Vec<String> = keys
+                            .iter()
+                            .flat_map(|(_, locales)| locales.iter().map(|(locale, _)| locale.clone()))
+                            .collect();
+                        locales.sort();
+                        locales.dedup();
+                        return Ok(json!({
+                            "tool": name,
+                            "action": action,
+                            "exists": true,
+                            "sourceLanguage": catalog.get("sourceLanguage").cloned().unwrap_or(Value::Null),
+                            "keyCount": keys.len(),
+                            "locales": locales,
+                        }));
+                    }
+                }
+                return Ok(json!({
+                    "tool": name,
+                    "action": action,
+                    "exists": false,
+                    "keyCount": 0,
+                    "locales": [],
+                }));
+            }
+            if action == "set_development_region" {
+                let region = req_str(args, "developmentRegion", name)?;
+                let plist_path = g6_resolve_file(&cwd, None, "Info.plist", "Info.plist", name)?;
+                g6_plist_set(&cwd, &plist_path, "CFBundleDevelopmentRegion", &json!(region), name)?;
+                return Ok(json!({
+                    "tool": name,
+                    "action": action,
+                    "path": plist_path,
+                    "developmentRegion": region,
+                    "updated": true,
+                }));
+            }
+            let Some(languages) = args
+                .get("languages")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| item.as_str().map(str::to_owned))
+                        .collect::<Vec<String>>()
+                })
+            else {
+                return Err(failed(format!(
+                    "{name} localize requires languages with 1 to 3 language codes."
+                )));
+            };
+            if languages.is_empty() || languages.len() > 3 {
+                return Err(failed(format!(
+                    "{name} localize requires languages with 1 to 3 language codes."
+                )));
+            }
+            let mut translations: std::collections::HashMap<String, std::collections::HashMap<String, String>> =
+                std::collections::HashMap::new();
+            if let Some(raw_translations) = args.get("translations").and_then(Value::as_array) {
+                for raw in raw_translations {
+                    let Some(locale) = raw.get("locale").and_then(Value::as_str) else {
+                        return Err(failed(format!("{name} is missing required argument \"translations\".")));
+                    };
+                    let Some(key) = raw.get("key").and_then(Value::as_str) else {
+                        return Err(failed(format!("{name} is missing required argument \"translations\".")));
+                    };
+                    let Some(value) = raw.get("value").and_then(Value::as_str) else {
+                        return Err(failed(format!("{name} is missing required argument \"translations\".")));
+                    };
+                    translations
+                        .entry(locale.to_owned())
+                        .or_default()
+                        .insert(key.to_owned(), value.to_owned());
+                }
+            }
+            let swift_files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 200)?;
+            let mut keys: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for (_, content) in &swift_files {
+                for caps in g5_regex_captures(
+                    r#"NSLocalizedString\(\s*"((?:[^"\\]|\\.)*)""#,
+                    content,
+                ) {
+                    let key = caps.get(1).cloned().flatten().unwrap_or_default();
+                    if !key.is_empty() {
+                        keys.insert(g6_strings_unescape(&key));
+                    }
+                }
+                for caps in g5_regex_captures(
+                    r#"String\(localized:\s*"((?:[^"\\]|\\.)*)""#,
+                    content,
+                ) {
+                    let key = caps.get(1).cloned().flatten().unwrap_or_default();
+                    if !key.is_empty() {
+                        keys.insert(g6_strings_unescape(&key));
+                    }
+                }
+            }
+            let mut catalog: Value = if let Ok(content) = read_text_file_at(&cwd, catalog_path) {
+                serde_json::from_str(&content).unwrap_or_else(|_| {
+                    json!({"sourceLanguage": "en", "strings": {}, "version": "1.0"})
+                })
+            } else {
+                json!({"sourceLanguage": "en", "strings": {}, "version": "1.0"})
+            };
+            let source_language = catalog
+                .get("sourceLanguage")
+                .and_then(Value::as_str)
+                .unwrap_or("en")
+                .to_owned();
+            let mut keys_sorted: Vec<String> = keys.into_iter().collect();
+            keys_sorted.sort();
+            let mut keys_added = 0usize;
+            let layout_direction = if languages.iter().any(|language| {
+                ["ar", "he", "fa", "ur"].contains(&language.to_lowercase().as_str())
+            }) {
+                "rtl"
+            } else {
+                "ltr"
+            };
+            for key in &keys_sorted {
+                let existing = g6_xcstrings_keys(&catalog)
+                    .into_iter()
+                    .find(|(found_key, _)| found_key == key);
+                if existing.is_none() {
+                    keys_added += 1;
+                }
+                g6_xcstrings_set(&mut catalog, key, &source_language, key, "translated");
+                for language in &languages {
+                    if let Some(translated) = translations
+                        .get(language)
+                        .and_then(|map| map.get(key))
+                    {
+                        g6_xcstrings_set(&mut catalog, key, language, translated, "translated");
+                    } else {
+                        let has_language = g6_xcstrings_keys(&catalog)
+                            .into_iter()
+                            .find(|(found_key, _)| found_key == key)
+                            .map(|(_, locales)| {
+                                locales.iter().any(|(locale, _)| locale == language)
+                            })
+                            .unwrap_or(false);
+                        if !has_language {
+                            g6_xcstrings_set(&mut catalog, key, language, key, "new");
+                        }
+                    }
+                }
+            }
+            let text = g6_xcstrings_encode(&catalog, name)?;
+            write_text_file(&cwd, catalog_path, &text)?;
+            if let Ok(plist_path) = g6_resolve_file(&cwd, None, "Info.plist", "Info.plist", name) {
+                if let Ok(plist) = g6_plist_json(&cwd, &plist_path, name) {
+                    let _ = g6_plist_set(
+                        &cwd,
+                        &plist_path,
+                        "CFBundleLocalizations",
+                        &json!(languages),
+                        name,
+                    );
+                    if plist.get("CFBundleDevelopmentRegion").is_none() {
+                        let _ = g6_plist_set(
+                            &cwd,
+                            &plist_path,
+                            "CFBundleDevelopmentRegion",
+                            &json!(source_language),
+                            name,
+                        );
+                    }
+                }
+            }
+            Ok(json!({
+                "tool": name,
+                "action": action,
+                "languages": languages,
+                "layoutDirection": layout_direction,
+                "sourceLanguage": source_language,
+                "keysAdded": keys_added,
+                "catalog": catalog_path,
+            }))
+        }
+        "asset_catalog_manager" => {
+            let action = req_str(args, "action", name)?;
+            match action.as_str() {
+                "list" => {
+                    let entries = g6_entries(&cwd, path.as_deref())?;
+                    let catalogs: Vec<String> = entries
+                        .iter()
+                        .filter(|entry| g6_is_dir(entry) && g6_entry_path(entry).ends_with(".xcassets"))
+                        .map(|entry| g6_entry_path(entry))
+                        .collect();
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "catalogs": catalogs,
+                        "catalogCount": catalogs.len(),
+                    }))
+                }
+                "inspect" => {
+                    let set_name = req_str(args, "name", name)?;
+                    let entries = g6_entries(&cwd, path.as_deref())?;
+                    let Some(set) = entries.iter().find(|entry| {
+                        g6_is_dir(entry) && g6_basename(&g6_entry_path(entry)) == set_name
+                    }) else {
+                        return Err(failed(format!("No asset set named {set_name} found.")));
+                    };
+                    let set_path = g6_entry_path(set);
+                    let contents = read_text_file_at(&cwd, &format!("{set_path}/Contents.json"))?;
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "set": set_path,
+                        "contents": contents,
+                    }))
+                }
+                "create_imageset" => {
+                    let image_name = req_str(args, "name", name)?;
+                    let source = req_str(args, "source", name)?;
+                    g6_validate_relative(&source, name)?;
+                    let catalog =
+                        g6_resolve_catalog(&cwd, opt_str(args, "catalog").as_deref(), name)?;
+                    let set_path = format!("{catalog}/{image_name}.imageset");
+                    let file_name = g6_basename(&source);
+                    let set_dir = Path::new(&cwd).join(&set_path);
+                    std::fs::create_dir_all(&set_dir).map_err(|error| {
+                        failed(format!("{name} could not create {set_path}: {error}"))
+                    })?;
+                    std::fs::copy(Path::new(&cwd).join(&source), set_dir.join(&file_name))
+                        .map_err(|error| failed(format!("{name} could not copy {source}: {error}")))?;
+                    let contents = json!({
+                        "images": [{"filename": file_name, "idiom": "universal", "scale": "1x"}],
+                        "info": {"author": "xcode", "version": 1},
+                    });
+                    let contents_text = serde_json::to_string_pretty(&contents).map_err(|error| {
+                        failed(format!("{name} could not serialize Contents.json: {error}"))
+                    })?;
+                    write_text_file(&cwd, &format!("{set_path}/Contents.json"), &contents_text)?;
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "set": set_path,
+                        "image": file_name,
+                        "created": true,
+                    }))
+                }
+                "create_colorset" => {
+                    let color_name = req_str(args, "name", name)?;
+                    let light_hex = req_str(args, "lightHex", name)?;
+                    let dark_hex = opt_str(args, "darkHex").unwrap_or_else(|| light_hex.clone());
+                    let catalog =
+                        g6_resolve_catalog(&cwd, opt_str(args, "catalog").as_deref(), name)?;
+                    let set_path = format!("{catalog}/{color_name}.colorset");
+                    let set_dir = Path::new(&cwd).join(&set_path);
+                    std::fs::create_dir_all(&set_dir).map_err(|error| {
+                        failed(format!("{name} could not create {set_path}: {error}"))
+                    })?;
+                    let contents = g6_colorset_contents(&light_hex, &dark_hex);
+                    let contents_text = serde_json::to_string_pretty(&contents).map_err(|error| {
+                        failed(format!("{name} could not serialize Contents.json: {error}"))
+                    })?;
+                    write_text_file(&cwd, &format!("{set_path}/Contents.json"), &contents_text)?;
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "set": set_path,
+                        "created": true,
+                    }))
+                }
+                _ => Err(failed(format!(
+                    "{name} action must be list, inspect, create_imageset, or create_colorset."
+                ))),
+            }
+        }
+        "localization_manager" => {
+            let action = req_str(args, "action", name)?;
+            match action.as_str() {
+                "list" => {
+                    let strings_files =
+                        g5_read_text_files(&cwd, path.as_deref(), &[".strings"], 200)?;
+                    let catalog_files =
+                        g5_read_text_files(&cwd, path.as_deref(), &[".xcstrings"], 50)?;
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "stringsFiles": strings_files.iter().map(|(file_path, _)| file_path).collect::<Vec<_>>(),
+                        "catalogs": catalog_files.iter().map(|(file_path, _)| file_path).collect::<Vec<_>>(),
+                    }))
+                }
+                "extract" => {
+                    let strings_files =
+                        g5_read_text_files(&cwd, path.as_deref(), &[".strings"], 200)?;
+                    let catalog_files =
+                        g5_read_text_files(&cwd, path.as_deref(), &[".xcstrings"], 50)?;
+                    let mut keys: std::collections::HashMap<
+                        String,
+                        std::collections::HashMap<String, String>,
+                    > = std::collections::HashMap::new();
+                    for (file_path, content) in &strings_files {
+                        let locale = g6_locale_for_path(file_path);
+                        for (key, value, _) in g6_strings_pairs(content) {
+                            keys.entry(key).or_default().insert(locale.clone(), value);
+                        }
+                    }
+                    for (_, content) in &catalog_files {
+                        if let Ok(catalog) = serde_json::from_str::<Value>(content) {
+                            for (key, locales) in g6_xcstrings_keys(&catalog) {
+                                for (locale, value) in locales {
+                                    keys.entry(key).or_default().insert(locale, value);
+                                }
+                            }
+                        }
+                    }
+                    let key_count = keys.len();
+                    let mut keys_json = serde_json::Map::new();
+                    for (key, locales) in keys {
+                        let mut locales_json = serde_json::Map::new();
+                        for (locale, value) in locales {
+                            locales_json.insert(locale, json!(value));
+                        }
+                        keys_json.insert(key, Value::Object(locales_json));
+                    }
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "keys": keys_json,
+                        "keyCount": key_count,
+                    }))
+                }
+                "add" => {
+                    let key = req_str(args, "key", name)?;
+                    let value = req_str(args, "value", name)?;
+                    let file_path = req_str(args, "path", name)?;
+                    g6_validate_relative(&file_path, name)?;
+                    if file_path.ends_with(".xcstrings") {
+                        let content = read_text_file_at(&cwd, &file_path)?;
+                        let mut catalog: Value = serde_json::from_str(&content).map_err(|error| {
+                            failed(format!("{name} catalog was not valid JSON: {error}"))
+                        })?;
+                        let locale = opt_str(args, "locale").unwrap_or_else(|| {
+                            catalog
+                                .get("sourceLanguage")
+                                .and_then(Value::as_str)
+                                .unwrap_or("en")
+                                .to_owned()
+                        });
+                        g6_xcstrings_set(&mut catalog, &key, &locale, &value, "translated");
+                        let text = g6_xcstrings_encode(&catalog, name)?;
+                        write_text_file(&cwd, &file_path, &text)?;
+                        return Ok(json!({
+                            "tool": name,
+                            "action": action,
+                            "path": file_path,
+                            "key": key,
+                            "locale": locale,
+                            "updated": true,
+                        }));
+                    }
+                    if !file_path.ends_with(".strings") {
+                        return Err(failed(format!(
+                            "{name} add path must end in .strings or .xcstrings."
+                        )));
+                    }
+                    let content = read_text_file_at(&cwd, &file_path)?;
+                    let mut pairs = g6_strings_pairs(&content);
+                    if let Some(existing) =
+                        pairs.iter_mut().find(|(found_key, _, _)| found_key == &key)
+                    {
+                        existing.1 = value.clone();
+                    } else {
+                        pairs.push((key.clone(), value.clone(), pairs.len() + 1));
+                    }
+                    let serialized = g6_serialize_strings(
+                        &pairs
+                            .iter()
+                            .map(|(pair_key, pair_value, _)| {
+                                (pair_key.clone(), pair_value.clone())
+                            })
+                            .collect::<Vec<(String, String)>>(),
+                    );
+                    write_text_file(&cwd, &file_path, &serialized)?;
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "path": file_path,
+                        "key": key,
+                        "updated": true,
+                    }))
+                }
+                "validate" => {
+                    let files = g5_read_text_files(&cwd, path.as_deref(), &[".strings"], 100)?;
+                    Ok(g5_strings_validate(name, &files, limit))
+                }
+                _ => Err(failed(format!(
+                    "{name} action must be list, extract, add, or validate."
+                ))),
+            }
+        }
+        "entitlements_manager" => {
+            let action = req_str(args, "action", name)?;
+            let entitlements_path =
+                g6_resolve_file(&cwd, path.as_deref(), ".entitlements", ".entitlements", name)?;
+            g6_validate_relative(&entitlements_path, name)?;
+            let plist = g6_plist_json(&cwd, &entitlements_path, name)?;
+            match action.as_str() {
+                "list" => Ok(json!({
+                    "tool": name,
+                    "action": action,
+                    "path": entitlements_path,
+                    "entitlements": plist,
+                })),
+                "add" => {
+                    let key = req_str(args, "key", name)?;
+                    let value = req_str(args, "value", name)?;
+                    let scalar = g6_plist_scalar(&value);
+                    g6_plist_set(&cwd, &entitlements_path, &key, &scalar, name)?;
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "path": entitlements_path,
+                        "key": key,
+                        "updated": true,
+                    }))
+                }
+                "remove" => {
+                    let key = req_str(args, "key", name)?;
+                    if plist.get(&key).is_none() {
+                        return Err(failed(format!(
+                            "Entitlement {key} not present in {entitlements_path}."
+                        )));
+                    }
+                    g6_plist_remove(&cwd, &entitlements_path, &key, name)?;
+                    Ok(json!({
+                        "tool": name,
+                        "action": action,
+                        "path": entitlements_path,
+                        "key": key,
+                        "removed": true,
+                    }))
+                }
+                _ => Err(failed(format!(
+                    "{name} action must be list, add, or remove."
+                ))),
+            }
+        }
+        "colorset_builder" => {
+            let color_name = req_str(args, "name", name)?;
+            let light_hex = req_str(args, "lightHex", name)?;
+            let dark_hex = opt_str(args, "darkHex").unwrap_or_else(|| light_hex.clone());
+            if color_name.is_empty() || color_name.contains('/') {
+                return Err(failed(format!(
+                    "{name} name must be a single name without a path separator."
+                )));
+            }
+            for hex in [&light_hex, &dark_hex] {
+                let valid = hex.len() == 7
+                    && hex.starts_with('#')
+                    && hex[1..].chars().all(|ch| ch.is_ascii_hexdigit());
+                if !valid {
+                    return Err(failed(format!(
+                        "{name} color hex must be #RRGGBB, for example #FF8800."
+                    )));
+                }
+            }
+            let catalog = g6_resolve_catalog(&cwd, opt_str(args, "catalog").as_deref(), name)?;
+            let set_path = format!("{catalog}/{color_name}.colorset");
+            let set_dir = Path::new(&cwd).join(&set_path);
+            std::fs::create_dir_all(&set_dir)
+                .map_err(|error| failed(format!("{name} could not create {set_path}: {error}")))?;
+            let contents = g6_colorset_contents(&light_hex, &dark_hex);
+            let contents_text = serde_json::to_string_pretty(&contents)
+                .map_err(|error| failed(format!("{name} could not serialize Contents.json: {error}")))?;
+            write_text_file(&cwd, &format!("{set_path}/Contents.json"), &contents_text)?;
+            let verify = read_text_file_at(&cwd, &format!("{set_path}/Contents.json"))?;
+            let light_red = u32::from_str_radix(light_hex.get(1..3).unwrap_or("00"), 16).unwrap_or(0);
+            let expected_red = format!("{:.3}", light_red as f64 / 255.0);
+            Ok(json!({
+                "tool": name,
+                "set": set_path,
+                "lightHex": light_hex,
+                "darkHex": dark_hex,
+                "verified": verify.contains(&expected_red),
+            }))
+        }
+        "project_entitlements" => {
+            let entitlements_path =
+                g6_resolve_file(&cwd, path.as_deref(), ".entitlements", ".entitlements", name)?;
+            g6_validate_relative(&entitlements_path, name)?;
+            let plist = g6_plist_json(&cwd, &entitlements_path, name)?;
+            Ok(json!({
+                "tool": name,
+                "path": entitlements_path,
+                "entitlements": plist,
+            }))
+        }
+        "project_info_plist" => {
+            let action = req_str(args, "action", name)?;
+            let plist_path = g6_resolve_file(&cwd, path.as_deref(), "Info.plist", "Info.plist", name)?;
+            g6_validate_relative(&plist_path, name)?;
+            let plist = g6_plist_json(&cwd, &plist_path, name)?;
+            match action.as_str() {
+                "get" => {
+                    let key = req_str(args, "key", name)?;
+                    let found = plist.get(&key);
+                    Ok(json!({
+                        "tool": name,
+                        "path": plist_path,
+                        "key": key,
+                        "found": found.is_some(),
+                        "value": found.cloned().unwrap_or(Value::Null),
+                    }))
+                }
+                "set" => {
+                    let key = req_str(args, "key", name)?;
+                    let value = req_str(args, "value", name)?;
+                    let scalar = g6_plist_scalar(&value);
+                    g6_plist_set(&cwd, &plist_path, &key, &scalar, name)?;
+                    Ok(json!({
+                        "tool": name,
+                        "path": plist_path,
+                        "key": key,
+                        "value": value,
+                        "updated": true,
+                    }))
+                }
+                "delete" => {
+                    let key = req_str(args, "key", name)?;
+                    if plist.get(&key).is_none() {
+                        return Err(failed(format!("Key {key} not present in {plist_path}.")));
+                    }
+                    g6_plist_remove(&cwd, &plist_path, &key, name)?;
+                    Ok(json!({
+                        "tool": name,
+                        "path": plist_path,
+                        "key": key,
+                        "deleted": true,
+                    }))
+                }
+                _ => Err(failed(format!(
+                    "{name} action must be get, set, or delete."
+                ))),
+            }
+        }
+        "project_capabilities" => {
+            let action = req_str(args, "action", name)?;
+            let entitlements_path =
+                g6_resolve_file(&cwd, path.as_deref(), ".entitlements", ".entitlements", name)?;
+            g6_validate_relative(&entitlements_path, name)?;
+            let plist = g6_plist_json(&cwd, &entitlements_path, name)?;
+            let supported: Vec<(&str, &str)> = vec![
+                ("app-sandbox", "com.apple.security.app-sandbox"),
+                ("network-client", "com.apple.security.network.client"),
+                ("network-server", "com.apple.security.network.server"),
+                (
+                    "files-user-selected-read-only",
+                    "com.apple.security.files.user-selected.read-only",
+                ),
+                (
+                    "files-user-selected-read-write",
+                    "com.apple.security.files.user-selected.read-write",
+                ),
+                (
+                    "files-downloads-read-only",
+                    "com.apple.security.files.downloads.read-only",
+                ),
+                (
+                    "files-downloads-read-write",
+                    "com.apple.security.files.downloads.read-write",
+                ),
+                ("audio-input", "com.apple.security.device.audio-input"),
+                ("camera", "com.apple.security.device.camera"),
+                ("usb", "com.apple.security.device.usb"),
+                ("bluetooth", "com.apple.security.device.bluetooth"),
+                ("printing", "com.apple.security.print"),
+            ];
+            if action == "list" {
+                let mut enabled: Vec<String> = Vec::new();
+                let mut disabled: Vec<String> = Vec::new();
+                let mut sorted = supported.clone();
+                sorted.sort_by(|a, b| a.0.cmp(b.0));
+                for (capability, key) in &sorted {
+                    if plist.get(*key).and_then(Value::as_bool) == Some(true) {
+                        enabled.push((*capability).to_owned());
+                    } else {
+                        disabled.push((*capability).to_owned());
+                    }
+                }
+                let mut present: Vec<Value> = Vec::new();
+                if let Some(object) = plist.as_object() {
+                    let mut keys: Vec<&String> = object.keys().collect();
+                    keys.sort();
+                    for key in keys {
+                        if !supported.iter().any(|(_, known)| known == key) {
+                            present.push(json!({
+                                "key": key,
+                                "value": object.get(key).cloned().unwrap_or(Value::Null),
+                            }));
+                        }
+                    }
+                }
+                return Ok(json!({
+                    "tool": name,
+                    "action": action,
+                    "path": entitlements_path,
+                    "enabled": enabled,
+                    "disabled": disabled,
+                    "otherEntitlements": present,
+                }));
+            }
+            if !["enable", "disable"].contains(&action.as_str()) {
+                return Err(failed(format!(
+                    "{name} action must be list, enable, or disable."
+                )));
+            }
+            let capability = req_str(args, "capability", name)?;
+            let Some((_, key)) = supported.iter().find(|(known, _)| *known == capability.as_str()) else {
+                let names: Vec<&str> = supported.iter().map(|(known, _)| *known).collect();
+                return Err(failed(format!(
+                    "Capability {capability} is not a boolean entitlement capability. Supported: {}.",
+                    names.join(", ")
+                )));
+            };
+            let key = *key;
+            let enabled = action == "enable";
+            g6_plist_set(&cwd, &entitlements_path, key, &json!(enabled), name)?;
+            Ok(json!({
+                "tool": name,
+                "action": action,
+                "path": entitlements_path,
+                "capability": capability,
+                "key": key,
+                "enabled": enabled,
+            }))
+        }
+        "entry_points_discover" => {
+            let main_hits = g5_search_regex_hits(&cwd, "@main", limit as u64)?;
+            let delegate_hits = g5_search_regex_hits(
+                &cwd,
+                r"(class|struct)\s+([A-Za-z0-9_]*(AppDelegate|SceneDelegate)[A-Za-z0-9_]*)",
+                limit as u64,
+            )?;
+            let scoped_main = g6_scope_hits(main_hits, path.as_deref());
+            let scoped_delegates = g6_scope_hits(delegate_hits, path.as_deref());
+            let mut entries: Vec<Value> = Vec::new();
+            for (hit_path, line, text) in &scoped_main {
+                entries.push(json!({"kind": "main", "path": hit_path, "lineNumber": line, "lineText": text}));
+            }
+            for (hit_path, line, text) in &scoped_delegates {
+                entries.push(json!({"kind": "delegate", "path": hit_path, "lineNumber": line, "lineText": text}));
+            }
+            let main_files = g6_entries(&cwd, path.as_deref())?;
+            for entry in &main_files {
+                if !g6_is_dir(entry) && g6_entry_name(entry) == "main.swift" {
+                    entries.push(json!({
+                        "kind": "mainSwift",
+                        "path": g6_entry_path(entry),
+                        "lineNumber": 1,
+                        "lineText": "main.swift",
+                    }));
+                }
+            }
+            Ok(json!({
+                "tool": name,
+                "entryPoints": entries,
+                "count": entries.len(),
+            }))
+        }
+        "repo_overview" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let files: Vec<&Value> = entries.iter().filter(|entry| !g6_is_dir(entry)).collect();
+            let mut by_language: std::collections::HashMap<String, (usize, i64)> =
+                std::collections::HashMap::new();
+            for file in &files {
+                let ext = g6_ext(&g6_entry_path(file));
+                let language = g6_language_for_extension(&ext).to_owned();
+                let slot = by_language.entry(language).or_insert((0, 0));
+                slot.0 += 1;
+                slot.1 += g6_size(file);
+            }
+            let mut largest: Vec<&Value> = files.clone();
+            largest.sort_by(|a, b| g6_size(b).cmp(&g6_size(a)));
+            let largest: Vec<Value> = largest
+                .into_iter()
+                .take(10)
+                .map(|file| json!({"path": g6_entry_path(file), "bytes": g6_size(file)}))
+                .collect();
+            let names: std::collections::HashSet<String> = files
+                .iter()
+                .map(|file| g6_entry_name(file).to_lowercase())
+                .collect();
+            let mut languages: Vec<String> = by_language.keys().cloned().collect();
+            languages.sort();
+            let languages_json: Vec<Value> = languages
+                .iter()
+                .map(|language| {
+                    let (count, bytes) = by_language.get(language).copied().unwrap_or((0, 0));
+                    json!({"language": language, "files": count, "bytes": bytes})
+                })
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "fileCount": files.len(),
+                "directoryCount": entries.len() - files.len(),
+                "languages": languages_json,
+                "hasReadme": names.iter().any(|file_name| file_name.starts_with("readme")),
+                "hasLicense": names.iter().any(|file_name| file_name.starts_with("license")),
+                "largestFiles": largest,
+            }))
+        }
+        "project_structure_map" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let mut directories: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
+            for entry in &entries {
+                if g6_is_dir(entry) {
+                    continue;
+                }
+                let dir = g6_dirname(&g6_entry_path(entry));
+                *directories.entry(dir).or_insert(0) += 1;
+            }
+            let mut targets: Vec<String> = Vec::new();
+            if let Ok(pbxproj) = g5_resolve_pbxproj(&cwd, None, name) {
+                if let Ok(content) = read_text_file_at(&cwd, &pbxproj) {
+                    targets = g6_pbxproj_targets(&content);
+                }
+            }
+            let mut dirs: Vec<String> = directories.keys().cloned().collect();
+            dirs.sort();
+            let directories_json: Vec<Value> = dirs
+                .iter()
+                .map(|dir| {
+                    json!({"path": dir, "files": directories.get(dir).copied().unwrap_or(0)})
+                })
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "directories": directories_json,
+                "targets": targets,
+            }))
+        }
+        "recent_changes" => {
+            let hours = opt_u64(args, "hours").unwrap_or(24).clamp(1, 24 * 365);
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_secs_f64())
+                .unwrap_or(0.0);
+            let cutoff = now - hours as f64 * 3600.0;
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let mut changed: Vec<&Value> = entries
+                .iter()
+                .filter(|entry| !g6_is_dir(entry) && g6_mtime(entry) >= cutoff)
+                .collect();
+            changed.sort_by(|a, b| {
+                g6_mtime(b)
+                    .partial_cmp(&g6_mtime(a))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            let changed: Vec<Value> = changed
+                .into_iter()
+                .take(limit)
+                .map(|entry| {
+                    json!({
+                        "path": g6_entry_path(entry),
+                        "modifiedAt": g6_mtime(entry),
+                        "sizeBytes": g6_size(entry),
+                    })
+                })
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "hours": hours,
+                "files": changed,
+                "count": changed.len(),
+            }))
+        }
+        "readme_locate" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let mut readmes: Vec<Value> = Vec::new();
+            for entry in &entries {
+                if g6_is_dir(entry) || !g6_entry_name(entry).to_lowercase().starts_with("readme") {
+                    continue;
+                }
+                let entry_path = g6_entry_path(entry);
+                let mut title = String::new();
+                if let Ok(content) = read_text_file_at(&cwd, &entry_path) {
+                    for line in content.lines() {
+                        let trimmed = line.trim();
+                        if let Some(rest) = trimmed.strip_prefix("# ") {
+                            title = rest.trim().to_owned();
+                            break;
+                        }
+                    }
+                }
+                readmes.push(json!({"path": entry_path, "title": title}));
+            }
+            Ok(json!({
+                "tool": name,
+                "readmes": readmes,
+                "count": readmes.len(),
+            }))
+        }
+        "dependency_licenses" => {
+            let mut dependencies: Vec<Value> = Vec::new();
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            if let Some(resolved_entry) = entries
+                .iter()
+                .find(|entry| !g6_is_dir(entry) && g6_entry_name(entry) == "Package.resolved")
+            {
+                let entry_path = g6_entry_path(resolved_entry);
+                if let Ok(content) = read_text_file_at(&cwd, &entry_path) {
+                    for (identity, location, version) in g6_parse_resolved(&content) {
+                        dependencies.push(json!({
+                            "name": identity,
+                            "version": version,
+                            "source": "Package.resolved",
+                            "location": location,
+                        }));
+                    }
+                }
+            }
+            if let Some(lock_entry) = entries
+                .iter()
+                .find(|entry| !g6_is_dir(entry) && g6_entry_name(entry) == "Podfile.lock")
+            {
+                let entry_path = g6_entry_path(lock_entry);
+                if let Ok(content) = read_text_file_at(&cwd, &entry_path) {
+                    let mut in_pods = false;
+                    for line in content.lines() {
+                        if line.starts_with("PODS:") {
+                            in_pods = true;
+                            continue;
+                        }
+                        if in_pods {
+                            if line.is_empty()
+                                || (!line.starts_with(' ') && !line.starts_with('\t'))
+                            {
+                                break;
+                            }
+                            if let Some(first) = g5_regex_captures(
+                                r"^\s*-\s*([A-Za-z0-9_./-]+) \(([^)]+)\)",
+                                line,
+                            )
+                            .into_iter()
+                            .next()
+                            {
+                                let pod_name =
+                                    first.get(1).cloned().flatten().unwrap_or_default();
+                                let version =
+                                    first.get(2).cloned().flatten().unwrap_or_default();
+                                if !pod_name.is_empty() {
+                                    dependencies.push(json!({
+                                        "name": pod_name,
+                                        "version": version,
+                                        "source": "Podfile.lock",
+                                        "location": "",
+                                    }));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            let has_license = entries.iter().any(|entry| {
+                !g6_is_dir(entry) && g6_entry_name(entry).to_lowercase().starts_with("license")
+            });
+            Ok(json!({
+                "tool": name,
+                "dependencies": dependencies,
+                "count": dependencies.len(),
+                "hasLicenseFile": has_license,
+                "note": "License text is not stored in Package.resolved or Podfile.lock; check each package LICENSE file for the license terms.",
+            }))
+        }
+        "stale_files_report" => {
+            let days = opt_u64(args, "days").unwrap_or(180).clamp(1, 3650);
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_secs_f64())
+                .unwrap_or(0.0);
+            let cutoff = now - days as f64 * 86400.0;
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let source_exts = [
+                "swift", "m", "mm", "h", "c", "cpp", "ts", "tsx", "js", "jsx", "py", "rs", "kt",
+                "java",
+            ];
+            let mut stale: Vec<&Value> = entries
+                .iter()
+                .filter(|entry| {
+                    if g6_is_dir(entry) {
+                        return false;
+                    }
+                    let modified = g6_mtime(entry);
+                    modified > 0.0
+                        && modified < cutoff
+                        && source_exts.contains(&g6_ext(&g6_entry_path(entry)).as_str())
+                })
+                .collect();
+            stale.sort_by(|a, b| {
+                g6_mtime(a)
+                    .partial_cmp(&g6_mtime(b))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            let stale: Vec<Value> = stale
+                .into_iter()
+                .take(limit)
+                .map(|entry| {
+                    json!({
+                        "path": g6_entry_path(entry),
+                        "modifiedAt": g6_mtime(entry),
+                        "sizeBytes": g6_size(entry),
+                    })
+                })
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "days": days,
+                "files": stale,
+                "count": stale.len(),
+            }))
+        }
+        "file_type_breakdown" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let mut by_extension: std::collections::HashMap<String, (usize, i64)> =
+                std::collections::HashMap::new();
+            for entry in &entries {
+                if g6_is_dir(entry) {
+                    continue;
+                }
+                let ext = g6_ext(&g6_entry_path(entry));
+                let key = if ext.is_empty() {
+                    "(none)".to_owned()
+                } else {
+                    format!(".{ext}")
+                };
+                let slot = by_extension.entry(key).or_insert((0, 0));
+                slot.0 += 1;
+                slot.1 += g6_size(entry);
+            }
+            let mut exts: Vec<String> = by_extension.keys().cloned().collect();
+            exts.sort();
+            let types: Vec<Value> = exts
+                .iter()
+                .map(|ext| {
+                    let (count, bytes) = by_extension.get(ext).copied().unwrap_or((0, 0));
+                    json!({"extension": ext, "files": count, "bytes": bytes})
+                })
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "types": types,
+            }))
+        }
+        "empty_dirs_find" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let mut children: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
+            for entry in &entries {
+                let dir = g6_dirname(&g6_entry_path(entry));
+                if !dir.is_empty() {
+                    *children.entry(dir).or_insert(0) += 1;
+                }
+            }
+            let empty: Vec<String> = entries
+                .iter()
+                .filter(|entry| {
+                    g6_is_dir(entry) && children.get(&g6_entry_path(entry)).copied().unwrap_or(0) == 0
+                })
+                .map(|entry| g6_entry_path(entry))
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "emptyDirectories": empty,
+                "count": empty.len(),
+            }))
+        }
+        "symlink_audit" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let mut links: Vec<Value> = Vec::new();
+            for entry in &entries {
+                if entry["isSymlink"].as_bool() != Some(true) {
+                    continue;
+                }
+                let entry_path = g6_entry_path(entry);
+                let target = entry["symlinkTarget"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_owned();
+                let mut broken = false;
+                if !target.is_empty() {
+                    let resolved = if target.starts_with('/') {
+                        Path::new(&target).to_path_buf()
+                    } else {
+                        Path::new(&cwd)
+                            .join(g6_dirname(&entry_path))
+                            .join(&target)
+                    };
+                    broken = !resolved.exists();
+                }
+                links.push(json!({
+                    "path": entry_path,
+                    "target": target,
+                    "broken": broken,
+                }));
+            }
+            let broken_count = links
+                .iter()
+                .filter(|link| link["broken"].as_bool() == Some(true))
+                .count();
+            Ok(json!({
+                "tool": name,
+                "links": links,
+                "count": links.len(),
+                "brokenCount": broken_count,
+            }))
+        }
+        "executable_files_scan" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let executables: Vec<Value> = entries
+                .iter()
+                .filter(|entry| {
+                    !g6_is_dir(entry) && entry["isExecutable"].as_bool() == Some(true)
+                })
+                .map(|entry| {
+                    json!({"path": g6_entry_path(entry), "sizeBytes": g6_size(entry)})
+                })
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "executables": executables,
+                "count": executables.len(),
+            }))
+        }
+        "dir_size_report" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let root = path.clone().unwrap_or_default();
+            let mut totals: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+            let mut file_counts: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
+            for entry in &entries {
+                if g6_is_dir(entry) {
+                    continue;
+                }
+                let entry_path = g6_entry_path(entry);
+                let relative = if root.is_empty() {
+                    entry_path.clone()
+                } else if let Some(rest) = entry_path.strip_prefix(&format!("{root}/")) {
+                    rest.to_owned()
+                } else {
+                    entry_path.clone()
+                };
+                let top = relative
+                    .split('/')
+                    .next()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| "(root)".to_owned());
+                *totals.entry(top.clone()).or_insert(0) += g6_size(entry);
+                *file_counts.entry(top).or_insert(0) += 1;
+            }
+            let mut dirs: Vec<String> = totals.keys().cloned().collect();
+            dirs.sort_by(|a, b| {
+                totals
+                    .get(b)
+                    .copied()
+                    .unwrap_or(0)
+                    .cmp(&totals.get(a).copied().unwrap_or(0))
+            });
+            let directories: Vec<Value> = dirs
+                .into_iter()
+                .take(limit)
+                .map(|dir| {
+                    json!({
+                        "directory": dir,
+                        "bytes": totals.get(&dir).copied().unwrap_or(0),
+                        "files": file_counts.get(&dir).copied().unwrap_or(0),
+                    })
+                })
+                .collect();
+            let total_bytes: i64 = entries
+                .iter()
+                .filter(|entry| !g6_is_dir(entry))
+                .map(|entry| g6_size(entry))
+                .sum();
+            Ok(json!({
+                "tool": name,
+                "directories": directories,
+                "totalBytes": total_bytes,
+            }))
+        }
+        "image_asset_size_report" => {
+            let max_bytes = opt_u64(args, "maxKilobytes")
+                .unwrap_or(500)
+                .clamp(1, 100000)
+                * 1024;
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let image_exts = ["png", "jpg", "jpeg", "heic", "webp", "gif", "pdf"];
+            let mut oversized: Vec<&Value> = entries
+                .iter()
+                .filter(|entry| {
+                    if g6_is_dir(entry) || !g6_entry_path(entry).contains(".xcassets/") {
+                        return false;
+                    }
+                    let ext = g6_ext(&g6_entry_path(entry));
+                    image_exts.contains(&ext.as_str()) && g6_size(entry) > max_bytes as i64
+                })
+                .collect();
+            oversized.sort_by(|a, b| g6_size(b).cmp(&g6_size(a)));
+            let images: Vec<Value> = oversized
+                .into_iter()
+                .map(|entry| {
+                    json!({"path": g6_entry_path(entry), "sizeBytes": g6_size(entry)})
+                })
+                .collect();
+            Ok(json!({
+                "tool": name,
+                "maxKilobytes": max_bytes / 1024,
+                "images": images,
+                "count": images.len(),
+            }))
+        }
+        "bundle_resource_auditor" => {
+            let pbxproj = g5_resolve_pbxproj(&cwd, path.as_deref(), name)?;
+            let content = read_text_file_at(&cwd, &pbxproj)?;
+            let entries = g6_entries(&cwd, None)?;
+            Ok(g6_bundle_resources(name, &pbxproj, &content, &entries))
+        }
+        "core_data_model_inspector" => {
+            let mut model_paths: Vec<String> = Vec::new();
+            if let Some(path) = path.as_deref().filter(|p| !p.is_empty()) {
+                model_paths.push(path.to_owned());
+            } else {
+                let entries = g6_entries(&cwd, None)?;
+                model_paths = entries
+                    .iter()
+                    .filter(|entry| g6_entry_path(entry).ends_with(".xcdatamodeld"))
+                    .map(|entry| g6_entry_path(entry))
+                    .collect();
+            }
+            let mut models: Vec<Value> = Vec::new();
+            for model_path in &model_paths {
+                let entries = g6_entries(&cwd, Some(model_path))?;
+                for entry in &entries {
+                    let entry_path = g6_entry_path(entry);
+                    if entry_path.ends_with(".xcdatamodel/contents")
+                        || entry_path.ends_with("contents")
+                    {
+                        if let Ok(content) = read_text_file_at(&cwd, &entry_path) {
+                            models.push(g6_core_data_model(name, &entry_path, &content));
+                        }
+                    }
+                }
+            }
+            Ok(json!({
+                "tool": name,
+                "models": models,
+                "modelCount": models.len(),
+            }))
+        }
+        "swift_data_schema_auditor" => {
+            let files = g5_read_text_files(&cwd, path.as_deref(), &[".swift"], 100)?;
+            let mut models: Vec<Value> = Vec::new();
+            let mut issues: Vec<String> = Vec::new();
+            for (file_path, content) in &files {
+                let mut current_model: Option<String> = None;
+                let mut expecting_model = false;
+                let mut relationships: Vec<Value> = Vec::new();
+                let mut uniques: Vec<String> = Vec::new();
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("@Model") {
+                        expecting_model = true;
+                        if let Some(first) = g5_regex_captures(
+                            r"class\s+([A-Za-z0-9_]+)",
+                            trimmed,
+                        )
+                        .into_iter()
+                        .next()
+                        {
+                            if let Some(found) = first.get(1).cloned().flatten() {
+                                current_model = Some(found);
+                                expecting_model = false;
+                            }
+                        }
+                        continue;
+                    }
+                    if expecting_model {
+                        if let Some(first) = g5_regex_captures(
+                            r"^(final\s+)?class\s+([A-Za-z0-9_]+)",
+                            trimmed,
+                        )
+                        .into_iter()
+                        .next()
+                        {
+                            if let Some(found) = first.get(2).cloned().flatten() {
+                                current_model = Some(found);
+                                expecting_model = false;
+                                continue;
+                            }
+                        }
+                    }
+                    if current_model.is_none() {
+                        continue;
+                    }
+                    if let Some(first) = g5_regex_captures(
+                        r"@Relationship\(deleteRule:\s*\.([A-Za-z]+)[^)]*\)\s*var\s+([A-Za-z0-9_]+)",
+                        trimmed,
+                    )
+                    .into_iter()
+                    .next()
+                    {
+                        relationships.push(json!({
+                            "name": first.get(2).cloned().flatten().unwrap_or_default(),
+                            "deleteRule": first.get(1).cloned().flatten().unwrap_or_default(),
+                        }));
+                    } else if let Some(first) = g5_regex_captures(
+                        r"@Relationship[^\n]*?var\s+([A-Za-z0-9_]+)",
+                        trimmed,
+                    )
+                    .into_iter()
+                    .next()
+                    {
+                        relationships.push(json!({
+                            "name": first.get(1).cloned().flatten().unwrap_or_default(),
+                            "deleteRule": "nullify",
+                        }));
+                    }
+                    if trimmed.contains("@Attribute(.unique)") {
+                        if let Some(first) = g5_regex_captures(
+                            r"var\s+([A-Za-z0-9_]+)",
+                            trimmed,
+                        )
+                        .into_iter()
+                        .next()
+                        {
+                            if let Some(found) = first.get(1).cloned().flatten() {
+                                uniques.push(found);
+                            }
+                        }
+                    }
+                }
+                if let Some(model) = current_model {
+                    if relationships.is_empty() && uniques.is_empty() {
+                        issues.push(format!(
+                            "{model} in {file_path} declares no relationships or unique constraints."
+                        ));
+                    }
+                    models.push(json!({
+                        "model": model,
+                        "path": file_path,
+                        "relationships": relationships,
+                        "uniqueAttributes": uniques,
+                    }));
+                }
+            }
+            Ok(json!({
+                "tool": name,
+                "models": models,
+                "modelCount": models.len(),
+                "issues": issues,
+            }))
+        }
+        "privacy_manifest_auditor" => {
+            let manifest_path =
+                g6_resolve_file(&cwd, path.as_deref(), "PrivacyInfo.xcprivacy", "PrivacyInfo.xcprivacy", name)?;
+            g6_validate_relative(&manifest_path, name)?;
+            let plist = g6_plist_json(&cwd, &manifest_path, name)?;
+            Ok(g6_privacy_audit(name, &manifest_path, &plist))
+        }
+        "build_system_detect" => {
+            let entries = g6_entries(&cwd, path.as_deref())?;
+            let mut detected: Vec<Value> = Vec::new();
+            let has_name = |wanted: &str| {
+                entries.iter().any(|entry| {
+                    !g6_is_dir(entry) && g6_entry_name(entry) == wanted
+                })
+            };
+            let has_suffix = |suffix: &str| {
+                entries
+                    .iter()
+                    .any(|entry| !g6_is_dir(entry) && g6_entry_path(entry).ends_with(suffix))
+            };
+            if entries
+                .iter()
+                .any(|entry| g6_is_dir(entry) && g6_entry_path(entry).ends_with(".xcworkspace"))
+            {
+                detected.push(json!({"system": "xcworkspace", "evidence": ".xcworkspace"}));
+            }
+            if entries
+                .iter()
+                .any(|entry| g6_is_dir(entry) && g6_entry_path(entry).ends_with(".xcodeproj"))
+            {
+                detected.push(json!({"system": "xcodeproj", "evidence": ".xcodeproj"}));
+            }
+            if has_name("Package.swift") {
+                detected.push(json!({"system": "SwiftPM", "evidence": "Package.swift"}));
+            }
+            if has_name("Podfile") {
+                detected.push(json!({"system": "CocoaPods", "evidence": "Podfile"}));
+            }
+            if has_name("Cartfile") {
+                detected.push(json!({"system": "Carthage", "evidence": "Cartfile"}));
+            }
+            if has_name("Project.swift") {
+                detected.push(json!({"system": "Tuist", "evidence": "Project.swift"}));
+            }
+            if has_name("project.yml") {
+                detected.push(json!({"system": "xcodegen", "evidence": "project.yml"}));
+            }
+            if has_name("WORKSPACE")
+                || has_name("WORKSPACE.bazel")
+                || has_suffix("BUILD")
+                || has_suffix("BUILD.bazel")
+            {
+                detected.push(json!({"system": "Bazel", "evidence": "WORKSPACE or BUILD file"}));
+            }
+            if has_name("CMakeLists.txt") {
+                detected.push(json!({"system": "CMake", "evidence": "CMakeLists.txt"}));
+            }
+            Ok(json!({
+                "tool": name,
+                "systems": detected,
+                "count": detected.len(),
+            }))
+        }
+        _ => Err(failed(format!("Unknown G6 file tool {name}."))),
+    }
+}
+
+fn g6_curl_fetch(url: &str, timeout_seconds: u64, tool: &str) -> Result<(i64, String, String), CallError> {
+    let output = std::process::Command::new("curl")
+        .args([
+            "-sS",
+            "-L",
+            "--max-time",
+            &timeout_seconds.to_string(),
+            "-w",
+            "\n__AGENTS_CURL_STATUS__:%{http_code}\n__AGENTS_CURL_TYPE__:%{content_type}",
+            url,
+        ])
+        .output()
+        .map_err(|error| failed(format!("{tool} could not run curl: {error}")))?;
+    if !output.status.success() {
+        return Err(failed(format!(
+            "{tool} fetch failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    let text = String::from_utf8_lossy(&output.stdout).into_owned();
+    let mut status = -1i64;
+    let mut content_type = String::new();
+    let mut body = text.as_str();
+    if let Some(marker) = text.rfind("\n__AGENTS_CURL_STATUS__:") {
+        body = &text[..marker];
+        let tail = &text[marker + 1..];
+        for line in tail.lines() {
+            if let Some(value) = line.strip_prefix("__AGENTS_CURL_STATUS__:") {
+                status = value.trim().parse::<i64>().unwrap_or(-1);
+            }
+            if let Some(value) = line.strip_prefix("__AGENTS_CURL_TYPE__:") {
+                content_type = value.trim().to_owned();
+            }
+        }
+    }
+    Ok((status, content_type, body.to_owned()))
+}
+
+fn g6_terminal_call(
+    state: &crate::ServerState,
+    name: &str,
+    args: &Value,
+) -> Result<Value, CallError> {
+    let thread_id = req_str(args, "threadId", name)?;
+    let cwd = opt_str(args, "cwd").unwrap_or_else(|| "/".to_owned());
+    let timeout = opt_u64(args, "timeoutSeconds").unwrap_or(300);
+    match name {
+        "spm_dependency_tree" => {
+            let package_dir = g6_join(&cwd, opt_str(args, "path").as_deref());
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                &package_dir,
+                "swift package show-dependencies --format json",
+                timeout,
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!(
+                    "{name} requires the swift command line tools."
+                )));
+            }
+            if exit_code != 0 {
+                return Ok(json!({
+                    "dependencies": Value::Null,
+                    "exitCode": exit_code,
+                    "output": output,
+                }));
+            }
+            let dependencies: Value = serde_json::from_str(&output)
+                .map_err(|error| failed(format!("{name} could not parse show-dependencies output: {error}")))?;
+            Ok(json!({"dependencies": dependencies, "exitCode": exit_code}))
+        }
+        "package_manifest_validate" => {
+            let package_dir = g6_join(&cwd, opt_str(args, "path").as_deref());
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                &package_dir,
+                "swift package dump-package",
+                timeout,
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!(
+                    "{name} requires the swift command line tools."
+                )));
+            }
+            if exit_code != 0 {
+                return Ok(json!({
+                    "valid": false,
+                    "name": Value::Null,
+                    "targetCount": 0,
+                    "exitCode": exit_code,
+                    "output": output,
+                }));
+            }
+            let dumped: Value = serde_json::from_str(&output)
+                .map_err(|error| failed(format!("{name} could not parse dump-package output: {error}")))?;
+            let target_count = dumped
+                .get("targets")
+                .and_then(Value::as_array)
+                .map(|targets| targets.len())
+                .unwrap_or(0);
+            Ok(json!({
+                "valid": true,
+                "name": dumped.get("name").cloned().unwrap_or(Value::Null),
+                "targetCount": target_count,
+                "exitCode": exit_code,
+            }))
+        }
+        "package_dependency_audit" => {
+            let package_dir = g6_join(&cwd, opt_str(args, "path").as_deref());
+            let manifest_content = read_text_file_at(&package_dir, "Package.swift")?;
+            let manifest = g6_parse_manifest(&manifest_content);
+            let mut resolved_pins: Vec<(String, String, String)> = Vec::new();
+            if let Ok(resolved_content) = read_text_file_at(&package_dir, "Package.resolved") {
+                resolved_pins = g6_parse_resolved(&resolved_content);
+            }
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                &package_dir,
+                "swift package show-dependencies --format json",
+                timeout,
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!(
+                    "{name} requires the swift command line tools."
+                )));
+            }
+            let mut shown: Vec<String> = Vec::new();
+            if exit_code == 0 {
+                if let Ok(shown_value) = serde_json::from_str::<Value>(&output) {
+                    shown = g6_show_dependencies_names(&shown_value);
+                }
+            }
+            Ok(g6_dependency_audit(
+                name,
+                &manifest,
+                &resolved_pins,
+                &shown,
+                exit_code,
+                &output,
+            ))
+        }
+        "project_signing" => {
+            let pbxproj = g5_resolve_pbxproj(&cwd, opt_str(args, "path").as_deref(), name)?;
+            let content = read_text_file_at(&cwd, &pbxproj)?;
+            let mut object = g6_signing_from_pbxproj(name, &pbxproj, &content);
+            let entries = g5_list_workspace_files(&cwd, ".mobileprovision", 100)?;
+            let profiles: Vec<String> = entries
+                .iter()
+                .filter(|entry| {
+                    !g6_is_dir(entry)
+                        && (g6_entry_path(entry).ends_with(".mobileprovision")
+                            || g6_entry_path(entry).ends_with(".provisionprofile"))
+                })
+                .map(|entry| g6_entry_path(entry))
+                .collect();
+            if let Some(map) = object.as_object_mut() {
+                map.insert("provisioningProfiles".to_owned(), json!(profiles));
+            }
+            if let Some(scheme) = opt_str(args, "scheme") {
+                if scheme.is_empty()
+                    || scheme.contains(' ')
+                    || scheme.contains('/')
+                    || scheme.starts_with('-')
+                {
+                    return Err(failed(format!("{name} scheme is not a valid identifier.")));
+                }
+                let (exit_code, output) = run_shell_status(
+                    state,
+                    &thread_id,
+                    &cwd,
+                    &format!(
+                        "xcodebuild -showBuildSettings -scheme {}",
+                        shell_quote(&scheme)
+                    ),
+                    opt_u64(args, "timeoutSeconds").unwrap_or(120),
+                )?;
+                if g6_missing_cli(&output, exit_code) {
+                    return Err(failed(format!(
+                        "{name} requires xcodebuild."
+                    )));
+                }
+                if let Some(map) = object.as_object_mut() {
+                    map.insert(
+                        "showBuildSettings".to_owned(),
+                        g6_build_settings_json(&output),
+                    );
+                    map.insert("showBuildSettingsExitCode".to_owned(), json!(exit_code));
+                }
+            }
+            Ok(object)
+        }
+        "icon_generator_tool" => {
+            let source = req_str(args, "source", name)?;
+            let output = req_str(args, "output", name)?;
+            let platform = opt_str(args, "platform").unwrap_or_else(|| "ios".to_owned());
+            if !["ios", "macos", "watchos"].contains(&platform.as_str()) {
+                return Err(failed(format!(
+                    "{name} platform must be ios, macos, or watchos."
+                )));
+            }
+            g6_validate_relative(&source, name)?;
+            g6_validate_relative(&output, name)?;
+            if !output.ends_with(".appiconset") {
+                return Err(failed(format!(
+                    "{name} output must end in .appiconset."
+                )));
+            }
+            let set_dir = Path::new(&cwd).join(&output);
+            std::fs::create_dir_all(&set_dir)
+                .map_err(|error| failed(format!("{name} could not create {output}: {error}")))?;
+            let sizes = g6_icon_sizes(&platform);
+            let mut generated: Vec<Value> = Vec::new();
+            for (pixels, size, idiom, scale) in &sizes {
+                let file_name = format!("icon-{pixels}.png");
+                let destination = format!("{output}/{file_name}");
+                run_shell(
+                    state,
+                    &thread_id,
+                    &cwd,
+                    &format!(
+                        "sips -Z {pixels} {} --out {}",
+                        shell_quote(&source),
+                        shell_quote(&destination)
+                    ),
+                    timeout,
+                )?;
+                generated.push(json!({
+                    "size": size,
+                    "idiom": idiom,
+                    "scale": scale,
+                    "filename": file_name,
+                    "pixels": pixels,
+                }));
+            }
+            let contents = g6_app_icon_contents(&generated);
+            let contents_text = serde_json::to_string_pretty(&contents)
+                .map_err(|error| failed(format!("{name} could not serialize Contents.json: {error}")))?;
+            write_text_file(&cwd, &format!("{output}/Contents.json"), &contents_text)?;
+            let listed = read_dir_entries(&cwd, &output, false)?;
+            Ok(json!({
+                "platform": platform,
+                "output": output,
+                "icons": generated,
+                "iconCount": generated.len(),
+                "filesPresent": listed.iter().filter(|entry| !g6_is_dir(entry)).count(),
+            }))
+        }
+        "process_monitor_tool" => {
+            let filter = opt_str(args, "filter");
+            let limit = opt_u64(args, "limit").unwrap_or(50).clamp(1, 500) as usize;
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                &cwd,
+                "/bin/ps -ax -o pid=,pcpu=,pmem=,comm=",
+                opt_u64(args, "timeoutSeconds").unwrap_or(60),
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!("{name} requires ps.")));
+            }
+            let processes = g6_parse_ps(&output, filter.as_deref(), limit);
+            Ok(json!({
+                "processes": processes,
+                "count": processes.len(),
+                "exitCode": exit_code,
+            }))
+        }
+        "disk_space_analyzer" => {
+            let path = opt_str(args, "path").unwrap_or_else(|| ".".to_owned());
+            g6_validate_relative(&path, name)?;
+            let timeout = opt_u64(args, "timeoutSeconds").unwrap_or(60);
+            let df_output = run_shell(
+                state,
+                &thread_id,
+                &cwd,
+                &format!("df -k {}", shell_quote(&path)),
+                timeout,
+            )?;
+            let du_output = run_shell(
+                state,
+                &thread_id,
+                &cwd,
+                &format!("du -sk {}", shell_quote(&path)),
+                timeout,
+            )?;
+            Ok(g6_disk_space(name, &path, &df_output, &du_output))
+        }
+        "use_system" => g6_use_system(state, name, args),
+        "preflight_checks" => {
+            let probe = format!(
+                ".preflight-check-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_nanos())
+                    .unwrap_or(0)
+            );
+            let probe_path = Path::new(&cwd).join(&probe);
+            let mut writable = false;
+            if std::fs::write(&probe_path, b"ok").is_ok() {
+                writable = true;
+                let _ = std::fs::remove_file(&probe_path);
+            }
+            let mut checks: Vec<Value> = Vec::new();
+            checks.push(json!({"check": "workspaceWritable", "passed": writable}));
+            let (xcode_exit, xcode_output) = run_shell_status(
+                state,
+                &thread_id,
+                &cwd,
+                "xcodebuild -version",
+                60,
+            )?;
+            let first_line = xcode_output.lines().next().unwrap_or("").to_owned();
+            checks.push(json!({
+                "check": "xcodebuild",
+                "passed": xcode_exit == 0,
+                "detail": first_line,
+            }));
+            let df_output = run_shell(state, &thread_id, &cwd, "df -k .", 60)?;
+            let mut free_bytes: i64 = 0;
+            for line in df_output.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 4 {
+                    if let Ok(available) = parts[3].parse::<i64>() {
+                        free_bytes = available * 1024;
+                    }
+                }
+            }
+            checks.push(json!({
+                "check": "diskSpace",
+                "passed": free_bytes > 1024 * 1024 * 1024,
+                "detail": format!("{free_bytes} bytes free"),
+            }));
+            let artifacts_dir = Path::new(&cwd).join(".assist_temp/artifacts");
+            let mut artifacts_writable = false;
+            if std::fs::create_dir_all(&artifacts_dir).is_ok() {
+                let artifact_probe = artifacts_dir.join(".preflight-check");
+                if std::fs::write(&artifact_probe, b"ok").is_ok() {
+                    artifacts_writable = true;
+                    let _ = std::fs::remove_file(&artifact_probe);
+                }
+            }
+            checks.push(json!({
+                "check": "artifactStorage",
+                "passed": artifacts_writable,
+            }));
+            let all_passed = checks
+                .iter()
+                .all(|check| check["passed"].as_bool() == Some(true));
+            Ok(json!({
+                "tool": name,
+                "checks": checks,
+                "allPassed": all_passed,
+            }))
+        }
+        "github_repo" => g6_github_repo(state, name, args),
+        _ => Err(failed(format!("Unknown G6 terminal tool {name}."))),
+    }
+}
+
+fn g6_use_system(
+    state: &crate::ServerState,
+    name: &str,
+    args: &Value,
+) -> Result<Value, CallError> {
+    let thread_id = req_str(args, "threadId", name)?;
+    let operation = req_str(args, "operation", name)?;
+    let timeout = opt_u64(args, "timeoutSeconds").unwrap_or(60);
+    match operation.as_str() {
+        "system_info" => Ok(g6_env_info(name)),
+        "dev_environment" => {
+            let mut tools: Vec<Value> = Vec::new();
+            for (tool_name, command) in [
+                ("xcodebuild", "xcodebuild -version"),
+                ("swift", "swift --version"),
+            ] {
+                let (exit_code, output) = run_shell_status(
+                    state,
+                    &thread_id,
+                    "/",
+                    command,
+                    timeout,
+                )?;
+                tools.push(json!({
+                    "tool": tool_name,
+                    "available": exit_code == 0,
+                    "output": output,
+                }));
+            }
+            Ok(json!({"operation": operation, "tools": tools}))
+        }
+        "process_list" => {
+            let filter = opt_str(args, "filter");
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                "/bin/ps -ax -o pid=,pcpu=,pmem=,comm=",
+                timeout,
+            )?;
+            let processes = g6_parse_ps(&output, filter.as_deref(), 200);
+            Ok(json!({
+                "operation": operation,
+                "processes": processes,
+                "count": processes.len(),
+                "exitCode": exit_code,
+            }))
+        }
+        "network_interfaces" => {
+            let mut command = "/sbin/ifconfig".to_owned();
+            if let Some(interface) = opt_str(args, "interface") {
+                if interface.is_empty()
+                    || interface.contains(' ')
+                    || interface.contains('/')
+                    || interface.starts_with('-')
+                {
+                    return Err(failed(format!(
+                        "{name} interface is not a valid identifier."
+                    )));
+                }
+                command = format!("/sbin/ifconfig {}", shell_quote(&interface));
+            }
+            let (exit_code, output) =
+                run_shell_status(state, &thread_id, "/", &command, timeout)?;
+            Ok(json!({
+                "operation": operation,
+                "output": output,
+                "exitCode": exit_code,
+            }))
+        }
+        "listening_sockets" => {
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                "/usr/sbin/lsof -i -P -n -sTCP:LISTEN",
+                timeout,
+            )?;
+            let mut listening: Vec<Value> = Vec::new();
+            for line in output.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() < 9 || parts[0] == "COMMAND" {
+                    continue;
+                }
+                listening.push(json!({
+                    "command": parts[0],
+                    "pid": parts[1].parse::<i64>().unwrap_or(0),
+                    "user": parts[2],
+                    "address": parts[8..].join(" "),
+                }));
+            }
+            Ok(json!({
+                "operation": operation,
+                "listening": listening,
+                "exitCode": exit_code,
+                "output": output,
+                "note": if exit_code == 0 { "" } else { "lsof exited non-zero; output may be incomplete where permission was denied." },
+            }))
+        }
+        "connectivity" => {
+            let host = req_str(args, "host", name)?;
+            let Some(port) = args.get("port").and_then(Value::as_u64) else {
+                return Err(failed(format!(
+                    "{name} is missing required argument \"port\"."
+                )));
+            };
+            if !(1..=65535).contains(&port) {
+                return Err(failed(format!(
+                    "{name} is missing required argument \"port\"."
+                )));
+            }
+            if host.is_empty() || host.contains(' ') || host.starts_with('-') {
+                return Err(failed(format!("{name} host is not a valid token.")));
+            }
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!("nc -z -w 5 {} {port}", shell_quote(&host)),
+                timeout,
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!("{name} requires nc.")));
+            }
+            Ok(json!({
+                "operation": operation,
+                "host": host,
+                "port": port,
+                "reachable": exit_code == 0,
+                "exitCode": exit_code,
+            }))
+        }
+        "disk_info" => {
+            let root = opt_str(args, "cwd").unwrap_or_else(|| "/".to_owned());
+            let output = run_shell(
+                state,
+                &thread_id,
+                "/",
+                &format!("df -k {}", shell_quote(&root)),
+                timeout,
+            )?;
+            let mut total = 0i64;
+            let mut available = 0i64;
+            for line in output.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 4 {
+                    if let (Ok(parsed_total), Ok(parsed_available)) =
+                        (parts[1].parse::<i64>(), parts[3].parse::<i64>())
+                    {
+                        total = parsed_total * 1024;
+                        available = parsed_available * 1024;
+                    }
+                }
+            }
+            let used = (total - available).max(0);
+            Ok(json!({
+                "operation": operation,
+                "path": root,
+                "totalBytes": total,
+                "availableBytes": available,
+                "usedBytes": used,
+                "usedPercent": if total > 0 { used as f64 / total as f64 * 100.0 } else { 0.0 },
+            }))
+        }
+        "system_log" => {
+            let minutes = opt_u64(args, "minutes").unwrap_or(5).clamp(1, 60);
+            let mut command = format!("/usr/bin/log show --last {minutes}m");
+            if let Some(predicate) = opt_str(args, "predicate") {
+                if predicate.is_empty() || predicate.contains('\n') || predicate.starts_with('-') {
+                    return Err(failed(format!(
+                        "{name} predicate is not a valid token."
+                    )));
+                }
+                command = format!("{command} --predicate {}", shell_quote(&predicate));
+            }
+            let (exit_code, output) =
+                run_shell_status(state, &thread_id, "/", &command, timeout)?;
+            let truncated = output.len() > 20000;
+            let shown: String = output.chars().take(20000).collect();
+            Ok(json!({
+                "operation": operation,
+                "minutes": minutes,
+                "output": shown,
+                "truncated": truncated,
+                "exitCode": exit_code,
+            }))
+        }
+        "service_status" => {
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                "/bin/launchctl list",
+                timeout,
+            )?;
+            let mut services: Vec<Value> = Vec::new();
+            for line in output.lines() {
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() < 3 {
+                    continue;
+                }
+                let pid = parts[0].trim();
+                let status = parts[1].trim();
+                let label = parts[2].trim();
+                if label.is_empty() || label == "Label" {
+                    continue;
+                }
+                services.push(json!({
+                    "pid": pid,
+                    "status": status,
+                    "label": label,
+                }));
+            }
+            Ok(json!({
+                "operation": operation,
+                "services": services,
+                "exitCode": exit_code,
+            }))
+        }
+        "config_read" => {
+            let sysctl_name = req_str(args, "sysctlName", name)?;
+            let allowed = [
+                "hw.memsize",
+                "hw.ncpu",
+                "hw.model",
+                "hw.machine",
+                "kern.osrelease",
+                "kern.osversion",
+                "kern.version",
+                "hw.physicalcpu",
+                "hw.logicalcpu",
+                "machdep.cpu.brand_string",
+            ];
+            if !allowed.contains(&sysctl_name.as_str()) {
+                return Err(failed(format!(
+                    "{name} config_read sysctlName must be one of: {}.",
+                    allowed.join(", ")
+                )));
+            }
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!("/usr/sbin/sysctl -n {}", shell_quote(&sysctl_name)),
+                timeout,
+            )?;
+            Ok(json!({
+                "operation": operation,
+                "sysctlName": sysctl_name,
+                "value": output.trim(),
+                "exitCode": exit_code,
+            }))
+        }
+        "user_defaults_write" => {
+            let confirmed = args.get("confirm").and_then(Value::as_bool).unwrap_or(false);
+            if !confirmed {
+                return Err(failed(format!(
+                    "{name} user_defaults_write is a mutation; pass confirm=true."
+                )));
+            }
+            let domain = req_str(args, "domain", name)?;
+            let key = req_str(args, "key", name)?;
+            let value = req_str(args, "value", name)?;
+            let value_type = opt_str(args, "valueType").unwrap_or_else(|| "string".to_owned());
+            if !["string", "bool", "int"].contains(&value_type.as_str()) {
+                return Err(failed(format!(
+                    "{name} user_defaults_write valueType must be string, bool, or int."
+                )));
+            }
+            if domain == "NSGlobalDomain"
+                || domain.starts_with('/')
+                || domain.contains("..")
+                || domain.starts_with('-')
+            {
+                return Err(failed(format!(
+                    "{name} user_defaults_write refuses NSGlobalDomain and non-user domains."
+                )));
+            }
+            if key.is_empty() || key.contains(' ') || key.starts_with('-') {
+                return Err(failed(format!("{name} key is not a valid token.")));
+            }
+            let (before_exit, before_output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!(
+                    "defaults read {} {}",
+                    shell_quote(&domain),
+                    shell_quote(&key)
+                ),
+                timeout,
+            )?;
+            let previous: Value = if before_exit == 0 {
+                json!(before_output.trim())
+            } else {
+                Value::Null
+            };
+            let (flag, written): (&str, String) = match value_type.as_str() {
+                "bool" => {
+                    if value != "true" && value != "false" {
+                        return Err(failed(format!(
+                            "{name} user_defaults_write bool value must be true or false."
+                        )));
+                    }
+                    ("-bool", if value == "true" { "1".to_owned() } else { "0".to_owned() })
+                }
+                "int" => {
+                    if value.parse::<i64>().is_err() {
+                        return Err(failed(format!(
+                            "{name} user_defaults_write int value must be an integer."
+                        )));
+                    }
+                    ("-int", value.clone())
+                }
+                _ => ("-string", value.clone()),
+            };
+            let (write_exit, write_output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!(
+                    "defaults write {} {} {} {}",
+                    shell_quote(&domain),
+                    shell_quote(&key),
+                    flag,
+                    shell_quote(&value)
+                ),
+                timeout,
+            )?;
+            if write_exit != 0 {
+                return Err(failed(format!(
+                    "{name} defaults write failed: {write_output}"
+                )));
+            }
+            let (after_exit, after_output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!(
+                    "defaults read {} {}",
+                    shell_quote(&domain),
+                    shell_quote(&key)
+                ),
+                timeout,
+            )?;
+            let after = after_output.trim();
+            let verified = after_exit == 0
+                && (if value_type == "string" {
+                    after == value
+                } else {
+                    after == written
+                });
+            Ok(json!({
+                "operation": operation,
+                "domain": domain,
+                "key": key,
+                "previousValue": previous,
+                "newValue": value,
+                "verified": verified,
+            }))
+        }
+        _ => Err(failed(format!(
+            "{name} operation must be system_info, dev_environment, process_list, network_interfaces, listening_sockets, connectivity, disk_info, system_log, service_status, config_read, or user_defaults_write."
+        ))),
+    }
+}
+
+fn g6_github_default_branch(
+    state: &crate::ServerState,
+    name: &str,
+    thread_id: &str,
+    repository: &str,
+    timeout: u64,
+) -> Result<String, CallError> {
+    let (exit_code, output) = run_shell_status(
+        state,
+        thread_id,
+        "/",
+        &format!(
+            "gh repo view {} --json defaultBranchRef --jq .defaultBranchRef.name",
+            shell_quote(repository)
+        ),
+        timeout,
+    )?;
+    if g6_missing_cli(&output, exit_code) {
+        return Err(failed(format!("{name} requires gh.")));
+    }
+    if exit_code != 0 {
+        return Err(failed(format!("{name} gh repo view failed: {output}")));
+    }
+    let branch = output.trim().to_owned();
+    if branch.is_empty() {
+        return Err(failed(format!(
+            "{name} gh repo view returned no default branch for {repository}."
+        )));
+    }
+    Ok(branch)
+}
+
+fn g6_validate_repo_path(path: &str, tool: &str) -> Result<(), CallError> {
+    if path.contains('\n')
+        || path.contains('\r')
+        || path.starts_with('-')
+        || path.split('/').any(|part| part == "..")
+    {
+        return Err(failed(format!(
+            "{tool} repository path must not contain newlines, start with a dash, or contain .. components."
+        )));
+    }
+    Ok(())
+}
+
+fn g6_github_repo(
+    state: &crate::ServerState,
+    name: &str,
+    args: &Value,
+) -> Result<Value, CallError> {
+    let thread_id = req_str(args, "threadId", name)?;
+    let operation = req_str(args, "operation", name)?;
+    let timeout = opt_u64(args, "timeoutSeconds").unwrap_or(120);
+    let repository: String = if let (Some(owner), Some(repo)) =
+        (opt_str(args, "owner"), opt_str(args, "repo"))
+    {
+        if owner.is_empty()
+            || owner.contains('/')
+            || owner.contains(' ')
+            || repo.is_empty()
+            || repo.contains('/')
+            || repo.contains(' ')
+        {
+            return Err(failed(format!(
+                "{name} owner and repo must be single path components."
+            )));
+        }
+        format!("{owner}/{repo}")
+    } else if let Some(url) = opt_str(args, "url").filter(|u| !u.is_empty()) {
+        if !url.starts_with("https://github.com/") {
+            return Err(failed(format!(
+                "{name} url must be a github.com repository URL."
+            )));
+        }
+        let rest = url.strip_prefix("https://github.com/").unwrap_or("");
+        let parts: Vec<&str> = rest.split('/').collect();
+        if parts.len() < 2 || parts[0].is_empty() || parts[1].is_empty() {
+            return Err(failed(format!(
+                "{name} url must name an owner and repository."
+            )));
+        }
+        format!(
+            "{}/{}",
+            parts[0],
+            parts[1].trim_end_matches(".git")
+        )
+    } else {
+        return Err(failed(format!(
+            "{name} is missing required argument \"owner\"."
+        )));
+    };
+    let reference = opt_str(args, "ref");
+    if let Some(reference) = &reference {
+        if reference.is_empty() || reference.contains(' ') || reference.starts_with('-') {
+            return Err(failed(format!("{name} ref is not a valid token.")));
+        }
+    }
+    match operation.as_str() {
+        "repository_info" => {
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!(
+                    "gh repo view {} --json name,description,defaultBranchRef,createdAt,updatedAt,licenseInfo,primaryLanguage,stargazerCount,forkCount,isPrivate",
+                    shell_quote(&repository)
+                ),
+                timeout,
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!("{name} requires gh.")));
+            }
+            if exit_code != 0 {
+                return Err(failed(format!("{name} gh repo view failed: {output}")));
+            }
+            serde_json::from_str(&output)
+                .map_err(|error| failed(format!("{name} could not parse gh output: {error}")))
+        }
+        "list_files" | "get_directory" => {
+            let repo_path = opt_str(args, "path").unwrap_or_default();
+            g6_validate_repo_path(&repo_path, name)?;
+            let mut api_path = format!("repos/{repository}/contents");
+            if !repo_path.is_empty() {
+                api_path = format!("{api_path}/{repo_path}");
+            }
+            if let Some(reference) = &reference {
+                api_path = format!("{api_path}?ref={reference}");
+            }
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!("gh api {}", shell_quote(&api_path)),
+                timeout,
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!("{name} requires gh.")));
+            }
+            if exit_code != 0 {
+                return Err(failed(format!("{name} gh api failed: {output}")));
+            }
+            serde_json::from_str(&output)
+                .map_err(|error| failed(format!("{name} could not parse gh output: {error}")))
+        }
+        "get_file" => {
+            let repo_path = req_str(args, "path", name)?;
+            g6_validate_repo_path(&repo_path, name)?;
+            let mut api_path = format!("repos/{repository}/contents/{repo_path}");
+            if let Some(reference) = &reference {
+                api_path = format!("{api_path}?ref={reference}");
+            }
+            let (meta_exit, meta_output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!("gh api {}", shell_quote(&api_path)),
+                timeout,
+            )?;
+            if g6_missing_cli(&meta_output, meta_exit) {
+                return Err(failed(format!("{name} requires gh.")));
+            }
+            if meta_exit != 0 {
+                return Err(failed(format!("{name} gh api failed: {meta_output}")));
+            }
+            let metadata: Value = serde_json::from_str(&meta_output)
+                .map_err(|error| failed(format!("{name} could not parse gh output: {error}")))?;
+            if metadata.get("type").and_then(Value::as_str) != Some("file") {
+                return Err(failed(format!(
+                    "Path {repo_path} is not a file in {repository}."
+                )));
+            }
+            if metadata.get("size").and_then(Value::as_i64).unwrap_or(0) > 200000 {
+                return Err(failed(format!(
+                    "File {repo_path} exceeds 200000 bytes; fetch it with fetch_repository instead."
+                )));
+            }
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!(
+                    "gh api {} -H {}",
+                    shell_quote(&api_path),
+                    shell_quote("Accept: application/vnd.github.raw")
+                ),
+                timeout,
+            )?;
+            if exit_code != 0 {
+                return Err(failed(format!("{name} gh api failed: {output}")));
+            }
+            Ok(json!({
+                "repository": repository,
+                "path": repo_path,
+                "size": metadata.get("size").cloned().unwrap_or(Value::Null),
+                "content": output,
+            }))
+        }
+        "get_tree" => {
+            let tree_ref = match &reference {
+                Some(reference) => reference.clone(),
+                None => g6_github_default_branch(state, name, &thread_id, &repository, timeout)?,
+            };
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!(
+                    "gh api {}",
+                    shell_quote(&format!(
+                        "repos/{repository}/git/trees/{tree_ref}?recursive=1"
+                    ))
+                ),
+                timeout,
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!("{name} requires gh.")));
+            }
+            if exit_code != 0 {
+                return Err(failed(format!("{name} gh api failed: {output}")));
+            }
+            let value: Value = serde_json::from_str(&output)
+                .map_err(|error| failed(format!("{name} could not parse gh output: {error}")))?;
+            let tree = value
+                .get("tree")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let count = tree.len();
+            Ok(json!({
+                "repository": repository,
+                "ref": tree_ref,
+                "truncated": value.get("truncated").cloned().unwrap_or(Value::Null),
+                "entries": tree.into_iter().take(500).collect::<Vec<Value>>(),
+                "entryCount": count,
+            }))
+        }
+        "search_code" => {
+            let query = req_str(args, "query", name)?;
+            if query.is_empty() || query.starts_with('-') || query.contains('\n') {
+                return Err(failed(format!("{name} query is not a valid token.")));
+            }
+            if !query.chars().all(|ch| {
+                ch.is_alphanumeric() || "_:.+- ".contains(ch)
+            }) {
+                return Err(failed(format!(
+                    "{name} search_code query must use only letters, digits, space, underscore, dot, colon, plus, or dash."
+                )));
+            }
+            let encoded = query.replace(' ', "+");
+            let (exit_code, output) = run_shell_status(
+                state,
+                &thread_id,
+                "/",
+                &format!(
+                    "gh api {}",
+                    shell_quote(&format!("search/code?q=repo:{repository}+{encoded}"))
+                ),
+                timeout,
+            )?;
+            if g6_missing_cli(&output, exit_code) {
+                return Err(failed(format!("{name} requires gh.")));
+            }
+            if exit_code != 0 {
+                return Err(failed(format!("{name} gh api failed: {output}")));
+            }
+            let value: Value = serde_json::from_str(&output)
+                .map_err(|error| failed(format!("{name} could not parse gh output: {error}")))?;
+            let items = value
+                .get("items")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            Ok(json!({
+                "repository": repository,
+                "query": query,
+                "totalCount": value.get("total_count").cloned().unwrap_or(Value::Null),
+                "items": items.into_iter().take(20).collect::<Vec<Value>>(),
+            }))
+        }
+        "fetch_repository" => {
+            let tree_ref = match &reference {
+                Some(reference) => reference.clone(),
+                None => g6_github_default_branch(state, name, &thread_id, &repository, timeout)?,
+            };
+            let root = state
+                .cwd
+                .to_str()
+                .map(str::to_owned)
+                .or_else(|| opt_str(args, "cwd"))
+                .ok_or_else(|| {
+                    failed(format!(
+                        "{name} fetch_repository needs a workspace directory."
+                    ))
+                })?;
+            let safe_ref = tree_ref.replace('/', "-");
+            let repo_name = repository
+                .split('/')
+                .next_back()
+                .unwrap_or("repo")
+                .to_owned();
+            let file_name = format!("{repo_name}-{safe_ref}.tar.gz");
+            run_shell(
+                state,
+                &thread_id,
+                &root,
+                &format!(
+                    "gh api {} > {}",
+                    shell_quote(&format!("repos/{repository}/tarball/{tree_ref}")),
+                    shell_quote(&file_name)
+                ),
+                timeout,
+            )?;
+            let size = std::fs::metadata(Path::new(&root).join(&file_name))
+                .map(|metadata| metadata.len() as i64)
+                .unwrap_or(0);
+            Ok(json!({
+                "repository": repository,
+                "ref": tree_ref,
+                "path": file_name,
+                "bytes": size,
+            }))
+        }
+        _ => Err(failed(format!(
+            "{name} operation must be repository_info, list_files, get_file, get_directory, get_tree, search_code, or fetch_repository."
+        ))),
+    }
+}
+
+fn g6_misc_call(
+    state: &crate::ServerState,
+    name: &str,
+    args: &Value,
+) -> Result<Value, CallError> {
+    match name {
+        "env_info" => Ok(g6_env_info(name)),
+        "environment_variable_manager" => {
+            let action = req_str(args, "action", name)?;
+            match action.as_str() {
+                "list" => {
+                    let mut keys: Vec<String> = std::env::vars_os()
+                        .filter_map(|(key, _)| key.to_str().map(str::to_owned))
+                        .collect();
+                    keys.sort();
+                    Ok(json!({
+                        "action": action,
+                        "keys": keys,
+                        "count": keys.len(),
+                    }))
+                }
+                "get" => {
+                    let key = req_str(args, "key", name)?;
+                    match std::env::var_os(&key) {
+                        Some(value) => Ok(json!({
+                            "action": action,
+                            "key": key,
+                            "found": true,
+                            "value": value.to_string_lossy(),
+                        })),
+                        None => Ok(json!({
+                            "action": action,
+                            "key": key,
+                            "found": false,
+                            "value": Value::Null,
+                        })),
+                    }
+                }
+                _ => Err(failed(format!(
+                    "{name} action must be list or get. The process environment cannot be mutated by a tool; use a terminal export instead."
+                ))),
+            }
+        }
+        "clipboard_manager_tool" => {
+            let action = req_str(args, "action", name)?;
+            match action.as_str() {
+                "read" => {
+                    let output = std::process::Command::new("pbpaste")
+                        .output()
+                        .map_err(|error| failed(format!("{name} could not run pbpaste: {error}")))?;
+                    if !output.status.success() {
+                        return Err(failed(format!(
+                            "{name} pbpaste failed: {}",
+                            String::from_utf8_lossy(&output.stderr).trim()
+                        )));
+                    }
+                    let text = String::from_utf8_lossy(&output.stdout).into_owned();
+                    Ok(json!({
+                        "action": action,
+                        "hasText": !text.is_empty(),
+                        "text": if text.is_empty() { Value::Null } else { json!(text) },
+                    }))
+                }
+                "write" => {
+                    let text = req_str(args, "text", name)?;
+                    let mut child = std::process::Command::new("pbcopy")
+                        .stdin(std::process::Stdio::piped())
+                        .spawn()
+                        .map_err(|error| failed(format!("{name} could not run pbcopy: {error}")))?;
+                    if let Some(stdin) = child.stdin.as_mut() {
+                        use std::io::Write;
+                        stdin
+                            .write_all(text.as_bytes())
+                            .map_err(|error| failed(format!("{name} could not write to pbcopy: {error}")))?;
+                    }
+                    let status = child
+                        .wait()
+                        .map_err(|error| failed(format!("{name} could not wait for pbcopy: {error}")))?;
+                    if !status.success() {
+                        return Err(failed(format!("{name} pbcopy failed.")));
+                    }
+                    Ok(json!({
+                        "action": action,
+                        "written": true,
+                        "characters": text.chars().count(),
+                    }))
+                }
+                "clear" => {
+                    let status = std::process::Command::new("pbcopy")
+                        .stdin(std::process::Stdio::null())
+                        .status()
+                        .map_err(|error| failed(format!("{name} could not run pbcopy: {error}")))?;
+                    if !status.success() {
+                        return Err(failed(format!("{name} pbcopy failed.")));
+                    }
+                    Ok(json!({
+                        "action": action,
+                        "cleared": true,
+                    }))
+                }
+                _ => Err(failed(format!(
+                    "{name} action must be read, write, or clear."
+                ))),
+            }
+        }
+        "system_notification_tool" => {
+            let title = req_str(args, "title", name)?;
+            let body = opt_str(args, "body").unwrap_or_default();
+            let escape_applescript = |text: &str| {
+                text.replace('\\', "\\\\").replace('"', "\\\"")
+            };
+            let script = format!(
+                "display notification \"{}\" with title \"{}\"",
+                escape_applescript(&body),
+                escape_applescript(&title)
+            );
+            let status = std::process::Command::new("osascript")
+                .args(["-e", &script])
+                .status()
+                .map_err(|error| failed(format!("{name} could not run osascript: {error}")))?;
+            if !status.success() {
+                return Err(failed(format!(
+                    "{name} could not post the notification."
+                )));
+            }
+            let identifier = format!(
+                "agents-tool-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_nanos())
+                    .unwrap_or(0)
+            );
+            Ok(json!({
+                "posted": true,
+                "identifier": identifier,
+                "title": title,
+                "note": "Delivery requires notification authorization, granted at app launch.",
+            }))
+        }
+        "tool_capability_lookup" => {
+            let tool_name = req_str(args, "tool", name)?;
+            let Some(found) = definition(&tool_name) else {
+                return Err(CallError::UnknownTool(tool_name));
+            };
+            Ok(json!({
+                "name": found.name,
+                "description": found.description,
+                "action": found.action,
+                "channel": found.channel,
+                "parameters": found.params.iter().map(|param| {
+                    json!({
+                        "name": param.name,
+                        "type": param.kind,
+                        "required": param.required,
+                        "description": param.description,
+                    })
+                }).collect::<Vec<Value>>(),
+            }))
+        }
+        "search_skills" => {
+            let query = req_str(args, "query", name)?;
+            let limit = opt_u64(args, "limit").unwrap_or(8).clamp(1, 20) as usize;
+            let Some(dir) = crate::assets::resolve_assets_dir(state.assets_dir.as_deref()) else {
+                return Err(failed(format!(
+                    "{name} could not locate the bundled SystemAssets directory."
+                )));
+            };
+            let names = crate::assets::list_asset_names(&dir)
+                .map_err(|error| failed(format!("{name} could not list SystemAssets: {error}")))?;
+            let document_count = names.len();
+            let query_lower = query.to_lowercase();
+            let tokens: Vec<&str> = query_lower.split_whitespace().collect();
+            let mut scored: Vec<(i64, Value)> = Vec::new();
+            for file_name in &names {
+                let path = dir.join(file_name);
+                let Ok(content) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                let lower = content.to_lowercase();
+                let mut title = String::new();
+                let mut section_heading = String::new();
+                let mut heading_path: Vec<String> = Vec::new();
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if let Some(rest) = trimmed.strip_prefix("# ") {
+                        if title.is_empty() {
+                            title = rest.trim().to_owned();
+                        }
+                    } else if let Some(rest) = trimmed.strip_prefix("## ") {
+                        if section_heading.is_empty() {
+                            section_heading = rest.trim().to_owned();
+                            heading_path.push(section_heading.clone());
+                        }
+                    }
+                }
+                if title.is_empty() {
+                    title = file_name
+                        .strip_suffix(".md")
+                        .unwrap_or(file_name)
+                        .to_owned();
+                }
+                if section_heading.is_empty() {
+                    section_heading = title.clone();
+                }
+                let mut score: i64 = 0;
+                for token in &tokens {
+                    if file_name.to_lowercase().contains(*token) {
+                        score += 5;
+                    }
+                    if title.to_lowercase().contains(*token) {
+                        score += 10;
+                    }
+                    if section_heading.to_lowercase().contains(*token) {
+                        score += 5;
+                    }
+                    score += lower.matches(*token).count() as i64;
+                }
+                if score > 0 {
+                    let truncated = content.chars().count() > 2000;
+                    let text: String = content.chars().take(2000).collect();
+                    scored.push((
+                        score,
+                        json!({
+                            "documentID": file_name.strip_suffix(".md").unwrap_or(file_name),
+                            "fileName": file_name,
+                            "title": title,
+                            "sectionHeading": section_heading,
+                            "headingPath": heading_path,
+                            "text": text,
+                            "truncated": truncated,
+                            "score": score,
+                            "reason": "token match",
+                        }),
+                    ));
+                }
+            }
+            scored.sort_by(|a, b| b.0.cmp(&a.0));
+            let results: Vec<Value> = scored.into_iter().take(limit).map(|(_, value)| value).collect();
+            Ok(json!({
+                "query": query,
+                "searched": "bundled SystemAssets index",
+                "documentCount": document_count,
+                "results": results,
+            }))
+        }
+        "plan-AskUser" => {
+            let thread_id = req_str(args, "threadId", name)?;
+            let Some(request_id) = opt_str(args, "requestId") else {
+                let pending = engine_request(
+                    state,
+                    "agent.pending",
+                    json!({"threadId": thread_id}),
+                )?;
+                return Ok(json!({
+                    "threadId": thread_id,
+                    "pending": pending,
+                    "note": "Lists pending provider questions. This tool does not present a new question and does not suspend the turn.",
+                }));
+            };
+            let Some(raw_answers) = args.get("answers").and_then(Value::as_array) else {
+                return Err(failed(format!(
+                    "{name} is missing required argument \"answers\"."
+                )));
+            };
+            if raw_answers.is_empty() {
+                return Err(failed(format!(
+                    "{name} is missing required argument \"answers\"."
+                )));
+            }
+            let mut answers_object = serde_json::Map::new();
+            for raw in raw_answers {
+                let Some(question_id) = raw.get("questionId").and_then(Value::as_str) else {
+                    return Err(failed(format!(
+                        "{name} is missing required argument \"questionId\"."
+                    )));
+                };
+                if question_id.is_empty() {
+                    return Err(failed(format!(
+                        "{name} is missing required argument \"questionId\"."
+                    )));
+                }
+                let Some(values) = raw.get("answers").and_then(Value::as_array) else {
+                    return Err(failed(format!(
+                        "{name} is missing required argument \"answers\"."
+                    )));
+                };
+                if values.is_empty()
+                    || values
+                        .iter()
+                        .any(|value| value.as_str().map(|text| text.is_empty()).unwrap_or(true))
+                {
+                    return Err(failed(format!(
+                        "{name} is missing required argument \"answers\"."
+                    )));
+                }
+                answers_object.insert(
+                    question_id.to_owned(),
+                    json!({"answers": values}),
+                );
+            }
+            engine_request(
+                state,
+                "agent.answer",
+                json!({
+                    "threadId": thread_id,
+                    "requestId": request_id,
+                    "answers": answers_object,
+                }),
+            )
+        }
+        "session_progress_report" => {
+            let cwd = req_str(args, "cwd", name)?;
+            let path = opt_str(args, "path")
+                .unwrap_or_else(|| ".assist_temp/artifacts/agent_notes.md".to_owned());
+            g6_validate_relative(&path, name)?;
+            let mut phases: Vec<Value> = Vec::new();
+            let mut failures: Vec<String> = Vec::new();
+            let mut found = false;
+            if let Ok(content) = read_text_file_at(&cwd, &path) {
+                found = true;
+                let mut current: Option<String> = None;
+                let mut summary: Vec<String> = Vec::new();
+                for line in content.lines() {
+                    if let Some(rest) = line.strip_prefix("## ") {
+                        if let Some(title) = current.take() {
+                            phases.push(json!({
+                                "title": title,
+                                "summary": summary.join(" "),
+                            }));
+                        }
+                        current = Some(rest.trim().to_owned());
+                        summary = Vec::new();
+                    } else if current.is_some() {
+                        let trimmed = line.trim();
+                        if !trimmed.is_empty() && summary.len() < 3 {
+                            summary.push(trimmed.to_owned());
+                        }
+                        if trimmed.to_lowercase().contains("fail") && failures.len() < 20 {
+                            failures.push(trimmed.to_owned());
+                        }
+                    }
+                }
+                if let Some(title) = current {
+                    phases.push(json!({
+                        "title": title,
+                        "summary": summary.join(" "),
+                    }));
+                }
+            }
+            let mut last_save = Value::Null;
+            if let Ok(entries) = g5_list_workspace_files(&cwd, "agent_notes.md", 5) {
+                if let Some(entry) = entries.iter().find(|entry| g6_entry_path(entry) == path) {
+                    if let Some(modified) = entry.get("modifiedAt").and_then(Value::as_f64) {
+                        last_save = json!(modified);
+                    }
+                }
+            }
+            let mut workers: Vec<Value> = Vec::new();
+            if let Some(thread_id) = opt_str(args, "threadId") {
+                if let Ok(listed) = engine_request(
+                    state,
+                    "workers.list",
+                    json!({"parentThreadId": thread_id}),
+                ) {
+                    if let Some(array) = listed.get("workers").and_then(Value::as_array) {
+                        workers = array.clone();
+                    } else if let Some(array) = listed.as_array() {
+                        workers = array.clone();
+                    }
+                }
+            }
+            Ok(json!({
+                "found": found,
+                "path": path,
+                "phases": phases,
+                "failures": failures,
+                "lastAgentNotesSave": last_save,
+                "workers": workers,
+            }))
+        }
+        "manage_memory" => {
+            let action = req_str(args, "action", name)?;
+            match action.as_str() {
+                "store" | "edit" => {
+                    let key = req_str(args, "key", name)?;
+                    let value = req_str(args, "value", name)?;
+                    let mut params = json!({"key": key, "value": value});
+                    if let Some(scope) = opt_str(args, "scope") {
+                        params["scope"] = json!(scope);
+                    }
+                    let mut stored = engine_request(state, "memory.store", params)?;
+                    if let Some(object) = stored.as_object_mut() {
+                        object.insert("action".to_owned(), json!(action));
+                    }
+                    Ok(stored)
+                }
+                "append" => {
+                    let key = req_str(args, "key", name)?;
+                    let value = req_str(args, "value", name)?;
+                    let scope = opt_str(args, "scope");
+                    let mut retrieve_params = json!({"key": key});
+                    if let Some(scope) = &scope {
+                        retrieve_params["scope"] = json!(scope);
+                    }
+                    let existing = engine_request(state, "memory.retrieve", retrieve_params)?;
+                    let previous = existing
+                        .get("value")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_owned();
+                    let combined = if previous.is_empty() {
+                        value.clone()
+                    } else {
+                        format!("{previous}\n{value}")
+                    };
+                    let mut store_params = json!({"key": key, "value": combined});
+                    if let Some(scope) = scope {
+                        store_params["scope"] = json!(scope);
+                    }
+                    let mut stored = engine_request(state, "memory.store", store_params)?;
+                    if let Some(object) = stored.as_object_mut() {
+                        object.insert("action".to_owned(), json!(action));
+                    }
+                    Ok(stored)
+                }
+                "delete" => {
+                    let key = req_str(args, "key", name)?;
+                    let mut params = json!({"key": key});
+                    if let Some(scope) = opt_str(args, "scope") {
+                        params["scope"] = json!(scope);
+                    }
+                    engine_request(state, "memory.delete", params)
+                }
+                "clear" => {
+                    let scope = req_str(args, "scope", name)?;
+                    let confirmed = args.get("confirm").and_then(Value::as_bool).unwrap_or(false);
+                    if !confirmed {
+                        return Err(failed(format!(
+                            "{name} clear is irreversible; pass confirm=true."
+                        )));
+                    }
+                    engine_request(
+                        state,
+                        "memory.clear",
+                        json!({"scope": scope, "confirm": true}),
+                    )
+                }
+                "list" => {
+                    let mut params = json!({});
+                    if let Some(scope) = opt_str(args, "scope") {
+                        params["scope"] = json!(scope);
+                    }
+                    if let Some(query) = opt_str(args, "query") {
+                        params["query"] = json!(query);
+                    }
+                    if let Some(limit) = opt_u64(args, "limit") {
+                        params["limit"] = json!(limit);
+                    }
+                    engine_request(state, "memory.list", params)
+                }
+                _ => Err(failed(format!(
+                    "{name} action must be store, edit, append, delete, clear, or list."
+                ))),
+            }
+        }
+        "fetch_documentation" => {
+            let _ = req_str(args, "threadId", name)?;
+            let url: String = if let Some(given) = opt_str(args, "url").filter(|u| !u.is_empty()) {
+                if !given.starts_with("https://developer.apple.com") {
+                    return Err(failed(format!(
+                        "{name} url must be an https URL on developer.apple.com."
+                    )));
+                }
+                given
+            } else if let Some(query) = opt_str(args, "query").filter(|q| !q.is_empty()) {
+                let encoded: String = query
+                    .chars()
+                    .map(|ch| {
+                        if ch.is_alphanumeric() || "-_.~".contains(ch) {
+                            ch.to_string()
+                        } else {
+                            format!("%{:02X}", ch as u32)
+                        }
+                    })
+                    .collect();
+                format!("https://developer.apple.com/search/?q={encoded}")
+            } else if let Some(framework) = opt_str(args, "framework").filter(|f| !f.is_empty()) {
+                if !framework
+                    .chars()
+                    .all(|ch| ch.is_alphanumeric() || ch == '_')
+                {
+                    return Err(failed(format!(
+                        "{name} framework must use only letters, digits, or underscore."
+                    )));
+                }
+                format!(
+                    "https://developer.apple.com/documentation/{}/",
+                    framework.to_lowercase()
+                )
+            } else {
+                return Err(failed(format!(
+                    "{name} is missing required argument \"query\"."
+                )));
+            };
+            let (status, content_type, text) = g6_curl_fetch(&url, 30, name)?;
+            if !(200..300).contains(&status) {
+                return Err(failed(format!("{name} fetch returned HTTP {status}.")));
+            }
+            let mut title: Option<String> = None;
+            if let Ok(regex) = regex::RegexBuilder::new(r"<title>([^<]+)</title>")
+                .case_insensitive(true)
+                .build()
+            {
+                if let Some(caps) = regex.captures(&text) {
+                    title = caps.get(1).map(|m| m.as_str().trim().to_owned());
+                }
+            }
+            let truncated = text.chars().count() > 8000;
+            let shown: String = text.chars().take(8000).collect();
+            Ok(json!({
+                "url": url,
+                "statusCode": status,
+                "contentType": content_type,
+                "title": title,
+                "text": shown,
+                "truncated": truncated,
+            }))
+        }
+        "external_resource_gateway" => {
+            let _ = req_str(args, "threadId", name)?;
+            let url = req_str(args, "url", name)?;
+            if !url.starts_with("https://") {
+                return Err(failed(format!(
+                    "{name} url must be an https URL."
+                )));
+            }
+            let (status, _, text) = g6_curl_fetch(&url, 30, name)?;
+            if !(200..300).contains(&status) {
+                return Err(failed(format!("{name} fetch returned HTTP {status}.")));
+            }
+            let value: Value = serde_json::from_str(&text)
+                .map_err(|_| failed(format!("{name} response was not JSON.")))?;
+            Ok(json!({
+                "url": url,
+                "statusCode": status,
+                "value": value,
+            }))
+        }
+        "read_url_content" => {
+            let _ = req_str(args, "threadId", name)?;
+            let url = req_str(args, "url", name)?;
+            if !url.starts_with("https://") {
+                return Err(failed(format!(
+                    "{name} url must be an https URL."
+                )));
+            }
+            let max_chars = opt_u64(args, "maxChars").unwrap_or(8000).clamp(1, 100000) as usize;
+            let (status, content_type, text) = g6_curl_fetch(&url, 30, name)?;
+            if !(200..300).contains(&status) {
+                return Err(failed(format!("{name} fetch returned HTTP {status}.")));
+            }
+            let truncated = text.chars().count() > max_chars;
+            let content: String = text.chars().take(max_chars).collect();
+            Ok(json!({
+                "url": url,
+                "statusCode": status,
+                "contentType": content_type,
+                "content": content,
+                "truncated": truncated,
+            }))
+        }
+        "use_app" => g6_use_app(state, name, args),
+        "derived_data_locate" => {
+            let path = opt_str(args, "path");
+            let limit = opt_u64(args, "limit").unwrap_or(50).clamp(1, 500) as usize;
+            Ok(g6_derived_data(name, path.as_deref(), limit))
+        }
+        _ => Err(failed(format!("Unknown G6 misc tool {name}."))),
+    }
+}
+
+fn g6_use_app(
+    state: &crate::ServerState,
+    name: &str,
+    args: &Value,
+) -> Result<Value, CallError> {
+    let thread_id = req_str(args, "threadId", name)?;
+    let action = req_str(args, "action", name)?;
+    let missing = [
+        "activate",
+        "close_application",
+        "select_window",
+        "get_focused_element",
+        "select_all",
+        "copy",
+        "paste",
+        "wait_for_element",
+        "wait_for_window",
+    ];
+    if missing.contains(&action.as_str()) {
+        return Err(failed(format!(
+            "{name} action {action} has no engine tool; the capability is not implemented."
+        )));
+    }
+    let mapped: &str = match action.as_str() {
+        "list_applications" => "list_apps",
+        "inspect_application" => "list_windows",
+        "launch" => "launch_app",
+        "list_windows" => "list_windows",
+        "inspect_ui" | "get_accessibility_tree" => "get_window_state",
+        "click" | "activate_element" => "click",
+        "double_click" => "double_click",
+        "right_click" => "right_click",
+        "move_pointer" => "move_cursor",
+        "drag" => "drag",
+        "scroll" => "scroll",
+        "type_text" => "type_text",
+        "press_key" => "press_key",
+        "press_shortcut" => "hotkey",
+        "set_element_value" => "set_value",
+        "select_menu" => "invoke_menu",
+        "verify" => "verify_state",
+        "take_screenshot" => {
+            return run_computer_use_named(
+                state,
+                "get_desktop_state",
+                "get_desktop_state",
+                &json!({"threadId": thread_id, "include_screenshot": true}),
+            );
+        }
+        _ => {
+            return Err(failed(format!(
+                "{name} action {action} is not a known action."
+            )));
+        }
+    };
+    let mut mapped_args = args.clone();
+    if action == "inspect_application" {
+        if mapped_args.get("pid").is_none() {
+            if let Some(app_name) = opt_str(args, "app_name") {
+                let apps = run_computer_use_operation(
+                    state,
+                    "list_apps",
+                    &json!({"threadId": thread_id}),
+                )?;
+                let Some(pid) = g6_find_pid(&apps, &app_name) else {
+                    return Err(failed(format!(
+                        "No running app named {app_name} found."
+                    )));
+                };
+                if let Some(object) = mapped_args.as_object_mut() {
+                    object.insert("pid".to_owned(), json!(pid));
+                }
+            }
+        }
+    }
+    if action == "launch" {
+        if mapped_args.get("bundle_id").is_none() {
+            if let Some(identifier) = opt_str(args, "app_identifier") {
+                if let Some(object) = mapped_args.as_object_mut() {
+                    object.insert("bundle_id".to_owned(), json!(identifier));
+                }
+            }
+        }
+    }
+    if let Some(object) = mapped_args.as_object_mut() {
+        object.insert("threadId".to_owned(), json!(thread_id));
+    }
+    let result = run_computer_use_named(state, mapped, mapped, &mapped_args)?;
+    Ok(json!({
+        "action": action,
+        "tool": mapped,
+        "result": result,
+    }))
+}
 
 pub fn call(
     state: &crate::ServerState,
@@ -13490,6 +20425,67 @@ pub fn call(
         "api_docs_coverage" => g5_call(state, name, &args),
         "markdown_link_check" => g5_call(state, name, &args),
         "docs_index_build" => g5_call(state, name, &args),
+        "framework_linker_auditor" => g6_call(state, name, &args),
+        "string_catalog_migrator" => g6_call(state, name, &args),
+        "symbol_reference_graph" => g6_call(state, name, &args),
+        "podfile_inspector" => g6_call(state, name, &args),
+        "carthage_cartfile_inspector" => g6_call(state, name, &args),
+        "package_manifest_read" => g6_call(state, name, &args),
+        "package_dependency_add" => g6_call(state, name, &args),
+        "asset_catalog_list" => g6_call(state, name, &args),
+        "asset_image_add" => g6_call(state, name, &args),
+        "strings_localization" => g6_call(state, name, &args),
+        "localization_audit" => g6_call(state, name, &args),
+        "localize_app" => g6_call(state, name, &args),
+        "asset_catalog_manager" => g6_call(state, name, &args),
+        "localization_manager" => g6_call(state, name, &args),
+        "entitlements_manager" => g6_call(state, name, &args),
+        "colorset_builder" => g6_call(state, name, &args),
+        "project_entitlements" => g6_call(state, name, &args),
+        "project_info_plist" => g6_call(state, name, &args),
+        "project_capabilities" => g6_call(state, name, &args),
+        "entry_points_discover" => g6_call(state, name, &args),
+        "repo_overview" => g6_call(state, name, &args),
+        "project_structure_map" => g6_call(state, name, &args),
+        "recent_changes" => g6_call(state, name, &args),
+        "readme_locate" => g6_call(state, name, &args),
+        "dependency_licenses" => g6_call(state, name, &args),
+        "stale_files_report" => g6_call(state, name, &args),
+        "file_type_breakdown" => g6_call(state, name, &args),
+        "empty_dirs_find" => g6_call(state, name, &args),
+        "symlink_audit" => g6_call(state, name, &args),
+        "executable_files_scan" => g6_call(state, name, &args),
+        "dir_size_report" => g6_call(state, name, &args),
+        "image_asset_size_report" => g6_call(state, name, &args),
+        "bundle_resource_auditor" => g6_call(state, name, &args),
+        "core_data_model_inspector" => g6_call(state, name, &args),
+        "swift_data_schema_auditor" => g6_call(state, name, &args),
+        "privacy_manifest_auditor" => g6_call(state, name, &args),
+        "build_system_detect" => g6_call(state, name, &args),
+        "spm_dependency_tree" => g6_terminal_call(state, name, &args),
+        "package_manifest_validate" => g6_terminal_call(state, name, &args),
+        "package_dependency_audit" => g6_terminal_call(state, name, &args),
+        "project_signing" => g6_terminal_call(state, name, &args),
+        "icon_generator_tool" => g6_terminal_call(state, name, &args),
+        "process_monitor_tool" => g6_terminal_call(state, name, &args),
+        "disk_space_analyzer" => g6_terminal_call(state, name, &args),
+        "use_system" => g6_terminal_call(state, name, &args),
+        "preflight_checks" => g6_terminal_call(state, name, &args),
+        "github_repo" => g6_terminal_call(state, name, &args),
+        "env_info" => g6_misc_call(state, name, &args),
+        "environment_variable_manager" => g6_misc_call(state, name, &args),
+        "clipboard_manager_tool" => g6_misc_call(state, name, &args),
+        "system_notification_tool" => g6_misc_call(state, name, &args),
+        "search_skills" => g6_misc_call(state, name, &args),
+        "plan-AskUser" => g6_misc_call(state, name, &args),
+        "tool_capability_lookup" => g6_misc_call(state, name, &args),
+        "session_progress_report" => g6_misc_call(state, name, &args),
+        "manage_memory" => g6_misc_call(state, name, &args),
+        "fetch_documentation" => g6_misc_call(state, name, &args),
+        "external_resource_gateway" => g6_misc_call(state, name, &args),
+        "read_url_content" => g6_misc_call(state, name, &args),
+        "use_app" => g6_misc_call(state, name, &args),
+        "derived_data_locate" => g6_misc_call(state, name, &args),
 
         _ => Err(CallError::UnknownTool(name.to_owned())),
     }
@@ -13609,7 +20605,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 265, "Swift registry must hold 265 tools");
+        assert_eq!(swift.len(), 326, "Swift registry must hold 326 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");
