@@ -402,8 +402,8 @@ struct SystemAssetsTests {
 
     private static func makeRetrievalFixture() throws -> URL {
         let temp = Self.makeTemporaryDirectory()
-        try Self.retrievalAlpha.write(to: temp.appendingPathComponent("Alpha.md"), atomically: true, encoding: .utf8)
-        try Self.retrievalBeta.write(to: temp.appendingPathComponent("Beta.md"), atomically: true, encoding: .utf8)
+        try Self.retrievalAlpha.write(to: temp.appendingPathComponent("AlphaNotes.md"), atomically: true, encoding: .utf8)
+        try Self.retrievalBeta.write(to: temp.appendingPathComponent("BetaNotes.md"), atomically: true, encoding: .utf8)
         try Self.retrievalGamma.write(to: temp.appendingPathComponent("Gamma Notes.md"), atomically: true, encoding: .utf8)
         return temp
     }
@@ -416,9 +416,10 @@ struct SystemAssetsTests {
         #expect(manager.isReady)
         #expect(manager.documentCount == 3)
         let alpha = manager.search("alpha", limit: 10)
-        #expect(alpha.map(\.documentID) == ["Alpha", "Alpha", "Alpha"])
-        #expect(alpha.map(\.fileName) == ["Alpha.md", "Alpha.md", "Alpha.md"])
+        #expect(alpha.map(\.documentID) == ["AlphaNotes", "AlphaNotes", "AlphaNotes"])
+        #expect(alpha.map(\.fileName) == ["AlphaNotes.md", "AlphaNotes.md", "AlphaNotes.md"])
         #expect(alpha.map(\.sectionHeading) == ["Advanced Alpha", "Getting Started", "Alpha Guide"])
+        #expect(alpha.map(\.headingPath) == [["Alpha Guide", "Advanced Alpha"], ["Alpha Guide", "Getting Started"], ["Alpha Guide"]])
         #expect(alpha.map(\.score) == [72, 72, 71])
         #expect(alpha.map(\.reason) == ["phrase", "phrase", "phrase"])
         #expect(alpha.map(\.text) == [
@@ -427,10 +428,28 @@ struct SystemAssetsTests {
             "Alpha Guide\n\n",
         ])
         let getting = manager.search("getting started", limit: 10)
-        #expect(getting.map(\.fileName) == ["Alpha.md", "Beta.md"])
+        #expect(getting.map(\.fileName) == ["AlphaNotes.md", "BetaNotes.md"])
         #expect(getting.map(\.sectionHeading) == ["Getting Started", "Getting Started"])
+        #expect(getting.map(\.headingPath) == [["Alpha Guide", "Getting Started"], ["Beta Guide", "Getting Started"]])
         #expect(getting.map(\.score) == [80, 80])
         #expect(getting.map(\.reason) == ["exactHeading", "exactHeading"])
+    }
+
+
+    @Test("An exact document ID match returns the first section at score 100")
+    func exactDocumentIDMatchReturnsFirstSection() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        let exact = manager.search("alphanotes", limit: 10)
+        #expect(exact.count == 1)
+        #expect(exact.map(\.documentID) == ["AlphaNotes"])
+        #expect(exact.map(\.fileName) == ["AlphaNotes.md"])
+        #expect(exact.map(\.sectionHeading) == ["Alpha Guide"])
+        #expect(exact.map(\.headingPath) == [["Alpha Guide"]])
+        #expect(exact.map(\.score) == [100])
+        #expect(exact.map(\.reason) == ["exactFilename"])
+        #expect(exact.map(\.text) == ["Alpha Guide\n\n"])
     }
 
     @Test("Two documents sharing a title token both rank")
@@ -439,12 +458,13 @@ struct SystemAssetsTests {
         defer { try? FileManager.default.removeItem(at: fixture) }
         let manager = SystemAssetManager(directory: fixture)
         let guide = manager.search("guide", limit: 10)
-        #expect(guide.map(\.fileName) == ["Alpha.md", "Beta.md", "Alpha.md", "Alpha.md", "Beta.md", "Beta.md"])
+        #expect(guide.map(\.fileName) == ["AlphaNotes.md", "BetaNotes.md", "AlphaNotes.md", "AlphaNotes.md", "BetaNotes.md", "BetaNotes.md"])
         #expect(guide.map(\.sectionHeading) == ["Alpha Guide", "Beta Guide", "Advanced Alpha", "Getting Started", "Advanced Beta", "Getting Started"])
+        #expect(guide.map(\.headingPath) == [["Alpha Guide"], ["Beta Guide"], ["Alpha Guide", "Advanced Alpha"], ["Alpha Guide", "Getting Started"], ["Beta Guide", "Advanced Beta"], ["Beta Guide", "Getting Started"]])
         #expect(guide.map(\.score) == [71, 71, 5, 5, 5, 5])
         #expect(guide.map(\.reason) == ["phrase", "phrase", "keyword", "keyword", "keyword", "keyword"])
-        #expect(Set(guide.map(\.fileName)) == ["Alpha.md", "Beta.md"])
-        #expect(guide.map(\.documentID) == ["Alpha", "Beta", "Alpha", "Alpha", "Beta", "Beta"])
+        #expect(Set(guide.map(\.fileName)) == ["AlphaNotes.md", "BetaNotes.md"])
+        #expect(guide.map(\.documentID) == ["AlphaNotes", "BetaNotes", "AlphaNotes", "AlphaNotes", "BetaNotes", "BetaNotes"])
     }
 
     @Test("Multi-word queries tokenize before postings lookup")
@@ -470,9 +490,9 @@ struct SystemAssetsTests {
         let manager = SystemAssetManager(directory: fixture)
         let top = manager.search("alpha", limit: 1)
         #expect(top.count == 1)
-        #expect(top.first?.fileName == "Alpha.md")
-        #expect(top.allSatisfy { $0.fileName != "Beta.md" })
-        let beta = try #require(manager.document(fileName: "Beta.md"))
+        #expect(top.first?.fileName == "AlphaNotes.md")
+        #expect(top.allSatisfy { $0.fileName != "BetaNotes.md" })
+        let beta = try #require(manager.document(fileName: "BetaNotes.md"))
         #expect(beta.rawText == Self.retrievalBeta)
         #expect(beta.sections.count == 3)
         #expect(beta.rawText.contains("Deep beta material."))
@@ -497,7 +517,7 @@ struct SystemAssetsTests {
         #expect(prompt.estimatedTokens <= 520)
         #expect(prompt.text.contains("Alpha tokens live here for the alpha walkthrough."))
         #expect(!prompt.text.contains("Beta tokens live here for the beta walkthrough."))
-        #expect(prompt.includedDocumentIDs == ["Alpha"])
-        #expect(prompt.omittedDocumentIDs == ["Beta"])
+        #expect(prompt.includedDocumentIDs == ["AlphaNotes"])
+        #expect(prompt.omittedDocumentIDs == ["BetaNotes"])
     }
 }

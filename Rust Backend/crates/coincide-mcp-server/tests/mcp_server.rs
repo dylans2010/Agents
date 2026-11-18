@@ -638,8 +638,8 @@ fn retrieval_fixtures() -> tempfile::TempDir {
     let dir = temp_dir("agents-mcp-retrieval");
     std::fs::write(dir.path().join("Safeguards.md"), "# Safeguards\n").unwrap();
     std::fs::write(dir.path().join("Identity.md"), "# Identity\n").unwrap();
-    std::fs::write(dir.path().join("Alpha.md"), RETRIEVAL_ALPHA).unwrap();
-    std::fs::write(dir.path().join("Beta.md"), RETRIEVAL_BETA).unwrap();
+    std::fs::write(dir.path().join("AlphaNotes.md"), RETRIEVAL_ALPHA).unwrap();
+    std::fs::write(dir.path().join("BetaNotes.md"), RETRIEVAL_BETA).unwrap();
     std::fs::write(dir.path().join("Gamma Notes.md"), RETRIEVAL_GAMMA).unwrap();
     dir
 }
@@ -653,7 +653,7 @@ fn search_skills(session: &mut Session, query: &str, limit: u64) -> Value {
     serde_json::from_str(&text).expect("search_skills result parses as JSON")
 }
 
-fn ranked(result: &Value) -> Vec<(String, String, String, i64, String, String)> {
+fn ranked(result: &Value) -> Vec<(String, String, String, i64, String, String, Vec<String>)> {
     result["results"]
         .as_array()
         .unwrap()
@@ -666,6 +666,12 @@ fn ranked(result: &Value) -> Vec<(String, String, String, i64, String, String)> 
                 entry["score"].as_i64().unwrap(),
                 entry["reason"].as_str().unwrap().to_owned(),
                 entry["text"].as_str().unwrap().to_owned(),
+                entry["headingPath"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|part| part.as_str().unwrap().to_owned())
+                    .collect(),
             )
         })
         .collect()
@@ -683,28 +689,31 @@ fn search_skills_matches_canonical_ranking() {
         ranked(&alpha),
         vec![
             (
-                "Alpha".to_owned(),
-                "Alpha.md".to_owned(),
+                "AlphaNotes".to_owned(),
+                "AlphaNotes.md".to_owned(),
                 "Advanced Alpha".to_owned(),
                 72,
                 "phrase".to_owned(),
                 "Advanced Alpha\n\nDeep alpha material.".to_owned(),
+                vec!["Alpha Guide".to_owned(), "Advanced Alpha".to_owned()],
             ),
             (
-                "Alpha".to_owned(),
-                "Alpha.md".to_owned(),
+                "AlphaNotes".to_owned(),
+                "AlphaNotes.md".to_owned(),
                 "Getting Started".to_owned(),
                 72,
                 "phrase".to_owned(),
                 "Getting Started\n\nAlpha tokens live here for the alpha walkthrough.".to_owned(),
+                vec!["Alpha Guide".to_owned(), "Getting Started".to_owned()],
             ),
             (
-                "Alpha".to_owned(),
-                "Alpha.md".to_owned(),
+                "AlphaNotes".to_owned(),
+                "AlphaNotes.md".to_owned(),
                 "Alpha Guide".to_owned(),
                 71,
                 "phrase".to_owned(),
                 "Alpha Guide\n\n".to_owned(),
+                vec!["Alpha Guide".to_owned()],
             ),
         ]
     );
@@ -713,52 +722,58 @@ fn search_skills_matches_canonical_ranking() {
         ranked(&guide),
         vec![
             (
-                "Alpha".to_owned(),
-                "Alpha.md".to_owned(),
+                "AlphaNotes".to_owned(),
+                "AlphaNotes.md".to_owned(),
                 "Alpha Guide".to_owned(),
                 71,
                 "phrase".to_owned(),
                 "Alpha Guide\n\n".to_owned(),
+                vec!["Alpha Guide".to_owned()],
             ),
             (
-                "Beta".to_owned(),
-                "Beta.md".to_owned(),
+                "BetaNotes".to_owned(),
+                "BetaNotes.md".to_owned(),
                 "Beta Guide".to_owned(),
                 71,
                 "phrase".to_owned(),
                 "Beta Guide\n\n".to_owned(),
+                vec!["Beta Guide".to_owned()],
             ),
             (
-                "Alpha".to_owned(),
-                "Alpha.md".to_owned(),
+                "AlphaNotes".to_owned(),
+                "AlphaNotes.md".to_owned(),
                 "Advanced Alpha".to_owned(),
                 5,
                 "keyword".to_owned(),
                 "Advanced Alpha\n\nDeep alpha material.".to_owned(),
+                vec!["Alpha Guide".to_owned(), "Advanced Alpha".to_owned()],
             ),
             (
-                "Alpha".to_owned(),
-                "Alpha.md".to_owned(),
+                "AlphaNotes".to_owned(),
+                "AlphaNotes.md".to_owned(),
                 "Getting Started".to_owned(),
                 5,
                 "keyword".to_owned(),
                 "Getting Started\n\nAlpha tokens live here for the alpha walkthrough.".to_owned(),
+                vec!["Alpha Guide".to_owned(), "Getting Started".to_owned()],
             ),
             (
-                "Beta".to_owned(),
-                "Beta.md".to_owned(),
+                "BetaNotes".to_owned(),
+                "BetaNotes.md".to_owned(),
                 "Advanced Beta".to_owned(),
                 5,
                 "keyword".to_owned(),
                 "Advanced Beta\n\nDeep beta material.".to_owned(),
+                vec!["Beta Guide".to_owned(), "Advanced Beta".to_owned()],
             ),
             (
-                "Beta".to_owned(),
-                "Beta.md".to_owned(),
+                "BetaNotes".to_owned(),
+                "BetaNotes.md".to_owned(),
                 "Getting Started".to_owned(),
                 5,
                 "keyword".to_owned(),
                 "Getting Started\n\nBeta tokens live here for the beta walkthrough.".to_owned(),
+                vec!["Beta Guide".to_owned(), "Getting Started".to_owned()],
             ),
         ]
     );
@@ -767,22 +782,47 @@ fn search_skills_matches_canonical_ranking() {
         ranked(&getting),
         vec![
             (
-                "Alpha".to_owned(),
-                "Alpha.md".to_owned(),
+                "AlphaNotes".to_owned(),
+                "AlphaNotes.md".to_owned(),
                 "Getting Started".to_owned(),
                 80,
                 "exactHeading".to_owned(),
                 "Getting Started\n\nAlpha tokens live here for the alpha walkthrough.".to_owned(),
+                vec!["Alpha Guide".to_owned(), "Getting Started".to_owned()],
             ),
             (
-                "Beta".to_owned(),
-                "Beta.md".to_owned(),
+                "BetaNotes".to_owned(),
+                "BetaNotes.md".to_owned(),
                 "Getting Started".to_owned(),
                 80,
                 "exactHeading".to_owned(),
                 "Getting Started\n\nBeta tokens live here for the beta walkthrough.".to_owned(),
+                vec!["Beta Guide".to_owned(), "Getting Started".to_owned()],
             ),
         ]
+    );
+    session.close();
+}
+
+
+#[test]
+fn search_skills_exact_document_id_returns_first_section() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let assets = retrieval_fixtures();
+    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    initialize(&mut session);
+    let exact = search_skills(&mut session, "alphanotes", 10);
+    assert_eq!(
+        ranked(&exact),
+        vec![(
+            "AlphaNotes".to_owned(),
+            "AlphaNotes.md".to_owned(),
+            "Alpha Guide".to_owned(),
+            100,
+            "exactFilename".to_owned(),
+            "Alpha Guide\n\n".to_owned(),
+            vec!["Alpha Guide".to_owned()],
+        )]
     );
     session.close();
 }
@@ -796,15 +836,15 @@ fn search_skills_full_document_readable_outside_top_results() {
     let top = search_skills(&mut session, "alpha", 1);
     let results = top["results"].as_array().unwrap();
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["fileName"].as_str().unwrap(), "Alpha.md");
+    assert_eq!(results[0]["fileName"].as_str().unwrap(), "AlphaNotes.md");
     assert_eq!(
         results[0]["resourceUri"].as_str().unwrap(),
-        "agents-asset://Alpha.md"
+        "agents-asset://AlphaNotes.md"
     );
-    assert!(results.iter().all(|entry| entry["fileName"] != "Beta.md"));
+    assert!(results.iter().all(|entry| entry["fileName"] != "BetaNotes.md"));
     let read = session.request(
         "resources/read",
-        json!({"uri": "agents-asset://Beta.md"}),
+        json!({"uri": "agents-asset://BetaNotes.md"}),
     );
     assert!(read.get("error").is_none(), "resources/read failed: {read}");
     let text = read["result"]["contents"][0]["text"].as_str().unwrap();
