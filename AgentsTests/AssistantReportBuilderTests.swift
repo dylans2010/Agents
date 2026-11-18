@@ -473,15 +473,47 @@ struct AssistantReportBuilderTests {
         #expect(review.findings[1].line == 3)
     }
 
-    @Test("High severity uses the AppTheme warning color")
-    func highSeverityUsesAppThemeWarning() {
+    @Test("Times, ratios and version-like tokens do not parse as file refs")
+    func timesAndRatiosDoNotParseAsFileRefs() {
+        let result = """
+            ## Findings
+            - Low: Timeout at 10:30 in retry logic
+            - Low: Compression ratio 3:1 is too low
+            - Low: See v1:2 for details
+            - Low: Chapter 2:3 covers setup
+            """
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(result: result),
+            definition: Self.makeDefinition(category: .codeReviewSecurity)
+        ))
+        guard case .review(let review) = report else {
+            Issue.record("Expected a review report")
+            return
+        }
+        #expect(review.findings.count == 4)
+        #expect(review.findings.allSatisfy { $0.file == nil && $0.line == nil })
+        #expect(review.findings.map(\.title).contains("Timeout at 10:30 in retry logic"))
+        #expect(review.findings.map(\.title).contains("Compression ratio 3:1 is too low"))
+    }
+
+    @Test("Severity colors use the AppTheme semantic tokens")
+    func severityColorsUseAppThemeTokens() {
         let report = AssistantReportBuilder.build(.init(
             record: Self.makeRecord(),
             definition: Self.makeDefinition(category: .codeReviewSecurity)
         ))
         let view = AssistantResultView(report: report)
+        #expect(NSColor(view.severityColor(.critical)) == NSColor(AppTheme.danger))
         #expect(NSColor(view.severityColor(.high)) == NSColor(AppTheme.warning))
         #expect(NSColor(view.severityColor(.medium)) == NSColor(AppTheme.warning))
+        #expect(NSColor(view.severityColor(.low)) == NSColor(AppTheme.info))
+        #expect(NSColor(view.severityColor(.info)) == NSColor(AppTheme.secondaryLabel))
+        #expect(NSColor(view.severityColor(.high)) != NSColor(AppTheme.danger))
+        #expect(NSColor(view.severityColor(.high)) != NSColor(AppTheme.success))
+        #expect(NSColor(view.severityColor(.high)) != NSColor(AppTheme.info))
+        #expect(NSColor(view.severityColor(.critical)) != NSColor(AppTheme.warning))
+        #expect(NSColor(view.severityColor(.low)) != NSColor(AppTheme.warning))
+        #expect(NSColor(view.severityColor(.medium)) != NSColor(AppTheme.danger))
     }
 
     @Test("Build markdown states no files were changed when the diff confirms it")
@@ -499,8 +531,8 @@ struct AssistantReportBuilderTests {
         #expect(report.markdownRepresentation.contains("No files were changed by this run."))
     }
 
-    @Test("An empty turn changed files list confirms no modifications when no diff is supplied")
-    func emptyTurnChangedFilesConfirmsNoModifications() {
+    @Test("An empty turn changed files list without a diff does not confirm no modifications")
+    func emptyTurnChangedFilesWithoutDiffDoesNotConfirmNoModifications() {
         let report = AssistantReportBuilder.build(.init(
             record: Self.makeRecord(result: "Reviewed."),
             definition: Self.makeDefinition(category: .codeReviewSecurity),
@@ -510,8 +542,28 @@ struct AssistantReportBuilderTests {
             Issue.record("Expected a review report")
             return
         }
-        #expect(review.noModificationsConfirmed)
-        #expect(report.markdownRepresentation.contains("No workspace modifications were made by this run."))
+        #expect(!review.noModificationsConfirmed)
+        #expect(!report.markdownRepresentation.contains("No workspace modifications"))
+    }
+
+    @Test("A build run with empty turn changed files and no diff states the diff is unavailable")
+    func buildRunWithEmptyTurnChangedFilesStatesUnavailable() {
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(),
+            definition: Self.makeDefinition(category: .buildingFixing, permissionProfile: .workspaceModify),
+            turnChangedFiles: []
+        ))
+        guard case .build(let build) = report else {
+            Issue.record("Expected a build report")
+            return
+        }
+        #expect(build.filesChanged.isEmpty)
+        guard case .unavailable(let reason) = build.diffAvailability else {
+            Issue.record("Expected unavailable diff availability")
+            return
+        }
+        #expect(!reason.isEmpty)
+        #expect(report.markdownRepresentation.contains("Changed files unavailable"))
     }
 
     @Test("A non-empty turn changed files list does not confirm no modifications")

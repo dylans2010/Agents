@@ -129,9 +129,6 @@ public enum AssistantReportBuilder {
         if let diff = input.diff {
             return diff.files.isEmpty
         }
-        if let changed = input.turnChangedFiles {
-            return changed.isEmpty
-        }
         return false
     }
 
@@ -150,9 +147,6 @@ public enum AssistantReportBuilder {
                 )
             }
             return (files, .attached)
-        }
-        if let changed = input.turnChangedFiles, changed.isEmpty {
-            return ([], .confirmedNoChanges)
         }
         return ([], .unavailable(reason: input.diffUnavailableReason ?? defaultDiffUnavailableReason))
     }
@@ -383,7 +377,7 @@ enum AssistantResultTextParser {
             guard let colon = candidate.lastIndex(of: ":") else { continue }
             let path = String(candidate[..<colon])
             let number = String(candidate[candidate.index(after: colon)...])
-            guard !path.isEmpty, let lineNumber = Int(number) else { continue }
+            guard !path.isEmpty, path.contains("."), let lineNumber = Int(number) else { continue }
             var remaining = words
             remaining.remove(at: index)
             let title = remaining.joined(separator: " ").trimmingCharacters(in: .whitespaces)
