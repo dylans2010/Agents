@@ -882,9 +882,11 @@ no entries in this file either and are not backfilled here. Full record:
   `AgentsTests/ToolsetTests.swift` updated to match. Docs refresh:
   MAC-GATE 128/3,000, hardening log 99–103.
 - **Slice 106** — Read-only inventory of thread-identity descriptions:
-  123 threadId + 6 parentThreadId params; all 6 parentThreadId pinned,
-  122 of 123 threadId pinned, `session_progress_report` the one gap.
-  No commit; closed in Slice 109.
+  123 threadId + 6 parentThreadId params; only 2 of 6 parentThreadId
+  pinned (`use_workers`, `start_subagent`) — the other four lacked
+  pinning language until Slice 107 — and 122 of 123 threadId pinned,
+  `session_progress_report` the one threadId gap. No commit; closed in
+  Slice 109.
 - **Slice 107** — Pinned the four remaining parentThreadId descriptions
   without pinning language (`list_workers`, `intel_plan_task`,
   `intel_breakdown_task`, `execution_plan`); fixed two hardening-audit

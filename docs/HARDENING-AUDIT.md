@@ -463,7 +463,78 @@ The local pre-push commit is `cca948d3` (same tree as remote `b45b5690`).
 Slice 104 re-verified this slice; see [How to re-verify](#how-to-re-verify).
 ---
 
-## Slice 109 — Thread-identity description sweep complete
+## Slice 105 — Joint threadId description pass (remote `741c8582`)
+
+**Audited:** every `threadId` / `parentThreadId` parameter description
+in both registries — `Agents/Core/SystemTools/SystemToolRegistry.swift`
+and `Rust Backend/crates/coincide-mcp-server/src/tools.rs` — against
+the session pin each value already carries at runtime (Slices 99–101).
+
+**Descriptions corrected (124 Swift lines / 80 Rust lines):** the
+pinned phrase ", pinned to the session thread when bound" was added to
+124 Swift description lines and 80 Rust description lines, including
+the shared Rust `P_THREAD_ID` const (`tools.rs:34-39`, description at
+`:38`), which covers 45 `threadId` params. Five descriptions still
+lacked pinning language after this pass: the four `parentThreadId`
+descriptions (`list_workers`, `intel_plan_task`,
+`intel_breakdown_task`, `execution_plan` — pinned in Slice 107) and
+`session_progress_report`'s `threadId` (pinned in Slice 109). No
+behavior change; the descriptions now match the pin the handlers
+already apply.
+
+**Tests added (0):** no test added; 3 pinned expectations updated in
+`AgentsTests/ToolsetTests.swift` (`run_build`, `run_tests`,
+`search_web`) to match the corrected descriptions. Description-only
+corrections are not counted in the defect/test totals, per the
+precedent this slice set (see Summary).
+
+**Docs:** this record's Slices 99–103 sections were written in this
+slice; `docs/MAC-GATE.md` refreshed to 128 Swift `@Test` and 3,000 Rust
+test attributes (2,219 short-form + 736 fully-qualified + 45
+`#[gpui_kit::test]`, correcting 2,953); `docs/SYSTEM-TOOLSET.md`
+history extended to Slices 99–104.
+
+**Verification:** diff read (`git show 9cadcd38`, remote `741c8582`,
+same tree `6325d57d`); corrected lines confirmed present at HEAD.
+Statically verified only — no Swift compile here, as for every slice in
+this record. The local pre-push commit is `9cadcd38` (same tree as
+remote `741c8582`).
+---
+
+## Slice 107 — ParentThreadId description pins (remote `27dabf95`)
+
+**Audited:** the four `parentThreadId` descriptions that still lacked
+pinning language after Slice 105, in both registries.
+
+**Descriptions corrected (4 lines per side):** `list_workers`
+("Parent thread ID, pinned to the session thread when bound; lists
+every worker when omitted and unbound."), `intel_plan_task` and
+`execution_plan` ("Parent thread ID that owns the plan, pinned to the
+session thread when bound."), and `intel_breakdown_task` ("Parent
+thread ID the plan must belong to, pinned to the session thread when
+bound.") — byte-identical on both sides. After this pass the only
+description still lacking pinning language was
+`session_progress_report`'s `threadId`, closed in Slice 109. No
+behavior change.
+
+**Tests added (0):** no test change. Description-only corrections are
+not counted in the defect/test totals, per the Slice 105 precedent.
+
+**Docs:** two nits in this record fixed — the `use_mcp` line cite in
+the Slice 101 section (`:4419` corrected to `:4392`) and the
+ToolDef-count wording in [How to re-verify](#how-to-re-verify) (the one
+further `ToolDef {` match is the `pub struct ToolDef {` declaration at
+`tools.rs:14`, not a registry entry).
+
+**Verification:** diff read (`git show 2a0261d8`, remote `27dabf95`,
+same tree `667422d1`); corrected lines confirmed present at HEAD.
+Statically verified only — no Swift compile here, as for every slice in
+this record. The local pre-push commit is `2a0261d8` (same tree as
+remote `27dabf95`). Slice 108 re-verified this slice; see
+[How to re-verify](#how-to-re-verify).
+---
+
+## Slice 109 — Thread-identity description sweep complete (remote `23a73f2d`)
 
 **Audited:** every `threadId` / `parentThreadId` parameter description
 in both registries — `Agents/Core/SystemTools/SystemToolRegistry.swift`
@@ -474,8 +545,8 @@ re-enumerated from source, not trusted from the Slice 106 inventory.
 read "Parent thread ID to include worker status for." with no pinning
 language, although the value is pinned when bound: Swift `execute()`
 overwrites `threadId` for every tool (`:3835`) before the handler reads
-it to list workers (`:7105`), and Rust `call()` applies
-`with_session_defaults` at entry (`:16896`; function `:7819-7832`)
+it to list workers (`:7104`), and Rust `call()` applies
+`with_session_defaults` at entry (`:16896`; function `:7819-7833`)
 before the handler reads it for `workers.list` (`:16477`). The
 description now reads "Parent thread ID to include worker status for,
 pinned to the session thread when bound.", byte-identical on both sides.
@@ -506,10 +577,9 @@ lacking pinning language, 0 cross-side mismatches); zero occurrences
 of the old wording remain in either registry or the test. Statically
 verified only — no Swift compile here, as for every slice in this
 record. Sweep baseline: local `main` `2a0261d8`, remote `main`
-`27dabf958a`, same tree `667422d1`. The remote SHA of this slice's own
-commit was not knowable before pushing, so no remote SHA is cited in
-this section's heading; it should be backfilled by a later docs pass,
-as Slice 105 backfilled Slices 99–103.
+`27dabf958a`, same tree `667422d1`. The local pre-push commit is
+`02251181` (same tree as remote `23a73f2d`).
+Slice 110 re-verified this slice; see [How to re-verify](#how-to-re-verify).
 
 ## Documented, not fixed
 
@@ -615,6 +685,13 @@ limitation of the audited component, or a question owed to Dylan.
   remote commit (`git show <sha>`) and confirm the fixed lines are still
   present; if a later commit moved a line, the fix is the code shape
   described, not the line number.
+  **Slice 110 re-verification (no commit):** Slice 110 re-audited Slice
+  109 read-only and passed it with minors — all code claims exact
+  (129/129 identity params, byte-identical cross-side). The minors were
+  the Slice 106 entry in `docs/SYSTEM-TOOLSET.md` overstating the
+  pre-107 parentThreadId pin (2 of 6 pinned, not all 6) and two
+  off-by-one line cites in the Slice 109 section; both were fixed in
+  Slice 111.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)
