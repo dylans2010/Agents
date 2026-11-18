@@ -208,14 +208,13 @@ struct ComposerBarView: View {
                 // Footer Control Bar
                 composerFooterControls
             }
-            .background(AppTheme.textBackground, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge))
+            .glassPanel(cornerRadius: AppTheme.cornerRadiusLarge)
             .overlay(
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge)
                     .strokeBorder(composerBorderColor, lineWidth: isDragTargeted || isComposerFocused ? 1.5 : 1)
             )
-            .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
         }
-        .frame(maxWidth: 860)
+        .frame(maxWidth: AppTheme.conversationColumnMaxWidth)
         .padding(.horizontal, 24)
         .padding(.top, 6)
         .padding(.bottom, 14)
@@ -1170,11 +1169,7 @@ private struct QueuedMessagesStripView: View {
             }
         }
         .padding(10)
-        .background(AppTheme.elevatedCardFill, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .strokeBorder(AppTheme.separator, lineWidth: 1)
-        )
+        .glassPanel()
     }
 }
 
@@ -1262,12 +1257,7 @@ private struct ComposerCompletionsCard: View {
                 }
             }
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .strokeBorder(AppTheme.separator, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.14), radius: 10, y: 3)
+        .glassPanel()
     }
 }
 

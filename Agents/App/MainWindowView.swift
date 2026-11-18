@@ -116,11 +116,6 @@ private struct ToastBannerOverlay: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .strokeBorder(AppTheme.separator, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+        .glassPanel()
     }
 }

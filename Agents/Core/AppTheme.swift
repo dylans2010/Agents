@@ -155,10 +155,11 @@ public enum AppTheme {
     public nonisolated static let cornerRadiusSmall: CGFloat = 6
     public nonisolated static let cornerRadiusMedium: CGFloat = 10
     public nonisolated static let cornerRadiusLarge: CGFloat = 14
-    public nonisolated static let sidebarMinWidth: CGFloat = 240
-    public nonisolated static let sidebarIdealWidth: CGFloat = 272
+    public nonisolated static let sidebarMinWidth: CGFloat = 232
+    public nonisolated static let sidebarIdealWidth: CGFloat = 264
     public nonisolated static let inspectorMinWidth: CGFloat = 300
     public nonisolated static let inspectorIdealWidth: CGFloat = 360
+    public nonisolated static let conversationColumnMaxWidth: CGFloat = 800
 }
 
 // MARK: - Hex Color Initializer
@@ -315,5 +316,19 @@ public struct BotAvatarView: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+}
+
+public extension View {
+    func glassPanel(cornerRadius: CGFloat = AppTheme.cornerRadiusMedium) -> some View {
+        glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius))
+    }
+
+    func glassCapsule() -> some View {
+        glassEffect(.regular, in: Capsule())
+    }
+
+    func glassPanelTinted(_ tint: Color, cornerRadius: CGFloat = AppTheme.cornerRadiusMedium) -> some View {
+        glassEffect(.regular.tint(tint), in: RoundedRectangle(cornerRadius: cornerRadius))
     }
 }

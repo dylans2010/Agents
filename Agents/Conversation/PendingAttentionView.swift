@@ -36,7 +36,7 @@ struct PendingAttentionView: View {
                     }
                 }
             }
-            .frame(maxWidth: 860)
+            .frame(maxWidth: AppTheme.conversationColumnMaxWidth)
             .padding(.horizontal, 24)
             .padding(.top, 8)
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -154,12 +154,11 @@ private struct ApprovalAttentionCard: View {
             }
         }
         .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+        .glassPanelTinted(AppTheme.warning.opacity(0.10))
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
                 .strokeBorder(AppTheme.warning.opacity(0.55), lineWidth: 1.25)
         )
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
     }
 
     @ViewBuilder
@@ -330,12 +329,11 @@ private struct QuestionAttentionCard: View {
             }
         }
         .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+        .glassPanelTinted(AppTheme.accent.opacity(0.10))
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
                 .strokeBorder(AppTheme.accent.opacity(0.55), lineWidth: 1.25)
         )
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
     }
 
     @ViewBuilder

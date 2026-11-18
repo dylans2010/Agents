@@ -672,7 +672,7 @@ public struct SidebarRootView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(AppTheme.underPageBackground.opacity(0.6))
+        .background(.thinMaterial)
     }
 
     @ViewBuilder

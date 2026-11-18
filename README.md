@@ -62,6 +62,12 @@ Assist's system prompt and tool guidance come from System Assets (`Agents/Resour
 
 Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs the 26 verified core actions behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction only for **Codex and Claude**; other providers receive the tools and assets through the bundled MCP server instead. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
 
+## Liquid Glass
+
+Agents targets macOS 26 and uses the native Liquid Glass APIs for its floating and overlay surfaces: the composer bar, the `@`/`/` completions card, queued follow-ups, approval and question attention cards, the toast banner, the floating Jump to Latest pill, and the terminal exited-session banner. The shared styles live in `Agents/Core/AppTheme.swift` (`glassPanel`, `glassCapsule`, `glassPanelTinted`); they wrap SwiftUI `glassEffect(.regular, in:)` and nothing else, so the glass language stays consistent and no view carries a one-off glass modifier. Attention cards keep their semantic tint and stroke (warning for approvals, accent for questions) because the tint is the signal, not decoration.
+
+Glass is deliberately not used in the content layer: transcript tool-call and result cards, inspector diff/git/files/workers cards, settings panes, and the welcome screen keep their semantic fills so tool activity stays prominent and readable. Sheets and popovers (command palette, model picker, rename, checkout, bot editor, session import) rely on the system glass chrome macOS 26 applies to those containers instead of adding a second glass layer. All glass and material choices use semantic or dynamic colors only, so they read in both Light and Dark mode, and no control is hidden behind hover-only or glass-only affordances.
+
 ## Contributing and security
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). Agents follows the design of [T3 Code](https://github.com/pingdotgg/t3code). Third-party attributions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

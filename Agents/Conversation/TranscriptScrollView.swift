@@ -117,9 +117,9 @@ struct TranscriptScrollView: View {
                             .frame(height: 1)
                             .id(Self.bottomAnchorID)
                     }
-                    .frame(maxWidth: 860, alignment: .leading)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 20)
+                    .frame(maxWidth: AppTheme.conversationColumnMaxWidth, alignment: .leading)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 24)
                     .padding(.bottom, 16)
                     .frame(maxWidth: .infinity)
                 }
@@ -178,12 +178,7 @@ struct TranscriptScrollView: View {
                         .foregroundStyle(AppTheme.primaryLabel)
                         .padding(.horizontal, 13)
                         .padding(.vertical, 7)
-                        .background(.regularMaterial, in: Capsule())
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(AppTheme.separator, lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.16), radius: 8, y: 3)
+                        .glassCapsule()
                     }
                     .buttonStyle(.plain)
                     .padding(.bottom, 12)

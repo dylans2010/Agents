@@ -441,10 +441,7 @@ public struct TerminalDrawerRootView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(.regularMaterial)
-        .overlay(alignment: .top) {
-            Divider()
-        }
+        .glassPanel(cornerRadius: AppTheme.cornerRadiusSmall)
     }
 
     // MARK: - Actions & Helpers
