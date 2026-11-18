@@ -2,6 +2,7 @@ public enum BuiltInPresets {
     public static var groups: [[AssistantDefinition]] {
         [
             RepositoryIntelligencePresets.all,
+            BuildingFixingPresets.all,
         ]
     }
 
