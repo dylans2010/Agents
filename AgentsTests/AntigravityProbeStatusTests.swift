@@ -21,7 +21,12 @@ struct AntigravityProbeStatusTests {
         #expect(status.authenticationVerified == true)
         #expect(status.handshakeVerified == true)
         #expect(status.probeState == "authenticated")
+        #expect(status.probeMode == "authenticate")
         #expect(status.probeUsedKey == true)
+        #expect(status.probeAccountId == "3f2b8c1e-9d4a-4b6f-8e2d-1c0a9b8f7e6d")
+        #expect(status.probeProtocolVersion == 1)
+        #expect(status.probeAuthMethods == ["gemini-api-key"])
+        #expect(status.probeErrorCode == nil)
         #expect(status.probeDetail == nil)
         #expect(status.probeCheckedAt == Date(timeIntervalSince1970: 1763472000))
         #expect(status.accounts.count == 1)
@@ -36,9 +41,49 @@ struct AntigravityProbeStatusTests {
         #expect(status.authenticationVerified == false)
         #expect(status.handshakeVerified == false)
         #expect(status.probeState == nil)
+        #expect(status.probeMode == nil)
         #expect(status.probeCheckedAt == nil)
         #expect(status.probeUsedKey == false)
+        #expect(status.probeAccountId == nil)
+        #expect(status.probeProtocolVersion == nil)
+        #expect(status.probeAuthMethods.isEmpty)
+        #expect(status.probeErrorCode == nil)
         #expect(status.accounts.isEmpty)
+    }
+
+    @Test("Recorded handshake probe decodes mode and server advertisement without an account")
+    func handshakeProbeStatus() throws {
+        let status = try decodeStatus("""
+        {"authentication":"gemini_api_key_only","authenticationVerified":false,"handshakeVerified":true,"probe":{"state":"handshakeOk","mode":"handshake","executable":"/Volumes/Apps/agy_acp_server.par","accountId":null,"keyRevision":null,"usedKey":false,"protocolVersion":1,"authMethods":["gemini-api-key"],"serverName":"antigravity-acp","serverVersion":"1.0","authenticateResultKeys":[],"errorCode":null,"detail":null,"checkedAtUnix":1763472000,"durationMs":640},"accounts":{},"termsURL":"https://antigravity.google/docs/ide/extensions/acp","remaining":["quota_display","windows_runtime"]}
+        """)
+        #expect(status.handshakeVerified == true)
+        #expect(status.authenticationVerified == false)
+        #expect(status.probeState == "handshakeOk")
+        #expect(status.probeMode == "handshake")
+        #expect(status.probeUsedKey == false)
+        #expect(status.probeAccountId == nil)
+        #expect(status.probeProtocolVersion == 1)
+        #expect(status.probeAuthMethods == ["gemini-api-key"])
+        #expect(status.probeErrorCode == nil)
+        #expect(status.probeCheckedAt == Date(timeIntervalSince1970: 1763472000))
+    }
+
+    @Test("Recorded rejected probe decodes error code and server detail")
+    func rejectedProbeStatus() throws {
+        let status = try decodeStatus("""
+        {"authentication":"gemini_api_key_only","authenticationVerified":false,"handshakeVerified":false,"probe":{"state":"authRejected","mode":"authenticate","executable":"/Volumes/Apps/agy_acp_server.par","accountId":"3f2b8c1e-9d4a-4b6f-8e2d-1c0a9b8f7e6d","keyRevision":"r1","usedKey":true,"protocolVersion":1,"authMethods":["gemini-api-key"],"serverName":null,"serverVersion":null,"authenticateResultKeys":[],"errorCode":-32001,"detail":"Antigravity server rejected API-key authentication: API key not valid. Please pass a valid API key.","checkedAtUnix":1763472000,"durationMs":512},"accounts":{"3f2b8c1e-9d4a-4b6f-8e2d-1c0a9b8f7e6d":{"name":"Main","auth":"apiKey","hasKey":true}},"termsURL":"https://antigravity.google/docs/ide/extensions/acp","remaining":["quota_display","windows_runtime"]}
+        """)
+        #expect(status.handshakeVerified == false)
+        #expect(status.authenticationVerified == false)
+        #expect(status.probeState == "authRejected")
+        #expect(status.probeMode == "authenticate")
+        #expect(status.probeUsedKey == true)
+        #expect(status.probeAccountId == "3f2b8c1e-9d4a-4b6f-8e2d-1c0a9b8f7e6d")
+        #expect(status.probeProtocolVersion == 1)
+        #expect(status.probeAuthMethods == ["gemini-api-key"])
+        #expect(status.probeErrorCode == -32001)
+        #expect(status.probeDetail == "Antigravity server rejected API-key authentication: API key not valid. Please pass a valid API key.")
+        #expect(status.probeCheckedAt == Date(timeIntervalSince1970: 1763472000))
     }
 
     @Test("Handshake probe result decodes ok with the probe detail as message")

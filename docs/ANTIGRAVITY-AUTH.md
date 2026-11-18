@@ -78,6 +78,16 @@ authentication. Authentication is verified only when a turn's
 probe below reports `authenticated` for the same approved runtime and
 the same key account.
 
+Settings › Antigravity shows the probe in a separate "Connection
+Verification" section: the "Verify Connection" button runs the probe
+(handshake only by default, or `authenticate` with the selected Gemini
+API key account), and the section shows the last recorded probe —
+handshake verified / authentication verified as two distinct rows, the
+probe state and when it ran, which account's key the probe used, what
+the server advertised, and the probe detail where it is meaningful.
+Before any probe has run the section says "Not checked yet" and shows
+neither flag as verified.
+
 ## Verification probe
 
 `providers.check` with `{"provider": "antigravity", "probe": true}`

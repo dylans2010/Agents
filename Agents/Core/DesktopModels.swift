@@ -512,6 +512,11 @@ public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
     public var probeCheckedAt: Date?
     public var probeDetail: String?
     public var probeUsedKey: Bool
+    public var probeMode: String?
+    public var probeAccountId: String?
+    public var probeProtocolVersion: Int?
+    public var probeAuthMethods: [String]
+    public var probeErrorCode: Int?
     public var binaryPath: String?
     public var helperPath: String?
     public var legacyBinaryPath: String?
@@ -526,6 +531,11 @@ public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
         probeCheckedAt: Date? = nil,
         probeDetail: String? = nil,
         probeUsedKey: Bool = false,
+        probeMode: String? = nil,
+        probeAccountId: String? = nil,
+        probeProtocolVersion: Int? = nil,
+        probeAuthMethods: [String] = [],
+        probeErrorCode: Int? = nil,
         binaryPath: String? = nil,
         helperPath: String? = nil,
         legacyBinaryPath: String? = nil,
@@ -539,6 +549,11 @@ public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
         self.probeCheckedAt = probeCheckedAt
         self.probeDetail = probeDetail
         self.probeUsedKey = probeUsedKey
+        self.probeMode = probeMode
+        self.probeAccountId = probeAccountId
+        self.probeProtocolVersion = probeProtocolVersion
+        self.probeAuthMethods = probeAuthMethods
+        self.probeErrorCode = probeErrorCode
         self.binaryPath = binaryPath
         self.helperPath = helperPath
         self.legacyBinaryPath = legacyBinaryPath
@@ -555,6 +570,11 @@ public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
             self.probeState = probe["state"]?.stringValue
             self.probeDetail = probe["detail"]?.stringValue
             self.probeUsedKey = probe["usedKey"]?.boolValue ?? false
+            self.probeMode = probe["mode"]?.stringValue
+            self.probeAccountId = probe["accountId"]?.stringValue
+            self.probeProtocolVersion = probe["protocolVersion"]?.intValue
+            self.probeAuthMethods = probe["authMethods"]?.arrayValue?.compactMap { $0.stringValue } ?? []
+            self.probeErrorCode = probe["errorCode"]?.intValue
             if let checked = probe["checkedAtUnix"]?.doubleValue {
                 self.probeCheckedAt = Date(timeIntervalSince1970: checked)
             } else {
@@ -564,6 +584,11 @@ public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
             self.probeState = nil
             self.probeDetail = nil
             self.probeUsedKey = false
+            self.probeMode = nil
+            self.probeAccountId = nil
+            self.probeProtocolVersion = nil
+            self.probeAuthMethods = []
+            self.probeErrorCode = nil
             self.probeCheckedAt = nil
         }
         self.binaryPath = c.string("binaryPath", "executable", "executablePath")

@@ -9,7 +9,10 @@ public struct AntigravitySettingsPane: View {
     @State private var executablePathDraft: String = ""
     @State private var isSavingRuntime: Bool = false
     @State private var isVerifying: Bool = false
+    @State private var isProbing: Bool = false
     @State private var probeResult: ProviderProbeResult?
+    @State private var probeRanAt: Date? = nil
+    @State private var probeAccountID: String? = nil
 
     public init(appModel: AppModel) {
         self.appModel = appModel
@@ -93,6 +96,7 @@ public struct AntigravitySettingsPane: View {
     public var body: some View {
         Form {
             headerSection
+            connectionVerificationSection
             acpRuntimeSection
             geminiKeyAccountsSection
             securitySafetySection
@@ -106,6 +110,10 @@ public struct AntigravitySettingsPane: View {
         .onChange(of: appModel.providers) { _, _ in
             if executablePathDraft.isEmpty {
                 syncDraftFromProvider()
+            }
+            if let selected = probeAccountID,
+               !(provider?.keyAccounts.contains(where: { $0.id == selected }) ?? false) {
+                probeAccountID = nil
             }
         }
     }
@@ -156,7 +164,7 @@ public struct AntigravitySettingsPane: View {
                     .disabled(isVerifying)
                 }
 
-                if let probe = probeResult {
+                if let probe = probeResult, probe.probeState == nil {
                     Divider()
                     probeSummaryBanner(probe)
                 }
@@ -210,7 +218,7 @@ public struct AntigravitySettingsPane: View {
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
 
-                Text("This check confirms only that the server binary, the companion helper, runtime approval, and a stored Gemini API key account are present. It does not contact Gemini, so authentication is verified only when a turn's authenticate call succeeds.")
+                Text("This check confirms only that the server binary, the companion helper, runtime approval, and a stored Gemini API key account are present. It does not contact Gemini. Authentication is verified only by the connection probe in the section below, or when a turn's authenticate call succeeds.")
                     .font(.system(size: 11.5))
                     .foregroundStyle(AppTheme.secondaryLabel)
                     .fixedSize(horizontal: false, vertical: true)
@@ -231,7 +239,266 @@ public struct AntigravitySettingsPane: View {
         )
     }
 
-    // MARK: - 2. ACP Server Runtime (`agy_acp_server.par` + `localharness_external`)
+    private struct EffectiveProbe {
+        var state: String
+        var mode: String?
+        var detail: String?
+        var usedKey: Bool
+        var accountID: String?
+        var protocolVersion: Int?
+        var authMethods: [String]
+        var errorCode: Int?
+        var checkedAt: Date?
+        var handshakeVerified: Bool
+        var authenticationVerified: Bool
+    }
+
+    private var keyAccountsWithKeys: [ProviderKeyAccountInfo] {
+        provider?.keyAccounts.filter(\.hasKey) ?? []
+    }
+
+    private var effectiveProbe: EffectiveProbe? {
+        if let live = probeResult, let state = live.probeState {
+            return EffectiveProbe(
+                state: state,
+                mode: live.probeMode,
+                detail: live.probeDetail,
+                usedKey: live.probeUsedKey,
+                accountID: live.probeAccountId,
+                protocolVersion: live.probeProtocolVersion,
+                authMethods: live.probeAuthMethods,
+                errorCode: nil,
+                checkedAt: probeRanAt,
+                handshakeVerified: state == "handshakeOk" || state == "authenticated",
+                authenticationVerified: state == "authenticated" && live.probeUsedKey
+            )
+        }
+        guard let status = provider?.antigravityStatus, let state = status.probeState else { return nil }
+        return EffectiveProbe(
+            state: state,
+            mode: status.probeMode,
+            detail: status.probeDetail,
+            usedKey: status.probeUsedKey,
+            accountID: status.probeAccountId,
+            protocolVersion: status.probeProtocolVersion,
+            authMethods: status.probeAuthMethods,
+            errorCode: status.probeErrorCode,
+            checkedAt: status.probeCheckedAt,
+            handshakeVerified: status.handshakeVerified,
+            authenticationVerified: status.authenticationVerified
+        )
+    }
+
+    private func probeStateLabel(_ state: String) -> String {
+        switch state {
+        case "binaryMissing": "Runtime binary missing"
+        case "notApproved": "Runtime not approved"
+        case "handshakeOk": "Handshake OK"
+        case "authenticated": "Authenticated"
+        case "authRejected": "Authentication rejected"
+        case "unreachable": "Server unreachable"
+        default: state
+        }
+    }
+
+    private func probeModeLabel(_ mode: String?) -> String? {
+        switch mode {
+        case "handshake": "Handshake"
+        case "authenticate": "Authenticate"
+        case "invalid-key": "Invalid-key check"
+        default: mode
+        }
+    }
+
+    private var connectionVerificationSection: some View {
+        Section {
+            if let probe = effectiveProbe {
+                verificationFlagRow(
+                    title: "Runtime handshake",
+                    verified: probe.handshakeVerified,
+                    help: "The approved server binary answered ACP initialize."
+                )
+                verificationFlagRow(
+                    title: "Authentication",
+                    verified: probe.authenticationVerified,
+                    help: "A probe with a Gemini API key was accepted by Gemini through this runtime."
+                )
+
+                LabeledContent("Last probe") {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(probeStateLabel(probe.state))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(probe.handshakeVerified ? AppTheme.success : AppTheme.warning)
+                        if let checkedAt = probe.checkedAt {
+                            Text(checkedAt, style: .relative)
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppTheme.secondaryLabel)
+                        }
+                        if let mode = probeModeLabel(probe.mode) {
+                            Text(mode)
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppTheme.secondaryLabel)
+                        }
+                    }
+                }
+
+                LabeledContent("Verified with") {
+                    if probe.usedKey {
+                        if let accountID = probe.accountID,
+                           let account = provider?.keyAccounts.first(where: { $0.id == accountID }) {
+                            Text(account.name)
+                                .font(.system(size: 12))
+                        } else if let accountID = probe.accountID {
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("Account no longer in Keychain")
+                                    .font(.system(size: 12))
+                                Text(accountID)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(AppTheme.tertiaryLabel)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                        } else {
+                            Text("A stored key")
+                                .font(.system(size: 12))
+                        }
+                    } else {
+                        Text("No key presented (handshake only)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                    }
+                }
+
+                if probe.protocolVersion != nil || !probe.authMethods.isEmpty {
+                    LabeledContent("Server advertised") {
+                        Text(serverAdvertisedText(probe))
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                    }
+                }
+
+                if let detail = probe.detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let errorCode = probe.errorCode {
+                    LabeledContent("Server error code") {
+                        Text("\(errorCode)")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                    }
+                }
+            } else {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "questionmark.circle")
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                        .font(.system(size: 14))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Not checked yet")
+                            .font(.system(size: 12.5, weight: .semibold))
+                        Text("No connection probe has run for this runtime. Run one below to verify the server answers ACP initialize, and optionally that a stored Gemini API key is accepted.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 2)
+            }
+
+            HStack(spacing: 8) {
+                Picker("Verify with", selection: $probeAccountID) {
+                    Text("Handshake only (no key)").tag(Optional<String>.none)
+                    ForEach(keyAccountsWithKeys) { account in
+                        Text(account.name).tag(Optional(account.id))
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+
+                Spacer()
+
+                Button {
+                    Task { await verifyAntigravityConnection() }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isProbing {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "checkmark.shield")
+                        }
+                        Text("Verify Connection")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(isProbing || isVerifying)
+            }
+
+            if keyAccountsWithKeys.isEmpty {
+                Text("Add a Gemini API key account below to verify authentication as well as the handshake.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+            }
+        } header: {
+            Text("Connection Verification")
+        } footer: {
+            Text("Handshake only checks that the approved runtime answers ACP initialize, without presenting a key. Choosing an account also runs authenticate with that account's stored Gemini API key. A probe never writes a key anywhere; the key reaches the server only through its environment.")
+        }
+    }
+
+    private func verificationFlagRow(title: String, verified: Bool, help: String) -> some View {
+        LabeledContent(title) {
+            HStack(spacing: 6) {
+                Image(systemName: verified ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(verified ? AppTheme.success : AppTheme.secondaryLabel)
+                Text(verified ? "Verified" : "Not verified")
+                    .font(.system(size: 12, weight: verified ? .semibold : .regular))
+                    .foregroundStyle(verified ? AppTheme.success : AppTheme.secondaryLabel)
+            }
+            .help(help)
+            .accessibilityLabel("\(title): \(verified ? "verified" : "not verified")")
+        }
+    }
+
+    private func serverAdvertisedText(_ probe: EffectiveProbe) -> String {
+        var parts: [String] = []
+        if let version = probe.protocolVersion {
+            parts.append("ACP \(version)")
+        }
+        if !probe.authMethods.isEmpty {
+            parts.append("offers \(probe.authMethods.joined(separator: ", "))")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func verifyAntigravityConnection() async {
+        guard let runtime = appModel.runtime else { return }
+        let accountID = keyAccountsWithKeys.contains(where: { $0.id == probeAccountID }) ? probeAccountID : nil
+        isProbing = true
+        defer { isProbing = false }
+        do {
+            let res = try await runtime.checkProvider(provider: "antigravity", probe: true, accountID: accountID)
+            self.probeResult = res
+            self.probeRanAt = Date()
+            await appModel.refreshProviders()
+            if let recorded = provider?.antigravityStatus,
+               recorded.probeState == res.probeState,
+               let recordedAt = recorded.probeCheckedAt,
+               let ranAt = probeRanAt,
+               recordedAt >= ranAt.addingTimeInterval(-120) {
+                self.probeResult = nil
+                self.probeRanAt = nil
+            }
+        } catch {
+            appModel.presentError(error)
+        }
+    }
+
+    // MARK: - 3. ACP Server Runtime (`agy_acp_server.par` + `localharness_external`)
 
     private var acpRuntimeSection: some View {
         Section {
@@ -352,7 +619,7 @@ public struct AntigravitySettingsPane: View {
         }
     }
 
-    // MARK: - 3. Gemini API Key Accounts (macOS Keychain)
+    // MARK: - 4. Gemini API Key Accounts (macOS Keychain)
 
     private var geminiKeyAccountsSection: some View {
         ProviderKeyAccountsSection(
@@ -369,7 +636,7 @@ public struct AntigravitySettingsPane: View {
         )
     }
 
-    // MARK: - 4. Security & Account Safety Card
+    // MARK: - 5. Security & Account Safety Card
 
     private var securitySafetySection: some View {
         Section {
