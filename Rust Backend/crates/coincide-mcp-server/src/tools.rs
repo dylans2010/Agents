@@ -7821,9 +7821,7 @@ fn with_session_defaults(state: &crate::ServerState, mut args: Value) -> Value {
         return json!({});
     }
     let object = args.as_object_mut().unwrap();
-    if !object.contains_key("cwd")
-        && let Some(cwd) = state.cwd.to_str()
-    {
+    if let Some(cwd) = state.cwd.to_str().filter(|cwd| !cwd.is_empty()) {
         object.insert("cwd".to_owned(), json!(cwd));
     }
     if let Some(thread_id) = &state.thread_id {
@@ -21363,6 +21361,24 @@ mod tests {
             with_session_defaults(&unbound, json!({"threadId": "model-thread"}))["threadId"],
             "model-thread"
         );
+    }
+
+    #[test]
+    fn session_cwd_wins_over_model_supplied_cwd() {
+        let state = crate::ServerState {
+            cwd: std::path::PathBuf::from("/tmp"),
+            thread_id: None,
+            socket: std::path::PathBuf::from("/tmp/control.sock"),
+            assets_dir: None,
+            control: std::sync::Mutex::new(coincide_core::control::ControlClient::new(
+                std::path::PathBuf::from("/tmp/control.sock"),
+            )),
+        };
+        assert_eq!(
+            with_session_defaults(&state, json!({"cwd": "/etc"}))["cwd"],
+            "/tmp"
+        );
+        assert_eq!(with_session_defaults(&state, json!({}))["cwd"], "/tmp");
     }
 
     #[test]

@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–138
+# Hardening Audit — Slices 71–144
 
 ## Summary
 
@@ -63,7 +63,14 @@ every definition is reachable, including through the shared
 multi-name arms, and the fallback for an unhandled tool is the honest
 `unknownTool` error, not a wrong result — all description-only,
 following the Slice 105/109 precedent, so the totals stay at
-**30 defects fixed and 28 regression tests**. The remaining
+**30 defects fixed and 28 regression tests**. Slice 144, appended after
+that, fixed the two real defects from Slice 141's audit plus the cheap
+cwd pin it recommended — a 5 GiB `copy_file` cap with a free-space
+reserve and partial-dest cleanup, a final-symlink refusal on both
+`read_file` paths, and `with_session_defaults` now overwriting a
+model-supplied `cwd` with the session cwd — 3 further defects fixed and
+5 regression tests added, bringing the totals to **33 defects fixed and
+33 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -1270,7 +1277,7 @@ tree are in the slice's push report.
 **Mac-gate checks owed:** `cargo test -p coincide-mcp-server` on Dylan's
 Mac — the new test was written, not executed, here.
 
-## Slice 138 — Swift `execute()` handler-arm coverage audit (0 defects)
+## Slice 138 — Swift `execute()` handler-arm coverage audit (remote `d4360146`, 0 defects)
 
 **Audited:** whether every one of the 332 definitions in
 `Agents/Core/SystemTools/SystemToolRegistry.swift` (`systemTools`) is
@@ -1332,9 +1339,13 @@ uncovered.
   (`"name": tool`) and polls `computer_use.result`, so all 20 are
   handled by construction.
 - The only other `unknownTool` throws inside `execute()` are the
-  pre-switch guard (`:3843`) and the `use_mcp` recursion
+  pre-switch guard (`:3843`), the `use_mcp` recursion
   (`:4414`, for a delegated MCP tool name that has no registry
-  definition) — both legitimate.
+  definition), and the `tool_capability_lookup` arm (`:6946–6949`:
+  `guard let found = Self.definition(named: toolName, for: .system)
+  else { throw SystemToolError.unknownTool(toolName) }`, throw at
+  `:6949`) — all three legitimate. (Slice 139 caught the omission of
+  the third; corrected in Slice 144.)
 
 **Defects fixed (0):** no code change. No arm was added: with 0
 missing arms there is nothing to add, and adding arms for symmetry
@@ -1352,7 +1363,11 @@ docs files; full diff read — only the two intended files, only the
 intended hunks; the Slice 136 remote SHA verified against the GitHub
 API (`92cc6f32698235ca9c24d7b2b967cf84f27dc97a`, tree
 `963d7ddd7ebe51dcd6a788835ac0af9dedece72d`, parent
-`33cc12f1cd1161590f84bcb777e3107e742954b2`); the Slice 137 facts below
+`33cc12f1cd1161590f84bcb777e3107e742954b2`); the Slice 138 remote SHA
+was backfilled by Slice 144, verified against the GitHub API
+(`d43601463a1aeff025fdc3beebd9b22f6458721e`, tree
+`20b4fbfb234ce095303e457b6dd09c19de35dea0`, parent
+`92cc6f32698235ca9c24d7b2b967cf84f27dc97a`); the Slice 137 facts below
 spot-checked (program diff 224 files +54,296/−3,595; 17 remaining
 "3,002" hits in `docs/`, all historical; the Slice 134 test function
 closes at `tests/mcp_server.rs:598`; `coincide-mcp-server` holds 19
@@ -1362,6 +1377,114 @@ the slice's push report.
 
 **Mac-gate checks owed:** none new; no code changed, so there is
 nothing to build.
+
+## Slice 144 — Slice 141 defects: `copy_file` cap, `read_file` symlink guard, cwd pin (3 defects, 5 tests)
+
+**Fixed (3):** the two real defects from Slice 141's audit, plus the
+cheap cwd pin it recommended.
+
+- **Fix 1 — `copy_file` had no size cap.**
+  `workspace_tools.rs:326–361`: `copy_file` resolved the source,
+  checked `is_file()`, resolved the destination, and called
+  `fs::copy` with no size check — the only size constant,
+  `MAX_FILE_WRITE_BYTES` (3 MiB), covers reads/writes/edits only.
+  Now the source length is read once (`:331–336`) and refused above a
+  **5 GiB cap** (`MAX_FILE_COPY_BYTES`, `:14`). The cap covers
+  realistic legitimate single-file in-workspace copies (`.ipa` /
+  `.dmg` / MLX shards / video, almost all under 5 GiB per file) while
+  bounding worst-case damage to ~1% of a 512 GB disk; anything larger
+  can already go through the agent's terminal `cp`. Containment is
+  unchanged and untouched. Two further guards in the same function: a
+  free-space reserve check (`:341–347`) refuses the copy when the
+  source would eat into a 5 GiB reserve on the destination volume
+  (`source_len > free_space − 5 GiB`, underflow-safe), probed with
+  `libc::statvfs` (`available_bytes`, `:363–378`, following the
+  existing `updater.rs` pattern); `libc` is already a dependency of
+  `coincide-core` (`Cargo.toml:27`: `libc = "0.2"`, also used for
+  `O_NOFOLLOW` in this file), so no new dependency and no
+  `Cargo.lock` change. The probe is Unix-only and fails open (the
+  check is skipped when `statvfs` fails or on non-Unix), so a
+  failed probe can never block a legitimate copy. And a mid-copy
+  `fs::copy` error now removes the partial destination (`:348–354`)
+  instead of leaving a truncated file behind.
+- **Fix 2 — `read_file` read through in-workspace symlinks,
+  bypassing the `.git` guard.** A planted symlink `leak ->
+  .git/config` passed lexical validation, canonicalized inside the
+  root, and returned `.git/config` contents. Fixed on both paths.
+  Non-paged branch (`workspace_tools.rs:564–595`): the hand-rolled
+  canonicalize-and-prefix check is gone; the branch now routes
+  through `read_workspace_text` (`:585`), which refuses a final
+  symlink via `symlink_metadata` (`:220–224`) before canonicalizing,
+  and preserves the existing 3 MiB / non-binary / UTF-8 checks and
+  the same returned JSON shape (`path`, `text`, `content`,
+  `lineOffset` 0, `totalLines`, `truncated` false). Paged path
+  (`workspace.rs:733–743`): the same `symlink_metadata` refusal was
+  added (`:737–743`) before canonicalizing; the existing test
+  asserting an outside-pointing symlink is rejected
+  (`workspace.rs:824–826`) still passes, since every final symlink is
+  now refused, not just outside-pointing ones. Zero legitimate cost:
+  a genuinely needed symlink read can go through the terminal.
+- **Fix 3 — cwd pin.** `with_session_defaults`
+  (`tools.rs:7819–7831`) only inserted `state.cwd` when the model
+  omitted `cwd`, so a model-supplied `cwd` won verbatim and file
+  tools worked against any root (`/`, `~/.ssh`, another project).
+  It now always overwrites `args["cwd"]` with `state.cwd`, guarded
+  to non-empty (`:7824`: `state.cwd.to_str().filter(|cwd|
+  !cwd.is_empty())`). `state.cwd` is always populated: `--cwd` is
+  required by `parse_args` (`main.rs:48`) and must be absolute, and
+  the only other `ServerState` constructions are the four test sites,
+  all with `cwd: "/tmp"` — so the guard never fires in practice; it
+  is defense-in-depth for direct construction. The `use_mcp`
+  recursion re-enters `call()` (`tools.rs:17405`), which applies
+  `with_session_defaults` (`:16894`), so the recursion goes through
+  the same choke point and the pin covers it too.
+
+**Accepted risks (not fixed):** the check-then-open TOCTOU stays
+open — a racer needs workspace write access, which is the same trust
+boundary as the agent itself, and `open_regular` already uses
+`O_NOFOLLOW` plus post-open re-verification; closing it needs
+openat-style traversal. The cwd pin binds the model, not the
+launcher: `--cwd` is chosen by whoever starts the server, so a
+compromised launcher is outside this fix's threat model. Slice 140's
+audit found 0 real defects — `initialize` protocolVersion benign,
+duplicate JSON keys benign, `--help` exit 1 cosmetic — none fixed.
+Slice 142's UI sweep found 0 findings. Slice 143's coverage numbers
+stand as its audit note: 246/332 direct, 174/332 arm-reached, 57
+truly uncovered.
+
+**Tests added (5):** `copy_file_copies_small_files` and
+`copy_file_refuses_files_over_the_5_gib_cap`
+(`workspace_tools.rs:825,844` — the refusal test uses a sparse file
+via `set_len(5 GiB + 1)`, no real 5 GiB file is written);
+`read_file_refuses_symlink_to_git_config_on_both_paths`
+(`workspace_tools.rs:865`, non-paged plus paged through the public
+entry) and `read_file_refuses_symlink_to_git_config`
+(`workspace.rs:830`, paged path directly); and
+`session_cwd_wins_over_model_supplied_cwd`
+(`tools.rs:21367`, a model-supplied `cwd=/etc` is pinned to
+`state.cwd`). All written, not executed — `cargo test -p
+coincide-core` and `cargo test -p coincide-mcp-server` on Dylan's
+Mac are the gate.
+
+**Verification:** static only (no cargo in this environment, as for
+every slice in this record). Brace balance re-checked on the three
+Rust files (deltas zero vs. the parent on each);
+each fix traced by hand (cap check before copy, symlink refusal
+before canonicalize on both read paths, cwd overwrite at the choke
+point); zero new `//` comments in the Rust diff; no secrets; no
+registry definition, param, or description changed. Full diff read —
+only the five intended files, only the intended hunks. The local
+pre-push commit SHA and tree are in the slice's push report. The
+Slice 138 remote SHA was verified against the GitHub API and
+backfilled in the Slice 138 section above; the Slice 139 MINOR (the
+`:6949` sentence, see the re-verify note below) is fixed in this
+slice. Owed as follow-up, not done here: `docs/MAC-GATE.md` still
+says 3,003 Rust tests, but this slice adds 5 (3,008 by this slice's
+count: 2,227 short-form + 736 fully-qualified + 45 `gpui_kit`) —
+same staleness pattern as Slice 134, fixed then in Slice 136.
+
+**Mac-gate checks owed:** the 5 new tests above, plus the Xcode
+build as usual; no new Mac-gate surface beyond the tests.
 
 ## Documented, not fixed
 
@@ -1390,11 +1513,8 @@ limitation of the audited component, or a question owed to Dylan.
   The 2 MiB figure appears as fixed caps such as `handoff_prompt.rs:7`
   (`MAX_TEXT`) and the scope check in `follow_up_api.rs:630`.
   (Slices 33/38.)
-- **`copy_file` has no size cap.** `fs::copy` copies the whole file
-  unbounded — `workspace_tools.rs:324-334`. Contract note from Slice 85,
-  not a defect fix.
 - **Check-then-open-by-path TOCTOU in workspace reads.** Paths are
-  validated by `existing_workspace_target` (`workspace_tools.rs:167`) and
+  validated by `existing_workspace_target` (`workspace_tools.rs:169`) and
   then opened by path, so the filesystem can change between check and
   open. Closing it needs openat-style traversal (Slice 85).
 - **Claude MCP config file is not deleted at end of session.** The only
@@ -1597,6 +1717,17 @@ limitation of the audited component, or a question owed to Dylan.
   right, Slice 134's `:599` wrong); program diff at current HEAD 224
   files +54,296/−3,595. Spot-checked by Slice 138; every fact above
   confirmed as written.
+  **Slice 139 re-verification:** Slice 139 re-verified Slice 138
+  read-only and passed it with minors — the one MINOR is a docs
+  precision gap: the Slice 138 section's sentence claiming the only
+  other `unknownTool` throws inside `execute()` are the pre-switch
+  guard (`:3843`) and the `use_mcp` recursion (`:4414`) omits the
+  third, the `tool_capability_lookup` arm (`:6946–6949`, throw at
+  `:6949`); fixed in Slice 144. Every other Slice 138 fact
+  spot-checked as written: 332/332 re-derived with a fresh parser
+  (207 arms, 199 single + 8 multi); depth G5 32+33, G6 37+1,
+  computer-use 20 generic forward; Slice 139's own diff is docs-only
+  (2 files +129/−5); program diff 224 files +54,420/−3,595.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)

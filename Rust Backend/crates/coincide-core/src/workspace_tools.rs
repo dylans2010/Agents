@@ -11,6 +11,8 @@ use std::{
 use std::os::unix::fs::OpenOptionsExt;
 
 const MAX_FILE_WRITE_BYTES: usize = 3 * 1024 * 1024;
+const MAX_FILE_COPY_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+const COPY_FREE_SPACE_RESERVE_BYTES: u64 = MAX_FILE_COPY_BYTES;
 
 #[cfg(unix)]
 fn is_executable(meta: &fs::Metadata) -> bool {
@@ -326,18 +328,53 @@ pub fn copy_file(params: &Value) -> Result<Value> {
     let rel_str = req_str(params, &["path"], "path")?;
     let dest_str = req_str(params, &["destination"], "destination")?;
     let source = existing_workspace_target(&cwd, rel_str)?;
-    ensure!(fs::metadata(&source)?.is_file(), "Path is not a file");
+    let source_meta = fs::metadata(&source)?;
+    ensure!(source_meta.is_file(), "Path is not a file");
+    ensure!(
+        source_meta.len() <= MAX_FILE_COPY_BYTES,
+        "Source file exceeds the 5 GiB copy limit"
+    );
     let (dest_parent, dest_name) = workspace_parent_for_write(&cwd, dest_str)?;
     let dest = dest_parent.join(&dest_name);
     ensure!(source != dest, "Source and destination are the same path");
     require_absent_destination(&dest)?;
-    let bytes = fs::copy(&source, &dest)?;
+    if let Some(free) = available_bytes(&dest_parent) {
+        ensure!(
+            free > COPY_FREE_SPACE_RESERVE_BYTES
+                && source_meta.len() <= free - COPY_FREE_SPACE_RESERVE_BYTES,
+            "Not enough free disk space to copy this file while keeping a 5 GiB reserve"
+        );
+    }
+    let bytes = match fs::copy(&source, &dest) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            let _ = fs::remove_file(&dest);
+            return Err(error.into());
+        }
+    };
     Ok(json!({
         "path": rel_str,
         "destination": dest_str,
         "copied": true,
         "byteLen": bytes,
     }))
+}
+
+#[cfg(unix)]
+fn available_bytes(dir: &Path) -> Option<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let path = std::ffi::CString::new(dir.as_os_str().as_bytes()).ok()?;
+    let mut info = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+    if unsafe { libc::statvfs(path.as_ptr(), info.as_mut_ptr()) } != 0 {
+        return None;
+    }
+    let info = unsafe { info.assume_init() };
+    Some((u128::from(info.f_bavail) * u128::from(info.f_frsize)).min(u64::MAX as u128) as u64)
+}
+
+#[cfg(not(unix))]
+fn available_bytes(_dir: &Path) -> Option<u64> {
+    None
 }
 
 pub fn create_dir(params: &Value) -> Result<Value> {
@@ -545,22 +582,7 @@ pub fn read_file(params: &Value) -> Result<Value> {
         return Ok(value);
     }
 
-    let rel = validate_relative_workspace_path(rel_str)?;
-    let canonical_root = cwd.canonicalize().context("Workspace directory is unavailable")?;
-    let target = canonical_root.join(rel);
-    let canonical_file = target.canonicalize().context("File does not exist")?;
-    ensure!(
-        canonical_file.starts_with(&canonical_root),
-        "File resolves outside the workspace directory"
-    );
-    let mut file = native_file::open_regular(&canonical_file, false)?;
-    let mut bytes = Vec::new();
-    Read::by_ref(&mut file)
-        .take((MAX_FILE_WRITE_BYTES + 1) as u64)
-        .read_to_end(&mut bytes)?;
-    ensure!(bytes.len() <= MAX_FILE_WRITE_BYTES, "File exceeds 3 MiB");
-    ensure!(!bytes.contains(&0), "File is binary");
-    let content = String::from_utf8(bytes).context("File is not valid UTF-8 text")?;
+    let (content, _) = read_workspace_text(&cwd, rel_str)?;
     let total_lines = content.lines().count();
     Ok(json!({
         "path": rel_str,
@@ -797,5 +819,78 @@ mod tests {
             .map(|entry| entry.unwrap().file_name())
             .collect();
         assert_eq!(entries, vec![std::ffi::OsString::from("new.txt")]);
+    }
+
+    #[test]
+    fn copy_file_copies_small_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("small.txt"), "hello\n").unwrap();
+        let copied = copy_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": "small.txt",
+            "destination": "small-copy.txt",
+        }))
+        .unwrap();
+        assert_eq!(copied["copied"], true);
+        assert_eq!(copied["byteLen"], 6);
+        assert_eq!(
+            std::fs::read_to_string(root.join("small-copy.txt")).unwrap(),
+            "hello\n"
+        );
+    }
+
+    #[test]
+    fn copy_file_refuses_files_over_the_5_gib_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let source = root.join("big.bin");
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&source)
+            .unwrap();
+        file.set_len(MAX_FILE_COPY_BYTES + 1).unwrap();
+        drop(file);
+        assert!(copy_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": "big.bin",
+            "destination": "big-copy.bin",
+        }))
+        .is_err());
+        assert!(!root.join("big-copy.bin").exists());
+    }
+
+    #[test]
+    fn read_file_refuses_symlink_to_git_config_on_both_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git").join("config"), "[core]\n").unwrap();
+        std::fs::write(root.join("real.txt"), "real\n").unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(".git/config", root.join("leak")).unwrap();
+            assert!(read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "leak",
+            }))
+            .is_err());
+            assert!(read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "leak",
+                "lineOffset": 0,
+                "lineLimit": 10,
+            }))
+            .is_err());
+        }
+        assert_eq!(
+            read_file(&json!({
+                "cwd": root.display().to_string(),
+                "path": "real.txt",
+            }))
+            .unwrap()["text"],
+            "real\n"
+        );
     }
 }

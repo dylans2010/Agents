@@ -734,7 +734,13 @@ pub fn read_file(directory: &Path, path: &str, offset: usize, limit: usize) -> R
     ensure!((1..=5000).contains(&limit), "Line limit must be 1–5000");
     let relative = relative_path(path)?;
     let root = directory.canonicalize()?;
-    let file = root.join(relative).canonicalize()?;
+    let joined = root.join(relative);
+    let meta = std::fs::symlink_metadata(&joined)?;
+    ensure!(
+        !meta.file_type().is_symlink(),
+        "Refusing to operate on a symlink"
+    );
+    let file = joined.canonicalize()?;
     ensure!(
         file.starts_with(&root),
         "File is outside the project directory"
@@ -818,6 +824,18 @@ mod tests {
             let outside = tempfile::NamedTempFile::new().unwrap();
             std::os::unix::fs::symlink(outside.path(), dir.path().join("escape")).unwrap();
             assert!(read_file(dir.path(), "escape", 0, 10).is_err());
+        }
+    }
+    #[test]
+    fn read_file_refuses_symlink_to_git_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir(root.join(".git")).unwrap();
+        std::fs::write(root.join(".git").join("config"), "[core]\n").unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(".git/config", root.join("leak")).unwrap();
+            assert!(read_file(root, "leak", 0, 10).is_err());
         }
     }
     #[test]

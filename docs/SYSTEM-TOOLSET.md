@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–138)
+### Hardening wave (Slices 69–144)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–138 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–144 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -1019,6 +1019,23 @@ no entries in this file either and are not backfilled here. Full record:
   fallback for an unhandled tool is the honest `unknownTool` error, and
   it is unreachable for registered tools. 0 defects, 0 tests; totals
   unchanged at 30 defects / 28 tests. Full record:
+  `docs/HARDENING-AUDIT.md`.
+- **Slice 144** — Slice 141 defects fixed: `copy_file` now refuses
+  sources over a 5 GiB cap, refuses when the copy would eat into a
+  5 GiB free-space reserve (statvfs probe; `libc` was already a
+  `coincide-core` dependency), and removes a partial destination on
+  copy error; both `read_file` paths now refuse a final symlink
+  (non-paged branch routes through `read_workspace_text`, paged path
+  checks `symlink_metadata` before canonicalizing), closing the
+  `.git/config` symlink leak; `with_session_defaults` now overwrites
+  a model-supplied `cwd` with the session cwd (non-empty guard;
+  `--cwd` is required at server start and the `use_mcp` recursion
+  re-enters the same choke point). 3 defects fixed, 5 tests added —
+  bringing the totals to 33 defects / 33 tests. The check-then-open
+  TOCTOU stays an accepted risk (racer needs workspace write access,
+  the same trust boundary as the agent). Statically verified only;
+  `cargo test -p coincide-core` and `cargo test -p
+  coincide-mcp-server` on Dylan's Mac are owed. Full record:
   `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
