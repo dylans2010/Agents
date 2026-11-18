@@ -119,7 +119,7 @@ impl Engine {
             } else if parent["selection"].is_object() {
                 child_params["selection"] = parent["selection"].clone();
             }
-            child_params["assistantId"] = json!(assistant.id);
+            child_params["assistantId"] = json!(request.assistant_id);
         } else {
             if parent["selection"].is_object() {
                 child_params["selection"] = parent["selection"].clone();
@@ -138,10 +138,19 @@ impl Engine {
         }
         if let Some(assistant) = &assistant {
             child_params["systemPrompt"] = json!(assistant.system_prompt);
-            if let Some(allowed_tools) = &assistant.allowed_tools {
-                if !allowed_tools.is_empty() {
-                    child_params["toolset"] = json!("system");
-                    child_params["allowedTools"] = json!(allowed_tools);
+            let assistant_tools = assistant
+                .allowed_tools
+                .as_ref()
+                .filter(|tools| !tools.is_empty());
+            if let Some(allowed_tools) = assistant_tools {
+                child_params["toolset"] = json!("system");
+                child_params["allowedTools"] = json!(allowed_tools);
+            } else {
+                if !parent["toolset"].is_null() {
+                    child_params["toolset"] = parent["toolset"].clone();
+                }
+                if !parent["allowedTools"].is_null() {
+                    child_params["allowedTools"] = parent["allowedTools"].clone();
                 }
             }
         } else {
@@ -663,33 +672,43 @@ mod tests {
     }
 
     fn seed_assistant(engine: &mut Engine) -> String {
+        seed_assistant_with_allowed_tools(engine, Some(json!(["write_file"])))
+    }
+
+    fn seed_assistant_with_allowed_tools(
+        engine: &mut Engine,
+        allowed_tools: Option<Value>,
+    ) -> String {
         let id = "00000000-0000-4000-8000-000000000001";
         let listed = engine.execute("assistants.list", &json!({})).unwrap();
+        let mut assistant = json!({
+            "id": id,
+            "name": "Reviewer",
+            "description": "Reviews diffs",
+            "icon": "magnifyingglass",
+            "category": "code-review-security",
+            "systemPrompt": "Review the diff for security issues.",
+            "intendedTasks": ["Review pull requests"],
+            "expectedOutputFormat": "A list of findings",
+            "provider": "claude",
+            "model": "sonnet",
+            "permissionProfile": "read-only",
+            "inputRequirements": ["A diff"],
+            "version": 1,
+            "source": "custom",
+            "isFavorite": false,
+            "lastUsedAt": Value::Null,
+            "createdAt": 1_000_000,
+            "updatedAt": 1_000_000
+        });
+        if let Some(tools) = allowed_tools {
+            assistant["allowedTools"] = tools;
+        }
         engine
             .execute(
                 "assistants.save",
                 &json!({
-                    "assistant": {
-                        "id": id,
-                        "name": "Reviewer",
-                        "description": "Reviews diffs",
-                        "icon": "magnifyingglass",
-                        "category": "code-review-security",
-                        "systemPrompt": "Review the diff for security issues.",
-                        "intendedTasks": ["Review pull requests"],
-                        "expectedOutputFormat": "A list of findings",
-                        "allowedTools": ["write_file"],
-                        "provider": "claude",
-                        "model": "sonnet",
-                        "permissionProfile": "read-only",
-                        "inputRequirements": ["A diff"],
-                        "version": 1,
-                        "source": "custom",
-                        "isFavorite": false,
-                        "lastUsedAt": Value::Null,
-                        "createdAt": 1_000_000,
-                        "updatedAt": 1_000_000
-                    },
+                    "assistant": assistant,
                     "baseline": listed["baseline"],
                 }),
             )
@@ -731,6 +750,77 @@ mod tests {
         );
         assert_eq!(child_doc["toolset"], "system");
         assert_eq!(child_doc["allowedTools"], json!(["write_file"]));
+        assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_with_assistant_without_allowed_tools_inherits_parent_toolset() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant_with_allowed_tools(&mut engine, None);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(
+            child_doc["systemPrompt"],
+            "Review the diff for security issues."
+        );
+        assert_eq!(child_doc["toolset"], "system");
+        assert_eq!(child_doc["allowedTools"], json!(["read_file"]));
+        assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_with_assistant_with_empty_allowed_tools_inherits_parent_toolset() {
+        let mut engine = test_engine();
+        let assistant_id =
+            seed_assistant_with_allowed_tools(&mut engine, Some(json!([])));
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(
+            child_doc["systemPrompt"],
+            "Review the diff for security issues."
+        );
+        assert_eq!(child_doc["toolset"], "system");
+        assert_eq!(child_doc["allowedTools"], json!(["read_file"]));
         assert_eq!(child_doc["assistantId"], assistant_id);
     }
 
@@ -795,6 +885,26 @@ mod tests {
         }))
         .unwrap_err();
         assert!(error.to_string().contains("Assistant ID must be a UUID"));
+        let non_string = worker_store::parse_spawn_request(&json!({
+            "parentThreadId": "parent",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": 123,
+        }))
+        .unwrap_err();
+        assert!(non_string
+            .to_string()
+            .contains("Assistant ID must be a UUID"));
+        let null_id = worker_store::parse_spawn_request(&json!({
+            "parentThreadId": "parent",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": Value::Null,
+        }))
+        .unwrap();
+        assert!(null_id.assistant_id.is_none());
         let parsed = worker_store::parse_spawn_request(&json!({
             "parentThreadId": "parent",
             "name": "alpha",

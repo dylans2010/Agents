@@ -119,13 +119,17 @@ pub fn parse_spawn_request(params: &Value) -> Result<SpawnRequest> {
         !parent_thread_id.trim().is_empty(),
         "Parent thread ID must not be empty"
     );
-    let assistant_id = opt_str(params, "assistantId")
-        .map(|id| {
-            Uuid::parse_str(&id)
-                .map(|parsed| parsed.to_string())
-                .context("Assistant ID must be a UUID")
-        })
-        .transpose()?;
+    let assistant_id = match params.get("assistantId") {
+        None | Some(Value::Null) => None,
+        Some(value) => {
+            let id = value.as_str().context("Assistant ID must be a UUID")?;
+            Some(
+                Uuid::parse_str(id)
+                    .map(|parsed| parsed.to_string())
+                    .context("Assistant ID must be a UUID")?,
+            )
+        }
+    };
     Ok(SpawnRequest {
         name: validate_worker_name(&req_str(params, "name")?)?,
         task: validate_task(&req_str(params, "task")?)?,
