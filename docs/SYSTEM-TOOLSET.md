@@ -1447,6 +1447,60 @@ What is enforced for real in this slice:
     file with unsaved edits is refused until the edits are saved or
     reverted.
 
+### Assistant layer (slices F1–F6b, C0–C6) — what is enforced, what is stored
+
+Full reference: `docs/ASSISTANTS.md`. The short version, stated so
+nobody over-claims it:
+
+- **What F3/F3b enforce is the thread's stored `allowedTools` list,
+  nothing else.** The MCP server reads the list from the session
+  thread's document on every `tools/list` and `tools/call`
+  (`tools.rs`, `assets.rs`: `stored_allowed_tools`), filters the
+  list, and rejects a disallowed call with JSON-RPC `-32602`
+  `Unknown tool "<name>"`, identical to an unknown name. The
+  `use_app` inner-action gate (F3b) checks the mapped inner tool
+  (`click`, `get_desktop_state`, …), not just `use_app`. The Swift
+  `SystemToolRegistry.execute()` mirror enforces the same list for
+  the test path only and has no production caller by design.
+- **The assistant record is not the enforcement point.** An
+  assistant's `allowedTools` is copied onto the thread document at
+  creation (`threads.create`, `prepare_ordinary_thread`, F2); the
+  server never reads the assistant record at call time. Editing an
+  assistant's tools does not change threads already created from
+  it. Spawn-by-Assistant (F5) builds the child thread from the
+  assistant — provider/model selection, raw stored system prompt,
+  and `allowedTools` (or, when the assistant lists no tools, the
+  parent's toolset, only when the fallback is valid) — and records
+  the `assistantId` on the child thread and the worker record, so
+  `workers.list` can filter by assistant.
+- **`permissionProfile` is stored, not enforced.** The four
+  profiles (`read-only`, `workspace-modify`, `terminal`,
+  `approval-required`) are declared on the record and asserted by
+  the catalog tests to match the preset's tool list, but nothing in
+  the engine reads them. A `read-only` assistant is restricted only
+  by its `allowedTools` list; a `workspace-modify` assistant is
+  granted nothing by its profile. Profile enforcement (program
+  label E1) is **not built**. Do not describe a preset as
+  "read-only enforced" — say "read-only by its tool list", and note
+  the list is checked per category by hand-written mutating-tool
+  sets in the `*PresetsTests.swift` files, not by a registry-wide
+  sweep (see `docs/ASSISTANTS.md`, "The read-only guarantee").
+- **Validation rejections that do exist:** a non-empty
+  `allowedTools` cannot combine with the provider toolset; a
+  system prompt cannot combine with it either; System Tools are
+  rejected for `opencode`/`lithos` at thread creation, at send, and
+  at assistant save when the assistant itself pins one of those
+  providers; at most 333 tools per list; `assistantId` must be a
+  UUID. The known gap: an assistant with no pinned provider and a
+  non-empty tool list, spawned from an OpenCode/Lithos parent,
+  fails at child-thread creation with no graceful fallback.
+- **Prompt composition is Swift-only.** A thread launched from an
+  assistant in the app gets the composed prompt (SystemAssets +
+  assistant prompt, 6,000-token budget); a worker spawned from an
+  assistant gets the assistant's raw stored prompt (Gap 2, open).
+  The two are not equivalent; do not claim the worker got the
+  composed prompt.
+
 ## What is still NOT implemented (honest list)
 
 The 300-entry catalog in `AvailableTools.md` is a specification, not a
@@ -1579,7 +1633,9 @@ implemented, and why:
   `click` does not let the model click through `use_app`. An unknown
   inner action keeps its existing error instead of an `UnknownTool`
   rejection. Worker turns are covered automatically: a worker
-  child thread inherits the parent's `allowedTools` (`workers_api.rs`), and
+  child thread carries its own `allowedTools` — inherited from the
+  parent by default, or set from the assistant when spawned by
+  `assistantId` (F5; see `docs/ASSISTANTS.md`) — and
   its MCP server is bound to the child thread, so it reads the child's
   restricted list. A thread read that fails is a hard failure (list returns
   -32602, call reports the failure) rather than a silent lift of the
@@ -1603,7 +1659,7 @@ What is NOT enforced yet, and is not claimed:
 | Provider | System Tools mechanism | SystemAssets mechanism | Channel / limitation |
 | --- | --- | --- | --- |
 | Codex | System prompt only; Codex's own tools execute | Prompt carries the composed assets (injected as `developerInstructions`) | Verified channel: `thread/start` / `thread/resume` `developerInstructions`. No MCP: the adapter has no verified in-handshake or config channel, and named Codex profiles explicitly forbid `config.toml` overrides. Users may add the server manually to their Codex config: `[mcp_servers.coincide]` with `command = "<path to coincide-mcp-server>"`, `args = ["--cwd", "<workspace>"]`. |
-| Claude | System prompt + MCP server mounted via `--mcp-config` | Prompt injected via `--append-system-prompt`; assets also available as MCP resources/prompts | Verified channels. The server is mounted WITHOUT `--strict-mcp-config`, so the user's own MCP servers from `.mcp.json` keep loading. The per-thread config file is `<data_dir>/mcp/claude-<thread_id>.json` (0600). |
+| Claude | System prompt + MCP server mounted via `--mcp-config` | Prompt injected via `--append-system-prompt`; assets also available as MCP resources/prompts | Verified channels. The server IS mounted with `--strict-mcp-config` when the mount exists (`provider_claude.rs`, `--strict-mcp-config` pushed alongside `--mcp-config`; tests `strict_mcp_config_present_with_system_tools_mount` / `strict_mcp_config_absent_without_system_tools_mount`), so the user's own MCP servers from `.mcp.json` do NOT load for a System Tools session. An earlier revision of this document said the opposite; the code is the authority. The per-thread config file is `<data_dir>/mcp/claude-<thread_id>.json` (0600). |
 | Cursor | MCP server mounted via `mcpServers` on `session/new` | MCP resources (`agents-asset://`) + `prompts/get` | Verified channel. Cursor profile MCP servers come from the per-thread profile file, not the wire, so the mount does not clobber them. No instruction channel: the stored prompt is served by `prompts/get`, never injected. |
 | Grok Build | MCP server mounted via `mcpServers` on `session/new` | MCP resources + `prompts/get` | Verified channel (same ACP `session/new` path as Cursor). No instruction channel. |
 | Antigravity | MCP server mounted via `mcpServers` on `session/new` | MCP resources + `prompts/get` | Verified channel (ACP `session/new`). No instruction channel. |

@@ -370,6 +370,56 @@ decide whether they help or double-announce with VoiceOver:
 - `Agents/Inspector/GitInspectorView.swift` — the commit-message
   `TextEditor` label repeats the hint text shown when the field is empty.
 
+### 2.10 Assistants (slices F1–F6b, C0–C6)
+
+Base for these items: worktree base `b81e42ea` (F6b). Counts measured by
+grep at that base: **60 built-in presets** (10 per category);
+**116 Swift `@Test` functions** across the 8 assistant test files
+(`AssistantCatalogTests` 27, `AssistantTests` 18,
+`BuildingFixingPresetsTests` 14, `GitWorkflowAutomationPresetsTests` 13,
+`SpecializedProductivityPresetsTests` 12,
+`RepositoryIntelligencePresetsTests` 11,
+`CodeMaintenancePresetsTests` 11, `CodeReviewSecurityPresetsTests` 10);
+**8 Rust `#[test]` functions** in
+`Rust Backend/crates/coincide-core/src/assistants_api_tests.rs`. Full
+reference: `docs/ASSISTANTS.md`.
+
+- **Catalog.** Run the 8 assistant Swift suites (Step 3 covers them)
+  and the Rust assistants tests (Step 5). They assert the 60 presets,
+  unique valid slugs, prompts ≥600 characters with ≥2 domain keywords
+  each, every `allowedTools` name existing in the 333-tool registry,
+  and the read-only presets granting no mutating tool (per-category
+  hand-written mutating lists — see `docs/ASSISTANTS.md`).
+- **Enforcement.** Create a thread carrying a read-only preset's
+  `allowedTools` list and confirm: `tools/list` shows only those
+  tools; `tools/call` of a disallowed tool returns JSON-RPC `-32602`
+  `Unknown tool "<name>"`; `use_app` allowed while `click` is denied
+  cannot click (the inner-action gate, F3b). Confirm the Swift
+  `execute()` mirror is not in the production path — production
+  execution is the MCP server.
+- **Launch path.** `AppModel.launchAssistant` has **no UI caller** at
+  this base: there is no Assistants Library view, picker, or editor,
+  so there is no Library UI to visually check yet — that check belongs
+  to the UI slice, not this gate. Exercise the launch path through
+  `newThread` with `assistantId` plus a selection override and
+  confirm the created thread stores the assistant's composed system
+  prompt, `toolset: system`, its `allowedTools`, its `assistantId`,
+  and the requested provider/model (provider-only fills `modelID:
+  "default"`).
+- **Worker spawn by assistant.** Spawn a worker with `assistantId`
+  and confirm the child thread carries the assistant's prompt, tools,
+  and `assistantId`, the worker record stores the same ID, and
+  `workers.list` with `assistantId` returns it. Confirm the parent
+  toolset fallback: with no assistant tool list and a provider-toolset
+  parent, the child gets neither toolset nor tools.
+- **Gap 2 (known, not a pass).** Confirm the worker child's prompt is
+  the assistant's raw stored prompt, not the composed prompt the app
+  launch builds. Record it as the open gap; do not mark it passed.
+- **Known-fail case.** An assistant with no pinned provider and a
+  non-empty tool list, spawned from an OpenCode (or Lithos) parent,
+  must fail loudly at child-thread creation. Confirm it fails rather
+  than starting a broken session.
+
 ## 3. Known unverified / honest limits
 
 Every item below was verified against the code or docs named. Nothing
@@ -439,6 +489,28 @@ running — these are the limits as the code stands.
   (`docs/SYSTEM-TOOLSET.md`). Do not "fix" this by wiring the Swift
   `execute()` into the turn path — that would create two execution
   paths.
+- **Assistants: Gap 2 is open.** A worker spawned from an assistant
+  gets the assistant's raw stored system prompt; a thread launched
+  from the same assistant in the app gets the composed prompt
+  (SystemAssets + assistant prompt). The two are not equivalent
+  (`docs/ASSISTANTS.md`).
+- **Assistants: provider-None + tools + OpenCode spawn fails.** An
+  assistant with no pinned provider and a non-empty `allowedTools`,
+  spawned from an OpenCode/Lithos parent, fails at child-thread
+  creation (`thread_defaults.rs` rejects System Tools for that
+  provider). Loud, not silent — but there is no graceful fallback.
+- **Assistants: `use_app` rejection shape differs by language.** The
+  Rust MCP server rejects a disallowed inner tool as `UnknownTool`
+  (`-32602`); the Swift `execute()` mirror rejects it as
+  `toolNotActive`. Same gate, different error.
+- **Assistants: `lastUsedAt` / `isFavorite` are stored but never
+  written.** No launch path sets `lastUsedAt` and no UI or API
+  toggles `isFavorite` at this base, so any recency/favorites UI
+  would read empty data until a writer lands.
+- **Assistants: no Library UI exists at this base.**
+  `AppModel.launchAssistant` has no caller in any view. The visual
+  check of the Library UI belongs to the UI slice, not this gate;
+  do not mark it passed here.
 
 ## 4. Sign-off checklist
 
@@ -479,3 +551,14 @@ ______________ — notes: ________________________________________
 - [ ] X14 orphan workers — live: spawn a worker, permanently delete its parent thread, All Workers → Orphaned shows it with badge; cancel/delete/tap-to-open work; Retry stays disabled with its explanation; an archived (not deleted) parent does NOT produce a false orphan; six-segment picker and badge visuals in both themes.
 - [ ] X15 type floor — visual check: sidebar thread-row icons, inspector panes, model-picker/checkout popovers, toast dismiss xmark — confirm nothing looks oversized or clipped, especially the 8pt warning triangle (SidebarRootView.swift:940) and 8.5pt icons (SidebarThreadRow.swift:156–194, TerminalDrawerRootView.swift:688) now rendered at 11pt.
 - [ ] X15 follow-up (decision, not a check) — AppTheme.swift:288 computed `max(10, size * 0.78)` can still resolve to 10pt; decide whether the floor should cover computed sizes.
+
+## Assistants (F1–F6b, C0–C6) — 2026-11-18, base `b81e42ea`
+
+- [ ] Assistants Swift tests pass (116 `@Test` across the 8 assistant test files)
+- [ ] Assistants Rust tests pass (8 `#[test]` in `assistants_api_tests.rs`)
+- [ ] 2.10 enforcement — `tools/list` filter, `tools/call` `-32602`, `use_app` inner gate (allowed `use_app` + denied `click` cannot click)
+- [ ] 2.10 launch path — `newThread` with `assistantId` + selection override stores composed prompt, `toolset: system`, `allowedTools`, `assistantId`, requested provider/model
+- [ ] 2.10 worker spawn by assistant — child thread + worker record carry `assistantId`; `workers.list?assistantId=` returns it; parent toolset fallback valid
+- [ ] 2.10 Gap 2 recorded (worker gets raw prompt, not composed) — known gap, not a pass
+- [ ] 2.10 provider-None + tools + OpenCode spawn fails loudly — known gap, not a pass
+- [ ] Library UI visual check — NOT BUILT at this base (no caller of `launchAssistant`); do not check as passed
