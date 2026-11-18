@@ -7,7 +7,7 @@ use std::{
     process::{Child, Command, Stdio},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicU64, AtomicU8, Ordering},
         mpsc::{self, Receiver, Sender},
     },
     thread,
@@ -285,6 +285,7 @@ impl WorkerCompletion {
         }
     }
 }
+pub const MAX_SESSION_EVENTS: usize = 1024;
 pub struct Session {
     pub events: Receiver<Event>,
     control: Sender<Control>,
@@ -296,6 +297,7 @@ pub struct Session {
     provider_control: Arc<std::sync::atomic::AtomicBool>,
     pause_goal_on_stop: Arc<std::sync::atomic::AtomicBool>,
     goal_queue_waiting: Arc<std::sync::atomic::AtomicBool>,
+    dropped_event_count: Arc<AtomicU64>,
 }
 #[cfg(test)]
 mod completion_owner_tests {
@@ -607,11 +609,35 @@ impl Session {
             .context("Active-turn steering is supported only for Codex")?
             .submit_input_exact(text, images, identity)
     }
+    pub fn dropped_events(&self) -> u64 {
+        self.dropped_event_count.load(Ordering::Acquire)
+    }
     pub(crate) fn take_usage(&self) -> Option<usage_capture::Snapshot> {
         self.usage.lock().ok()?.pop_front()
     }
     fn spawn_worker(work: impl FnOnce(Receiver<Control>, &Sender<Event>) + Send + 'static) -> Self {
-        let (events_tx, events) = mpsc::channel();
+        let (events_tx, inbound) = mpsc::channel();
+        let (bounded_tx, events) = mpsc::sync_channel(MAX_SESSION_EVENTS);
+        let dropped_event_count = Arc::new(AtomicU64::new(0));
+        let relay_dropped = dropped_event_count.clone();
+        thread::spawn(move || {
+            for event in inbound {
+                let terminal = matches!(event, Event::Finished | Event::Failed(_));
+                match bounded_tx.try_send(event) {
+                    Ok(()) => {}
+                    Err(mpsc::TrySendError::Full(event)) => {
+                        if terminal {
+                            if bounded_tx.send(event).is_err() {
+                                break;
+                            }
+                        } else {
+                            relay_dropped.fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                    Err(mpsc::TrySendError::Disconnected(_)) => break,
+                }
+            }
+        });
         let (control, commands) = mpsc::channel();
         let worker = thread::spawn(move || {
             work(commands, &events_tx);
@@ -627,6 +653,7 @@ impl Session {
             provider_control: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             pause_goal_on_stop: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             goal_queue_waiting: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            dropped_event_count,
         }
     }
     #[cfg(test)]
@@ -2162,6 +2189,85 @@ mod tests {
         );
         assert_eq!(v["approvalPolicy"], "untrusted");
         assert_eq!(v["sandboxPolicy"]["type"], "readOnly");
+    }
+    #[test]
+    fn session_event_channel_is_bounded_and_sheds_newest_first() {
+        let session = Session::fixture_worker(|_, events| {
+            for id in 0..2 * MAX_SESSION_EVENTS {
+                let _ = events.send(Event::Frame(json!({"id": id})));
+            }
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while session.dropped_events() < MAX_SESSION_EVENTS as u64 {
+            assert!(Instant::now() < deadline, "relay did not shed the flood");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(session.dropped_events(), MAX_SESSION_EVENTS as u64);
+        let kept: Vec<_> = session
+            .events
+            .try_iter()
+            .take(MAX_SESSION_EVENTS)
+            .collect();
+        assert_eq!(kept.len(), MAX_SESSION_EVENTS);
+        for (index, event) in kept.iter().enumerate() {
+            match event {
+                Event::Frame(frame) => {
+                    assert_eq!(frame["id"].as_u64(), Some(index as u64))
+                }
+                event => panic!("unexpected kept event: {event:?}"),
+            }
+        }
+    }
+    #[test]
+    fn session_event_channel_delivers_below_the_bound_in_order() {
+        let session = Session::fixture_worker(|_, events| {
+            let _ = events.send(Event::Session("test-session".to_string()));
+            let _ = events.send(Event::Frame(json!({"id": 7})));
+            let _ = events.send(Event::TurnBoundary);
+            let _ = events.send(Event::Finished);
+        });
+        assert!(matches!(
+            session.events.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Event::Session(id) if id == "test-session"
+        ));
+        assert!(matches!(
+            session.events.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Event::Frame(frame) if frame["id"] == 7
+        ));
+        assert!(matches!(
+            session.events.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Event::TurnBoundary
+        ));
+        assert!(matches!(
+            session.events.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Event::Finished
+        ));
+        assert_eq!(session.dropped_events(), 0);
+    }
+    #[test]
+    fn session_event_channel_never_sheds_terminal_events() {
+        let session = Session::fixture_worker(|_, events| {
+            for id in 0..2 * MAX_SESSION_EVENTS {
+                let _ = events.send(Event::Frame(json!({"id": id})));
+            }
+            let _ = events.send(Event::Finished);
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while session.dropped_events() < MAX_SESSION_EVENTS as u64 {
+            assert!(Instant::now() < deadline, "relay did not shed the flood");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let kept: Vec<_> = session
+            .events
+            .try_iter()
+            .take(MAX_SESSION_EVENTS)
+            .collect();
+        assert_eq!(kept.len(), MAX_SESSION_EVENTS);
+        assert!(matches!(
+            session.events.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Event::Finished
+        ));
+        assert_eq!(session.dropped_events(), MAX_SESSION_EVENTS as u64);
     }
 
 }
