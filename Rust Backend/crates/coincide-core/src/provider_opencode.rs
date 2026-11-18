@@ -501,7 +501,10 @@ impl Mapper {
                 bail!("OpenCode interrupted the turn before completion")
             }
             "session.execution.failed" if self.delivered || self.started => {
-                bail!("OpenCode turn failed")
+                bail!(
+                    "OpenCode turn failed ({})",
+                    crate::agent::provider_error_code(&data["error"])
+                )
             }
             "session.deleted" => bail!("OpenCode session was deleted during the turn"),
             "session.text.delta"
@@ -1230,7 +1233,17 @@ mod model_reference_tests {
                 &mut declined,
             )
             .unwrap_err();
-        assert_eq!(error.to_string(), "OpenCode turn failed");
+        assert_eq!(error.to_string(), "OpenCode turn failed (unknown code)");
+        assert!(!error.to_string().contains("leaked secret"));
+        let error = mapper
+            .handle(
+                &json!({"type":"session.execution.failed","data":{"sessionID":"session","error":{"code":-32000,"message":"leaked secret and /private/path"}}}),
+                &events,
+                &mut declined,
+            )
+            .unwrap_err();
+        assert_eq!(error.to_string(), "OpenCode turn failed (code -32000)");
+        assert!(!error.to_string().contains("leaked secret"));
     }
 
     #[test]

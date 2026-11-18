@@ -307,7 +307,7 @@ pub(super) fn run(
                 let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)?});
                 let method = if let Some(id) = &launch.session {
                     ensure!(
-                        result["agentCapabilities"]["loadSession"] != false,
+                        result["agentCapabilities"]["loadSession"] == true,
                         "Cursor cannot resume this stored session"
                     );
                     params["sessionId"] = json!(id);

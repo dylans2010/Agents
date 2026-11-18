@@ -135,7 +135,7 @@ public struct SidebarThreadRow: View {
                     Image(systemName: thread.hasWorktree ? "square.split.2x1" : "arrow.triangle.branch")
                         .font(.system(size: 8.5, weight: .semibold))
                     Text(branch)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .lineLimit(1)
                 }
                 .foregroundStyle(AppTheme.secondaryLabel)
@@ -147,7 +147,7 @@ public struct SidebarThreadRow: View {
                     Image(systemName: "square.split.2x1")
                         .font(.system(size: 8.5, weight: .semibold))
                     Text("worktree")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                 }
                 .foregroundStyle(AppTheme.secondaryLabel)
                 .padding(.horizontal, 4.5)

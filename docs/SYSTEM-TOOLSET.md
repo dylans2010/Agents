@@ -1165,8 +1165,9 @@ every provider except `codex`, `opencode`, `lithos`). The toolset gate
 (`ensure_system_toolset_supported`) now rejects only `opencode` and `lithos`
 for System Tools; MCP-capable providers may store the prompt (delivered via
 `prompts/get`, never injected as instructions). If the server binary is
-missing at launch, the mount is skipped silently and the session runs as it
-did before this slice.
+missing at launch, the session fails loudly instead of starting without
+System Tools: `mcp.rs:101-105` (`session_servers`) returns an error, so the
+session cannot start without it.
 
 ## Enforcement boundary (read this before claiming more)
 

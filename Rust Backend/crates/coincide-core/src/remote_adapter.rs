@@ -1530,6 +1530,11 @@ impl Adapter {
         }
         crate::agent::validate_system_prompt_and_toolset(Some(prompt), Some("system"))
             .map_err(|error| RemoteError::failed(error.to_string()))?;
+        let provider = document["selection"]["provider"]
+            .as_str()
+            .unwrap_or("codex");
+        crate::agent::ensure_system_toolset_supported(provider)
+            .map_err(|error| RemoteError::failed(error.to_string()))?;
         let (resolved, _) = self.document(request.thread_id)?;
         self.call(
             "threads.patch",

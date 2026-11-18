@@ -299,7 +299,7 @@ struct UserTurnRow: View {
                 // Subtle hover action strip
                 HStack(spacing: 10) {
                     Text(item.createdAt.formatted(date: .omitted, time: .shortened))
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
 
                     if isHovering {
@@ -308,7 +308,7 @@ struct UserTurnRow: View {
                                 copyText()
                             } label: {
                                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                                    .font(.system(size: 10.5))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(copied ? AppTheme.success : AppTheme.secondaryLabel)
                             }
                             .buttonStyle(.plain)
@@ -319,7 +319,7 @@ struct UserTurnRow: View {
                                 quoteInComposer()
                             } label: {
                                 Image(systemName: "text.quote")
-                                    .font(.system(size: 10.5))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                             }
                             .buttonStyle(.plain)
@@ -332,7 +332,7 @@ struct UserTurnRow: View {
                                 showRewindSheet = true
                             } label: {
                                 Image(systemName: "arrow.uturn.backward")
-                                    .font(.system(size: 10.5))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                             }
                             .buttonStyle(.plain)
@@ -520,7 +520,7 @@ struct WorkGroupRow: View {
                     }
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
 
@@ -789,7 +789,7 @@ struct ToolOrReasoningStepRow: View {
 
                         if item.isClipped {
                             Text("Output truncated for display performance.")
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
                     }
@@ -1146,7 +1146,7 @@ struct TurnChangesCardView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Text(statusBadgeLetter(for: file.status))
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundStyle(statusColor(for: file.status))
                                 .frame(width: 14)
 
@@ -1164,7 +1164,7 @@ struct TurnChangesCardView: View {
                                 Text("−\(file.deletions)")
                                     .foregroundStyle(AppTheme.diffDeletionText)
                             }
-                            .font(.system(size: 10.5, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                         }
                         .padding(.vertical, 2)
                         .contentShape(Rectangle())
@@ -1321,7 +1321,7 @@ struct InlineApprovalHistoryCard: View {
 
                     if item.isWaiting {
                         Text("Action required below")
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(AppTheme.warning)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1.5)
@@ -1368,7 +1368,7 @@ struct InlineQuestionHistoryCard: View {
                 Spacer()
                 if item.isWaiting {
                     Text("Waiting below")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppTheme.warning)
                 } else if item.status == "declined" {
                     Text("Dismissed")
@@ -1410,7 +1410,7 @@ struct ActiveBackgroundTasksStrip: View {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.mini)
                     Text("BACKGROUND TASKS (\(tasks.count))")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
 
