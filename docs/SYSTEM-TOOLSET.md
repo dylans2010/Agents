@@ -788,6 +788,67 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
+### Hardening wave (Slices 69–95)
+
+The per-slice log above ends at Slice 18 (the registry build-out). The
+hardening slices below did not add registry tools, so they are logged here
+instead of as `### Slice N:` entries — one or two lines each: what was
+done, how it was verified, verdict. Slices 69–95 only; slices 19–68 have
+no entries in this file either and are not backfilled here. Full record:
+`docs/HARDENING-AUDIT.md`.
+
+- **Slice 69** — Docs-only: qualified the Slice 11 cross-check claim as
+  written-not-executed (commit `53da6d39`). No code change, no test.
+- **Slice 71** — MCP server audit: 6 defects fixed (resources/list shape,
+  curl redirect/size bounds, symlink-loop sizing, asset symlink/size
+  hardening, `use_mcp` arg validation, notification silence); 4 tests
+  added in `tests/mcp_server.rs`. Verified by the Slice 73 re-audit, which
+  found only 2 follow-up minors.
+- **Slice 73** — MCP server follow-ups: 2 defects fixed (additive
+  truncation flag for deep dir sizing; asset size bound enforced on the
+  read, closing the stat-then-read TOCTOU); 2 tests added. No later slice
+  re-opened these paths.
+- **Slice 75** — Docs-only: refreshed the MAC-GATE Rust test counts to
+  2,940 (commit `e1b148d1`). No code change.
+- **Slice 77** — Memory/workers store audit: 5 defects fixed (memory
+  entry/byte caps, snapshot self-counting and value-cap bypass, worker
+  text cap, WAL file permissions) + 1 dead-code removal; 5 tests added.
+  Byte accounting corrected by Slice 79.
+- **Slice 79** — Memory byte accounting: 1 defect fixed
+  (`memory_total_bytes` counted characters, now bytes); 0 tests, covered
+  by the Slice 77 total-byte-cap test.
+- **Slice 81** — Claude/Codex provider audit: 2 defects fixed (MCP config
+  rewrite failed after the first turn; Claude result-frame error text
+  leaked into transcripts); 3 tests added. Symlink-refusal test added in
+  Slice 83.
+- **Slice 83** — Added the Claude config symlink-refusal test; refreshed
+  the MAC-GATE counts to 2,949. No new defect.
+- **Slice 85** — Workspace file-ops audit: 2 critical compile breaks
+  fixed (restored missing helpers in both crates), `.git` mutation
+  refused, atomic new-file writes, honest truncation flags; 3 tests
+  added. Corroborated by the Slices 87–90 sweeps (0 confirmed-missing).
+- **Slice 87** — Repo-wide Rust undefined-reference sweep, all 6 crates:
+  0 CONFIRMED-MISSING in non-test code. No commit.
+- **Slice 88** — Docs-only: refreshed the MAC-GATE counts to 2,952
+  (commit `8d8deca9`). No code change.
+- **Slice 89** — Swift undefined-symbol sweep, Agents target:
+  0 CONFIRMED-MISSING. No commit.
+- **Slice 90** — Swift undefined-symbol sweep, remaining 5 targets:
+  0 CONFIRMED-MISSING. No commit.
+- **Slice 91** — Consolidated hardening-audit record for Slices 71–90
+  (`docs/HARDENING-AUDIT.md`, commit `11097655`). Docs-only.
+- **Slice 92** — No commit in the repo and no record in docs; nothing
+  verifiable to log.
+- **Slice 93** — Docs-only: fixed the Slice 81 citation line in
+  `HARDENING-AUDIT.md` and corrected the MAC-GATE desktop test count
+  (commit `1e65a098`).
+- **Slice 95** — Thread/document store audit: 1 defect fixed (case-variant
+  draft patch resolves the canonical thread id); 2 dead store helpers
+  removed (`Store::archived_conversations`, `Store::message_matches`);
+  1 regression test added
+  (`draft_patch_accepts_a_case_variant_thread_id`). Statically verified
+  only; Slice 96 confirmed the remote tree.
+
 ## The MCP server
 
 `Rust Backend/crates/coincide-mcp-server/` is a standalone stdio binary

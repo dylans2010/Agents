@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–90
+# Hardening Audit — Slices 71–95
 
 ## Summary
 
@@ -8,7 +8,10 @@ operations, then swept the whole Rust workspace and the Swift app for
 undefined references. The audits fixed 18 defects (2 of them compile breaks
 that made both Rust crates unbuildable), made 3 further hardening
 improvements in Slice 85, added 18 regression tests, and closed with three
-symbol sweeps that found 0 confirmed-missing references. The remaining
+symbol sweeps that found 0 confirmed-missing references. Slice 95, appended
+after the wave, audited the thread/document store: 1 further defect fixed, 2
+dead store helpers removed, and 1 regression test added — bringing the
+totals to 19 defects fixed and 19 regression tests. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -264,6 +267,50 @@ static name check only, no Swift compile.
 
 **Tests added (0); commit (none):** nothing to fix, so no commit was
 made; no commit object exists for this slice.
+
+## Slice 95 — Thread/document store audit (remote `5f9644e9`)
+
+**Audited:** the thread/document store in `coincide-core` (`store.rs`,
+`store_message_search.rs`, `store_thread_delete.rs`) — draft patching,
+thread identity handling, message search, archived-conversation listing,
+and delete/Undo.
+
+**Defects fixed (1) + dead-code removal (2):**
+
+1. `patch_draft` used the caller-supplied thread id with `COLLATE NOCASE`
+   in every statement and returned that id, so a case-variant id patched
+   the stored row but reported the caller's casing — and `patch_thread`
+   then re-read the thread through the caller id. `patch_draft` now
+   resolves the canonical id first (`SELECT id FROM threads WHERE id=?1
+   COLLATE NOCASE`), uses it for the draft revision, navigation, UPDATE,
+   and write-marker statements, and returns it; `patch_thread` re-reads
+   through the returned id — `store.rs` (`patch_draft`, `patch_thread`).
+2. Dead code removed: `Store::archived_conversations` (a thin wrapper over
+   `archived_conversations_for_project`) and `Store::message_matches` (a
+   wrapper over `message_matches_cancellable` via the message search
+   source) had zero production references (verified: no remaining call
+   sites at HEAD outside a desktop test name); their test call sites were
+   moved to the underlying functions.
+
+**Verified sound (spot-checked):** FTS phrase escaping (quotes doubled
+inside the quoted trigram phrase, `store.rs` `summaries_from`);
+parameterized CRUD (`?`-bound params throughout); real `DELETE` + Undo
+receipt (`thread_delete_undo` temp table, `store_thread_delete.rs:171-187`);
+UUID validation (`Uuid::parse_str`, `store.rs:2606`); deferred index
+rebuilds; schedule/queue claims revision-checked under the Engine lock;
+single-writer connection with `Immediate` transactions; legacy migration
+rollback + quarantine (`quarantine_document`, `store.rs:126`); honest
+errors on missing threads.
+
+**Tests added (1):** `draft_patch_accepts_a_case_variant_thread_id` in
+`store.rs` (tests module) — patches by a lowercased id through both
+`patch_draft` and `patch_thread` and asserts the canonical id is returned
+and stored.
+
+**Verification:** diff read (`git show 771e645a`, remote `5f9644e9`, same
+tree `7dab3229`); fixed lines confirmed present at HEAD. Statically
+verified only — no cargo run here, as for every slice in this record. The
+local pre-push commit is `771e645a` (same tree as remote `5f9644e9`).
 ---
 
 ## Documented, not fixed
@@ -317,6 +364,21 @@ limitation of the audited component, or a question owed to Dylan.
 - **No Swift compiled in this environment** — restated here because it
   bounds everything above: Xcode build + `swift test` + `cargo test` +
   live checks on Dylan's Mac are the gate for all slices in this record.
+- **Thread-document save has no size cap.** `save()` persists the whole
+  document value; only the draft field (1 MiB, enforced in `patch_draft`)
+  and the title (1,024, import validation) carry caps, so a large document
+  is stored unbounded (Slice 95).
+- **Unbounded result-set loads in the thread store.**
+  `summaries()` has no `LIMIT` in its SQL;
+  `archived_conversations_for_project` loads every archived row into a
+  `Vec` before paging; `message_matches_cancellable` has no `LIMIT`
+  either (Slice 95).
+- **`import_legacy` has no per-file/total byte cap.** Files are read whole
+  with `fs::read` (`store.rs`), so a large legacy export is imported
+  unbounded (Slice 95).
+- **Schedule claim atomicity rests on the Engine lock.** The claim is
+  revision-checked, but it is atomic only while a single writer holds the
+  Engine lock; there is no second-writer lock (Slice 95).
 ## How to re-verify
 
 - **Registry 332 check.** Count the `ToolDef {` entries inside the
@@ -330,7 +392,7 @@ limitation of the audited component, or a question owed to Dylan.
 - **MAC-GATE count method.** From `Rust Backend`, excluding `vendor/`:
   count short-form `#[test]` attributes and fully-qualified
   `#[::core::prelude::v1::test]` attributes, and sum them. At HEAD the
-  expected total is **2,952** (2,216 + 736). Method and per-crate table:
+  expected total is **2,953** (2,217 + 736). Method and per-crate table:
   `docs/MAC-GATE.md:143-162`. Known wrinkle documented there: one `//`
   comment line in `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`
   mentions the glob import and must not be counted as an attribute.
