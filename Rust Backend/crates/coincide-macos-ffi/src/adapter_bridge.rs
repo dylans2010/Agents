@@ -2435,6 +2435,14 @@ fn map_gh_pr(pr: &Value) -> Option<Value> {
     }))
 }
 
+fn unavailable_list(reason: &str) -> Value {
+    let mut body = json!({ "items": [] });
+    if let Some(text) = coincide_core::remote::text::sanitize_display_text(reason) {
+        body["unavailable"] = json!(text);
+    }
+    body
+}
+
 fn handle_pull_requests(
     runtime: &CoincideMacOSRuntime,
     body: &Value,
@@ -2457,10 +2465,7 @@ fn handle_pull_requests(
     let avail = match avail_init {
         Ok(init) => wait_github_operation(runtime, &thread_id, Some(&canon_root), init)?,
         Err(err) => {
-            return Ok((
-                "pullRequests",
-                json!({ "items": [], "unavailable": err.message }),
-            ));
+            return Ok(("pullRequests", unavailable_list(&err.message)));
         }
     };
 
@@ -2468,10 +2473,7 @@ fn handle_pull_requests(
         let msg = avail["message"]
             .as_str()
             .unwrap_or("GitHub pull requests are unavailable for this project.");
-        return Ok((
-            "pullRequests",
-            json!({ "items": [], "unavailable": msg }),
-        ));
+        return Ok(("pullRequests", unavailable_list(msg)));
     }
 
     let repo = avail["repository"]

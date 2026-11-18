@@ -107,6 +107,91 @@ pub fn countdown(expires_at_seconds: f64, now_ms: f64) -> (String, bool) {
     }
 }
 
+pub fn sanitize_display_text(text: &str) -> Option<String> {
+    let mut result = collapse_whitespace(text);
+    if result.is_empty() {
+        return None;
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.is_empty() && home != "/" {
+            result = result.replace(&home, "~");
+        }
+    }
+    for (pattern, replacement) in sanitize_patterns() {
+        result = replace(&result, pattern, replacement);
+    }
+    result = collapse_whitespace(&result);
+    if result.is_empty() {
+        None
+    } else {
+        Some(result)
+    }
+}
+
+fn collapse_whitespace(text: &str) -> String {
+    replace(text, r"\s+", " ").trim().to_string()
+}
+
+fn replace(text: &str, pattern: &str, replacement: &str) -> String {
+    match regex::Regex::new(pattern) {
+        Ok(expression) => expression.replace_all(text, replacement).into_owned(),
+        Err(_) => text.to_string(),
+    }
+}
+
+fn sanitize_patterns() -> [(&'static str, &'static str); 36] {
+    [
+        (r"(?i)(?:ws|wss|http|https|ftp)://\S+", "[address]"),
+        (r"(?i)\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b", "[address]"),
+        (r"(?i)\blocalhost(?::\d+)?\b", "[local address]"),
+        (r"(?i)\btransport\s*[:=]\s*\S+", "transport: [redacted]"),
+        (r"(?i)\bport\s+\d+\b", "port [redacted]"),
+        (r"(?i)\bunix\s+socket\s+\S+", "unix socket [redacted]"),
+        (r"(?i)\bfd\s+\d+\b", "fd [redacted]"),
+        (r"/Users/[^/\s]+", "~"),
+        (r"~/Library/Application Support[^\s,;:]*", "[application support]"),
+        (r"~/Library/Caches[^\s,;:]*", "[cache]"),
+        (r"~/Library/Logs[^\s,;:]*", "[logs]"),
+        (r"~/\.config[^\s,;:]*", "[config]"),
+        (r"~/\.curlrc[^\s,;:]*", "[config]"),
+        (r"~/\.ssh[^\s,;:]*", "[config]"),
+        (r"file://\S+", "[path]"),
+        (r"(?:/private)?/var/folders/\S+", "[temporary directory]"),
+        (r"(?:/private)?/tmp/\S+", "[temporary directory]"),
+        (r"SystemAssets/\S+", "[asset]"),
+        (r"~/\S+", "[path]"),
+        (
+            r"/(?:Users|var|tmp|private|etc|opt|usr|Library|System|Applications|Volumes)/[^\s,;:\"']*",
+            "[path]",
+        ),
+        (r"(?i)://[^/\s:]+:[^/\s@]+@", "://[redacted]@"),
+        (
+            r"(?i)Authorization\s*:\s*(?:Bearer\s+)?\S+",
+            "Authorization: [redacted]",
+        ),
+        (
+            r"(?i)(api[_-]?key|apikey|access[_-]?token|auth[_-]?token|token|client[_-]?secret|secret|password|passwd)\s*[:=]\s*\S+",
+            "$1: [redacted]",
+        ),
+        (r"sk-[A-Za-z0-9_\-]{8,}", "[redacted key]"),
+        (r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{8,}", "[redacted token]"),
+        (r"github_pat_[A-Za-z0-9_]+", "[redacted token]"),
+        (r"sc_dev_(?:live|test)_[A-Za-z0-9_\-]+", "[redacted key]"),
+        (r"AKIA[0-9A-Z]{16}", "[redacted key]"),
+        (r"xox[baprs]-[A-Za-z0-9\-]+", "[redacted token]"),
+        (r"(?i)Bearer\s+\S+", "Bearer [redacted]"),
+        (
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            "[id]",
+        ),
+        (r"\b[0-9a-fA-F]{32,}\b", "[redacted]"),
+        (r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+){1,}\b", "[code]"),
+        (r"(?i)system prompt\s*:\s*[^\n]+", "system prompt: [redacted]"),
+        (r"(?i)SystemPrompt[A-Za-z]*", "[prompt]"),
+        (r"(?i)\b[A-Za-z][A-Za-z0-9_\-]*\.md\b", "[asset]"),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,5 +260,34 @@ mod tests {
             countdown(now / 1000. - 1., now),
             ("This code has expired.".into(), false)
         );
+    }
+
+    #[test]
+    fn display_text_keeps_plain_reasons_and_drops_empty_ones() {
+        assert_eq!(
+            sanitize_display_text("GitHub pull requests are unavailable for this project."),
+            Some("GitHub pull requests are unavailable for this project.".into())
+        );
+        assert_eq!(sanitize_display_text(""), None);
+        assert_eq!(sanitize_display_text("   \n\t  "), None);
+        assert_eq!(sanitize_display_text("a   b\n c"), Some("a b c".into()));
+    }
+
+    #[test]
+    fn display_text_redacts_paths_tokens_and_addresses() {
+        let redacted = sanitize_display_text(
+            "open /Users/dylan/work/x failed: token ghp_abcdefghij1234567890 at https://github.com/foo",
+        )
+        .unwrap();
+        assert!(!redacted.contains("/Users/dylan"));
+        assert!(!redacted.contains("ghp_abcdefghij1234567890"));
+        assert!(!redacted.contains("https://github.com/foo"));
+        assert!(redacted.contains("[path]"));
+        assert!(redacted.contains("[redacted token]"));
+        assert!(redacted.contains("[address]"));
+        let identified =
+            sanitize_display_text("thread 123e4567-e89b-12d3-a456-426614174000 failed").unwrap();
+        assert!(identified.contains("[id]"));
+        assert!(!identified.contains("123e4567-e89b-12d3-a456-426614174000"));
     }
 }
