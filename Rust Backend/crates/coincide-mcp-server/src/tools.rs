@@ -21882,6 +21882,90 @@ mod tests {
     }
 
     #[test]
+    fn profile_empty_stored_value_defaults_to_read_only() {
+        fn stored_profile_value(assistant: &Value) -> &str {
+            assistant["permissionProfile"]
+                .as_str()
+                .filter(|profile| !profile.is_empty())
+                .unwrap_or("read-only")
+        }
+        assert_eq!(stored_profile_value(&json!({})), "read-only");
+        assert_eq!(
+            stored_profile_value(&json!({"permissionProfile": ""})),
+            "read-only"
+        );
+        assert_eq!(
+            stored_profile_value(&json!({"permissionProfile": "read-only"})),
+            "read-only"
+        );
+        assert_eq!(
+            stored_profile_value(&json!({"permissionProfile": "root"})),
+            "root"
+        );
+        let read_only = crate::assets::ThreadProfile::Known(
+            stored_profile_value(&json!({})).to_owned(),
+        );
+        assert!(crate::assets::thread_profile_allows(&read_only, "read_file"));
+        assert!(!crate::assets::thread_profile_allows(&read_only, "write_file"));
+        let unknown = crate::assets::ThreadProfile::Known(
+            stored_profile_value(&json!({"permissionProfile": "root"})).to_owned(),
+        );
+        assert!(!crate::assets::thread_profile_allows(&unknown, "read_file"));
+        assert!(!crate::assets::thread_profile_allows(&unknown, "write_file"));
+    }
+
+    #[test]
+    fn profile_call_socket_error_is_tool_result_error() {
+        let state = crate::ServerState {
+            cwd: std::path::PathBuf::from("/tmp"),
+            thread_id: Some("thread-e1a-fix".to_owned()),
+            socket: std::path::PathBuf::from("/tmp/agents-e1a-fix-nonexistent/control.sock"),
+            assets_dir: None,
+            control: std::sync::Mutex::new(coincide_core::control::ControlClient::new(
+                std::path::PathBuf::from("/tmp/agents-e1a-fix-nonexistent/control.sock"),
+            )),
+        };
+        match ensure_profile_allowed(&state, "read_file") {
+            Err(CallError::Failed(message)) => assert!(
+                message.contains("Cannot reach the Agents engine control socket"),
+                "call socket error must name the control socket: {message}"
+            ),
+            Ok(()) => panic!("bound thread with unreachable socket must fail"),
+            Err(CallError::UnknownTool(name)) => panic!(
+                "call socket error must report Failed, not UnknownTool: {name}"
+            ),
+        }
+        let call_response = crate::protocol::handle(
+            &state,
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "read_file", "arguments": {}}}),
+        )
+        .expect("tools/call must produce a response");
+        assert!(
+            call_response.get("error").is_none(),
+            "call socket error must not be a protocol error: {call_response}"
+        );
+        assert_eq!(
+            call_response["result"]["isError"].as_bool(),
+            Some(true),
+            "call socket error must surface as a tool-result error: {call_response}"
+        );
+        let list_response = crate::protocol::handle(
+            &state,
+            &json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+        )
+        .expect("tools/list must produce a response");
+        assert_eq!(
+            list_response["error"]["code"].as_i64(),
+            Some(-32602),
+            "list socket error must surface as a protocol error: {list_response}"
+        );
+        assert!(
+            list_response.get("result").is_none(),
+            "list socket error must not carry a result: {list_response}"
+        );
+    }
+
+    #[test]
     fn profile_no_assistant_thread_unchanged() {
         for tool in ["read_file", "write_file", "run_build", "git_commit", "delete_file"] {
             assert!(crate::assets::thread_profile_allows(
@@ -21980,64 +22064,18 @@ mod tests {
 
     #[test]
     fn profile_every_registry_tool_is_classified() {
-        let allowed: &[&str] = &[
-        "access_level_audit", "accessibility_audit", "accessibility_audit_scanner", "api_docs_coverage",
-        "api_endpoint_audit", "api_surface_extract", "asset_catalog_list", "autonomous_review_engine",
-        "binary_size_report", "build_configuration_list", "build_log_analyze", "build_phase_scripts_list",
-        "build_settings_diff", "build_system_detect", "bundle_resource_auditor", "call_hierarchy",
-        "carthage_cartfile_inspector", "change_impact_estimate", "code_comment_extract", "code_lint",
-        "code_metrics_analyzer", "code_signing_diagnose", "code_summary", "color_usage_audit",
-        "comment_density_report", "complexity_analysis", "concurrency_audit", "conflict_marker_scan",
-        "core_data_model_inspector", "count_file_lines", "crash_log_parse", "dead_code_scan",
-        "dependency_graph", "dependency_licenses", "deprecation_usage_scan", "derived_data_locate",
-        "device_list", "dir_read", "dir_size_report", "disk_space_analyzer",
-        "docs_index_build", "docstring_generator", "duplicate_code_scan", "empty_dirs_find",
-        "entitlements_diff", "entry_points_discover", "env_info", "environment_variable_manager",
-        "executable_files_scan", "external_resource_gateway", "extract_code_symbols", "fetch_documentation",
-        "file_checksum_verifier", "file_compare_diff", "file_hash_verify", "file_head_preview",
-        "file_metadata", "file_read", "file_type_breakdown", "find_duplicate_files",
-        "force_unwrap_scan", "framework_linker_auditor", "function_size_report", "generate_file_checksum",
-        "get_desktop_state", "get_window_state", "git_blame_inspector", "git_branch_compare",
-        "git_branch_list", "git_diff", "git_diff_branch", "git_diff_range",
-        "git_log", "git_log_viewer", "git_pr_summary", "git_review_diff",
-        "git_show", "git_status", "github_repo", "icon_generator_tool",
-        "image_asset_size_report", "image_encode_base64", "image_extract_metadata", "image_get_dimensions",
-        "import_graph", "info_plist_audit", "intel_explain_code", "interface_simulator",
-        "json_validator_tool", "license_header_check", "list_apps", "list_artifacts",
-        "list_directory", "list_files", "list_windows", "list_workers",
-        "localization_audit", "mach_o_binary_analyzer", "markdown_link_check", "mem_retrieve",
-        "memory_leak_detector", "network_security_auditor", "open_in_finder", "package_dependency_audit",
-        "package_manifest_read", "package_manifest_validate", "pbxproj_lint", "permissions_audit",
-        "plan-AskUser", "podfile_inspector", "privacy_manifest_auditor", "process_monitor_tool",
-        "project_build_settings", "project_capabilities", "project_changelog", "project_diff",
-        "project_entitlements", "project_info_plist", "project_scheme_list", "project_signing",
-        "project_structure_map", "project_target_list", "protocol_conformance_list", "provisioning_check",
-        "provisioning_profile_reader", "read_artifact", "read_directory", "read_file",
-        "read_url_content", "readme_locate", "recent_changes", "repo_overview",
-        "reveal_in_finder", "reverse_analyze", "runtime_diagnostics_engine", "safe_validate_changes",
-        "scheme_test_plan_list", "search_directory", "search_files", "search_regex",
-        "search_skills", "search_symbol", "search_text", "search_web",
-        "secrets_scan", "security_audit_scanner", "semantic_query_engine", "session_progress_report",
-        "signing_certificate_inspector", "simulator_list", "source_graph_builder", "spm_dependency_tree",
-        "stale_files_report", "string_literal_audit", "strings_file_validate", "swift_ast_inspector",
-        "swift_concurrency_analyzer", "swift_data_schema_auditor", "swift_migration_advisor", "symbol_reference_graph",
-        "symlink_audit", "take_screenshot", "target_dependencies_list", "target_source_list",
-        "test_coverage_report", "test_coverage_reporter", "test_flaky_detect", "test_log_parse",
-        "todo_fixme_scanner", "todo_scan", "tool_capability_lookup", "tree_view",
-        "type_hierarchy", "unused_imports_detector", "use_mcp", "use_system",
-        "verify_state", "view_file", "view_memory", "worker_result",
-        "worker_status", "workspace_settings_read", "xcode_build_settings_inspector", "xcode_device_destination_finder",
-        "xcode_scheme_manager", "xcode_toolchain_info", "xcresult_parser", "xctest_discovery",
-        "yaml_parser_tool", "zoom",
-        ];
-        let mut seen = std::collections::HashSet::new();
-        for tool in allowed {
+        let seen: std::collections::HashSet<&str> = DEFINITIONS
+            .iter()
+            .map(|def| def.name)
+            .filter(|name| !crate::assets::READ_ONLY_DENIED_TOOLS.contains(name))
+            .collect();
+        for tool in &seen {
             assert!(
                 definition(tool).is_some(),
                 "allowed tool {tool} is not a registry tool"
             );
-            assert!(seen.insert(*tool), "duplicate allowed tool {tool}");
         }
+        assert_eq!(seen.len(), 190, "read-only allow set must hold 190 tools");
         for tool in crate::assets::READ_ONLY_DENIED_TOOLS {
             assert!(
                 !seen.contains(tool),
