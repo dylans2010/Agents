@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–128)
+### Hardening wave (Slices 69–130)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–128 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–130 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -980,9 +980,20 @@ no entries in this file either and are not backfilled here. Full record:
   terminal handoff, Appshots FFI, community links, cookie/session/history
   import, and App-state collection caps — all already bounded. No code
   change, no test added; totals unchanged at 29 defects / 27 tests.
-  Rust test total re-counted at 3,003 (desktop 1,149). Registry counts
+  Rust test total re-counted at 3,002 (desktop 1,148). Registry counts
   unchanged at 332. Statically verified only; `cargo test
   -p coincide-desktop` on Dylan's Mac is owed. Full record:
+  `docs/HARDENING-AUDIT.md`.
+- **Slice 130** — Docs-only: corrected the Slice 128 Rust test total
+  from 3,003 to the true 3,002 real (2,221 real short-form — 2,222 raw
+  minus the one `//` comment line at `diff_panel_ui_tests.rs:5` — +
+  736 fully-qualified + 45 `gpui_kit`), desktop 1,148 real (1,149
+  raw); the brief's 3,002 / 1,148 was correct and Slice 128's claim it
+  was off by one was backwards. Fixed the `rust.yml` job cite (macOS
+  job `desktop` at `:124`; Windows job `desktop-windows` at `:296`,
+  Linux job `desktop-linux` at `:532`) and backfilled the Slice 128
+  remote SHA `de82d77f`. No code change, no test added; totals
+  unchanged at 29 defects / 27 tests. Full record:
   `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server

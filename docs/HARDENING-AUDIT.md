@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–128
+# Hardening Audit — Slices 71–130
 
 ## Summary
 
@@ -44,6 +44,13 @@ appended after that, audited the GPUI desktop crate
 credentials, download, open-target, terminal-handoff, FFI, import, and
 collection-cap surfaces and found 0 defects — all description-only,
 following the Slice 105/109 precedent, so the totals stay at
+**29 defects fixed and 27 regression tests**. Slice 130,
+appended after that, corrected the Slice 128 Rust test-total figures
+(3,003 → 3,002 real, desktop 1,149 → 1,148 real — the raw short-form
+count had included the one `//` comment line at
+`diff_panel_ui_tests.rs:5`), fixed the `rust.yml` job cite, and
+backfilled the Slice 128 remote SHA — all description-only, following
+the Slice 105/109 precedent, so the totals stay at
 **29 defects fixed and 27 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
@@ -968,7 +975,7 @@ row — look at whether the hover buttons should be excluded from the
 combined element or left as-is, given they are hover-only and their
 actions are duplicated in the context menu.
 
-## Slice 128 — coincide-desktop (GPUI) audit: CI-built, 0 defects found
+## Slice 128 — coincide-desktop (GPUI) audit: CI-built, 0 defects found (remote `de82d77f`)
 
 **Audited:** `Rust Backend/crates/coincide-desktop/` (296 files under
 `src/`), the legacy GPUI desktop app — its first defect audit in this
@@ -986,7 +993,10 @@ workspace member (`Rust Backend/Cargo.toml:2`, `members` includes
 native-notifications,native-microphone,native-computer-use`), `:190`
 (updater-helper transport tests), `:193-273` (six native-SDK example
 builds), `:352,611` (`cargo check`, with and without
-`preview-updater-helper`), plus macOS/Windows/Linux jobs (`:415,668`).
+`preview-updater-helper`), plus the macOS job `desktop` at `:124` (where
+the already-cited `:154`/`:187` live), the Windows job
+`desktop-windows` at `:296` (native-app build step at `:415`), and the
+Linux job `desktop-linux` at `:532` (native-app build step at `:668`).
 `.github/workflows/ci.yml:132-133` confirms rust.yml covers coincide-core
 and coincide-desktop. It is NOT shipped: `project.yml:47,50` builds only
 `coincide-macos-ffi` and `coincide-mcp-server`, and no crate depends on it
@@ -1084,12 +1094,16 @@ closed each one:
   views.
 
 **Tests added (0):** docs-only slice; no defect to regress. Rust test
-total re-counted at HEAD: **3,003** (2,222 short-form `#[test]` + 736
-fully-qualified `#[::core::prelude::v1::test]` + 45
-`#[gpui_kit::test]`); the desktop crate holds 1,149 of them (368
-short-form, 2 of which are in `swift_link_options.rs`, + 736 + 45). The
-brief's 3,002 / 1,148 expectation was off by one short-form test against
-this HEAD; the recount above is the verified figure.
+total re-counted at HEAD: **3,002** real (2,221 real short-form
+`#[test]` — 2,222 raw minus the one `//` comment line at
+`Rust Backend/crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`,
+which mentions the attribute in prose — + 736 fully-qualified
+`#[::core::prelude::v1::test]` + 45 `#[gpui_kit::test]`); the desktop
+crate holds 1,148 real of them (1,149 raw: 368 short-form, 2 of which
+are in `swift_link_options.rs`, + 736 + 45). The brief's 3,002 / 1,148
+expectation was correct; Slice 128 counted the raw total without
+subtracting the documented comment line, and its sentence claiming the
+brief was off by one was backwards.
 
 **Verification:** re-read of every cited file/line above; registry counts
 unchanged at 332 tools per side (Swift `SystemToolDefinition(` 332; Rust
@@ -1099,15 +1113,74 @@ new `//` comments (docs only, no `.rs` changed); `git diff --stat`
 shows only this record and the `SYSTEM-TOOLSET.md` hardening entry.
 Audit baseline: local `main` `38a34d15`, remote `main`
 `7fe853752a988d1f2ab1e40f4945f89a2ca63f1f`, same tree
-`075ee67ba1cb1cc688314412ede0acc0f04087b1`. Remote SHA to be backfilled by
-the next slice. (Also backfilled Slice 126's remote SHA `7fe85375` in its
+`075ee67ba1cb1cc688314412ede0acc0f04087b1`. Remote SHA backfilled by
+Slice 130 as `de82d77fd05b995c8312a662d8f88a02bde78576` (tree
+`d9bc052544d775c26453086dda9ae56a74056935`, same as local `07da5097`).
+(Also backfilled Slice 126's remote SHA `7fe85375` in its
 heading above.)
 
 **Mac-gate checks owed:** (1) `cargo test -p coincide-desktop` on
-Dylan's Mac — the 1,149 desktop tests (updater transport/lifecycle,
+Dylan's Mac — the 1,148 desktop tests (updater transport/lifecycle,
 credential approval/fill, download, import suites) have never run here;
 (2) the CI `rust.yml` desktop jobs remain the compile gate for this
 crate, since it is not built by `project.yml`.
+
+## Slice 130 — Correct Rust test total 3,003 → 3,002; fix rust.yml cite; Slice 128 SHA backfill
+
+**Audited:** the Slice 129 verification report on Slice 128 — its two
+findings (F1 counts, F2 `rust.yml` cite) — re-checked against the repo
+at HEAD. Statically verified only — no build or test run here, as for
+every slice in this record.
+
+**Defects fixed (0):** no code change. Docs corrections only (below).
+
+**Docs corrections (not counted):** (1) the Slice 128 "Tests added (0)"
+paragraph now says the Rust test total re-counted at HEAD is **3,002**
+real — 2,221 real short-form `#[test]` (2,222 raw minus the one `//`
+comment line at
+`Rust Backend/crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`,
+which mentions the attribute in prose) + 736 fully-qualified
+`#[::core::prelude::v1::test]` + 45 `#[gpui_kit::test]` — and the
+desktop crate holds 1,148 real of them (1,149 raw), retracting Slice
+128's backwards sentence: the brief's 3,002 / 1,148 expectation was
+correct; Slice 128 had counted the raw total without subtracting the
+documented comment line; (2) the Slice 128 Mac-gate line now says the
+1,148 desktop tests have never run here; (3) the `SYSTEM-TOOLSET.md`
+Slice 128 bullet now says 3,002 (desktop 1,148); (4) the `rust.yml` cite
+in the Slice 128 "Build status" paragraph now maps the jobs precisely —
+macOS job `desktop` at `:124` (where the already-cited `:154`/`:187`
+live), Windows job `desktop-windows` at `:296` (native-app build step
+at `:415`), Linux job `desktop-linux` at `:532` (native-app build step
+at `:668`) — replacing the "macOS/Windows/Linux jobs (`:415,668`)"
+wording that attached the macOS job to the Windows/Linux step lines;
+(5) the Slice 128 section heading now carries the pushed remote SHA
+`de82d77f` and the Verification paragraph the full
+`de82d77fd05b995c8312a662d8f88a02bde78576`, replacing the "to be
+backfilled" note. `docs/MAC-GATE.md`'s 3,002 was already correct and is
+untouched. Description-only, so the totals stay at 29 defects fixed and
+27 regression tests, following the Slice 105/109 precedent.
+
+**Tests added (0):** docs-only slice. Rust test total stays 3,002 real
+(2,221 + 736 + 45); desktop 1,148 real.
+
+**Verification:** re-read of all changed hunks; counts re-measured at
+HEAD (2,222 raw short-form, exactly one non-attribute match — the `//`
+comment at `diff_panel_ui_tests.rs:5` — 736 fully-qualified, 45
+`gpui_kit`, desktop 368 raw short-form); `rust.yml` job lines re-read
+(`desktop:` :124, `desktop-windows:` :296, `desktop-linux:` :532, build
+steps :415/:668); remote `main` verified via the GitHub API as
+`de82d77fd05b995c8312a662d8f88a02bde78576`, tree
+`d9bc052544d775c26453086dda9ae56a74056935`, same as local `07da5097`;
+zero new `//` comments (docs only, no `.rs` changed); `git diff --stat`
+shows only this record and the `SYSTEM-TOOLSET.md` hardening entry.
+Audit baseline: local `main` `07da5097`, remote `main`
+`de82d77fd05b995c8312a662d8f88a02bde78576`, same tree
+`d9bc052544d775c26453086dda9ae56a74056935`. Remote SHA to be backfilled by
+the next slice.
+
+**Mac-gate checks owed:** none new; the Slice 128 Mac-gate item (the
+1,148 desktop tests never run here) stands, now with the corrected
+count.
 
 ## Documented, not fixed
 
@@ -1275,6 +1348,17 @@ limitation of the audited component, or a question owed to Dylan.
   render only when hovered, a state VoiceOver users effectively never
   trigger, and each action is duplicated in the context menu. Fixed in
   Slice 126.
+  **Slice 129 re-verification (no commit):** Slice 129 re-verified Slice
+  128 read-only and passed it with minors — (1) MAJOR — the Slice 128
+  Rust test total was 3,003 / desktop 1,149, counting the raw short-form
+  total without subtracting the one `//` comment line at
+  `diff_panel_ui_tests.rs:5`; the true total is 3,002 real (2,221 real
+  short-form + 736 fully-qualified + 45 `gpui_kit`), desktop 1,148
+  real, and the brief's 3,002 / 1,148 expectation was correct — Slice
+  128's sentence claiming the brief was off by one was backwards;
+  (2) MINOR — the Slice 128 `rust.yml` cite attached the macOS job to
+  the Windows/Linux step lines `:415,668`; the macOS job is `desktop`
+  at `:124`. Both fixed in Slice 130.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)
