@@ -730,6 +730,9 @@ fn handle_extended_request(
         "runScript" => handle_run_script(runtime, body),
         "saveBot" => handle_save_bot(runtime, body),
         "deleteBot" => handle_delete_bot(runtime, body),
+        "assistants" => Ok(("assistants", build_remote_assistants(runtime)?)),
+        "saveAssistant" => handle_save_assistant(runtime, body),
+        "deleteAssistant" => handle_delete_assistant(runtime, body),
         "settings" => Ok(("settings", build_remote_settings_snapshot(runtime)?)),
         "changeSetting" => handle_change_setting(runtime, body),
         "settingsAction" => handle_settings_action(runtime, body),
@@ -963,6 +966,98 @@ fn handle_delete_bot(
     let _undo = engine
         .apply_native_bot_deletion(prepared)
         .map_err(|e| RemoteError::failed(e.to_string()))?;
+    Ok(("ok", Value::Null))
+}
+
+fn build_remote_assistants(runtime: &CoincideMacOSRuntime) -> Result<Value, RemoteError> {
+    let resp = engine_call(runtime, "assistants.list", json!({}))?;
+    let mut out = Vec::new();
+    for item in resp["assistants"].as_array().into_iter().flatten() {
+        let Some(id_uuid) = item["id"]
+            .as_str()
+            .and_then(|s| Uuid::parse_str(s).ok())
+        else {
+            continue;
+        };
+        let mut assistant = item.clone();
+        assistant["id"] = json!(id_uuid.to_string().to_uppercase());
+        for key in ["lastUsedAt", "createdAt", "updatedAt"] {
+            if let Some(secs) = item[key].as_i64() {
+                assistant[key] = json!(secs * 1000);
+            }
+        }
+        out.push(assistant);
+    }
+    Ok(json!({
+        "assistants": out,
+        "baseline": resp["baseline"].as_str().unwrap_or(""),
+        "origin": resp["origin"].as_str().unwrap_or("empty"),
+    }))
+}
+
+fn handle_save_assistant(
+    runtime: &CoincideMacOSRuntime,
+    body: &Value,
+) -> Result<(&'static str, Value), RemoteError> {
+    let list = engine_call(runtime, "assistants.list", json!({}))?;
+    let baseline = list["baseline"]
+        .as_str()
+        .ok_or_else(|| RemoteError::failed("Assistant settings are unavailable."))?;
+    let mut assistant = body
+        .get("assistant")
+        .cloned()
+        .unwrap_or_else(|| body.clone());
+    let object = assistant
+        .as_object_mut()
+        .ok_or_else(RemoteError::bad_request)?;
+    if object
+        .get("id")
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        object.insert(
+            "id".to_string(),
+            json!(Uuid::new_v4().to_string().to_uppercase()),
+        );
+    } else if let Some(id) = object.get("id").and_then(Value::as_str) {
+        let id = id.to_uppercase();
+        object.insert("id".to_string(), json!(id));
+    }
+    object.remove("createdAt");
+    object.remove("updatedAt");
+    object.remove("lastUsedAt");
+    let saved = engine_call(
+        runtime,
+        "assistants.save",
+        json!({
+            "assistant": assistant,
+            "baseline": baseline,
+        }),
+    )?;
+    let saved_id = saved["assistant"]["id"]
+        .as_str()
+        .ok_or_else(|| RemoteError::failed("Assistant ID missing after save."))?
+        .to_uppercase();
+    Ok(("assistant", protocol::value_body(saved_id)))
+}
+
+fn handle_delete_assistant(
+    runtime: &CoincideMacOSRuntime,
+    body: &Value,
+) -> Result<(&'static str, Value), RemoteError> {
+    let assistant_uuid = parse_uuid_field(body, "assistantID")?;
+    let list = engine_call(runtime, "assistants.list", json!({}))?;
+    let baseline = list["baseline"]
+        .as_str()
+        .ok_or_else(|| RemoteError::failed("Assistant settings are unavailable."))?;
+    engine_call(
+        runtime,
+        "assistants.delete",
+        json!({
+            "assistantId": assistant_uuid.to_string().to_uppercase(),
+            "baseline": baseline,
+        }),
+    )?;
     Ok(("ok", Value::Null))
 }
 

@@ -153,6 +153,8 @@ mod idle_sleep;
 pub mod notification_events;
 #[path = "organization_api.rs"]
 mod organization_api;
+#[path = "assistants_api.rs"]
+mod assistants_api;
 #[cfg(test)]
 #[path = "provider_worker_tests.rs"]
 mod provider_worker_tests;
@@ -579,6 +581,7 @@ impl Engine {
                 | "settings.read"
                 | "projects.list"
                 | "bots.list"
+                | "assistants.list"
                 | "threads.list"
                 | "threads.read"
                 | "composer.commands"
@@ -635,6 +638,7 @@ impl Engine {
                 | "agent.pending"
                 | "projects.list"
                 | "bots.list"
+                | "assistants.list"
                 | "threads.list"
                 | "agent.selection.capabilities"
         ) {
@@ -668,6 +672,9 @@ impl Engine {
         }
         if organization_api::METHODS.contains(&method) {
             return self.organization_command(method, p);
+        }
+        if assistants_api::METHODS.contains(&method) {
+            return self.assistants_command(method, p);
         }
         if project_management_api::METHODS.contains(&method) {
             return self.project_command(method, p);
@@ -976,6 +983,7 @@ impl Engine {
                 methods.extend_from_slice(git_actions_api::METHODS);
                 methods.extend_from_slice(checkpoint_api::METHODS);
                 methods.extend_from_slice(organization_api::METHODS);
+                methods.extend_from_slice(assistants_api::METHODS);
                 methods.push("composer.context.edit");
                 methods.push("composer.context.attachTerminalSelection");
                 methods.push("composer.commands");

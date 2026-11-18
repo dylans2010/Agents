@@ -1767,6 +1767,48 @@ impl Store {
         tx.commit()?;
         Ok(())
     }
+    pub fn assistants_document(&self) -> Result<Option<Value>> {
+        self.document("assistants.json")
+    }
+    pub fn save_assistants_document_if_unchanged(
+        &mut self,
+        expected: Option<&Value>,
+        value: &Value,
+    ) -> Result<()> {
+        self.connection()?;
+        let tx = self
+            .connection_mut()?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let local: Option<String> = tx
+            .query_row(
+                "SELECT document FROM documents WHERE name='assistants.json'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let current: Option<Value> = if let Some(local) = local {
+            Some(serde_json::from_str(&local)?)
+        } else {
+            let original: Option<Vec<u8>> = tx
+                .query_row(
+                    "SELECT data FROM original_files WHERE path='assistants.json'",
+                    [],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            original
+                .as_deref()
+                .map(serde_json::from_slice)
+                .transpose()?
+        };
+        ensure!(
+            current.as_ref() == expected,
+            "Assistant document changed; reload before saving"
+        );
+        tx.execute("INSERT INTO documents(name,document) VALUES ('assistants.json',?1) ON CONFLICT(name) DO UPDATE SET document=excluded.document", [value.to_string()])?;
+        tx.commit()?;
+        Ok(())
+    }
     pub(crate) fn memory_entry(&self, composite: &str) -> Result<Option<Value>> {
         let entry: Option<String> = self
             .connection()?
