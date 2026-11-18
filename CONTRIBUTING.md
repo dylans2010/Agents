@@ -1,19 +1,19 @@
-# Contributing to Coincide
+# Contributing to Agents
 
-Thanks for your interest in Coincide, a native Rust desktop app for the coding agents you already use, ported from [T3 Code](https://github.com/pingdotgg/t3code). Bug reports, feature ideas and pull requests are all welcome.
+Thanks for your interest in Agents, a native Rust desktop app for the coding agents you already use, ported from [T3 Code](https://github.com/pingdotgg/t3code). Bug reports, feature ideas and pull requests are all welcome.
 
 Please read and follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security issues privately as described in [SECURITY.md](SECURITY.md), never in a public issue.
 
 ## Reporting bugs and requesting features
 
-- **Bug:** [open the bug report form](https://github.com/apoorvdarshan/coincide/issues/new?template=bug_report.yml). Include your macOS version, the Coincide version, which agent CLI (and its version) was involved, exact steps, and any error text or logs.
+- **Bug:** [open the bug report form](https://github.com/apoorvdarshan/coincide/issues/new?template=bug_report.yml). Include your macOS version, the Agents version, which agent CLI (and its version) was involved, exact steps, and any error text or logs.
 - **Feature:** [open the feature request form](https://github.com/apoorvdarshan/coincide/issues/new?template=feature_request.yml). Describe the problem first, then the change you'd like.
 
 Never paste API keys, tokens, cookies or private code into an issue, a log or a screenshot. Agent CLI output can contain them, so check before you post.
 
 ## Getting started
 
-Install a Rust toolchain and the native dependencies for your platform. The desktop is in `crates/coincide-desktop`; the shared application core is in `crates/coincide-core`.
+Install a Rust toolchain and the native dependencies for your platform. The desktop is in `Rust Backend/crates/coincide-desktop`; the shared application core is in `Rust Backend/crates/coincide-core`.
 
 ```sh
 cargo build -p coincide-desktop --bin coincide-rust --locked
@@ -26,8 +26,8 @@ Coincide Remote remains a separate iOS app. Generate its committed project with 
 
 ## Project layout and style
 
-- `crates/coincide-core/`: Rust state, provider integrations and tests.
-- `crates/coincide-desktop/`: GPUI interface and platform integrations.
+- `Rust Backend/crates/coincide-core/`: Rust state, provider integrations and tests.
+- `Rust Backend/crates/coincide-desktop/`: GPUI interface and platform integrations.
 - `CoincideRemote/`, `CoincideRemoteKit/`, and their test folders: the iOS companion.
 - `windows/`: earlier Windows implementation and its checks.
 - `website/` and `discord/`: website and support service.
@@ -52,7 +52,7 @@ There is no CLA, and commits don't need a `Signed-off-by` line (no DCO).
 
 ### AI-assisted contributions
 
-Contributions written with AI coding tools are welcome; Coincide is a tool for exactly that. Say in the pull request which tool you used and for what. You are responsible for every line: read and understand it, run the tests, and make sure it follows this guide. Pull requests that look unreviewed may be closed.
+Contributions written with AI coding tools are welcome; Agents is a tool for exactly that. Say in the pull request which tool you used and for what. You are responsible for every line: read and understand it, run the tests, and make sure it follows this guide. Pull requests that look unreviewed may be closed.
 
 ## License
 

@@ -85,7 +85,7 @@ def stage(scratch_root, platform, desktop, cli, store, version, commit,
             target = bindir / 'coincide-awake-helper'
             shutil.copyfile(awake_helper, target)
             target.chmod(0o755)
-            source = Path(__file__).resolve().parent.parent / 'crates/coincide-awake-helper/macos'
+            source = Path(__file__).resolve().parent.parent / 'Rust Backend/crates/coincide-awake-helper/macos'
             for directory, name in packaging.AWAKE_PLISTS:
                 destination = contents / 'Library' / directory
                 destination.mkdir(parents=True, exist_ok=True)

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, '../crates/coincide-desktop/src/browser_page_fit.rs'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../Rust Backend/crates/coincide-desktop/src/browser_page_fit.rs'), 'utf8');
 const script = source.match(/pub\(crate\) const WIDTH_SCRIPT: &str = r#"([\s\S]*?)"#;/)?.[1];
 assert.ok(script, 'production fit script missing');
 

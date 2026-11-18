@@ -1,10 +1,10 @@
 # Security Policy
 
-Coincide is a native desktop app that runs the coding agent CLIs you install (Claude Code, Codex, Cursor, Grok Build, OpenCode and Antigravity) on your Mac, with your own logins. It can run commands, edit files and drive git in the folders you open, so security reports are very welcome.
+Agents is a native desktop app that runs the coding agent CLIs you install (Claude Code, Codex, Cursor, Grok Build, OpenCode and Antigravity) on your Mac, with your own logins. It can run commands, edit files and drive git in the folders you open, so security reports are very welcome.
 
 ## Supported Versions
 
-Coincide is in early development. Security fixes go into `main` and ship in the next release; only the latest release is supported. Older releases do not get fixes, so please update before reporting.
+Agents is in early development. Security fixes go into `main` and ship in the next release; only the latest release is supported. Older releases do not get fixes, so please update before reporting.
 
 | Version | Supported |
 |---|---|
@@ -21,7 +21,7 @@ Please include:
 
 - What the vulnerability is and what an attacker could do with it
 - Steps to reproduce; a minimal proof of concept is ideal
-- Your macOS version, Coincide version (**Coincide → About Coincide**, or the commit if you built from source), and the agent CLI and its version if one is involved
+- Your macOS version, Agents version (**Agents → About Agents**, or the commit if you built from source), and the agent CLI and its version if one is involved
 - Whether it needs a particular access mode (**Full access** or **Ask for approval**), setting or repository state
 - Whether you want to be credited, and under which name
 
@@ -29,7 +29,7 @@ Never include real API keys, tokens, cookies or private code. Use placeholders, 
 
 ## What to Expect
 
-Coincide has a single maintainer, so timelines are best effort:
+Agents has a single maintainer, so timelines are best effort:
 
 - An acknowledgement within **7 days**.
 - A first assessment (whether it is in scope, how severe it is, and a rough plan) within **14 days**.
@@ -41,22 +41,22 @@ If you hear nothing within 7 days, add a comment to the advisory. Please keep th
 
 **In scope:**
 
-- The Rust desktop and core (`crates/`), and the iOS companion (`CoincideRemote/`, `CoincideRemoteKit/`).
-- How Coincide starts and talks to agent CLI processes: the arguments and environment it passes (including the login shell environment it reads), and how it parses their output (Claude stream-json, Codex and ACP JSON-RPC, the OpenCode HTTP API and event stream). For example, agent output that crashes Coincide, runs code, or makes Coincide act outside the project folder.
+- The Rust desktop and core (`Rust Backend/crates/`), and the iOS companion (`CoincideRemote/`, `CoincideRemoteKit/`).
+- How Agents starts and talks to agent CLI processes: the arguments and environment it passes (including the login shell environment it reads), and how it parses their output (Claude stream-json, Codex and ACP JSON-RPC, the OpenCode HTTP API and event stream). For example, agent output that crashes Agents, runs code, or makes Agents act outside the project folder.
 - Access modes: anything that lets an agent run a command or change a file without asking while **Ask for approval** is selected, or that approves a request the user did not approve.
-- File and terminal requests agents make through Coincide (ACP file system and terminal requests), such as reading or writing outside the working directory.
-- The local OpenCode server Coincide starts, and anything that exposes it to other users or machines.
+- File and terminal requests agents make through Agents (ACP file system and terminal requests), such as reading or writing outside the working directory.
+- The local OpenCode server Agents starts, and anything that exposes it to other users or machines.
 - Mid-thread handoff: a recap reaching an agent or session it was not meant for.
 - Git features: worktrees, checkpoints and reverts, commits, pushes and pull requests (through `git` and `gh`). For example, branch names, paths or repository contents that inject options or commands, or a revert that deletes data it should not.
 - The integrated terminal, attachments and `@` file mentions.
-- Local data in the platform-specific Coincide Rust data directory: threads, drafts and settings. For example, other users or apps being able to read it, secrets being written there unexpectedly, or a damaged or crafted file crashing Coincide or running code.
+- Local data in the platform-specific Agents Rust data directory: threads, drafts and settings. For example, other users or apps being able to read it, secrets being written there unexpectedly, or a damaged or crafted file crashing Agents or running code.
 - This repository's build and release tooling: GitHub Actions workflows and `scripts/`.
 
 **Out of scope:**
 
 - Vulnerabilities in the agent CLIs themselves or their services (report them to the agent's maker), and in T3 Code (report them upstream).
 - What an agent does within the access you gave it. In **Full access**, running commands and editing files without asking is the documented behavior.
-- Prompt injection that makes an agent misbehave within the access you gave it, unless Coincide itself grants more access than you chose.
+- Prompt injection that makes an agent misbehave within the access you gave it, unless Agents itself grants more access than you chose.
 - Attacks that need an already compromised Mac or a process already running as your user, which can read your files anyway.
 - Using up your own agent subscription or API quota.
 - Social engineering, and reports from automated scanners without a demonstrated impact.

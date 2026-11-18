@@ -11,7 +11,7 @@ import uuid
 if sys.platform != 'darwin':
     raise SystemExit('This fixture requires macOS')
 
-source = Path(__file__).resolve().parent.parent / 'crates/coincide-desktop/src/awake_service_macos.m'
+source = Path(__file__).resolve().parent.parent / 'Rust Backend/crates/coincide-desktop/src/awake_service_macos.m'
 HARNESS = r'''
 #include <stdio.h>
 #include <string.h>

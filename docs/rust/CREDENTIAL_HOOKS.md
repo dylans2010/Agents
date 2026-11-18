@@ -1,6 +1,6 @@
 # Native credential integration handoff
 
-`crates/coincide-desktop/src/credentials.rs` supplies a GPUI approval view and
+`Rust Backend/crates/coincide-desktop/src/credentials.rs` supplies a GPUI approval view and
 an acknowledged private sink. It is compiled by the desktop integration test
 harness and mounted in main.rs/browser.rs. The macOS WebKit bridge has passed
 synthetic native renderer acceptance; see [the evidence](NATIVE_CREDENTIAL_ACCEPTANCE.md).

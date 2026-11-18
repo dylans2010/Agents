@@ -6,8 +6,8 @@
 
 ## Area
 
-- [ ] Rust desktop UI or native integration (`crates/coincide-desktop/`)
-- [ ] Rust core, agents, storage or Git (`crates/coincide-core/`)
+- [ ] Rust desktop UI or native integration (`Rust Backend/crates/coincide-desktop/`)
+- [ ] Rust core, agents, storage or Git (`Rust Backend/crates/coincide-core/`)
 - [ ] iOS companion or its tests
 - [ ] Windows implementation or tests
 - [ ] Docs, CI or tooling

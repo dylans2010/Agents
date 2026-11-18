@@ -56,7 +56,7 @@ jobs:
           while IFS= read -r -d '' path; do
             count=$((count + 1))
             case "$path" in
-              crates/*|vendor/*|Cargo.toml|Cargo.lock|.cargo/*|rust-toolchain*|.github/workflows/ci.yml) rust=true ;;
+              Rust Backend/crates/*|Rust Backend/vendor/*|Rust Backend/Cargo.toml|Rust Backend/Cargo.lock|.cargo/*|rust-toolchain*|.github/workflows/ci.yml) rust=true ;;
             esac
             case "$path" in
               Coincide/*|CoincideKit/*|CoincideTests/*|CoincideKitTests/*|CoincideAgentHost/*|CoincideAlwaysOn/*|CoincidePowerHelper/*|CoincideCLI/*|CoincideUpdater/*|project.yml|.github/workflows/ci.yml) legacy=true ;;
@@ -83,9 +83,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: required-core-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}-${{ github.sha }}
+          key: required-core-${{ runner.os }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml') }}-${{ github.sha }}
           restore-keys: |
-            required-core-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}-
+            required-core-${{ runner.os }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml') }}-
             required-core-${{ runner.os }}-
       - run: cargo test -p coincide-core --locked
 

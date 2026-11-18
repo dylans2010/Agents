@@ -3,7 +3,7 @@
 Eleven native WebKit groups passed against the production bridge from source
 revision `1e5387e`. The final run completed and its isolated harness exited. No
 real vault, credential account, website, certificate trust setting or running
-Coincide instance was changed. Swift PID 2761 and existing Rust PID 36070 remained
+Agents instance was changed. Swift PID 2761 and existing Rust PID 36070 remained
 running. This is renderer/private-channel acceptance, not visual approval-panel
 or real-account acceptance.
 
@@ -64,7 +64,7 @@ only its validated capability constant from false to true.
 Local artifacts: `/tmp/coincide-native-credentials-harness/` contains
 `src/main.rs`, `native-fixture-candidate`, `native.log`, `result.json`, and
 `build.log`. The fixture used the allocated shared Cargo target, ten build jobs,
-`cargo build --offline --manifest-path .../Cargo.toml`, then directly launched its
+`cargo build --offline --manifest-path .../Rust Backend/Cargo.toml`, then directly launched its
 binary. These scratch paths are evidence locations, not packaged app inputs.
 
 ## Enforceable boundary and remaining checks

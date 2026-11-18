@@ -4,7 +4,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const source = fs.readFileSync(path.join(__dirname, '../crates/coincide-core/src/browser_screenshot_mask.rs'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../Rust Backend/crates/coincide-core/src/browser_screenshot_mask.rs'), 'utf8');
 const script = name => {
   const body = source.match(new RegExp('pub const ' + name + ': &str = r#"([\\s\\S]*?)"#;'))?.[1];
   assert.ok(body, name + ' source missing');

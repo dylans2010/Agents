@@ -2,10 +2,10 @@ name: Rust packaging validation
 
 on:
   pull_request:
-    paths: ['crates/coincide-core/**', 'vendor/gpui-pre/**', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'rust-toolchain*', 'scripts/rust-*', 'docs/rust/packaging.md', '.github/workflows/rust-packaging.yml']
+    paths: ['Rust Backend/crates/coincide-core/**', 'Rust Backend/vendor/gpui-pre/**', 'Rust Backend/Cargo.toml', 'Rust Backend/Cargo.lock', '.cargo/**', 'rust-toolchain*', 'scripts/rust-*', 'docs/rust/packaging.md', '.github/workflows/rust-packaging.yml']
   push:
     branches: [main, rust-parallel-packaging-52f19]
-    paths: ['crates/coincide-core/**', 'vendor/gpui-pre/**', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'rust-toolchain*', 'scripts/rust-*', 'docs/rust/packaging.md', '.github/workflows/rust-packaging.yml']
+    paths: ['Rust Backend/crates/coincide-core/**', 'Rust Backend/vendor/gpui-pre/**', 'Rust Backend/Cargo.toml', 'Rust Backend/Cargo.lock', '.cargo/**', 'rust-toolchain*', 'scripts/rust-*', 'docs/rust/packaging.md', '.github/workflows/rust-packaging.yml']
   workflow_dispatch:
 
 permissions:
@@ -44,7 +44,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: rust-packaging-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', '.cargo/**') }}
+          key: rust-packaging-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('Rust Backend/Cargo.lock', 'Rust Backend/Cargo.toml', '.cargo/**') }}
           restore-keys: |
             rust-packaging-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cachekey }}-
       - name: Python validator regressions

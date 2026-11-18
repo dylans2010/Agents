@@ -23,7 +23,7 @@ The coordinator owns the single Cargo writer for
 through GitHub Actions. The ASUS/SSH lane remains closed.
 
 Needed foreground native testing is explicitly authorized. Only one owner uses
-Coincide Computer Use at a time, currently limits_ui on its frozen V2 candidate. Candidates use unique bundles and task-owned data; the active Swift app
+Agents Computer Use at a time, currently limits_ui on its frozen V2 candidate. Candidates use unique bundles and task-owned data; the active Swift app
 and user data remain untouched. Synthetic acceptance does not authorize a
 production cutover, install, release, real vault operation or provider submission.
 

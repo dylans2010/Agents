@@ -56,14 +56,14 @@ Examples of representing our community include using an official e-mail address,
 posting via an official social media account, or acting as an appointed
 representative at an online or offline event.
 
-For Coincide, this includes the Coincide GitHub repository (issues, pull
+For Agents, this includes the Agents GitHub repository (issues, pull
 requests, reviews and security advisories) and anywhere someone speaks for the
 project.
 
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement. Coincide has one
+reported to the community leaders responsible for enforcement. Agents has one
 maintainer, Apoorv Darshan ([@apoorvdarshan](https://github.com/apoorvdarshan)
 on GitHub). To report privately, use the contact options on his GitHub profile;
 you can also use GitHub's "Report content" option on any comment, issue or pull

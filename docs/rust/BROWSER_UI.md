@@ -7,7 +7,7 @@ and the selected persistent profile's history off the UI thread. Private profile
 do not complete from saved history.
 
 The browser page follows the pane while it is resized. If a document's root is
-wider than the pane, Coincide fits it with native page zoom; responsive pages
+wider than the pane, Agents fits it with native page zoom; responsive pages
 remain at normal zoom. Fitting is bounded to 10% so extremely wide pages can
 still need horizontal scrolling. During navigation the previous page retains
 its zoom; the new document is briefly transparent while its initial fit is
@@ -17,13 +17,13 @@ fixed testing viewport takes precedence over automatic fitting. The size probe
 reports only document and viewport widths, and its untrusted IPC input is bounded.
 
 The browser uses the native web engine's preferred languages, without a
-Coincide-specific language or region override. Sites can still use a language
+Agents-specific language or region override. Sites can still use a language
 explicitly selected in their own account or settings.
 
 ## Import cookies on macOS
 
 Open a conversation, then go to **Settings → Browser → Import… → Choose
-cookie file…**. Coincide accepts a [Cookie-Editor JSON export](https://cookie-editor.com/)
+cookie file…**. Agents accepts a [Cookie-Editor JSON export](https://cookie-editor.com/)
 from Chrome, Safari, Edge, Brave, Arc, Vivaldi, Opera, or Firefox. Export the
 desired site's cookies as JSON and save the clipboard contents as a local plain
 text `.json` file in a private, non-synced folder. Safari's **Export Browsing

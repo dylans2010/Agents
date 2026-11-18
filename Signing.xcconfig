@@ -10,10 +10,10 @@
 // Lock-screen alerts for Coincide Remote need the Mac app signed for the iCloud container
 // iCloud.com.apoorvdarshan.coincide, with a provisioning profile that includes it:
 //
-//   COINCIDE_MAC_ENTITLEMENTS = Coincide/CoincideCloudKit.entitlements
+//   COINCIDE_MAC_ENTITLEMENTS = Agents/AgentsCloudKit.entitlements
 //   COINCIDE_MAC_PROFILE = <name of a Developer ID provisioning profile with that container>
 //
-// Without them Coincide never touches CloudKit, and alerts stay on the local network.
+// Without them Agents never touches CloudKit, and alerts stay on the local network.
 //
 // Passkeys and security keys in the browser panel need Apple's managed entitlement
 // com.apple.developer.web-browser.public-key-credential. Without it, a page's passkey request fails and the panel
@@ -25,18 +25,18 @@
 //      since a profile made before the capability doesn't carry it), download it and open it to install it.
 //   3. Here in Local.xcconfig, sign with that profile and an entitlements file that has the key:
 //
-//        COINCIDE_MAC_ENTITLEMENTS = Coincide/Passkeys.entitlements
+//        COINCIDE_MAC_ENTITLEMENTS = Agents/Passkeys.entitlements
 //        COINCIDE_MAC_PROFILE = <name of that Developer ID provisioning profile>
 //
-//      With lock-screen alerts too, use Coincide/CoincideCloudKitPasskeys.entitlements and a profile with both.
-//   4. Run xcodegen generate and build. `codesign -d --entitlements - Coincide.app` should list the key, and the panel
+//      With lock-screen alerts too, use Agents/AgentsCloudKitPasskeys.entitlements and a profile with both.
+//   4. Run xcodegen generate and build. `codesign -d --entitlements - Agents.app` should list the key, and the panel
 //      no longer shows "Passkeys aren't available" (it checks the running app's signature).
 //
 // Don't add the key without such a profile: macOS refuses to launch an app claiming a managed entitlement its
 // profile doesn't grant.
 //
 // Published releases (docs/releasing.md) come from scripts/release/build.sh, which overrides these settings on the
-// command line: Developer ID, the hardened runtime and Coincide/Coincide.entitlements (microphone and Apple Events, which
+// command line: Developer ID, the hardened runtime and Agents/Agents.entitlements (microphone and Apple Events, which
 // the hardened runtime otherwise blocks), with no provisioning profile. The opt-in entitlements files above don't carry
 // those two keys, so a hardened build signed with one of them would lose dictation and Computer Use.
 //

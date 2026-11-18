@@ -13,11 +13,11 @@ resolve `/tmp` to its physical path first (`/private/tmp`); symlink ancestors ar
 
 | Platform | Required relative files |
 | --- | --- |
-| macOS | `Coincide Rust.app/Contents/MacOS/{coincide-rust,coincide-rs,coincide-store}` and `Contents/Info.plist` within that app |
+| macOS | `Agents Rust.app/Contents/MacOS/{coincide-rust,coincide-rs,coincide-store}` and `Contents/Info.plist` within that app |
 | Windows | `bin/{coincide-rust,coincide-rs,coincide-store}.exe` |
 | Linux | `bin/{coincide-rust,coincide-rs,coincide-store}` |
 
-The macOS plist must use executable `coincide-rust`, name `Coincide Rust`, and
+The macOS plist must use executable `coincide-rust`, name `Agents Rust`, and
 identifier `com.apoorvdarshan.coincide.rust`. This is a new preview identity, not
 permission to change an existing installed bundle. Native executables need executable
 permission on Unix. Windows validates `MZ`, Linux ELF, and macOS Mach-O/fat magic.
@@ -57,7 +57,7 @@ python3 -B scripts/rust-migration-rehearsal.py --store-bin /absolute/path/coinci
 
 The only input is an executable path, never a user source/database path. The program
 runs that executable (it must be trusted), with private generated temporary fixtures,
-isolated home/data/temp directories, and no inherited provider credentials or Coincide
+isolated home/data/temp directories, and no inherited provider credentials or Agents
 control variables. It imports Unicode text, unknown fields, a draft, fake session
 references and binary attachment bytes. It checks exact captured bytes, thread JSON,
 imported identity, source immutability, repeat-import refusal, failed-import atomicity,
@@ -164,16 +164,16 @@ verify that floor before treating the artifact as launchable.
 
 ```sh
 stage_inputs=$(mktemp -d /tmp/coincide-rust-stage-inputs.XXXXXX)
-mkdir "$stage_inputs/CoincideRust.iconset"
-cp Coincide/Resources/Assets.xcassets/AppIcon.appiconset/*.png "$stage_inputs/CoincideRust.iconset/"
-iconutil -c icns -o "$stage_inputs/CoincideRust.icns" "$stage_inputs/CoincideRust.iconset"
+mkdir "$stage_inputs/AgentsRust.iconset"
+cp Agents/Resources/Assets.xcassets/AppIcon.appiconset/*.png "$stage_inputs/AgentsRust.iconset/"
+iconutil -c icns -o "$stage_inputs/AgentsRust.icns" "$stage_inputs/AgentsRust.iconset"
 python3 -B scripts/rust-stage-desktop.py --scratch-root /tmp \
   --platform macos --version 0.1.0 --build-number 1 --commit "$(git rev-parse HEAD)" \
   --desktop-bin /tmp/coincide-rust-rewrite-target/debug/coincide-rust \
   --cli-bin /tmp/coincide-rust-rewrite-target/debug/coincide-rs \
   --store-bin /tmp/coincide-rust-rewrite-target/debug/coincide-store \
   --awake-helper-bin /tmp/coincide-rust-rewrite-target/debug/coincide-awake-helper \
-  --minimum-macos-version 13.0 --icon "$stage_inputs/CoincideRust.icns"
+  --minimum-macos-version 13.0 --icon "$stage_inputs/AgentsRust.icns"
 ```
 
 Linux native/CI equivalent, after its allocated build:
@@ -277,7 +277,7 @@ was performed and existing rehearsal artifacts/archives remain unchanged. Signin
 and verifying a completed bundle require a separately authorized distribution step.
 
 GPUI's UI SVG icons are separate from the Finder ICNS icon. The desktop source now
-provides `assets::CoincideAssets` using gpui-kit-assets 0.9.0's official `icon_assets!`
+provides `assets::AgentsAssets` using gpui-kit-assets 0.9.0's official `icon_assets!`
 macro with its complete 106-icon default component set. This embeds static SVG bytes
 in debug and release builds; no SVG copies in `Contents/Resources` are needed.
 Application registration is required before running the app. The module alone does

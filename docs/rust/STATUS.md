@@ -2,12 +2,12 @@
 
 This is a replacement implementation in progress, not a replacement release.
 The running Swift application and its data remain authoritative until cutover.
-The new desktop uses `Coincide Rust`, a separate data directory and control socket.
+The new desktop uses `Agents Rust`, a separate data directory and control socket.
 Do not point both applications at one mutable data store.
 
 ## Antigravity authentication
 
-Coincide uses Antigravity's ACP server only with a selected Gemini API-key
+Agents uses Antigravity's ACP server only with a selected Gemini API-key
 account. Add the key in Settings › Antigravity, find or choose the server,
 save to approve it and its adjacent helper, and select the account in the
 composer. Google-account login
@@ -1002,7 +1002,7 @@ Implemented foundations are deliberately narrower than full feature groups:
   on all three; only main-document fields (with open shadow roots) are masked.
   Native downloads have bounded,
   thread-scoped session history and verified destinations in a fresh folder under
-  ~/Downloads/Coincide. Every host owns exact native objects (WKDownload, WebView2
+  ~/Downloads/Agents. Every host owns exact native objects (WKDownload, WebView2
   download operations, WebKitGTK downloads) with per-object receipts, including
   document-origin blob downloads; closing a tab cancels its transfers and waits for
   the native outcome. Progress/explicit cancel/resume and persistent history remain. Same-origin
@@ -1571,14 +1571,14 @@ not prove that either provider shows the same values in the Swift app.
 
 ## Real macOS notification acceptance (2026-11-08)
 
-- Staged `Coincide Rust.app` with bundle id `com.apoorvdarshan.coincide.rust`,
+- Staged `Agents Rust.app` with bundle id `com.apoorvdarshan.coincide.rust`,
   signed with the existing Developer ID Application identity, and passed
   `scripts/rust-packaging.py` manifest/validate (integrity passed; signing,
   notarization, updater and rollback remain unverified).
 - Enabled desktop notifications in Settings and granted the system permission
   ("System notifications are allowed").
 - Sent a real OpenCode (DeepSeek V4.1 Flash) turn in a throwaway data directory.
-  With the app in the background, macOS delivered the "Coincide Rust — Agent
+  With the app in the background, macOS delivered the "Agents Rust — Agent
   finished" banner.
 
 This verifies permission, enablement and one real completion notification. It
@@ -1591,9 +1591,9 @@ notarized release.
   executable and the bundle with the existing Developer ID (team
   `23RV7FYH36`), submitted it to Apple's notary service, stapled the accepted
   ticket, and passed `spctl --assess --type execute`.
-- Packaged `Coincide-Rust-macos-arm64.zip` (57,346,284 bytes, SHA-256
+- Packaged `Agents-Rust-macos-arm64.zip` (57,346,284 bytes, SHA-256
   `bc510e4b107b824754283f0be559624586346760f60f0bb93b8658a04e0c3a8a`) with
-  the top-level `Coincide Rust.app` layout the preview extractor requires, and
+  the top-level `Agents Rust.app` layout the preview extractor requires, and
   served a `rust-preview` feed and the artifact over valid HTTPS for the run.
 - Ran the production updater with the real HTTPS transport, ZIP extractor,
   disk probe and a Developer ID/Gatekeeper trust adapter: the check offered
@@ -1622,7 +1622,7 @@ unverified.
   checkpoints, the helper verified the staged bytes and the stopped target,
   wrote consent, and replaced the bundle.
 - Verified the result: installed `CFBundleShortVersionString` `0.1.1`, valid
-  Developer ID signature, Gatekeeper acceptance, `.Coincide-Rust-backup-<transaction>.app`
+  Developer ID signature, Gatekeeper acceptance, `.Agents-Rust-backup-<transaction>.app`
   retained at `0.1.0`, journal phase `Committed`, outcome `Installed`. The
   installed app was relaunched and opened normally.
 - Fixed launch wiring found by the run: create the private `transactions` and
@@ -1779,7 +1779,7 @@ cutover; no Swift app or Swift data was removed or modified.
 - `cargo test -p coincide-core --lib` passed 1164 tests (9 ignored) and
   `cargo test -p coincide-desktop --bin coincide-rust` passed 812 tests
   (26 ignored) with the app stopped. The two updater stopped-target tests fail
-  while another `Coincide Rust` process is running; they pass in isolation.
+  while another `Agents Rust` process is running; they pass in isolation.
 
 ## Forked Swift history refresh (2026-11-09)
 

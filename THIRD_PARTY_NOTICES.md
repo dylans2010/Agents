@@ -1,16 +1,16 @@
 # Third-party notices
 
-Coincide ports the design and behavior of T3 Code, and some prompts and wording are adapted from it. The terminal uses SwiftTerm.
-Computer Use runs Cua Driver, bundled unmodified in `Coincide.app/Contents/Helpers`.
+Agents ports the design and behavior of T3 Code, and some prompts and wording are adapted from it. The terminal uses SwiftTerm.
+Computer Use runs Cua Driver, bundled unmodified in `Agents.app/Contents/Helpers`.
 Dictation with Whisper on the Mac uses WhisperKit. Passkey sign-in checks sites against the Public Suffix List.
-Coincide Remote on iPhone and iPad uses RevenueCat's purchases-ios for Coincide Pro and tips.
+Coincide Remote on iPhone and iPad uses RevenueCat's purchases-ios for Agents Pro and tips.
 
 ## ACP Registry
 
 The bundled offline agent metadata is adapted from the
 [ACP Registry](https://github.com/agentclientprotocol/registry) under the Apache
 License 2.0. The snapshot and license are in
-`crates/coincide-core/third_party/acp-registry/`. Coincide also reads updated
+`Rust Backend/crates/coincide-core/third_party/acp-registry/`. Agents also reads updated
 registry metadata at runtime.
 
 ## T3 Code
@@ -43,8 +43,8 @@ SOFTWARE.
 
 ## SwiftTerm
 
-https://github.com/migueldeicaza/SwiftTerm, version 1.99.2, used under the MIT License. Coincide shows this license in
-Settings › About (`Coincide/Resources/SwiftTerm-LICENSE.txt`).
+https://github.com/migueldeicaza/SwiftTerm, version 1.99.2, used under the MIT License. Agents shows this license in
+Settings › About (`Agents/Resources/SwiftTerm-LICENSE.txt`).
 
 ```
 Copyright (c) 2019-2026 Miguel de Icaza (https://github.com/migueldeicaza)
@@ -76,9 +76,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ## WhisperKit
 
 https://github.com/argmaxinc/WhisperKit, version 1.1.1 (its WhisperKit and ArgmaxCore libraries), used under the MIT
-License. Parts of ArgmaxCore derive from Hugging Face's swift-transformers, under the Apache License 2.0. Coincide
-shows both, with WhisperKit's NOTICES file, in Settings › About (`Coincide/Resources/WhisperKit-LICENSE.txt`). No
-Whisper model ships with Coincide: models download from huggingface.co/argmaxinc/whisperkit-coreml (MIT) and
+License. Parts of ArgmaxCore derive from Hugging Face's swift-transformers, under the Apache License 2.0. Agents
+shows both, with WhisperKit's NOTICES file, in Settings › About (`Agents/Resources/WhisperKit-LICENSE.txt`). No
+Whisper model ships with Agents: models download from huggingface.co/argmaxinc/whisperkit-coreml (MIT) and
 OpenAI's tokenizers (Apache 2.0) only when the user asks in Settings › Voice.
 
 ```
@@ -137,7 +137,7 @@ SOFTWARE.
 ## Cua Driver
 
 https://github.com/trycua/cua (`libs/cua-driver`), release cua-driver-rs-v0.38.0, bundled unmodified with Cua AI's own
-signature. Coincide shows this license in Settings › About.
+signature. Agents shows this license in Settings › About.
 
 ```
 MIT License
@@ -166,8 +166,8 @@ SOFTWARE.
 ## Public Suffix List
 
 https://publicsuffix.org, Mozilla's list of domain suffixes under which separate parties register names, bundled
-unmodified as `CoincideKit/Preview/WebAuthn/public_suffix_list.dat` (inside `CoincideKit.framework/Resources`), and
-built into the Rust desktop app from the identical `crates/coincide-core/resources/public_suffix_list.dat`, under the
+unmodified as `AgentsKit/Preview/WebAuthn/public_suffix_list.dat` (inside `AgentsKit.framework/Resources`), and
+built into the Rust desktop app from the identical `Rust Backend/crates/coincide-core/resources/public_suffix_list.dat`, under the
 Mozilla Public License 2.0. Its version is on the file's `// VERSION:` line; `scripts/update-public-suffix-list.sh`
 replaces it with the current list. Signing in with a Bitwarden passkey uses it to decide which relying party IDs a
 site may claim. The file is its own source form; the license is at https://mozilla.org/MPL/2.0/.
@@ -182,12 +182,12 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 Signing in with Bitwarden passkeys follows the behavior of Bitwarden's open-source clients
 (https://github.com/bitwarden/clients): how passkeys are stored and matched, the authenticator data flags and counter
-rule, and the page script's approach. Coincide's code is its own; no Bitwarden code is included.
+rule, and the page script's approach. Agents's code is its own; no Bitwarden code is included.
 
 ## Browser and password manager logos
 
-The browser and password manager logos in Settings (`Coincide/Resources/Assets.xcassets`, `Browser-*` and
-`PasswordManager*`) are trademarks of their owners. Coincide shows them only to identify the products it imports from
+The browser and password manager logos in Settings (`Agents/Resources/Assets.xcassets`, `Browser-*` and
+`PasswordManager*`) are trademarks of their owners. Agents shows them only to identify the products it imports from
 or works with, when the product's own app isn't installed; it isn't affiliated with or endorsed by them. Each is a
 64 and 128 px PNG made from the file below, trimmed and centred without other changes. Comet's square App Store icon
 was given macOS's rounded corners.

@@ -42,7 +42,7 @@ class Fixture(BaseHTTPRequestHandler):
 def main():
     if sys.platform != "darwin":
         raise SystemExit("This fixture needs macOS WebKit")
-    source = (ROOT / "crates/coincide-desktop/src/browser_page_fit.rs").read_text()
+    source = (ROOT / "Rust Backend/crates/coincide-desktop/src/browser_page_fit.rs").read_text()
     match = re.search(r'pub\(crate\) const WIDTH_SCRIPT: &str = r#"([\s\S]*?)"#;', source)
     if match is None:
         raise SystemExit("Production fit script is missing")

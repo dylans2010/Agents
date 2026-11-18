@@ -1,10 +1,10 @@
 # Passkeys in the Rust browser
 
 The Swift app serves passkeys from the user's Bitwarden vault, because Apple's managed browser passkey entitlement
-(`com.apple.developer.web-browser.public-key-credential`, see `Coincide/Passkeys.entitlements`) is available only to
-organization developer accounts, and Coincide's account is an individual one. The Rust desktop app follows the same
-approach. Its portable logic is `crates/coincide-core/src/passkeys.rs`; the browser side is
-`crates/coincide-desktop/src/browser_passkeys.rs` and its platform files.
+(`com.apple.developer.web-browser.public-key-credential`, see `Agents/Passkeys.entitlements`) is available only to
+organization developer accounts, and Agents's account is an individual one. The Rust desktop app follows the same
+approach. Its portable logic is `Rust Backend/crates/coincide-core/src/passkeys.rs`; the browser side is
+`Rust Backend/crates/coincide-desktop/src/browser_passkeys.rs` and its platform files.
 
 ## What each platform does
 
@@ -21,12 +21,12 @@ Windows does not yet install a Bitwarden browser bridge. The separate Windows va
 transport now has Job ownership, cancellable writer I/O and retained-handle drain tests
 ([scope and validation boundary](WINDOWS_VAULT_CLI.md)); it does not implement a WebAuthn bridge. The fixture checks that
 WebView2 gives pages the API; it doesn't run a Windows Hello ceremony. Linux would need the WebAuthn API itself;
-polyfilling `PublicKeyCredential` would change how every site's feature detection behaves, so Coincide doesn't, and
+polyfilling `PublicKeyCredential` would change how every site's feature detection behaves, so Agents doesn't, and
 the fixture checks that WebKitGTK still lacks it.
 
 ## macOS, as in the Swift app
 
-- Each tab gets a `WKWebViewConfiguration` of Coincide's own before WebKit creates the view, so the first document has
+- Each tab gets a `WKWebViewConfiguration` of Agents's own before WebKit creates the view, so the first document has
   the scripts. Its store is chosen as Wry would choose it (the profile's identified store on macOS 14 and later, the
   default store before, the thread's ephemeral store for private browsing), and checked after the view exists.
 - The two page scripts are the Swift app's, unchanged (`passkeys_detection.js` in every frame, then
@@ -34,9 +34,9 @@ the fixture checks that WebKitGTK still lacks it.
   handlers: `coincidePasskey` (reports) and `coincideBitwardenPasskey` (replies).
 - The origin is the message's `WKFrameInfo`: main frames only, and only when the frame's document address agrees with
   its security origin. Relying party IDs are checked against the bundled Public Suffix List
-  (`crates/coincide-core/resources/public_suffix_list.dat`, a copy of the Swift app's; `scripts/update-public-suffix-list.sh`
+  (`Rust Backend/crates/coincide-core/resources/public_suffix_list.dat`, a copy of the Swift app's; `scripts/update-public-suffix-list.sh`
   refreshes both).
-- Requests Coincide can't serve (Bitwarden passkeys off, no Bitwarden CLI, no unlocked `BW_SESSION`, the browser not on
+- Requests Agents can't serve (Bitwarden passkeys off, no Bitwarden CLI, no unlocked `BW_SESSION`, the browser not on
   screen, conditional or silent mediation, no matching passkey) go back to WebKit, which fails them and shows the
   notice. Requests it refuses fail as a browser's do (`SecurityError`, `NotAllowedError`).
 - `bw list items`, `bw sync`, `bw get item` and `bw edit item` run on workers the browser joins at shutdown. The

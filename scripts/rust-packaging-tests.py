@@ -31,7 +31,7 @@ class ArtifactTests(unittest.TestCase):
             path.write_bytes({'linux': b'\x7fELF', 'windows': b'MZ00', 'macos': b'\xcf\xfa\xed\xfe'}[platform])
             path.chmod(0o755)
         if platform == 'macos':
-            source = Path(__file__).resolve().parent.parent / 'crates/coincide-awake-helper/macos'
+            source = Path(__file__).resolve().parent.parent / 'Rust Backend/crates/coincide-awake-helper/macos'
             for directory, name in packaging.AWAKE_PLISTS:
                 target = base / 'Library' / directory / name
                 target.parent.mkdir(parents=True, exist_ok=True)

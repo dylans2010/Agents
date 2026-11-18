@@ -188,10 +188,10 @@ acceptance matrix or claim native Windows/Linux verification.
 ## Installed result
 
 Rust 0.1.34 (build 44) was signed, accepted by Apple notarization, stapled,
-verified by Gatekeeper, and installed in `~/Applications/Coincide Rust.app`.
+verified by Gatekeeper, and installed in `~/Applications/Agents Rust.app`.
 The restarted app responds on its original control socket. Its executable
 matches the signed artifact byte for byte. The previous 0.1.33 bundle is retained
-as `~/Applications/.Coincide-Rust-0.1.33-rollback-4e3281b6`. The original data store
+as `~/Applications/.Agents-Rust-0.1.33-rollback-4e3281b6`. The original data store
 was retained; native UI experiments used the separate review snapshot.
 
 The final native build exposed selectable browser tabs and PR rows to
@@ -338,12 +338,12 @@ A production bundle does not turn those unchecked rows into completed parity.
 
 Version 0.1.35 (build 45), from `e1ca101f71cf946578ffc53f7f9126c6ef2d3945`, was signed with Developer ID,
 accepted by Apple notarization, stapled and validated by Gatekeeper, and installed
-in `~/Applications/Coincide Rust.app`. The installed executable matches the
+in `~/Applications/Agents Rust.app`. The installed executable matches the
 signed artifact byte for byte (SHA-256 `2c8dc43f35d1d6fefd2cec6cd28b0c64d44dc9670483fe0f610ea4e2bbb224f0`).
 The app opened its original Rust SQLite database and answered through its
 original control socket with zero pending persistence and no running/starting
 turns. The previous 0.1.34 bundle remains at
-`/Users/apoorvdarshan/Applications/.Coincide-Rust-0.1.34-rollback-1794235557998615000`. No review snapshot or synthetic usage data was installed.
+`/Users/apoorvdarshan/Applications/.Agents-Rust-0.1.34-rollback-1794235557998615000`. No review snapshot or synthetic usage data was installed.
 
 This is a verified checkpoint of the 50-file continuation, not closure of the
 full parity matrix.

@@ -1,5 +1,5 @@
-# XcodeGen project specification for the native macOS SwiftUI + AppKit Coincide application.
-name: Coincide
+# XcodeGen project specification for the native macOS SwiftUI + AppKit Agents application.
+name: Agents
 
 options:
   bundleIdPrefix: com.apoorvdarshan
@@ -29,60 +29,60 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: YES
 
 targets:
-  Coincide:
+  Agents:
     type: application
     platform: macOS
     configFiles:
       Debug: Signing.xcconfig
       Release: Signing.xcconfig
     preBuildScripts:
-      - name: Build Coincide macOS Rust FFI
+      - name: Build Agents macOS Rust FFI
         basedOnDependencyAnalysis: false
         script: |
           export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
           export MACOSX_DEPLOYMENT_TARGET="26.0"
-          if [ ! -f "${PROJECT_DIR}/target/release/libcoincide_macos_ffi.a" ]; then
+          if [ ! -f "${PROJECT_DIR}/Rust Backend/target/release/libcoincide_macos_ffi.a" ]; then
             echo "Building libcoincide_macos_ffi.a via cargo..."
-            cd "${PROJECT_DIR}"
+            cd "${PROJECT_DIR}/Rust Backend"
             MACOSX_DEPLOYMENT_TARGET="26.0" cargo build --release -p coincide-macos-ffi
           fi
     sources:
-      - path: Coincide
+      - path: Agents
         excludes:
           - Info.plist
-          - Coincide.entitlements
+          - Agents.entitlements
     dependencies:
       - package: CoincideRemoteKit
     settings:
       base:
-        PRODUCT_NAME: Coincide
+        PRODUCT_NAME: Agents
         PRODUCT_BUNDLE_IDENTIFIER: com.apoorvdarshan.coincide
         MARKETING_VERSION: "0.2.0"
         CURRENT_PROJECT_VERSION: 1
-        INFOPLIST_FILE: Coincide/Info.plist
+        INFOPLIST_FILE: Agents/Info.plist
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Coincide
+        INFOPLIST_KEY_CFBundleDisplayName: Agents
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
-        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Coincide connects to paired Coincide Remote devices over your local network.
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: Coincide listens to the microphone only while you dictate a message.
-        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Coincide transcribes your dictation on this Mac using Apple Speech.
-        INFOPLIST_KEY_NSAppleEventsUsageDescription: Coincide sends Apple Events to open files and folders in your preferred editors and terminals.
-        CODE_SIGN_ENTITLEMENTS: Coincide/Coincide.entitlements
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Agents connects to paired Coincide Remote devices over your local network.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Agents listens to the microphone only while you dictate a message.
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Agents transcribes your dictation on this Mac using Apple Speech.
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: Agents sends Apple Events to open files and folders in your preferred editors and terminals.
+        CODE_SIGN_ENTITLEMENTS: Agents/Agents.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_USER_SCRIPT_SANDBOXING: NO
-        SWIFT_INCLUDE_PATHS: "$(PROJECT_DIR)/crates/coincide-macos-ffi/include"
-        LIBRARY_SEARCH_PATHS: "$(PROJECT_DIR)/target/release"
+        SWIFT_INCLUDE_PATHS: "$(PROJECT_DIR)/Rust Backend/crates/coincide-macos-ffi/include"
+        LIBRARY_SEARCH_PATHS: "$(PROJECT_DIR)/Rust Backend/target/release"
         OTHER_LDFLAGS: "-lcoincide_macos_ffi -framework Security -framework SystemConfiguration -framework CoreFoundation -framework IOKit -lproc -lc++ -liconv -lresolv"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
 
-  CoincideTests:
+  AgentsTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: CoincideTests
+      - path: AgentsTests
     dependencies:
-      - target: Coincide
+      - target: Agents
       - package: CoincideRemoteKit
     settings:
       base:
@@ -90,22 +90,22 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         SWIFT_EMIT_LOC_STRINGS: NO
-        SWIFT_INCLUDE_PATHS: "$(PROJECT_DIR)/crates/coincide-macos-ffi/include"
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Coincide.app/Contents/MacOS/Coincide"
+        SWIFT_INCLUDE_PATHS: "$(PROJECT_DIR)/Rust Backend/crates/coincide-macos-ffi/include"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Agents.app/Contents/MacOS/Agents"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
 schemes:
-  Coincide:
+  Agents:
     build:
       targets:
-        Coincide: all
-        CoincideTests:
+        Agents: all
+        AgentsTests:
           - test
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - CoincideTests
+        - AgentsTests
     archive:
       config: Release

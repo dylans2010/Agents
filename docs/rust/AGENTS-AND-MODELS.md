@@ -1,6 +1,6 @@
 # Coding agents and model services
 
-Coincide looks for installed coding-agent commands at startup and displays them
+Agents looks for installed coding-agent commands at startup and displays them
 in Settings › Providers and the model picker's **Agents** tab. Detection does
 not start a command or establish whether it is signed in. The app begins with
 a bundled ACP Registry snapshot, refreshes the live registry in the background,
@@ -9,7 +9,7 @@ are retained if a command is temporarily unavailable.
 
 Choose an installed ACP agent to add it. **Browse more agents** shows the
 remaining registry entries, and **Install…** opens an agent's website so you
-can follow its setup instructions. Coincide does not download or install a
+can follow its setup instructions. Agents does not download or install a
 registry entry on its own. You can also add a local ACP command from Settings
 or the picker with its executable name or absolute path and literal arguments.
 For DeepSeek Harness, use `dsh` with `--profile acp`.
@@ -17,7 +17,7 @@ On Windows, automatic discovery finds native `.exe` and `.com` commands;
 package-manager `.cmd` launchers are not automatically discovered.
 
 Agents and their model services are separate: an ACP agent supplies its own
-models, tools, permissions and credentials. Coincide uses ACP v1 and displays
+models, tools, permissions and credentials. Agents uses ACP v1 and displays
 the agent's advertised commands and models when available. Unsupported
 active-turn steering is queued. Capability and session-resume support differ
 by agent; ACP v2-only agents and agent-specific extensions are not supported by
@@ -37,7 +37,7 @@ agents. A configured provider must be accessible to the selected OpenCode accoun
 until you set it up, rather than being inferred from an OpenCode installation.
 For hosted models, add a
 Lithos API-key account in its provider settings, save the key, and select that
-account in a conversation using Lithos. Coincide reads the models available to
+account in a conversation using Lithos. Agents reads the models available to
 that account and shows them in the Lithos picker. Keys remain in the native
 secret store and are sent to Lithos in an authorization header, never in a URL.
 The installed OpenCode executable provides the coding-agent runtime; an
@@ -45,7 +45,7 @@ OpenCode account is not required. Existing OpenCode Lithos key accounts remain
 available in OpenCode. Tool support depends on the model offered by Lithos.
 
 If an unauthenticated Lithos Metal server is running on `127.0.0.1:8000`,
-Coincide discovers the `lithos-metal` models it reports and exposes them in the
+Agents discovers the `lithos-metal` models it reports and exposes them in the
 Lithos picker without a key. A server on a different address or requiring
 authentication can be configured as an OpenCode-compatible provider. Local
 model/tool support depends on the running server and model; no model is

@@ -2,7 +2,7 @@
 // or reads the user's accounts. Run: xcrun clang -fobjc-arc -fblocks -framework
 // AppKit -framework QuartzCore scripts/test-rust-usage-menubar-macos.m -o /tmp/usage-menu-test && /tmp/usage-menu-test
 #import <AppKit/AppKit.h>
-#import "../crates/coincide-desktop/src/usage_menubar_macos.m"
+#import "../Rust Backend/crates/coincide-desktop/src/usage_menubar_macos.m"
 
 static void Require(BOOL condition, NSString *message) {
     if (!condition) { fprintf(stderr, "FAIL: %s\n", message.UTF8String); exit(1); }
