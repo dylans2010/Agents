@@ -30,7 +30,7 @@ public struct MemorySettingsPane: View {
     @State private var isSaving: Bool = false
     @State private var errorMessage: String?
     @State private var clearScopeIsWorkspace: Bool = false
-    @State private var clearConfirmed: Bool = false
+    @State private var showClearConfirm: Bool = false
     @State private var isClearing: Bool = false
 
     public init(appModel: AppModel) {
@@ -72,6 +72,14 @@ public struct MemorySettingsPane: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle("Memory")
+        .alert("Clear \(clearScopeIsWorkspace ? "Workspace" : "Global") Memory?", isPresented: $showClearConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
+                Task { await clearSelectedScope() }
+            }
+        } message: {
+            Text("This deletes every memory entry in the \(clearScopeIsWorkspace ? "workspace" : "global") scope. This cannot be undone.")
+        }
         .task {
             await reloadEntries()
         }
@@ -230,14 +238,12 @@ public struct MemorySettingsPane: View {
                 }
                 Spacer()
             }
-            Toggle("I understand this deletes every entry in the \(clearScopeIsWorkspace ? "workspace" : "global") scope.", isOn: $clearConfirmed)
-                .font(.system(size: 13))
             Button("Clear scope") {
-                Task { await clearSelectedScope() }
+                showClearConfirm = true
             }
             .buttonStyle(.borderedProminent)
             .tint(AppTheme.danger)
-            .disabled(!clearConfirmed || isClearing || (clearScopeIsWorkspace && workspaceScopeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+            .disabled(isClearing || (clearScopeIsWorkspace && workspaceScopeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
         }
     }
 
@@ -286,7 +292,6 @@ public struct MemorySettingsPane: View {
         defer { isClearing = false }
         do {
             _ = try await runtime.memoryClear(scope: clearScope, confirm: true)
-            clearConfirmed = false
             errorMessage = nil
             await reloadEntries()
         } catch {

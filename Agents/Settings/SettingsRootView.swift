@@ -4,6 +4,7 @@ import SwiftUI
 
 public struct SettingsRootView: View {
     @Bindable public var appModel: AppModel
+    @State private var settingsSearchText: String = ""
 
     public init(appModel: AppModel) {
         self.appModel = appModel
@@ -25,29 +26,51 @@ public struct SettingsRootView: View {
         }
     }
 
-    // MARK: - Sidebar
-
     private var settingsSidebar: some View {
         List(selection: $appModel.selectedSettingsTab) {
-            Section("Workspace") {
-                sidebarRow(for: .general, tint: .gray)
-                sidebarRow(for: .antigravity, tint: AppTheme.info)
-                sidebarRow(for: .providers, tint: .indigo)
-                sidebarRow(for: .models, tint: AppTheme.merged)
-                sidebarRow(for: .instructions, tint: AppTheme.warning)
-                sidebarRow(for: .memory, tint: .teal)
-                sidebarRow(for: .computerUse, tint: .brown)
-                sidebarRow(for: .assistants, tint: .purple)
-            }
-
-            Section("Telemetry & System") {
-                sidebarRow(for: .usage, tint: AppTheme.success)
-                sidebarRow(for: .voice, tint: AppTheme.favoriteHeart)
-                sidebarRow(for: .remote, tint: .cyan)
-                sidebarRow(for: .about, tint: .secondary)
+            if settingsSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                ForEach(SettingsTab.groups, id: \.title) { group in
+                    Section(group.title) {
+                        ForEach(group.tabs, id: \.self) { tab in
+                            sidebarRow(for: tab, tint: tint(for: tab))
+                        }
+                    }
+                }
+            } else {
+                Section("Results") {
+                    let matches = SettingsTab.allCases.filter { $0.matches(query: settingsSearchText) }
+                    if matches.isEmpty {
+                        Text("No matching settings")
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                            .disabled(true)
+                    } else {
+                        ForEach(matches, id: \.self) { tab in
+                            sidebarRow(for: tab, tint: tint(for: tab))
+                        }
+                    }
+                }
             }
         }
         .listStyle(.sidebar)
+        .searchable(text: $settingsSearchText, prompt: "Search Settings")
+    }
+
+    private func tint(for tab: SettingsTab) -> Color {
+        switch tab {
+        case .general: .gray
+        case .antigravity: AppTheme.info
+        case .providers: .indigo
+        case .models: AppTheme.merged
+        case .instructions: AppTheme.warning
+        case .memory: .teal
+        case .computerUse: .brown
+        case .assistants: .purple
+        case .usage: AppTheme.success
+        case .voice: AppTheme.favoriteHeart
+        case .remote: .cyan
+        case .about: .secondary
+        }
     }
 
     private func sidebarRow(for tab: SettingsTab, tint: Color) -> some View {
@@ -93,8 +116,6 @@ public struct SettingsRootView: View {
                 .frame(width: 6, height: 6)
         }
     }
-
-    // MARK: - Detail Switcher
 
     @ViewBuilder
     private var settingsDetailPane: some View {

@@ -507,6 +507,11 @@ public nonisolated struct ProviderLoginAccountInfo: Codable, Hashable, Sendable,
 public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
     public var authentication: String
     public var authenticationVerified: Bool
+    public var handshakeVerified: Bool
+    public var probeState: String?
+    public var probeCheckedAt: Date?
+    public var probeDetail: String?
+    public var probeUsedKey: Bool
     public var binaryPath: String?
     public var helperPath: String?
     public var legacyBinaryPath: String?
@@ -516,6 +521,11 @@ public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
     public init(
         authentication: String = "gemini_api_key_only",
         authenticationVerified: Bool = false,
+        handshakeVerified: Bool = false,
+        probeState: String? = nil,
+        probeCheckedAt: Date? = nil,
+        probeDetail: String? = nil,
+        probeUsedKey: Bool = false,
         binaryPath: String? = nil,
         helperPath: String? = nil,
         legacyBinaryPath: String? = nil,
@@ -524,6 +534,11 @@ public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
     ) {
         self.authentication = authentication
         self.authenticationVerified = authenticationVerified
+        self.handshakeVerified = handshakeVerified
+        self.probeState = probeState
+        self.probeCheckedAt = probeCheckedAt
+        self.probeDetail = probeDetail
+        self.probeUsedKey = probeUsedKey
         self.binaryPath = binaryPath
         self.helperPath = helperPath
         self.legacyBinaryPath = legacyBinaryPath
@@ -535,6 +550,22 @@ public nonisolated struct AntigravityStatusInfo: Codable, Hashable, Sendable {
         let c = try decoder.container(keyedBy: AnyCodingKey.self)
         self.authentication = c.string("authentication", "authMode") ?? "gemini_api_key_only"
         self.authenticationVerified = c.bool("authenticationVerified", "verified") ?? false
+        self.handshakeVerified = c.bool("handshakeVerified") ?? false
+        if let probe = c.decodeValue([String: JSONValue].self, keys: "probe") {
+            self.probeState = probe["state"]?.stringValue
+            self.probeDetail = probe["detail"]?.stringValue
+            self.probeUsedKey = probe["usedKey"]?.boolValue ?? false
+            if let checked = probe["checkedAtUnix"]?.doubleValue {
+                self.probeCheckedAt = Date(timeIntervalSince1970: checked)
+            } else {
+                self.probeCheckedAt = nil
+            }
+        } else {
+            self.probeState = nil
+            self.probeDetail = nil
+            self.probeUsedKey = false
+            self.probeCheckedAt = nil
+        }
         self.binaryPath = c.string("binaryPath", "executable", "executablePath")
         self.helperPath = c.string("helperPath", "companion", "helper")
         self.legacyBinaryPath = c.string("legacyBinaryPath", "legacyAntigravityBinary")
@@ -2098,6 +2129,62 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
         case .assistants: "person.2"
         case .about: "info.circle"
         }
+    }
+}
+
+public struct SettingsTabGroup: Hashable, Sendable {
+    public let title: String
+    public let tabs: [SettingsTab]
+
+    public init(title: String, tabs: [SettingsTab]) {
+        self.title = title
+        self.tabs = tabs
+    }
+}
+
+extension SettingsTab {
+    public static let groups: [SettingsTabGroup] = [
+        SettingsTabGroup(title: "Workspace", tabs: [.general, .instructions, .memory, .assistants]),
+        SettingsTabGroup(title: "Providers & Models", tabs: [.antigravity, .providers, .models]),
+        SettingsTabGroup(title: "System", tabs: [.computerUse, .voice, .remote, .usage, .about]),
+    ]
+
+    public var searchKeywords: [String] {
+        switch self {
+        case .general:
+            ["appearance", "theme", "font", "serif", "toolset", "system tools", "editor", "terminal", "storage", "workspace", "data", "migration"]
+        case .antigravity:
+            ["gemini", "google", "api key", "keychain", "acp", "runtime", "account", "binary"]
+        case .providers:
+            ["agents", "claude", "codex", "cursor", "grok", "opencode", "lithos", "acp", "registry", "api key", "keychain", "login", "executable", "auth", "environment"]
+        case .models:
+            ["catalog", "default", "favorite", "hidden", "custom model", "reasoning", "vision"]
+        case .instructions:
+            ["agents.md", "claude.md", "gemini.md", "cursorrules", "project", "editor"]
+        case .memory:
+            ["entries", "clear", "scope", "global"]
+        case .computerUse:
+            ["computer use", "accessibility", "screen recording", "permissions", "screenshots", "click", "type"]
+        case .assistants:
+            ["notifications", "automation", "scheduled", "tasks", "runs"]
+        case .usage:
+            ["tokens", "cost", "rate limit", "spend"]
+        case .voice:
+            ["dictation", "microphone", "speech", "transcription", "locale"]
+        case .remote:
+            ["connect", "iphone", "ipad", "pair", "qr", "tls", "certificate", "devices"]
+        case .about:
+            ["version", "links", "license", "changelog", "github"]
+        }
+    }
+
+    public func matches(query: String) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if trimmed.isEmpty {
+            return true
+        }
+        let haystack = ([title] + searchKeywords).joined(separator: " ").lowercased()
+        return trimmed.split(separator: " ").allSatisfy { haystack.contains($0) }
     }
 }
 

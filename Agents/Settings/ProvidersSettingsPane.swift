@@ -21,14 +21,6 @@ public struct ProvidersSettingsPane: View {
     @State private var isProbing: Bool = false
     @State private var isSavingConfig: Bool = false
 
-    // Add Key Account Drafts
-    @State private var newKeyAccountName: String = ""
-    @State private var newKeyEnvName: String = ""
-    @State private var newKeySecret: String = ""
-    @State private var isAddingKey: Bool = false
-    @State private var updatingKeyAccount: ProviderKeyAccountInfo?
-    @State private var updatedSecretText: String = ""
-
     // Add Login Profile Drafts
     @State private var newLoginProfileName: String = ""
     @State private var isCreatingProfile: Bool = false
@@ -103,9 +95,6 @@ public struct ProvidersSettingsPane: View {
         .onChange(of: selectedProviderID) { _, _ in
             probeResult = nil
             loadDrafts(from: selectedProvider)
-        }
-        .sheet(item: $updatingKeyAccount) { account in
-            updateKeySheet(account)
         }
     }
 
@@ -365,85 +354,18 @@ public struct ProvidersSettingsPane: View {
     }
 
     private func apiKeyAccountsSection(_ provider: DesktopProviderInfo) -> some View {
-        Section {
-            if provider.keyAccounts.isEmpty {
-                Text("No API key accounts stored in Keychain for \(provider.displayName).")
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppTheme.secondaryLabel)
-            } else {
-                ForEach(provider.keyAccounts) { account in
-                    HStack(spacing: 10) {
-                        Image(systemName: account.hasKey ? "key.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(account.hasKey ? AppTheme.success : AppTheme.warning)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(account.name)
-                                .font(.system(size: 12.5, weight: .medium))
-                            if let envVar = account.keyVariable {
-                                Text(envVar)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(AppTheme.tertiaryLabel)
-                            }
-                        }
-
-                        Spacer()
-
-                        Button("Update Key…") {
-                            updatedSecretText = ""
-                            updatingKeyAccount = account
-                        }
-                        .controlSize(.small)
-
-                        Button(role: .destructive) {
-                            Task { await deleteAccount(provider: provider.id, accountID: account.id) }
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .controlSize(.small)
-                        .accessibilityLabel("Delete API key account \(account.name)")
-                    }
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Add Keychain API Key")
-                    .font(.system(size: 12, weight: .semibold))
-
-                HStack(spacing: 8) {
-                    TextField("Account Name", text: $newKeyAccountName)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(minWidth: 120, idealWidth: 150, maxWidth: 190)
-
-                    if provider.keyChoices.count > 1 {
-                        Picker("", selection: $newKeyEnvName) {
-                            ForEach(provider.keyChoices) { choice in
-                                Text(choice.envName).tag(choice.envName)
-                            }
-                        }
-                        .labelsHidden()
-                        .accessibilityLabel("API key environment variable")
-                        .frame(minWidth: 140, idealWidth: 170, maxWidth: 210)
-                    }
-
-                    SecureField("Paste \(resolvedKeyEnvName(for: provider))…", text: $newKeySecret)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11.5, design: .monospaced))
-
-                    Button("Add Key") {
-                        Task { await addKeyAccount(for: provider) }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .disabled(
-                        newKeySecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || isAddingKey
-                    )
-                }
-            }
-            .padding(.top, 4)
-        } header: {
-            Text("API Key Accounts (macOS Keychain)")
-        }
+        ProviderKeyAccountsSection(
+            appModel: appModel,
+            provider: provider,
+            title: "API Key Accounts (macOS Keychain)",
+            addTitle: "Add Keychain API Key",
+            addButtonTitle: "Add Key",
+            emptyText: "No API key accounts stored in Keychain for \(provider.displayName).",
+            footer: nil,
+            defaultAccountName: "Default Key",
+            fixedKeyVariable: nil,
+            addAccount: addKeyAccount
+        )
     }
 
     private func loginProfilesSection(_ provider: DesktopProviderInfo) -> some View {
@@ -758,41 +680,6 @@ public struct ProvidersSettingsPane: View {
             )
     }
 
-    // MARK: - Sheet
-
-    private func updateKeySheet(_ account: ProviderKeyAccountInfo) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Update API Key — \(account.name)")
-                .font(.headline)
-
-            SecureField("Paste new API key…", text: $updatedSecretText)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12, design: .monospaced))
-
-            HStack {
-                Spacer()
-                Button("Cancel") {
-                    updatedSecretText = ""
-                    updatingKeyAccount = nil
-                }
-                Button("Update Key") {
-                    let providerID = account.provider.isEmpty ? (selectedProvider?.id ?? "") : account.provider
-                    let accountID = account.id
-                    let secret = updatedSecretText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    updatedSecretText = ""
-                    updatingKeyAccount = nil
-                    Task { await updateAccountSecret(provider: providerID, accountID: accountID, secret: secret) }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(updatedSecretText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-        }
-        .padding(20)
-        .frame(minWidth: 360, idealWidth: 400, maxWidth: 460)
-    }
-
-    // MARK: - Helpers & Runtime Calls
-
     private func loadDrafts(from provider: DesktopProviderInfo?) {
         guard let provider else {
             executableDraft = ""
@@ -808,21 +695,6 @@ public struct ProvidersSettingsPane: View {
             .keys
             .sorted()
             .map { EnvPair(key: $0, value: provider.environment[$0] ?? "") }
-        newKeyEnvName = provider.keyChoices.first?.envName
-            ?? provider.defaultKeyVariable
-            ?? DesktopProviderInfo.inferredKeyVariable(for: provider.id)
-            ?? "API_KEY"
-        if newKeyAccountName.isEmpty {
-            newKeyAccountName = "Default Key"
-        }
-    }
-
-    private func resolvedKeyEnvName(for provider: DesktopProviderInfo) -> String {
-        if !newKeyEnvName.isEmpty { return newKeyEnvName }
-        return provider.keyChoices.first?.envName
-            ?? provider.defaultKeyVariable
-            ?? DesktopProviderInfo.inferredKeyVariable(for: provider.id)
-            ?? "API_KEY"
     }
 
     private func providerStatusText(_ provider: DesktopProviderInfo) -> String {
@@ -920,47 +792,27 @@ public struct ProvidersSettingsPane: View {
         }
     }
 
-    private func addKeyAccount(for provider: DesktopProviderInfo) async {
-        guard let runtime = appModel.runtime else { return }
-        let name = newKeyAccountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "Default Key"
-            : newKeyAccountName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let secret = newKeySecret.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !secret.isEmpty else { return }
-
-        isAddingKey = true
-        defer { isAddingKey = false }
+    private func addKeyAccount(name: String, key: String, keyVariable: String) async -> String? {
+        guard let runtime = appModel.runtime else { return nil }
+        let providerID = selectedProvider?.id ?? ""
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let secret = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !providerID.isEmpty, !secret.isEmpty else { return nil }
 
         do {
             _ = try await runtime.createProviderKeyAccount(
-                provider: provider.id,
-                name: name,
+                provider: providerID,
+                name: trimmedName.isEmpty ? "Default Key" : trimmedName,
                 apiKey: secret,
-                keyVariable: resolvedKeyEnvName(for: provider)
-            )
-            newKeySecret = ""
-            await appModel.refreshProviders()
-            await appModel.refreshWorkspace()
-            appModel.presentToast("API Key Saved to Keychain", detail: name, style: .success)
-        } catch {
-            appModel.presentError(error)
-        }
-    }
-
-    private func updateAccountSecret(provider: String, accountID: String, secret: String) async {
-        guard let runtime = appModel.runtime, !provider.isEmpty, !secret.isEmpty else { return }
-        do {
-            _ = try await runtime.updateProviderAccountKey(
-                provider: provider,
-                accountID: accountID,
-                apiKey: secret
+                keyVariable: keyVariable
             )
             await appModel.refreshProviders()
             await appModel.refreshWorkspace()
-            appModel.presentToast("Keychain Secret Updated", style: .success)
+            appModel.presentToast("API Key Saved to Keychain", detail: trimmedName, style: .success)
         } catch {
             appModel.presentError(error)
         }
+        return nil
     }
 
     private func createLoginProfile(for provider: DesktopProviderInfo) async {
