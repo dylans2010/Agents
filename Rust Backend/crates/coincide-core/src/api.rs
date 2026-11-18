@@ -232,6 +232,7 @@ impl SendOrigin {
         matches!(self, Self::Scheduled)
     }
 }
+pub(crate) const MAX_RUN_EVENTS: usize = 1024;
 struct Running {
     configuration: Option<provider_configuration::LaunchConfiguration>,
     usage_context: Option<agent::usage_capture::TurnContext>,
@@ -255,6 +256,14 @@ struct RunClock {
     connected: bool,
     work: crate::active_work::Work,
     dropped_events_seen: u64,
+    dropped_run_events: u64,
+}
+fn push_run_event(events: &mut VecDeque<Event>, dropped: &mut u64, event: Event) {
+    if events.len() >= MAX_RUN_EVENTS && !matches!(event, Event::Finished | Event::Failed(_)) {
+        *dropped += 1;
+        return;
+    }
+    events.push_back(event);
 }
 pub struct Engine {
     appshots_owner: Uuid,
@@ -2473,6 +2482,7 @@ impl Engine {
                 connected: false,
                 work: crate::active_work::Work::default(),
                 dropped_events_seen: 0,
+                dropped_run_events: 0,
             },
         );
         self.runs.insert(id, run);
@@ -3291,7 +3301,14 @@ impl Engine {
                     if let (Some(clock), Event::Frame(frame)) = (clock.as_deref_mut(), &event) {
                         clock.work.observe(&run.provider, frame);
                     }
-                    run.events.push_back(event);
+                    if let Some(dropped) = clock
+                        .as_deref_mut()
+                        .map(|clock| &mut clock.dropped_run_events)
+                    {
+                        push_run_event(&mut run.events, dropped, event);
+                    } else {
+                        run.events.push_back(event);
+                    }
                 }
             }
             if self.failed_thread_workers.contains(&id)
@@ -3301,9 +3318,18 @@ impl Engine {
                     .iter()
                     .any(|event| matches!(event, Event::Finished | Event::Failed(_)))
             {
-                run.events.push_back(Event::Failed(
+                let failed = Event::Failed(
                     "Provider worker ended unexpectedly before the turn finished".into(),
-                ));
+                );
+                if let Some(dropped) = self
+                    .run_clocks
+                    .get_mut(&id)
+                    .map(|clock| &mut clock.dropped_run_events)
+                {
+                    push_run_event(&mut run.events, dropped, failed);
+                } else {
+                    run.events.push_back(failed);
+                }
                 self.failed_thread_workers.remove(&id);
             }
             if self.runs[&id].events.is_empty() {
@@ -3356,7 +3382,8 @@ impl Engine {
                     }
                 }
             };
-            let dropped = self.runs[&id].session.dropped_events();
+            let dropped = self.runs[&id].session.dropped_events()
+                + self.run_clocks.get(&id).map_or(0, |clock| clock.dropped_run_events);
             if let Some(clock) = self.run_clocks.get_mut(&id)
                 && dropped > clock.dropped_events_seen
             {
@@ -4695,6 +4722,123 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .contains(&agent::MAX_SESSION_EVENTS.to_string()),
+            "notice did not state the shed count: {}",
+            notice["text"]
+        );
+    }
+    #[test]
+    fn run_event_channel_is_bounded_and_sheds_newest_first() {
+        let mut events = VecDeque::new();
+        let mut dropped = 0;
+        for id in 0..2 * MAX_RUN_EVENTS {
+            push_run_event(&mut events, &mut dropped, Event::Frame(json!({"id": id})));
+        }
+        assert_eq!(dropped, MAX_RUN_EVENTS as u64);
+        assert_eq!(events.len(), MAX_RUN_EVENTS);
+        for (index, event) in events.iter().enumerate() {
+            match event {
+                Event::Frame(frame) => {
+                    assert_eq!(frame["id"].as_u64(), Some(index as u64))
+                }
+                event => panic!("unexpected kept event: {event:?}"),
+            }
+        }
+    }
+    #[test]
+    fn run_event_channel_never_sheds_terminal_events() {
+        let mut events = VecDeque::new();
+        let mut dropped = 0;
+        for id in 0..2 * MAX_RUN_EVENTS {
+            push_run_event(&mut events, &mut dropped, Event::Frame(json!({"id": id})));
+        }
+        push_run_event(&mut events, &mut dropped, Event::Finished);
+        push_run_event(
+            &mut events,
+            &mut dropped,
+            Event::Failed("synthetic terminal failure".to_string()),
+        );
+        assert_eq!(dropped, MAX_RUN_EVENTS as u64);
+        assert_eq!(events.len(), MAX_RUN_EVENTS + 2);
+        assert!(matches!(events.pop_back().unwrap(), Event::Failed(_)));
+        assert!(matches!(events.pop_back().unwrap(), Event::Finished));
+    }
+    #[test]
+    fn run_event_channel_counts_shed_events_exactly() {
+        let mut events = VecDeque::new();
+        let mut dropped = 0;
+        for id in 0..MAX_RUN_EVENTS / 2 {
+            push_run_event(&mut events, &mut dropped, Event::Frame(json!({"id": id})));
+        }
+        push_run_event(&mut events, &mut dropped, Event::Finished);
+        for id in MAX_RUN_EVENTS / 2..MAX_RUN_EVENTS / 2 + 600 {
+            push_run_event(&mut events, &mut dropped, Event::Frame(json!({"id": id})));
+        }
+        assert_eq!(dropped, 89);
+        assert_eq!(events.len(), MAX_RUN_EVENTS);
+        assert!(events.iter().any(|event| matches!(event, Event::Finished)));
+    }
+    #[test]
+    fn poll_surfaces_shed_run_events_as_a_transcript_notice() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine =
+            Engine::fixture(Store::open(&dir.path().join("dropped-run.sqlite")).unwrap());
+        let thread = engine.store.new_thread("").unwrap();
+        let id = text(&thread, "id");
+        let session = Session::fixture_worker(|_, _| {});
+        engine.insert_running(
+            id.clone(),
+            Running {
+                configuration: None,
+                resume_safe: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+                usage_context: None,
+                session,
+                provider: "codex".to_string(),
+                transcript_start: 0,
+                pending: HashMap::new(),
+                schedule_claim: None,
+                queue_claim: None,
+                cancelled: false,
+                events: VecDeque::new(),
+                persistence_error: None,
+            },
+        );
+        {
+            let run = engine.runs.get_mut(&id).unwrap();
+            let dropped = &mut engine
+                .run_clocks
+                .get_mut(&id)
+                .unwrap()
+                .dropped_run_events;
+            for id in 0..2 * MAX_RUN_EVENTS {
+                let frame = if id == 0 {
+                    json!({"id": id, "method": "item/started", "params": {"item": {"type": "agentMessage", "id": "survivor", "text": ""}}})
+                } else {
+                    json!({"id": id})
+                };
+                push_run_event(&mut run.events, dropped, Event::Frame(frame));
+            }
+            assert_eq!(*dropped, MAX_RUN_EVENTS as u64);
+            assert_eq!(run.events.len(), MAX_RUN_EVENTS);
+        }
+        engine.poll();
+        let saved = engine.store.thread(&id).unwrap();
+        let notice = saved["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| {
+                item["kind"] == "notice"
+                    && item["text"]
+                        .as_str()
+                        .unwrap_or("")
+                        .contains("agent update")
+            })
+            .expect("dropped events were not surfaced as a notice");
+        assert!(
+            notice["text"]
+                .as_str()
+                .unwrap()
+                .contains(&MAX_RUN_EVENTS.to_string()),
             "notice did not state the shed count: {}",
             notice["text"]
         );
