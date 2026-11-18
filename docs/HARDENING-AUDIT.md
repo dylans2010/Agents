@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–103
+# Hardening Audit — Slices 71–109
 
 ## Summary
 
@@ -18,6 +18,11 @@ helpers removed, and 6 regression tests added. Slice 102 verified the
 Swift registry read-only and found 1 pre-existing HIGH type error (fixed
 in Slice 103, no test added), and Slice 104 re-verified Slice 103 with a
 pass-with-minors verdict — bringing the totals to **23 defects fixed and
+25 regression tests**. Slice 109, appended after that, closed the last
+thread-identity description gap (`session_progress_report`, both
+registries; no behavior change, no test added). Description-only
+corrections are not counted in the defect/test totals, following the
+Slice 105 precedent, so the totals stay at **23 defects fixed and
 25 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
@@ -457,6 +462,54 @@ verified only — no Swift compile here, as for every slice in this record.
 The local pre-push commit is `cca948d3` (same tree as remote `b45b5690`).
 Slice 104 re-verified this slice; see [How to re-verify](#how-to-re-verify).
 ---
+
+## Slice 109 — Thread-identity description sweep complete
+
+**Audited:** every `threadId` / `parentThreadId` parameter description
+in both registries — `Agents/Core/SystemTools/SystemToolRegistry.swift`
+and `Rust Backend/crates/coincide-mcp-server/src/tools.rs` —
+re-enumerated from source, not trusted from the Slice 106 inventory.
+
+**Descriptions corrected (1):** `session_progress_report`'s `threadId`
+read "Parent thread ID to include worker status for." with no pinning
+language, although the value is pinned when bound: Swift `execute()`
+overwrites `threadId` for every tool (`:3835`) before the handler reads
+it to list workers (`:7105`), and Rust `call()` applies
+`with_session_defaults` at entry (`:16896`; function `:7819-7832`)
+before the handler reads it for `workers.list` (`:16477`). The
+description now reads "Parent thread ID to include worker status for,
+pinned to the session thread when bound.", byte-identical on both sides.
+
+**Sweep result:** 129 identity params per side (123 `threadId` + 6
+`parentThreadId`). Swift holds all 123 `threadId` params inline; Rust
+holds 78 inline plus 45 via the shared `P_THREAD_ID` const
+(`tools.rs:34-39`) and 6 inline `parentThreadId` params. All 6
+`parentThreadId` descriptions already carried pinning language
+(`use_workers`, `list_workers`, `intel_plan_task`,
+`intel_breakdown_task`, `execution_plan`, `start_subagent`; the last
+four pinned in Slice 107). After this fix all 129 carry it on both
+sides, and the effective descriptions are byte-identical cross-side
+(const-resolved). No other description lacked pinning language; none
+was left unchanged as inapplicable.
+
+**Tests added (0):** `sliceTwentyTwoParamDescriptionsPinned` in
+`AgentsTests/ToolsetTests.swift` pins six (tool, param, description)
+triples, none of them `session_progress_report`, and the old wording
+appeared nowhere in `AgentsTests`. The Rust
+`tool_table_matches_swift_registry` test parses the Swift registry
+dynamically and compares every param description, so the identical
+change on both sides keeps it consistent. Registry counts unchanged at
+332 tools per side.
+
+**Verification:** sweep re-run after the edit (129/129 params, 0
+lacking pinning language, 0 cross-side mismatches); zero occurrences
+of the old wording remain in either registry or the test. Statically
+verified only — no Swift compile here, as for every slice in this
+record. Sweep baseline: local `main` `2a0261d8`, remote `main`
+`27dabf958a`, same tree `667422d1`. The remote SHA of this slice's own
+commit was not knowable before pushing, so no remote SHA is cited in
+this section's heading; it should be backfilled by a later docs pass,
+as Slice 105 backfilled Slices 99–103.
 
 ## Documented, not fixed
 

@@ -7187,7 +7187,7 @@ pub static DEFINITIONS: &[ToolDef] = &[
                 name: "threadId",
                 kind: "string",
                 required: false,
-                description: "Parent thread ID to include worker status for.",
+                description: "Parent thread ID to include worker status for, pinned to the session thread when bound.",
             },
             ToolParam {
                 name: "path",

@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–104)
+### Hardening wave (Slices 69–109)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–104 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–109 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -876,6 +876,29 @@ no entries in this file either and are not backfilled here. Full record:
   MINORs — corrected the Rust test-attribute total to 3,000 (2,219
   short-form + 736 fully-qualified + 45 `#[gpui_kit::test]`); noted
   MAC-GATE.md staleness, fixed in Slice 105. No commit.
+- **Slice 105** — Joint Swift/Rust threadId description pass: registry
+  param descriptions corrected to the pinned behavior ("…, pinned to
+  the session thread when bound."); the pinned expectations in
+  `AgentsTests/ToolsetTests.swift` updated to match. Docs refresh:
+  MAC-GATE 128/3,000, hardening log 99–103.
+- **Slice 106** — Read-only inventory of thread-identity descriptions:
+  123 threadId + 6 parentThreadId params; all 6 parentThreadId pinned,
+  122 of 123 threadId pinned, `session_progress_report` the one gap.
+  No commit; closed in Slice 109.
+- **Slice 107** — Pinned the four remaining parentThreadId descriptions
+  without pinning language (`list_workers`, `intel_plan_task`,
+  `intel_breakdown_task`, `execution_plan`); fixed two hardening-audit
+  nits (the `use_mcp` line cite, the ToolDef-count wording). No test
+  change.
+- **Slice 108** — Read-only re-verification of Slice 107: PASS, zero
+  findings; one informational observation — `session_progress_report`
+  threadId still unpinned. No commit; closed in Slice 109.
+- **Slice 109** — Full re-enumeration of all 129 thread-identity params
+  per side (123 threadId + 6 parentThreadId): only
+  `session_progress_report` lacked pinning language; its description now
+  reads "Parent thread ID to include worker status for, pinned to the
+  session thread when bound." on both sides. No behavior change, no test
+  change; registry counts unchanged at 332.
 
 ## The MCP server
 

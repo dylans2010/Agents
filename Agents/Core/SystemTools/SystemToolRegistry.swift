@@ -3615,7 +3615,7 @@ public nonisolated enum SystemToolRegistry {
             channel: .desktop,
             parameters: [
                 SystemToolParameter(name: "cwd", type: "string", required: true, description: "Absolute working directory."),
-                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Parent thread ID to include worker status for."),
+                SystemToolParameter(name: "threadId", type: "string", required: false, description: "Parent thread ID to include worker status for, pinned to the session thread when bound."),
                 SystemToolParameter(name: "path", type: "string", required: false, description: "Relative path to agent_notes.md. Defaults to .assist_temp/artifacts/agent_notes.md."),
             ]
         ),
