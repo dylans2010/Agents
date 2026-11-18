@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 
 pub const PROMPT_NAME: &str = "agents-system-prompt";
 
+const MAX_ASSET_BYTES: u64 = 16 * 1024 * 1024;
+
 pub fn resolve_assets_dir(explicit: Option<&Path>) -> Option<PathBuf> {
     if let Some(dir) = explicit.filter(|d| is_assets_dir(d)) {
         return Some(dir.to_path_buf());
@@ -44,7 +46,10 @@ pub fn list_asset_names(dir: &Path) -> Result<Vec<String>> {
     for entry in entries {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        if entry.path().is_file()
+        if entry
+            .file_type()
+            .map(|kind| kind.is_file())
+            .unwrap_or(false)
             && entry
                 .path()
                 .extension()
@@ -63,18 +68,39 @@ pub fn asset_uri(name: &str) -> String {
 
 pub fn list_json(dir: &Path) -> Result<Value> {
     let names = list_asset_names(dir)?;
-    Ok(Value::Array(
-        names
-            .iter()
-            .map(|name| {
-                json!({
-                    "uri": asset_uri(name),
-                    "name": name,
-                    "mimeType": "text/markdown",
-                })
+    Ok(json!({"resources": names
+        .iter()
+        .map(|name| {
+            json!({
+                "uri": asset_uri(name),
+                "name": name,
+                "mimeType": "text/markdown",
             })
-            .collect(),
-    ))
+        })
+        .collect::<Vec<Value>>()}))
+}
+
+pub fn read_asset_text(dir: &Path, name: &str) -> Result<String> {
+    let canonical_dir = dir
+        .canonicalize()
+        .with_context(|| format!("Cannot resolve SystemAssets directory {}", dir.display()))?;
+    let canonical_file = dir
+        .join(name)
+        .canonicalize()
+        .with_context(|| format!("Cannot resolve SystemAsset \"{name}\""))?;
+    ensure!(
+        canonical_file.starts_with(&canonical_dir),
+        "SystemAsset \"{name}\" resolves outside the SystemAssets directory"
+    );
+    let size = std::fs::metadata(&canonical_file)
+        .with_context(|| format!("Cannot stat SystemAsset \"{name}\""))?
+        .len();
+    ensure!(
+        size <= MAX_ASSET_BYTES,
+        "SystemAsset \"{name}\" exceeds the 16 MiB limit"
+    );
+    std::fs::read_to_string(&canonical_file)
+        .with_context(|| format!("Cannot read SystemAsset \"{name}\""))
 }
 
 pub fn read_asset(dir: &Path, uri: &str) -> Result<Value> {
@@ -94,8 +120,7 @@ pub fn read_asset(dir: &Path, uri: &str) -> Result<Value> {
         names.iter().any(|candidate| candidate == name),
         "Unknown SystemAsset resource \"{name}\""
     );
-    let text = std::fs::read_to_string(dir.join(name))
-        .with_context(|| format!("Cannot read SystemAsset \"{name}\""))?;
+    let text = read_asset_text(dir, name)?;
     Ok(json!({"contents": [{
         "uri": uri,
         "mimeType": "text/markdown",

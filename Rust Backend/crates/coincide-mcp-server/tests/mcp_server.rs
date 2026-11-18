@@ -646,3 +646,75 @@ fn stdin_eof_exits_cleanly() {
     let session = Session::spawn(workspace.path(), None);
     session.close();
 }
+
+#[test]
+fn notifications_produce_no_response() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let mut session = Session::spawn(workspace.path(), None);
+    initialize(&mut session);
+    session
+        .stdin
+        .write_all(b"{\"jsonrpc\": \"2.0\"}\n")
+        .unwrap();
+    session.stdin.flush().unwrap();
+    session.notify("nope/method");
+    let ping = session.request("ping", json!({}));
+    assert!(ping.get("error").is_none(), "ping failed: {ping}");
+    session.close();
+}
+
+#[test]
+fn use_mcp_rejects_non_string_arguments() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let mut session = Session::spawn(workspace.path(), None);
+    initialize(&mut session);
+    let result = call(
+        &mut session,
+        "use_mcp",
+        json!({"serverName": "coincide", "toolName": "read_file", "arguments": {"path": "x"}}),
+    );
+    assert_eq!(result["isError"], true);
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("JSON object string"), "unexpected use_mcp error: {text}");
+    session.close();
+}
+
+#[test]
+fn derived_data_locate_survives_a_symlink_cycle() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let root = workspace.path().join("derived");
+    std::fs::create_dir_all(root.join("child")).unwrap();
+    std::os::unix::fs::symlink(root.clone(), root.join("child").join("loop")).unwrap();
+    let mut session = Session::spawn(workspace.path(), None);
+    initialize(&mut session);
+    let result = call(
+        &mut session,
+        "derived_data_locate",
+        json!({"path": root.to_string_lossy()}),
+    );
+    assert_eq!(result["isError"], false, "symlink cycle broke derived_data_locate: {result}");
+    session.close();
+}
+
+#[test]
+fn resources_ignore_symlinked_asset_files() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let assets = asset_fixtures();
+    let outside = workspace.path().join("outside.md");
+    std::fs::write(&outside, "# Outside\n").unwrap();
+    std::os::unix::fs::symlink(&outside, assets.path().join("Evil.md")).unwrap();
+    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    initialize(&mut session);
+    let list = session.request("resources/list", json!({}));
+    let resources = list["result"]["resources"].as_array().unwrap();
+    assert_eq!(resources.len(), 3);
+    assert!(resources
+        .iter()
+        .all(|r| r["uri"] != "agents-asset://Evil.md"));
+    let read = session.request(
+        "resources/read",
+        json!({"uri": "agents-asset://Evil.md"}),
+    );
+    assert_eq!(read["error"]["code"], -32602);
+    session.close();
+}

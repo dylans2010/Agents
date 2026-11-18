@@ -12820,7 +12820,10 @@ fn g6_privacy_audit(tool: &str, path: &str, plist: &Value) -> Value {
     })
 }
 
-fn g6_dir_size_recursive(dir: &Path) -> (i64, usize) {
+fn g6_dir_size_recursive(dir: &Path, depth: usize) -> (i64, usize) {
+    if depth > 32 {
+        return (0, 0);
+    }
     let mut bytes: i64 = 0;
     let mut files: usize = 0;
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -12828,12 +12831,15 @@ fn g6_dir_size_recursive(dir: &Path) -> (i64, usize) {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if let Ok(metadata) = entry.metadata() {
-            if metadata.is_dir() {
-                let (child_bytes, child_files) = g6_dir_size_recursive(&path);
-                bytes += child_bytes;
-                files += child_files;
-            } else {
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        if kind.is_dir() {
+            let (child_bytes, child_files) = g6_dir_size_recursive(&path, depth + 1);
+            bytes += child_bytes;
+            files += child_files;
+        } else if kind.is_file() {
+            if let Ok(metadata) = entry.metadata() {
                 bytes += metadata.len() as i64;
                 files += 1;
             }
@@ -12870,7 +12876,7 @@ fn g6_derived_data(tool: &str, path: Option<&str>, limit: usize) -> Value {
             if !dir.is_dir() {
                 continue;
             }
-            let (bytes, files) = g6_dir_size_recursive(&dir);
+            let (bytes, files) = g6_dir_size_recursive(&dir, 0);
             directories.push(json!({
                 "path": dir.to_string_lossy(),
                 "name": name,
@@ -14995,6 +15001,12 @@ fn g6_curl_fetch(url: &str, timeout_seconds: u64, tool: &str) -> Result<(i64, St
         .args([
             "-sS",
             "-L",
+            "--proto",
+            "=https",
+            "--proto-redir",
+            "=https",
+            "--max-filesize",
+            "16777216",
             "--max-time",
             &timeout_seconds.to_string(),
             "-w",
@@ -16269,8 +16281,7 @@ fn g6_misc_call(
             let tokens: Vec<&str> = query_lower.split_whitespace().collect();
             let mut scored: Vec<(i64, Value)> = Vec::new();
             for file_name in &names {
-                let path = dir.join(file_name);
-                let Ok(content) = std::fs::read_to_string(&path) else {
+                let Ok(content) = crate::assets::read_asset_text(&dir, file_name) else {
                     continue;
                 };
                 let lower = content.to_lowercase();
@@ -17367,7 +17378,15 @@ pub fn call(
             if definition(&tool_name).is_none() {
                 return Err(CallError::UnknownTool(tool_name));
             }
-            let raw = opt_str(&args, "arguments").unwrap_or_else(|| "{}".to_owned());
+            let raw = match args.get("arguments") {
+                Some(value) => match value.as_str() {
+                    Some(text) => text.to_owned(),
+                    None => {
+                        return Err(failed("arguments must be a JSON object string."));
+                    }
+                },
+                None => "{}".to_owned(),
+            };
             let parsed: Value = serde_json::from_str(&raw)
                 .map_err(|_| failed("arguments must be a JSON object string."))?;
             if !parsed.is_object() {

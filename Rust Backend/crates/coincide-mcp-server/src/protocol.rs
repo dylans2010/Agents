@@ -62,14 +62,14 @@ fn prompts_list() -> Value {
 }
 
 pub fn handle(state: &crate::ServerState, request: &Value) -> Option<Value> {
-    let Some(method) = request.get("method").and_then(Value::as_str) else {
-        let id = request.get("id").cloned().unwrap_or(Value::Null);
-        return Some(error_response(&id, -32600, "Request must carry a method string"));
-    };
     let is_notification = request.get("id").is_none();
     if is_notification {
         return None;
     }
+    let Some(method) = request.get("method").and_then(Value::as_str) else {
+        let id = request.get("id").cloned().unwrap_or(Value::Null);
+        return Some(error_response(&id, -32600, "Request must carry a method string"));
+    };
     let id = request.get("id").cloned().unwrap_or(Value::Null);
     let params = request.get("params").cloned().unwrap_or(Value::Null);
     let result = match method {
