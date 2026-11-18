@@ -49,6 +49,26 @@ public struct SidebarThreadRow: View {
         if isActivelyWorking {
             parts.append(thread.isStarting ? "starting" : "running")
         }
+        if thread.isPinned {
+            parts.append("pinned")
+        }
+        if thread.isArchived {
+            parts.append("archived")
+        }
+        if thread.hasDraft {
+            parts.append("unsent draft")
+        }
+        if let branch = thread.branch?.trimmingCharacters(in: .whitespacesAndNewlines), !branch.isEmpty {
+            parts.append(thread.hasWorktree ? "worktree branch \(branch)" : "branch \(branch)")
+        } else if thread.hasWorktree {
+            parts.append("worktree")
+        }
+        if isSnoozedActive {
+            parts.append("snoozed")
+        }
+        if let scheduleCount = thread.scheduleCount, scheduleCount > 0 {
+            parts.append("\(scheduleCount) active schedule\(scheduleCount == 1 ? "" : "s")")
+        }
         return parts.joined(separator: ", ")
     }
 
@@ -186,7 +206,7 @@ public struct SidebarThreadRow: View {
     @ViewBuilder
     private var trailingIndicators: some View {
         HStack(spacing: 6) {
-            if isSnoozedActive && isHovering {
+            if isSnoozedActive {
                 Button {
                     Task { await appModel.performThreadAction(.snooze(nil), on: thread.id) }
                 } label: {
@@ -195,6 +215,7 @@ public struct SidebarThreadRow: View {
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
                 .buttonStyle(.plain)
+                .opacity(isHovering ? 1.0 : 0.45)
                 .help("Unsnooze Thread")
                 .accessibilityLabel("Unsnooze thread")
             }

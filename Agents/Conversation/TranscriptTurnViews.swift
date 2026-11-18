@@ -10,7 +10,7 @@ nonisolated enum TranscriptRenderBlock: Identifiable, Equatable, Sendable {
     case workGroup(id: UUID, items: [RemoteItem])
     case assistant(item: RemoteItem, turnOpeningItemID: UUID?, changedFiles: [RemoteChangedFile])
     case plan(RemoteItem)
-    case error(RemoteItem)
+    case error(item: RemoteItem, lastUserMessage: String?)
     case notice(RemoteItem)
     case approval(RemoteItem)
     case question(RemoteItem)
@@ -21,7 +21,7 @@ nonisolated enum TranscriptRenderBlock: Identifiable, Equatable, Sendable {
         case .workGroup(let id, _): "work-\(id.uuidString)"
         case .assistant(let item, _, _): "assistant-\(item.id.uuidString)"
         case .plan(let item): "plan-\(item.id.uuidString)"
-        case .error(let item): "error-\(item.id.uuidString)"
+        case .error(let item, _): "error-\(item.id.uuidString)"
         case .notice(let item): "notice-\(item.id.uuidString)"
         case .approval(let item): "approval-\(item.id.uuidString)"
         case .question(let item): "question-\(item.id.uuidString)"
@@ -33,7 +33,7 @@ nonisolated enum TranscriptRenderBlock: Identifiable, Equatable, Sendable {
         case .user(let item),
              .assistant(let item, _, _),
              .plan(let item),
-             .error(let item),
+             .error(let item, _),
              .notice(let item),
              .approval(let item),
              .question(let item):
@@ -47,6 +47,7 @@ nonisolated enum TranscriptRenderBlock: Identifiable, Equatable, Sendable {
         var blocks: [TranscriptRenderBlock] = []
         var workBuffer: [RemoteItem] = []
         var currentTurnUserID: UUID? = nil
+        var lastUserText: String? = nil
 
         // Precompute the last assistant item ID for each user turn so `turnChanges` attaches cleanly once per turn.
         var lastAssistantForTurn: [UUID: UUID] = [:]
@@ -74,6 +75,9 @@ nonisolated enum TranscriptRenderBlock: Identifiable, Equatable, Sendable {
                 flushWorkBuffer()
                 if !item.steered {
                     currentTurnUserID = item.id
+                    if !item.text.isEmpty {
+                        lastUserText = item.text
+                    }
                 }
                 blocks.append(.user(item))
 
@@ -95,7 +99,7 @@ nonisolated enum TranscriptRenderBlock: Identifiable, Equatable, Sendable {
 
             case .error:
                 flushWorkBuffer()
-                blocks.append(.error(item))
+                blocks.append(.error(item: item, lastUserMessage: lastUserText))
 
             case .notice:
                 flushWorkBuffer()
@@ -171,8 +175,8 @@ struct TranscriptBlockRowView: View {
             case .plan(let item):
                 PlanTurnCard(item: item, appModel: appModel, highlightQuery: highlightQuery)
 
-            case .error(let item):
-                ErrorTurnCard(item: item)
+            case .error(let item, let lastUserMessage):
+                ErrorTurnCard(item: item, appModel: appModel, threadID: threadID, lastUserMessage: lastUserMessage)
 
             case .notice(let item):
                 NoticeTurnRow(item: item)
@@ -464,12 +468,11 @@ struct WorkGroupRow: View {
         return "Completed \(totalSteps) \(totalSteps == 1 ? "step" : "steps")"
     }
 
-    private var elapsedText: String? {
-        guard !isRunning,
-              let firstStart = items.map(\.createdAt).min(),
-              let lastEnd = items.compactMap(\.completedAt).max()
-        else { return nil }
-        let seconds = lastEnd.timeIntervalSince(firstStart)
+    private var runningStartDate: Date? {
+        items.map(\.createdAt).min()
+    }
+
+    private static func formatElapsed(_ seconds: TimeInterval) -> String? {
         guard seconds >= 0.4 else { return nil }
         if seconds < 60 {
             return String(format: "%.1fs", seconds)
@@ -477,6 +480,14 @@ struct WorkGroupRow: View {
         let mins = Int(seconds) / 60
         let secs = Int(seconds) % 60
         return "\(mins)m \(secs)s"
+    }
+
+    private var elapsedText: String? {
+        guard !isRunning,
+              let firstStart = runningStartDate,
+              let lastEnd = items.compactMap(\.completedAt).max()
+        else { return nil }
+        return Self.formatElapsed(lastEnd.timeIntervalSince(firstStart))
     }
 
     var body: some View {
@@ -507,7 +518,15 @@ struct WorkGroupRow: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
 
-                    if let elapsedText {
+                    if isRunning, let startDate = runningStartDate {
+                        TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                            if let liveElapsed = Self.formatElapsed(context.date.timeIntervalSince(startDate)) {
+                                Text(liveElapsed)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(AppTheme.tertiaryLabel)
+                            }
+                        }
+                    } else if let elapsedText {
                         Text(elapsedText)
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.tertiaryLabel)
@@ -535,6 +554,7 @@ struct WorkGroupRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 5) {
@@ -623,7 +643,7 @@ struct ToolOrReasoningStepRow: View {
         case "running":
             return ("running", AppTheme.info)
         case "completed":
-            return ("completed", AppTheme.success)
+            return nil
         case "failed":
             return ("failed", AppTheme.danger)
         case "declined":
@@ -723,6 +743,7 @@ struct ToolOrReasoningStepRow: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityValue(isDetailOpen ? "Expanded" : "Collapsed")
 
                 // Clickable workspace file pills
                 ForEach(Array(detectedWorkspaceFiles.enumerated()), id: \.offset) { _, target in
@@ -1073,7 +1094,7 @@ struct AssistantTurnRow: View {
                             .disabled(isForking)
                             .help("Create a forked thread up to this response")
                         }
-                        .opacity(isHovering || copiedMarkdown ? 1.0 : 0.45)
+                        .opacity(isHovering || copiedMarkdown ? 1.0 : 0.75)
 
                         Spacer(minLength: 0)
                     }
@@ -1092,6 +1113,8 @@ struct TurnChangesCardView: View {
     let turnOpeningItemID: UUID?
     let files: [RemoteChangedFile]
     let appModel: AppModel
+
+    @State private var showAllFiles = false
 
     private var totalAdditions: Int { files.reduce(0) { $0 + $1.additions } }
     private var totalDeletions: Int { files.reduce(0) { $0 + $1.deletions } }
@@ -1140,7 +1163,7 @@ struct TurnChangesCardView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(files.prefix(6)) { file in
+                ForEach(files.prefix(showAllFiles ? files.count : 6)) { file in
                     Button {
                         appModel.openFileInInspector(path: file.path)
                     } label: {
@@ -1174,10 +1197,15 @@ struct TurnChangesCardView: View {
                 }
 
                 if files.count > 6 {
-                    Text("+ \(files.count - 6) more files")
-                        .font(.system(size: 11))
-                        .foregroundStyle(AppTheme.tertiaryLabel)
-                        .padding(.top, 2)
+                    Button {
+                        showAllFiles.toggle()
+                    } label: {
+                        Text(showAllFiles ? "Show fewer files" : "+ \(files.count - 6) more files")
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 2)
                 }
             }
         }
@@ -1250,6 +1278,17 @@ struct PlanTurnCard: View {
 
 struct ErrorTurnCard: View {
     let item: RemoteItem
+    let appModel: AppModel
+    let threadID: UUID
+    var lastUserMessage: String?
+
+    @State private var copiedError = false
+    @State private var isRetrying = false
+
+    private var canRetry: Bool {
+        guard let message = lastUserMessage else { return false }
+        return !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -1268,6 +1307,40 @@ struct ErrorTurnCard: View {
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            HStack(spacing: 10) {
+                Button {
+                    guard let message = lastUserMessage else { return }
+                    isRetrying = true
+                    Task {
+                        _ = await appModel.sendMessage(text: message, to: threadID)
+                        isRetrying = false
+                    }
+                } label: {
+                    Label(isRetrying ? "Retrying…" : "Retry", systemImage: "arrow.clockwise")
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canRetry || isRetrying)
+                .help("Re-send the last message")
+
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(item.text, forType: .string)
+                    copiedError = true
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.4))
+                        copiedError = false
+                    }
+                } label: {
+                    Label(copiedError ? "Copied" : "Copy Error", systemImage: copiedError ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(copiedError ? AppTheme.success : AppTheme.secondaryLabel)
+                }
+                .buttonStyle(.plain)
+                .help("Copy error message")
+            }
+            .padding(.top, 4)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
