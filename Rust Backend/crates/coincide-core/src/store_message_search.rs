@@ -124,22 +124,6 @@ impl Store {
             path,
         })
     }
-    /// Threads whose user or agent messages contain `needle`, keyed by ID, with
-    /// the matching line. Fewer than two typed characters find nothing.
-    ///
-    /// The lowercased transcript index narrows the candidates first. It folds
-    /// case but not accents, so unlike Swift an unaccented needle does not find
-    /// accented text.
-    pub fn message_matches(
-        &self,
-        needle: &str,
-        include_archived: bool,
-    ) -> Result<HashMap<String, String>> {
-        Ok(self
-            .message_matches_cancellable(needle, include_archived, &|| false)?
-            .unwrap_or_default())
-    }
-
     fn message_matches_cancellable(
         &self,
         needle: &str,
@@ -202,7 +186,10 @@ mod tests {
                 .search("searchable", false, || false)
                 .unwrap()
                 .unwrap(),
-            store.message_matches("searchable", false).unwrap()
+            HashMap::from([(
+                id.to_owned(),
+                "A searchable synthetic message".to_owned()
+            )])
         );
         assert!(
             source
@@ -318,12 +305,23 @@ mod tests {
                 json!([{"id":"c","kind":"assistant","text":"sidebar search done"}]),
             ))
             .unwrap();
-        let found = store.message_matches("sidebar search", false).unwrap();
+        let source = store.message_search_source().unwrap();
+        let found = source
+            .search("sidebar search", false, || false)
+            .unwrap()
+            .unwrap();
         assert_eq!(found.len(), 1);
         assert_eq!(found[user], "Please fix the Sidebar search");
-        let all = store.message_matches("sidebar search", true).unwrap();
+        let all = source
+            .search("sidebar search", true, || false)
+            .unwrap()
+            .unwrap();
         assert_eq!(all.len(), 2);
-        assert!(store.message_matches("s", true).unwrap().is_empty());
+        assert!(source
+            .search("s", true, || false)
+            .unwrap()
+            .unwrap()
+            .is_empty());
         drop(store);
         fs::remove_dir_all(root).unwrap();
     }

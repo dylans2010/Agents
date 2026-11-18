@@ -1550,11 +1550,19 @@ impl Store {
         ensure!(draft.len() <= 1_048_576, "Draft exceeds 1 MiB");
         self.connection()?;
         let tx = self.connection_mut()?.transaction()?;
-        let previous_revision = draft_revision(&tx, id)?;
+        let stored: Option<String> = tx
+            .query_row(
+                "SELECT id FROM threads WHERE id=?1 COLLATE NOCASE",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let stored = stored.context("Thread not found")?;
+        let previous_revision = draft_revision(&tx, &stored)?;
         let navigation = tx
             .query_row(
                 "SELECT metadata FROM thread_navigation WHERE id=?1 COLLATE NOCASE",
-                [id],
+                [stored.as_str()],
                 |row| row.get::<_, Option<String>>(0),
             )
             .optional()?
@@ -1565,23 +1573,23 @@ impl Store {
                 Some(value.to_string())
             });
         let changed = tx.execute(
-            "UPDATE threads SET document=json_set(document,'$.draft',?2) WHERE id=?1 COLLATE NOCASE",
-            params![id, draft],
+            "UPDATE threads SET document=json_set(document,'$.draft',?2) WHERE id=?1",
+            params![stored, draft],
         )?;
         ensure!(changed == 1, "Thread not found");
-        if draft_revision(&tx, id)? == previous_revision {
+        if draft_revision(&tx, &stored)? == previous_revision {
             // The change trigger handles different text; an explicit rewrite
             // of the same text still represents a new editing intent.
-            mark_draft_write(&tx, id)?;
+            mark_draft_write(&tx, &stored)?;
         }
         if let Some(metadata) = navigation {
             tx.execute(
                 "INSERT INTO thread_navigation(id,metadata) VALUES (?1,?2) ON CONFLICT(id) DO UPDATE SET metadata=excluded.metadata",
-                params![id, metadata],
+                params![stored, metadata],
             )?;
         }
         tx.commit()?;
-        Ok(json!({"id": id, "draft": draft}))
+        Ok(json!({"id": stored, "draft": draft}))
     }
     pub fn patch_thread(&mut self, id: &str, patch: &Value) -> Result<Value> {
         self.connection()?;
@@ -1594,8 +1602,12 @@ impl Store {
         if patch.len() == 1
             && let Some(draft) = patch.get("draft")
         {
-            self.patch_draft(id, draft.as_str().context("draft must be text")?)?;
-            return self.thread(id);
+            let patched =
+                self.patch_draft(id, draft.as_str().context("draft must be text")?)?;
+            let stored = patched["id"]
+                .as_str()
+                .context("Draft patch returned no thread id")?;
+            return self.thread(stored);
         }
         let mut value = self.thread(id)?;
         for (key, next) in patch {
@@ -2943,6 +2955,22 @@ mod tests {
         );
         db.patch_draft(ID, "").unwrap();
         assert_eq!(db.thread(ID).unwrap()["draft"], "");
+    }
+
+    #[test]
+    fn draft_patch_accepts_a_case_variant_thread_id() {
+        let (_dir, _source, mut db) = setup();
+        let v = json!({"id":ID,"items":[],"title":"Draft holder","createdAt":800000000.0,"draft":""});
+        db.save(&v).unwrap();
+        let lower = ID.to_lowercase();
+        let changed = db.patch_draft(&lower, "hello").unwrap();
+        assert_eq!(changed, json!({"id":ID,"draft":"hello"}));
+        let patched = db
+            .patch_thread(&lower, &json!({"draft": "again"}))
+            .unwrap();
+        assert_eq!(patched["id"], ID);
+        assert_eq!(patched["draft"], "again");
+        assert_eq!(db.thread(ID).unwrap()["draft"], "again");
     }
 
     #[test]

@@ -287,14 +287,6 @@ impl Store {
         let identity = crate::private_fs::identity(&path)?;
         Ok((path, identity))
     }
-    pub(crate) fn archived_conversations(
-        &self,
-        query: &str,
-        offset: usize,
-        limit: usize,
-    ) -> Result<ArchivedConversations> {
-        self.archived_conversations_for_project(query, None, offset, limit)
-    }
     pub(crate) fn archived_conversations_for_project(
         &self,
         query: &str,
@@ -536,7 +528,7 @@ mod tests {
             .unwrap()
             .execute("DELETE FROM threads WHERE id=?1", [&missing])
             .unwrap();
-        let page = store.archived_conversations("", 0, 50).unwrap();
+        let page = store.archived_conversations_for_project("", None, 0, 50).unwrap();
         assert_eq!(page.total, 1);
         assert_eq!(page.rows[0].id, text(&threads[1], "id"));
         assert_eq!(store.thread(&text(&threads[2], "id")).unwrap(), threads[2]);
@@ -821,10 +813,10 @@ mod tests {
     #[test]
     fn archive_title_filter_paginates_all_projects_and_live_rows_cannot_be_deleted() {
         let (_dir, store, threads) = fixture();
-        let page = store.archived_conversations("ARCHIVE", 0, 1).unwrap();
+        let page = store.archived_conversations_for_project("ARCHIVE", None, 0, 1).unwrap();
         assert_eq!(page.total, 2);
         assert_eq!(page.rows.len(), 1);
-        let next = store.archived_conversations("archive", 1, 1).unwrap();
+        let next = store.archived_conversations_for_project("archive", None, 1, 1).unwrap();
         assert_eq!(next.total, 2);
         assert_ne!(page.rows[0].id, next.rows[0].id);
         assert!(
@@ -834,7 +826,7 @@ mod tests {
         );
         assert_eq!(
             store
-                .archived_conversations("no match", 0, 50)
+                .archived_conversations_for_project("no match", None, 0, 50)
                 .unwrap()
                 .total,
             0
@@ -931,7 +923,7 @@ mod tests {
         );
         assert_eq!(
             store
-                .archived_conversations("archive", 0, 10)
+                .archived_conversations_for_project("archive", None, 0, 10)
                 .unwrap()
                 .total,
             3
