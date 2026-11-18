@@ -1239,6 +1239,85 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         return env.matches ?? []
     }
 
+    public func memoryStore(key: String, value: String, scope: String? = nil) async throws -> JSONValue {
+        var params: [String: JSONValue] = [
+            "key": .string(key),
+            "value": .string(value),
+        ]
+        if let scope {
+            params["scope"] = .string(scope)
+        }
+        return try await desktopCall(action: "memory.store", params: params, as: JSONValue.self)
+    }
+
+    public func memoryRetrieve(key: String, scope: String? = nil) async throws -> JSONValue {
+        var params: [String: JSONValue] = ["key": .string(key)]
+        if let scope {
+            params["scope"] = .string(scope)
+        }
+        return try await desktopCall(action: "memory.retrieve", params: params, as: JSONValue.self)
+    }
+
+    private struct MemoryListEnvelope: Decodable {
+        var entries: [MemoryEntry]?
+    }
+
+    public func memoryList(scope: String? = nil, query: String? = nil, limit: Int = 200) async throws -> [MemoryEntry] {
+        var params: [String: JSONValue] = ["limit": .int(Int64(limit))]
+        if let scope {
+            params["scope"] = .string(scope)
+        }
+        if let query {
+            params["query"] = .string(query)
+        }
+        let env = try await desktopCall(action: "memory.list", params: params, as: MemoryListEnvelope.self)
+        return env.entries ?? []
+    }
+
+    public func memoryDelete(key: String, scope: String? = nil) async throws -> JSONValue {
+        var params: [String: JSONValue] = ["key": .string(key)]
+        if let scope {
+            params["scope"] = .string(scope)
+        }
+        return try await desktopCall(action: "memory.delete", params: params, as: JSONValue.self)
+    }
+
+    public func memoryClear(scope: String, confirm: Bool) async throws -> JSONValue {
+        try await desktopCall(
+            action: "memory.clear",
+            params: [
+                "scope": .string(scope),
+                "confirm": .bool(confirm),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func memorySnapshot(scope: String? = nil, query: String? = nil, limit: Int = 50) async throws -> JSONValue {
+        var params: [String: JSONValue] = ["limit": .int(Int64(limit))]
+        if let scope {
+            params["scope"] = .string(scope)
+        }
+        if let query {
+            params["query"] = .string(query)
+        }
+        return try await desktopCall(action: "memory.snapshot", params: params, as: JSONValue.self)
+    }
+
+    public func memoryContextStore(key: String, action: String, value: String? = nil, scope: String? = nil) async throws -> JSONValue {
+        var params: [String: JSONValue] = [
+            "key": .string(key),
+            "action": .string(action),
+        ]
+        if let value {
+            params["value"] = .string(value)
+        }
+        if let scope {
+            params["scope"] = .string(scope)
+        }
+        return try await desktopCall(action: "memory.context_store", params: params, as: JSONValue.self)
+    }
+
     // 5. Agent Instruction Files
     private struct InstructionsListEnvelope: Decodable {
         var global: [InstructionFileDescriptor]?

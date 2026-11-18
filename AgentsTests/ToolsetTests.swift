@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 26)
+        #expect(tools.count == 33)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -77,6 +77,8 @@ struct ToolsetTests {
             "terminal.create", "terminal.write", "terminal.read", "git.status", "git.diff",
             "git.actions.run", "git.actions.pull", "git.branches.list", "git.branches.create",
             "git.branches.checkout",
+            "memory.store", "memory.retrieve", "memory.list", "memory.delete",
+            "memory.clear", "memory.snapshot", "memory.context_store",
         ])
         #expect(tools.allSatisfy { !$0.parameters.isEmpty })
         #expect(tools.allSatisfy { $0.parameters.contains { $0.required } })

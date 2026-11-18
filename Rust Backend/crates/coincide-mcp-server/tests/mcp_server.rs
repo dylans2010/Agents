@@ -139,7 +139,7 @@ fn tools_list_returns_the_real_registry() {
     initialize(&mut session);
     let response = session.request("tools/list", json!({}));
     let tools = response["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 26);
+    assert_eq!(tools.len(), 33);
     let names: Vec<&str> = tools
         .iter()
         .map(|tool| tool["name"].as_str().unwrap())
@@ -171,6 +171,13 @@ fn tools_list_returns_the_real_registry() {
         "git_branch_list",
         "git_branch_create",
         "git_branch_checkout",
+        "mem_store",
+        "mem_retrieve",
+        "view_memory",
+        "mem_delete",
+        "mem_clear",
+        "mem_context_snapshot",
+        "context_persistence_store",
     ] {
         assert!(names.contains(&expected), "tools/list missing {expected}");
     }

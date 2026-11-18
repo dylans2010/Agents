@@ -83,6 +83,13 @@ pub fn dispatch_desktop_action(runtime: &CoincideMacOSRuntime, raw_json: &str) -
         "workspace.create_dir" => workspace_create_dir(&params),
         "workspace.read_dir" => workspace_read_dir(&params),
         "workspace.edit_file" => workspace_edit_file(&params),
+        "memory.store" => memory_store(runtime, &params),
+        "memory.retrieve" => memory_retrieve(runtime, &params),
+        "memory.list" => memory_list(runtime, &params),
+        "memory.delete" => memory_delete(runtime, &params),
+        "memory.clear" => memory_clear(runtime, &params),
+        "memory.snapshot" => memory_snapshot(runtime, &params),
+        "memory.context_store" => memory_context_store(runtime, &params),
         "instructions.list" => instructions_list(runtime, &params),
         "instructions.read" => instructions_read(runtime, &params),
         "instructions.save" => instructions_save(runtime, &params),
@@ -377,6 +384,50 @@ fn workspace_read_dir(params: &Value) -> Result<Value> {
 
 fn workspace_edit_file(params: &Value) -> Result<Value> {
     coincide_core::workspace_tools::edit_file(params)
+}
+
+fn lock_engine_store(
+    runtime: &CoincideMacOSRuntime,
+) -> Result<std::sync::MutexGuard<'_, coincide_core::api::Engine>> {
+    runtime
+        .engine
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Engine lock poisoned"))
+}
+
+fn memory_store(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    coincide_core::memory_store::store_entry(&mut engine.store, params)
+}
+
+fn memory_retrieve(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let engine = lock_engine_store(runtime)?;
+    coincide_core::memory_store::retrieve_entry(&engine.store, params)
+}
+
+fn memory_list(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let engine = lock_engine_store(runtime)?;
+    coincide_core::memory_store::list_entries(&engine.store, params)
+}
+
+fn memory_delete(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    coincide_core::memory_store::delete_entry(&mut engine.store, params)
+}
+
+fn memory_clear(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    coincide_core::memory_store::clear_scope(&mut engine.store, params)
+}
+
+fn memory_snapshot(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    coincide_core::memory_store::snapshot_context(&mut engine.store, params)
+}
+
+fn memory_context_store(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let mut engine = lock_engine_store(runtime)?;
+    coincide_core::memory_store::context_store(&mut engine.store, params)
 }
 
 // MARK: - Instructions Discovery, Read & Save

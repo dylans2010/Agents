@@ -789,6 +789,13 @@ impl Engine {
                 self.background_workers.track(worker);
                 Ok(json!({"operationId":id}))
             }
+            "memory.store" => { let v = crate::memory_store::store_entry(&mut self.store, p)?; self.revision += 1; Ok(v) }
+            "memory.retrieve" => crate::memory_store::retrieve_entry(&self.store, p),
+            "memory.list" => crate::memory_store::list_entries(&self.store, p),
+            "memory.delete" => { let v = crate::memory_store::delete_entry(&mut self.store, p)?; self.revision += 1; Ok(v) }
+            "memory.clear" => { let v = crate::memory_store::clear_scope(&mut self.store, p)?; self.revision += 1; Ok(v) }
+            "memory.snapshot" => { let v = crate::memory_store::snapshot_context(&mut self.store, p)?; self.revision += 1; Ok(v) }
+            "memory.context_store" => { let v = crate::memory_store::context_store(&mut self.store, p)?; self.revision += 1; Ok(v) }
             "workspace.result"=>{
                 let id=required(p,"operationId")?;
                 ensure!(!self.workspace_git_operations.contains(id),"Use git.workspace.result for this operation");
@@ -945,6 +952,13 @@ impl Engine {
                 methods.push("composer.context.attachTerminalSelection");
                 methods.push("composer.commands");
                 methods.push("bots.conversations.create");
+                methods.push("memory.store");
+                methods.push("memory.retrieve");
+                methods.push("memory.list");
+                methods.push("memory.delete");
+                methods.push("memory.clear");
+                methods.push("memory.snapshot");
+                methods.push("memory.context_store");
                 #[cfg(unix)]
                 methods.extend_from_slice(github_engine::METHODS);
                 #[cfg(unix)]

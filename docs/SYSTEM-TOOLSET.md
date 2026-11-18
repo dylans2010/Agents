@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 26 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 33 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -125,7 +125,7 @@ What is enforced for real in this slice:
 
 - The system prompt is delivered as a genuine developer/system instruction
   for Codex and Claude, never as user text.
-- `SystemToolRegistry` (Swift) registers exactly twenty-six tools, each mapped to a
+- `SystemToolRegistry` (Swift) registers exactly thirty-three tools, each mapped to a
   real core action that was verified against the FFI dispatch:
   `workspace.read_file`, `workspace.write_file`, `workspace.files`,
   `workspace.search` (synchronous desktop actions) and `terminal.create`,
@@ -159,26 +159,72 @@ What is enforced for real in this slice:
     the final terminal viewport (the tail), not full scrollback, and a
     command that never finishes reports `timedOut: true` instead of a fake
     success.
-  - Git, as engine methods that already existed and were verified in
-    `git_actions_api.rs`: `git.actions.run` with `commit` (`git_commit`,
-    message required) and `push` (`git_push`), `git.actions.pull`
-    (`git_pull`), `git.branches.list` (`git_branch_list`),
-    `git.branches.create` (`git_branch_create`), `git.branches.checkout`
-    (`git_branch_checkout`). They run on the engine's git background workers
-    and the registry polls `git.actions.result` for the outcome.
+  - Memory, as engine methods `memory.store` / `memory.retrieve` /
+    `memory.list` / `memory.delete` / `memory.clear` / `memory.snapshot` /
+    `memory.context_store` (`mem_store`, `mem_retrieve`, `view_memory`,
+    `mem_delete`, `mem_clear`, `mem_context_snapshot`,
+    `context_persistence_store`). Slice 3 added seven, all real:
+    - Store design: one document in the existing SQLite `documents` table,
+      `memory.json` (`coincide-core/src/memory_store.rs`), holding
+      `{"version": 1, "entries": {<composite key>: {key, scope, value,
+      updatedAt}}}` where the composite key is the scope, a unit-separator
+      character, and the key. It is the same table and the same
+      `Store::save_document` / `Store::document` calls the rest of the
+      engine already uses, so entries survive restarts; the Rust and Swift
+      round-trip tests reopen the store and read the entry back.
+    - Scopes: `global`, or `workspace:<identifier>` where the identifier is
+      normally the absolute project path. The same key in two scopes is two
+      different entries. A list with no scope returns entries from all
+      scopes; the other operations default to `global`.
+    - Key semantics: keys are trimmed, non-empty, at most 256 characters, no
+      control characters. Values are at most 64 KiB, no NUL bytes. Storing
+      an existing key is an explicit upsert and the result reports
+      `overwritten: true`; there is no silent-merge or append mode.
+    - Retrieval is keyword only: `view_memory` filters by a
+      case-insensitive substring over keys and values, and
+      `mem_context_snapshot` retrieves the same way. There are no embeddings
+      anywhere in the repo, so there is no semantic similarity search.
+    - `mem_retrieve` of a missing key is an error, per the catalog.
+      `context_persistence_store` keeps the catalog's opposite rule: get
+      (or delete) of a missing key succeeds, get returning `value: ""` with
+      `found: false`. An unknown `action` is an error here, not a silent
+      fall-through to `get` as the catalog describes.
+    - `mem_clear` gating: clear takes a scope and requires `confirm: true`.
+      Without the scope, or with `confirm` missing or false, the clear is
+      refused before anything is deleted, in both the Swift registry and the
+      MCP server. It deletes only that scope and reports how many entries
+      were removed. There is no bare clear-all.
+    - `mem_context_snapshot` mints a new `snapshot:<uuid>` key on every call
+      (not idempotent) and stores the snapshot as an ordinary memory entry
+      whose value is a JSON summary (snapshot id, scope, query, matched
+      keys, timestamp) alongside the matched entries in the result. It does
+      NOT capture environment or open files, per the catalog's own
+      correction; it captures stored memories relevant to the query.
+    - `context_persistence_store` is backed by the same SQLite memory
+      store, NOT by `<workspaceRoot>/.assist_context_store.json`: the
+      catalog's file would pollute the user's repository, so the file path
+      is deliberately not implemented.
+    - Settings › Memory lists entries with their scope, searches keys and
+      values, deletes per entry, and clears a scope only after an explicit
+      confirmation toggle. Everything reads the real store through the FFI
+      `memory.*` actions.
   No Qwen tool is imported: `AvailableTools.md` describes Qwen's tools, not this repo's.
 
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 1, 26 tools are real. These catalog tools are NOT
+registry. After slice 3, 33 tools are real. These catalog tools are NOT
 implemented, and why:
 
-- Memory (`mem_store`, `mem_retrieve`, `mem_clear`, `mem_context_snapshot`,
-  `context_persistence_store`, `save_to_memory`, `view_memory`,
-  `manage_memory`, `conversation_context_manager`): no memory API exists.
-  The `documents`-table KV in the core store is the primitive a real one
-  needs. Slice 4 owns this.
+- Memory (`save_to_memory`, `manage_memory`, `conversation_context_manager`):
+  not registered as separate tools. `save_to_memory` and `manage_memory`
+  describe writing to a `UserMemory.md` file, which does not exist in this
+  repo; their real function is covered by `mem_store`, `mem_delete`, and
+  `mem_clear` against the SQLite memory store. `conversation_context_manager`
+  describes a per-conversation context file; no such file backend exists,
+  so it is unavailable. `mem_store`, `mem_retrieve`, `mem_clear`,
+  `mem_context_snapshot`, `context_persistence_store`, and `view_memory`
+  are real — see the Enforcement boundary above.
 - Workers (`use_workers`, `start_subagent`) and plans
   (`intel_plan_task`, `intel_breakdown_task`, `execution_plan`): no
   worker-spawn or plan-store API exists. Slice 5 owns this.

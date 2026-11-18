@@ -1206,6 +1206,22 @@ public nonisolated struct TerminalViewportSnapshot: Codable, Hashable, Sendable 
 
 // MARK: - Workspace Files, Search & Instructions
 
+public nonisolated struct MemoryEntry: Codable, Hashable, Sendable, Identifiable {
+    public var key: String
+    public var scope: String
+    public var value: String
+    public var updatedAt: Double
+
+    public var id: String { scope + "\u{1f}" + key }
+
+    public init(key: String, scope: String, value: String, updatedAt: Double) {
+        self.key = key
+        self.scope = scope
+        self.value = value
+        self.updatedAt = updatedAt
+    }
+}
+
 public nonisolated struct WorkspaceFileEntry: Codable, Hashable, Sendable, Identifiable {
     public var path: String
     public var name: String
@@ -1849,6 +1865,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
     case providers
     case models
     case instructions
+    case memory
     case usage
     case voice
     case remote
@@ -1863,6 +1880,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
         case .providers: "Providers"
         case .models: "Models"
         case .instructions: "Instructions"
+        case .memory: "Memory"
         case .usage: "Usage"
         case .voice: "Voice"
         case .remote: "Remote"
@@ -1877,6 +1895,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
         case .providers: "cpu"
         case .models: "slider.horizontal.3"
         case .instructions: "doc.text"
+        case .memory: "memorychip"
         case .usage: "chart.bar.xaxis"
         case .voice: "waveform.and.mic"
         case .remote: "iphone.radiowaves.left.and.right"

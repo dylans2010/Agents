@@ -443,6 +443,176 @@ pub static DEFINITIONS: &[ToolDef] = &[
             },
         ],
     },
+    ToolDef {
+        name: "mem_store",
+        description: "Store a durable fact in agent memory. Storing an existing key overwrites it and reports overwritten=true.",
+        action: "memory.store",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: true,
+                description: "Memory key, up to 256 characters.",
+            },
+            ToolParam {
+                name: "value",
+                kind: "string",
+                required: true,
+                description: "Fact to store, up to 64 KiB.",
+            },
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: false,
+                description: "global or workspace:<identifier>. Defaults to global.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "mem_retrieve",
+        description: "Read a stored fact from agent memory by key. A missing key is an error.",
+        action: "memory.retrieve",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: true,
+                description: "Memory key to read.",
+            },
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: false,
+                description: "global or workspace:<identifier>. Defaults to global.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "view_memory",
+        description: "List stored agent memories in a scope, optionally filtered by a keyword substring over keys and values.",
+        action: "memory.list",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: false,
+                description: "global or workspace:<identifier>. Defaults to all scopes.",
+            },
+            ToolParam {
+                name: "query",
+                kind: "string",
+                required: false,
+                description: "Keyword substring filter over keys and values.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum entries to return.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "mem_delete",
+        description: "Delete one stored fact from agent memory by key. A missing key is an error.",
+        action: "memory.delete",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: true,
+                description: "Memory key to delete.",
+            },
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: false,
+                description: "global or workspace:<identifier>. Defaults to global.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "mem_clear",
+        description: "Delete every memory entry in one scope. Requires scope and confirm=true; without both the clear is refused.",
+        action: "memory.clear",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: true,
+                description: "Scope to clear: global or workspace:<identifier>.",
+            },
+            ToolParam {
+                name: "confirm",
+                kind: "boolean",
+                required: true,
+                description: "Must be true. Clearing a scope is irreversible.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "mem_context_snapshot",
+        description: "Capture a snapshot of the memories relevant to the current context. Each call mints a new snapshot key and stores it as a memory entry.",
+        action: "memory.snapshot",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: false,
+                description: "global or workspace:<identifier>. Defaults to global.",
+            },
+            ToolParam {
+                name: "query",
+                kind: "string",
+                required: false,
+                description: "Keyword substring filter over keys and values.",
+            },
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum entries to capture.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "context_persistence_store",
+        description: "Durable key-value context across sessions, backed by the agent memory store. Get of a missing key succeeds with an empty value.",
+        action: "memory.context_store",
+        channel: "desktop",
+        params: &[
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: true,
+                description: "Memory key.",
+            },
+            ToolParam {
+                name: "action",
+                kind: "string",
+                required: true,
+                description: "get, set, or delete.",
+            },
+            ToolParam {
+                name: "value",
+                kind: "string",
+                required: false,
+                description: "Value for set.",
+            },
+            ToolParam {
+                name: "scope",
+                kind: "string",
+                required: false,
+                description: "global or workspace:<identifier>. Defaults to global.",
+            },
+        ],
+    },
 ];
 
 pub fn definition(name: &str) -> Option<&'static ToolDef> {
@@ -833,6 +1003,28 @@ pub fn call(
                 60,
             )
         }
+        "mem_store" | "mem_retrieve" | "view_memory" | "mem_delete" | "mem_context_snapshot"
+        | "context_persistence_store" => {
+            let method = match name {
+                "mem_store" => "memory.store",
+                "mem_retrieve" => "memory.retrieve",
+                "view_memory" => "memory.list",
+                "mem_delete" => "memory.delete",
+                "mem_context_snapshot" => "memory.snapshot",
+                _ => "memory.context_store",
+            };
+            engine_request(state, method, args)
+        }
+        "mem_clear" => {
+            req_str(&args, "scope", name)?;
+            let confirmed = args.get("confirm").and_then(Value::as_bool).unwrap_or(false);
+            if !confirmed {
+                return Err(failed(
+                    "mem_clear requires confirm=true; clearing a scope is irreversible.",
+                ));
+            }
+            engine_request(state, "memory.clear", args)
+        }
         _ => Err(CallError::UnknownTool(name.to_owned())),
     }
 }
@@ -940,7 +1132,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 26, "Swift registry must hold 26 tools");
+        assert_eq!(swift.len(), 33, "Swift registry must hold 33 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");

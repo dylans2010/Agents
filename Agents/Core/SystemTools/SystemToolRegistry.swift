@@ -332,6 +332,81 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "name", type: "string", required: true, description: "Branch name to check out."),
             ]
         ),
+        SystemToolDefinition(
+            name: "mem_store",
+            description: "Store a durable fact in agent memory. Storing an existing key overwrites it and reports overwritten=true.",
+            action: "memory.store",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Memory key, up to 256 characters."),
+                SystemToolParameter(name: "value", type: "string", required: true, description: "Fact to store, up to 64 KiB."),
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "mem_retrieve",
+            description: "Read a stored fact from agent memory by key. A missing key is an error.",
+            action: "memory.retrieve",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Memory key to read."),
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "view_memory",
+            description: "List stored agent memories in a scope, optionally filtered by a keyword substring over keys and values.",
+            action: "memory.list",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to all scopes."),
+                SystemToolParameter(name: "query", type: "string", required: false, description: "Keyword substring filter over keys and values."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum entries to return."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "mem_delete",
+            description: "Delete one stored fact from agent memory by key. A missing key is an error.",
+            action: "memory.delete",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Memory key to delete."),
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "mem_clear",
+            description: "Delete every memory entry in one scope. Requires scope and confirm=true; without both the clear is refused.",
+            action: "memory.clear",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "scope", type: "string", required: true, description: "Scope to clear: global or workspace:<identifier>."),
+                SystemToolParameter(name: "confirm", type: "boolean", required: true, description: "Must be true. Clearing a scope is irreversible."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "mem_context_snapshot",
+            description: "Capture a snapshot of the memories relevant to the current context. Each call mints a new snapshot key and stores it as a memory entry.",
+            action: "memory.snapshot",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
+                SystemToolParameter(name: "query", type: "string", required: false, description: "Keyword substring filter over keys and values."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum entries to capture."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "context_persistence_store",
+            description: "Durable key-value context across sessions, backed by the agent memory store. Get of a missing key succeeds with an empty value.",
+            action: "memory.context_store",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Memory key."),
+                SystemToolParameter(name: "action", type: "string", required: true, description: "get, set, or delete."),
+                SystemToolParameter(name: "value", type: "string", required: false, description: "Value for set."),
+                SystemToolParameter(name: "scope", type: "string", required: false, description: "global or workspace:<identifier>. Defaults to global."),
+            ]
+        ),
     ]
 
     public static func tools(for toolset: AgentToolset) -> [SystemToolDefinition] {
@@ -539,6 +614,41 @@ public nonisolated enum SystemToolRegistry {
             let threadId = try requiredString(arguments, "threadId", tool: name)
             let branch = try requiredString(arguments, "name", tool: name)
             return try await runGitActionsOperation(method: "git.branches.checkout", threadId: threadId, params: ["name": .string(branch)], tool: name, timeoutSeconds: 60, runtime: runtime)
+        case "mem_store":
+            let key = try requiredString(arguments, "key", tool: name)
+            let value = try requiredString(arguments, "value", tool: name)
+            return try await runtime.memoryStore(key: key, value: value, scope: optionalString(arguments, "scope"))
+        case "mem_retrieve":
+            let key = try requiredString(arguments, "key", tool: name)
+            return try await runtime.memoryRetrieve(key: key, scope: optionalString(arguments, "scope"))
+        case "view_memory":
+            let entries = try await runtime.memoryList(scope: optionalString(arguments, "scope"), query: optionalString(arguments, "query"), limit: optionalInt(arguments, "limit") ?? 200)
+            return .array(entries.map { entry in
+                .object([
+                    "key": .string(entry.key),
+                    "scope": .string(entry.scope),
+                    "value": .string(entry.value),
+                    "updatedAt": .double(entry.updatedAt),
+                ])
+            })
+        case "mem_delete":
+            let key = try requiredString(arguments, "key", tool: name)
+            return try await runtime.memoryDelete(key: key, scope: optionalString(arguments, "scope"))
+        case "mem_clear":
+            let scope = try requiredString(arguments, "scope", tool: name)
+            guard let confirm = optionalBool(arguments, "confirm") else {
+                throw SystemToolError.missingArgument(tool: name, argument: "confirm")
+            }
+            guard confirm else {
+                throw SystemToolError.executionFailed(tool: name, message: "mem_clear requires confirm=true; clearing a scope is irreversible.")
+            }
+            return try await runtime.memoryClear(scope: scope, confirm: true)
+        case "mem_context_snapshot":
+            return try await runtime.memorySnapshot(scope: optionalString(arguments, "scope"), query: optionalString(arguments, "query"), limit: optionalInt(arguments, "limit") ?? 50)
+        case "context_persistence_store":
+            let key = try requiredString(arguments, "key", tool: name)
+            let action = try requiredString(arguments, "action", tool: name)
+            return try await runtime.memoryContextStore(key: key, action: action, value: optionalString(arguments, "value"), scope: optionalString(arguments, "scope"))
         default:
             throw SystemToolError.unknownTool(name)
         }
