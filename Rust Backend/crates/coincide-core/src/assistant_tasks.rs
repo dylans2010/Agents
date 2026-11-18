@@ -1234,6 +1234,21 @@ mod tests {
             .unwrap();
     }
 
+    fn set_stored_schedule_date(engine: &mut Engine, id: &str, date: &str) {
+        let listed = call(engine, "tasks.list", json!({}));
+        assert!(listed["error"].is_null(), "{}", listed["error"]);
+        let mut document = json!({"version": 1, "tasks": listed["result"]["tasks"].clone()});
+        for task in document["tasks"].as_array_mut().unwrap() {
+            if task["id"] == id {
+                task["schedule"]["date"] = json!(date);
+            }
+        }
+        engine
+            .store
+            .save_document("assistant-tasks.json", &document)
+            .unwrap();
+    }
+
     fn run_now_parent(engine: &mut Engine) -> String {
         let parent = call(
             engine,
@@ -1541,6 +1556,32 @@ mod tests {
         assert!(saved["error"].is_null(), "{}", saved["error"]);
         assert_eq!(saved["result"]["task"]["runCount"], json!(1));
         assert_eq!(saved["result"]["task"]["nextRunAt"], next_after_run);
+    }
+
+    #[test]
+    fn dispatch_save_renames_a_missed_one_time_task_whose_date_is_in_the_past() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let mut once = task_json(ID);
+        once["schedule"]["kind"] = json!("once");
+        once["schedule"]["date"] = json!("2030-01-01T09:00:00Z");
+        let created = save_task(&mut engine, &once);
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        set_stored_next_run_at(&mut engine, ID, 1_000_000);
+        set_stored_schedule_date(&mut engine, ID, "2026-11-01T09:00:00Z");
+        let mut renamed = task_json(ID);
+        renamed["schedule"]["kind"] = json!("once");
+        renamed["schedule"]["date"] = json!("2026-11-01T09:00:00Z");
+        renamed["name"] = json!("One-off review");
+        let saved = save_task(&mut engine, &renamed);
+        assert!(saved["error"].is_null(), "{}", saved["error"]);
+        assert_eq!(saved["result"]["task"]["name"], json!("One-off review"));
+        assert_eq!(
+            saved["result"]["task"]["schedule"]["date"],
+            json!("2026-11-01T09:00:00Z")
+        );
+        assert_eq!(saved["result"]["task"]["nextRunAt"], json!(1_000_000));
     }
 
     #[test]
