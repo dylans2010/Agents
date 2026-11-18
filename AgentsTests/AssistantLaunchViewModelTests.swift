@@ -253,6 +253,24 @@ struct AssistantLaunchViewModelTests {
         #expect(viewModel.launchWarning == nil)
     }
 
+    @Test("Validation failure after a warned success clears the stale warning and thread")
+    func validationFailureAfterWarnedSuccessClearsStaleState() async {
+        let threadID = UUID()
+        let recorder = LaunchRecorder()
+        recorder.result = AssistantLaunchResult(threadID: threadID, errorMessage: nil, warningMessage: "Workspace refresh failed")
+        let viewModel = Self.viewModel(assistant: Self.definition(), recorder: recorder)
+        viewModel.task = "Build the thing"
+        await viewModel.launch()
+        #expect(viewModel.launchedThreadID == threadID)
+        #expect(viewModel.launchWarning == "Workspace refresh failed")
+        viewModel.task = ""
+        await viewModel.launch()
+        #expect(recorder.calls.count == 1)
+        #expect(viewModel.launchError != nil)
+        #expect(viewModel.launchWarning == nil)
+        #expect(viewModel.launchedThreadID == nil)
+    }
+
     @Test("App-model launcher does not report a stale error from before the launch")
     func appModelLauncherDoesNotReportStaleError() async {
         let appModel = AppModel()

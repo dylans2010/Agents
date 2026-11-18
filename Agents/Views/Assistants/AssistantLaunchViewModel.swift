@@ -217,6 +217,8 @@ public final class AssistantLaunchViewModel {
     public func launch() async {
         if let error = validationError {
             launchError = error
+            launchWarning = nil
+            launchedThreadID = nil
             return
         }
         isLaunching = true
