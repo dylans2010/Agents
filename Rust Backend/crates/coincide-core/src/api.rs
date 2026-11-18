@@ -143,6 +143,9 @@ mod composer_effort_api_tests;
 mod composer_speed_api_tests;
 #[path = "computer_use_engine.rs"]
 pub mod computer_use_engine;
+#[cfg(test)]
+#[path = "computer_use_prompt_tests.rs"]
+mod computer_use_prompt_tests;
 #[path = "github_engine.rs"]
 mod github_engine;
 #[path = "github_threads_engine.rs"]
@@ -1972,15 +1975,6 @@ impl Engine {
         };
         crate::composer_context::validate(&context)?;
         let mut runtime_prompt = crate::composer_context::prompt(prompt, &context)?;
-        // Per-thread capabilities valid only for this running app; never saved
-        // as user text (Swift ThreadRunner.ephemeralRuntimeContexts).
-        if let Some(capability) = Uuid::parse_str(&id)
-            .ok()
-            .and_then(|thread| self.computer_use_runtime_context(thread))
-        {
-            runtime_prompt.push_str("\n\n");
-            runtime_prompt.push_str(&capability);
-        }
         let codex_profile = self.codex_login_context(&v)?;
         if let Some(configuration) = provider_configuration::current() {
             configuration.validate_named_profile(

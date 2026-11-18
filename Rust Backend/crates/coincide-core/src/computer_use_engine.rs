@@ -106,21 +106,6 @@ impl Engine {
             previous.stop();
         }
     }
-    /// The instructions added to a message sent in `thread`, with its private
-    /// capability; nil while Computer Use is off. Never saved as user text.
-    pub fn computer_use_runtime_context(&self, thread: Uuid) -> Option<String> {
-        if self.shutdown || !self.ui_available {
-            return None;
-        }
-        self.computer_use.authority.as_ref()?.grant(thread).ok()?;
-        Some(
-            self.computer_use
-                .bridge
-                .as_ref()?
-                .access(thread)?
-                .instructions(),
-        )
-    }
     /// The saved switch (`computerUseEnabled`, shared with the Swift app).
     pub fn computer_use_saved_enabled(&self) -> Result<bool> {
         Ok(crate::computer_use::saved_enabled(

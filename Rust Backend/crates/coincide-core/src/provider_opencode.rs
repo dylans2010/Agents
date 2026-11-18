@@ -598,13 +598,9 @@ fn skill_attachments(prompt: &str, catalog: &Value, cwd: &std::path::Path) -> Ve
     if !crate::composer_suggestions::opencode_location_matches(catalog, cwd) {
         return Vec::new();
     }
-    // Reference and capability envelopes are context, not skill selections.
     // Do not promote a `$name` found inside attached material to a tool action.
     let visible_message = prompt
         .split("\n\n<coincide_context version=\"1\">")
-        .next()
-        .unwrap_or(prompt)
-        .split("\n\n<coincide_computer_use>")
         .next()
         .unwrap_or(prompt);
     let requested = visible_message

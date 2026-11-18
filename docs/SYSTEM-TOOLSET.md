@@ -1170,6 +1170,18 @@ missing at launch, the session fails loudly instead of starting without
 System Tools: `mcp.rs:93-97` (`session_servers`) returns an error, so the
 session cannot start without it.
 
+Computer Use tools (`list_windows`, `click`, `type_text`, and the rest) reach
+the model only through this same MCP mount, never through prompt text: no
+`<coincide_computer_use>` block, curl-config path, or transport credential is
+appended to any outgoing prompt on any pathway (chat, Assistant spawn, worker
+turn, resume). The per-thread bearer capability still exists — the Bridge
+listener, the 0600 curl config, token auth, and `computer_use.request` /
+`computer_use.result` queueing are unchanged — but the model learns of it
+only by calling the mounted tools. Codex has no MCP mount, so Computer Use
+tools remain uncallable there, exactly like every other system tool. Note:
+provider sessions that already received a turn before this removal keep the
+old block in their own session history; nothing here can retract it.
+
 ## Enforcement boundary (read this before claiming more)
 
 What is enforced for real in this slice:

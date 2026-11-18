@@ -623,8 +623,6 @@ impl Authority {
             .threads
             .remove(&thread);
     }
-    /// While Computer Use is on, every thread has access (Swift adds the
-    /// capability to every message of every thread, background ones included).
     /// The first request after enabling or revocation starts a new epoch, so a
     /// stamp captured earlier never matches again.
     pub fn grant(&self, thread: Uuid) -> Result<Uuid, Failure> {
