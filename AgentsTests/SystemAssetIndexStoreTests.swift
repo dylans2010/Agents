@@ -692,13 +692,14 @@ struct SystemAssetIndexStoreTests {
         #expect(manager.documentCount == 150)
         #expect(manager.search("doc149").first?.fileName == "Doc149.md")
         #expect(manager.search("doc0").first?.fileName == "Doc0.md")
-        try "# Doc0\n\nRewritten doc0 body with token rewrittenzero.\n".write(to: source.appendingPathComponent("Doc0.md"), atomically: true, encoding: .utf8)
+        try "# Doc0 Revised\n\nRewritten zero body with token rewrittenzero.\n".write(to: source.appendingPathComponent("Doc0.md"), atomically: true, encoding: .utf8)
         let result = manager.refresh()
         #expect(result.succeeded)
         #expect(result.changedDocumentIDs == ["Doc0"])
         #expect(result.addedDocumentIDs.isEmpty)
         #expect(result.removedDocumentIDs.isEmpty)
         #expect(manager.search("rewrittenzero").first?.fileName == "Doc0.md")
-        #expect(manager.search("doc0").isEmpty)
+        #expect(manager.search("doc0").first?.title == "Doc0 Revised")
+        #expect(manager.search("doc0").first?.text.contains("Body text for Doc0") == false)
     }
 }

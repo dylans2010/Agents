@@ -620,24 +620,13 @@ struct AgentsRuntimeTests {
 
     @Test("A thread naming an unknown assistant falls back to the uncached prompt")
     @MainActor
-    func appModelOrphanAssistantThreadFallsBack() async throws {
-        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
-        let tempRoot = URL(fileURLWithPath: "/tmp/am-orphan-\(shortID)")
-        let dataDir = tempRoot.appendingPathComponent("d")
-        let projectDir = tempRoot.appendingPathComponent("proj")
-        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tempRoot) }
+    func appModelOrphanAssistantThreadFallsBack() {
         let model = AppModel()
-        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
-        let projID = await model.addProject(at: projectDir.path, name: "OrphanProject")
-        #expect(projID != nil)
-        let threadID = await model.createNewThread(in: projID, assistantId: UUID().uuidString)
-        let thread = try #require(model.workspace.threads.first(where: { $0.id == threadID }))
+        let thread = Self.summary(toolset: nil, assistantId: UUID().uuidString)
         #expect(thread.assistantId != nil)
         let prompt = model.systemPrompt(for: thread)
         #expect(prompt.assistantID == nil)
         #expect(prompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
-        await model.shutdown()
     }
 
     @Test("AppModel toolset resolves from the thread, defaulting to provider")
