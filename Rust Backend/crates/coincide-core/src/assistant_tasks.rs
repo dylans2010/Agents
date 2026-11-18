@@ -1446,19 +1446,30 @@ mod tests {
     #[test]
     fn dispatch_rejects_unknown_task_parameters() {
         let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
         let listed = call(&mut engine, "tasks.list", json!({"unexpected": 1}));
         assert!(listed["error"]["message"]
             .as_str()
             .unwrap()
             .contains("Unknown automated task parameter"));
         let due = call(&mut engine, "tasks.due", json!({"unexpected": 1}));
-        assert!(due["error"].is_object());
+        assert!(due["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Unknown automated task parameter"));
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
         let run_now = call(
             &mut engine,
             "tasks.run_now",
-            json!({"taskId": ID, "parentThreadId": "x", "extra": 1}),
+            json!({"taskId": ID, "parentThreadId": parent_id, "extra": 1}),
         );
-        assert!(run_now["error"].is_object());
+        assert!(run_now["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Unknown automated task parameter"));
     }
 
     #[test]
@@ -1498,5 +1509,122 @@ mod tests {
         let second = run_now(&mut engine, ID, &parent_id);
         assert!(second["error"].is_null(), "{}", second["error"]);
         assert_eq!(second["result"]["task"]["runCount"], json!(2));
+    }
+
+    #[test]
+    fn dispatch_save_preserves_next_run_at_when_renaming_an_overdue_one_time_task() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let mut once = task_json(ID);
+        once["schedule"]["kind"] = json!("once");
+        once["schedule"]["date"] = json!("2030-01-01T09:00:00Z");
+        let created = save_task(&mut engine, &once);
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        set_stored_next_run_at(&mut engine, ID, 1_000_000);
+        let mut renamed = task_json(ID);
+        renamed["schedule"]["kind"] = json!("once");
+        renamed["schedule"]["date"] = json!("2030-01-01T09:00:00Z");
+        renamed["name"] = json!("One-off review");
+        let saved = save_task(&mut engine, &renamed);
+        assert!(saved["error"].is_null(), "{}", saved["error"]);
+        assert_eq!(saved["result"]["task"]["nextRunAt"], json!(1_000_000));
+        let parent_id = run_now_parent(&mut engine);
+        let ran = run_now(&mut engine, ID, &parent_id);
+        assert!(ran["error"].is_null(), "{}", ran["error"]);
+        let next_after_run = ran["result"]["task"]["nextRunAt"].clone();
+        let mut renamed_again = task_json(ID);
+        renamed_again["schedule"]["kind"] = json!("once");
+        renamed_again["schedule"]["date"] = json!("2030-01-01T09:00:00Z");
+        renamed_again["name"] = json!("One-off review done");
+        let saved = save_task(&mut engine, &renamed_again);
+        assert!(saved["error"].is_null(), "{}", saved["error"]);
+        assert_eq!(saved["result"]["task"]["runCount"], json!(1));
+        assert_eq!(saved["result"]["task"]["nextRunAt"], next_after_run);
+    }
+
+    #[test]
+    fn dispatch_save_rejects_moving_a_one_time_task_to_the_past() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let mut once = task_json(ID);
+        once["schedule"]["kind"] = json!("once");
+        once["schedule"]["date"] = json!("2030-01-01T09:00:00Z");
+        let created = save_task(&mut engine, &once);
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let mut moved = task_json(ID);
+        moved["schedule"]["kind"] = json!("once");
+        moved["schedule"]["date"] = json!("2026-11-01T09:00:00Z");
+        let saved = save_task(&mut engine, &moved);
+        assert!(saved["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Choose a future date"));
+        let listed = call(&mut engine, "tasks.list", json!({}));
+        assert_eq!(
+            listed["result"]["tasks"][0]["schedule"]["date"],
+            json!("2030-01-01T09:00:00Z")
+        );
+    }
+
+    #[test]
+    fn dispatch_run_now_refreshes_a_previous_worker_from_another_parent() {
+        let (root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let first_parent = run_now_parent(&mut engine);
+        let first = run_now(&mut engine, ID, &first_parent);
+        assert!(first["error"].is_null(), "{}", first["error"]);
+        drop(engine);
+        let mut engine = Engine::fixture(Store::open(&root.path().join("rust.sqlite")).unwrap());
+        let second_parent = run_now_parent(&mut engine);
+        assert_ne!(first_parent, second_parent);
+        let second = run_now(&mut engine, ID, &second_parent);
+        assert!(second["error"].is_null(), "{}", second["error"]);
+        assert_eq!(second["result"]["task"]["runCount"], json!(2));
+    }
+
+    #[test]
+    fn dispatch_run_now_fails_when_the_previous_worker_refresh_cannot_persist() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        let parent_id = run_now_parent(&mut engine);
+        let first = run_now(&mut engine, ID, &parent_id);
+        assert!(first["error"].is_null(), "{}", first["error"]);
+        let worker_id = first["result"]["worker"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let mut record = crate::worker_store::load_worker(&engine.store, &worker_id).unwrap();
+        record.as_object_mut().unwrap().remove("id");
+        assert!(engine.store.worker_upsert(&worker_id, &record).unwrap());
+        let second = run_now(&mut engine, ID, &parent_id);
+        assert!(second["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Worker record has no id"));
+        let listed = call(&mut engine, "tasks.list", json!({}));
+        assert_eq!(listed["result"]["tasks"][0]["runCount"], json!(1));
+    }
+
+    #[test]
+    fn dispatch_save_recomputes_next_run_at_when_only_max_runs_changes() {
+        let (_root, mut engine) = fixture_engine();
+        seed_assistant(&mut engine, "read-only");
+        seed_workspace(&mut engine);
+        let created = save_task(&mut engine, &task_json(ID));
+        assert!(created["error"].is_null(), "{}", created["error"]);
+        set_stored_next_run_at(&mut engine, ID, 1_000_000);
+        let mut capped = task_json(ID);
+        capped["limits"]["maxRuns"] = json!(5);
+        let saved = save_task(&mut engine, &capped);
+        assert!(saved["error"].is_null(), "{}", saved["error"]);
+        assert!(saved["result"]["task"]["nextRunAt"].as_i64().unwrap() > 1_000_000);
     }
 }

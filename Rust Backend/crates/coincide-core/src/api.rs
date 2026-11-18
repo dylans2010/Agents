@@ -652,6 +652,10 @@ impl Engine {
     }
 }
 
+fn worker_allows_run_now(status: &str) -> bool {
+    crate::worker_store::is_terminal(status) || status == "interrupted"
+}
+
 impl Engine {
     fn assistant_tasks_command(&mut self, method: &str, params: &Value) -> Result<Value> {
         use crate::assistant_tasks::{
@@ -759,15 +763,16 @@ impl Engine {
                 );
                 if task.limits.max_concurrent == 1 {
                     if let Some(worker_id) = &task.last_worker_id {
-                        let _ = self.workers_list(&json!({"parentThreadId": parent_id}));
+                        if crate::worker_store::load_worker(&self.store, worker_id).is_ok() {
+                            self.workers_status(&json!({"workerId": worker_id}))?;
+                        }
                         if let Ok(record) =
                             crate::worker_store::load_worker(&self.store, worker_id)
                         {
                             let status =
                                 record.get("status").and_then(Value::as_str).unwrap_or("");
                             ensure!(
-                                crate::worker_store::is_terminal(status)
-                                    || status == "interrupted",
+                                worker_allows_run_now(status),
                                 "Automated task '{}' already has a running worker",
                                 task.name
                             );
@@ -861,12 +866,6 @@ impl Engine {
                         incoming.last_missed_at = stored.last_missed_at;
                         incoming.missed_count = stored.missed_count;
                         incoming.last_worker_id = stored.last_worker_id;
-                        if incoming.schedule.kind == "once" && incoming.is_active() {
-                            ensure!(
-                                next_run_at(&incoming, now)?.is_some(),
-                                "Choose a future date for a one-time task"
-                            );
-                        }
                         let timing_unchanged = incoming.schedule.kind == stored.schedule.kind
                             && incoming.schedule.time_zone_id == stored.schedule.time_zone_id
                             && incoming.schedule.date == stored.schedule.date
@@ -881,6 +880,15 @@ impl Engine {
                             && incoming.enabled == stored.enabled
                             && incoming.paused == stored.paused
                             && incoming.limits.max_runs == stored.limits.max_runs;
+                        if incoming.schedule.kind == "once"
+                            && incoming.is_active()
+                            && !timing_unchanged
+                        {
+                            ensure!(
+                                next_run_at(&incoming, now)?.is_some(),
+                                "Choose a future date for a one-time task"
+                            );
+                        }
                         if timing_unchanged {
                             incoming.next_run_at = stored.next_run_at;
                         } else {
@@ -4128,6 +4136,15 @@ pub fn call(engine: &SharedEngine, method: &str, params: Value) -> Result<Value>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn run_now_allows_terminal_and_interrupted_workers_but_blocks_running_ones() {
+        assert!(worker_allows_run_now("completed"));
+        assert!(worker_allows_run_now("failed"));
+        assert!(worker_allows_run_now("cancelled"));
+        assert!(worker_allows_run_now("interrupted"));
+        assert!(!worker_allows_run_now("running"));
+        assert!(!worker_allows_run_now(""));
+    }
     #[test]
     fn codex_automatic_and_manual_compaction_update_one_status_row() {
         let mut thread = json!({"selection":{"provider":"codex","modelID":"model"},"items":[]});
