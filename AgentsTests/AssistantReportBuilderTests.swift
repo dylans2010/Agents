@@ -688,6 +688,10 @@ struct AssistantReportBuilderTests {
             Self.makeToolItem(title: "Read file", category: "read", status: "completed"),
             Self.makeToolItem(title: "Run command", category: "command", status: "completed"),
             Self.makeToolItem(title: "Read Sources/Auth.swift", category: "read", status: "completed"),
+            Self.makeToolItem(title: "readFile", category: "read", status: "completed"),
+            Self.makeToolItem(title: "READ", category: "read", status: "completed"),
+            Self.makeToolItem(title: "read(file)", category: "read", status: "completed"),
+            Self.makeToolItem(title: "Read", category: "read", status: "completed"),
         ]
         let report = AssistantReportBuilder.build(.init(
             record: Self.makeRecord(transcriptItems: items.count),
@@ -698,6 +702,7 @@ struct AssistantReportBuilderTests {
         #expect(titles == [
             "Tool activity", "Tool activity", "Tool activity", "Tool activity", "Tool activity",
             "Tool activity", "Read file", "Run command", "Read Sources/Auth.swift",
+            "Tool activity", "Tool activity", "Tool activity", "Read",
         ])
         let markdown = report.markdownRepresentation
         #expect(markdown.contains("- Tool activity (completed)"))
@@ -705,6 +710,8 @@ struct AssistantReportBuilderTests {
         #expect(!markdown.contains("read-file"))
         #expect(!markdown.contains("mcp.server.tool"))
         #expect(!markdown.contains("server:read_file"))
+        #expect(!markdown.contains("readFile"))
+        #expect(!markdown.contains("read(file)"))
     }
 
     @Test("Tool display titles keep human titles and genericize raw identifiers")
@@ -732,5 +739,37 @@ struct AssistantReportBuilderTests {
         #expect(!AssistantToolActivity.isRawToolIdentifier("Read Sources/Auth.swift"))
         #expect(!AssistantToolActivity.isRawToolIdentifier(""))
         #expect(!AssistantToolActivity.isRawToolIdentifier("   "))
+    }
+
+    @Test("CamelCase, all-caps and punctuated single tokens are raw identifiers")
+    func broadenedRawIdentifierShapes() {
+        func title(_ title: String?) -> String {
+            AssistantToolActivity.displayTitle(for: RemoteItem(
+                id: UUID(), index: 0, kind: .tool, text: "fallback text", title: title
+            ))
+        }
+        #expect(title("readFile") == "Tool activity")
+        #expect(title("ReadFile") == "Tool activity")
+        #expect(title("READ") == "Tool activity")
+        #expect(title("READ_FILE") == "Tool activity")
+        #expect(title("read(file)") == "Tool activity")
+        #expect(title("run-command!") == "Tool activity")
+        #expect(title("Read") == "Read")
+        #expect(title("Search") == "Search")
+        #expect(title("Question") == "Question")
+        #expect(title("Update plan") == "Update plan")
+        #expect(AssistantToolActivity.isRawToolIdentifier("readFile"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("ReadFile"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("READ"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("READ_FILE"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("read(file)"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("run-command!"))
+        #expect(AssistantToolActivity.isRawToolIdentifier("HTTP2"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("Read"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("Search"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("Question"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("Subagent"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("Read file"))
+        #expect(!AssistantToolActivity.isRawToolIdentifier("Read Sources/Auth.swift"))
     }
 }

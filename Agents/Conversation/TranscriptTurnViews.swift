@@ -616,6 +616,9 @@ struct ToolOrReasoningStepRow: View {
             }
             return "Thinking"
         }
+        if item.kind == .tool {
+            return AssistantToolActivity.displayTitle(for: item)
+        }
         if let title = item.title, !title.isEmpty {
             return title
         }

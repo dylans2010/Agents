@@ -192,8 +192,25 @@ public struct AssistantToolActivity: Codable, Hashable, Sendable, Identifiable {
     public static func isRawToolIdentifier(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !trimmed.contains(" "), !trimmed.contains("\n") else { return false }
-        let allowed = CharacterSet.lowercaseLetters.union(.decimalDigits).union(CharacterSet(charactersIn: "_-.:"))
-        return trimmed.unicodeScalars.allSatisfy { allowed.contains($0) }
+        let scalars = trimmed.unicodeScalars
+        let lower = CharacterSet.lowercaseLetters
+        let upper = CharacterSet.uppercaseLetters
+        let digits = CharacterSet.decimalDigits
+        let separators = CharacterSet(charactersIn: "_-.:")
+        if scalars.allSatisfy({ lower.contains($0) || digits.contains($0) || separators.contains($0) }) {
+            return true
+        }
+        let hasLower = scalars.contains { lower.contains($0) }
+        let hasUpperAfterFirst = scalars.dropFirst().contains { upper.contains($0) }
+        if hasLower && hasUpperAfterFirst {
+            return true
+        }
+        let letters = scalars.filter { lower.contains($0) || upper.contains($0) }
+        if letters.count >= 2 && !hasLower {
+            return true
+        }
+        let punctuation = CharacterSet(charactersIn: "()[]{}<>!@#$%^&*+=|\\/;,'\"?`~")
+        return scalars.contains { punctuation.contains($0) }
     }
 }
 
