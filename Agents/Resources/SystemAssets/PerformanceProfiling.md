@@ -58,6 +58,24 @@ State what you believe the cost is and what change would remove it. Make the sma
 
 The before number, the after number, the conditions, and the change. An optimisation without a recorded measurement will be re-questioned, re-done, or reverted by someone who cannot tell whether it mattered.
 
+### Example: a launch-time investigation, measured
+
+A notes app is slow to launch. The investigation, with numbers at every step:
+
+```text
+Symptom:   cold launch to an interactive list
+Baseline:  2.4 s wall clock, release build, iPhone 15, 12,000 notes
+Profile:   Time Profiler, heaviest branch is the list building its rows
+Cause:     every row decodes its full note body at launch;
+           only titles are visible
+Change:    rows load titles only; bodies decode when a row opens
+Result:    0.9 s wall clock under identical conditions,
+           same device and same data, repeated three times:
+           0.9 s, 0.9 s, 1.0 s
+```
+
+The improvement is larger than the run-to-run noise (a 0.1 s spread), so the change is a real win rather than a lucky sample. The rejected hypothesis, recorded alongside: the launch was first suspected to be the database query, but the profile showed the query at 0.1 s and the row decoding at 1.8 s — optimising the query would have changed nothing the user could feel.
+
 ---
 
 ## 3. Common Hotspot Families

@@ -59,6 +59,34 @@ Do not hand-edit generated project files casually. The project file is a databas
 - **Warnings are not noise.** A new warning is a finding. Treat warnings as errors in CI for the code you own, so they are fixed when introduced instead of accumulating into a list nobody reads.
 - **Compiler flags are deliberate.** Optimisation level, sanitizers, strict concurrency checking, and language mode are choices with consequences. Changing them is a configuration change — reviewed, recorded, and verified by a build and a test run.
 
+### Example: shared settings in one xcconfig
+
+A notes app keeps its shared settings in one base configuration file, with one small file per configuration for the differences that are deliberate:
+
+```xcconfig
+SWIFT_VERSION = 5.0
+SWIFT_STRICT_CONCURRENCY = complete
+PRODUCT_BUNDLE_IDENTIFIER = com.example.notes
+```
+
+```xcconfig
+#include "Shared.xcconfig"
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
+GCC_OPTIMIZATION_LEVEL = 0
+ENABLE_TESTABILITY = YES
+```
+
+```xcconfig
+#include "Shared.xcconfig"
+SWIFT_OPTIMIZATION_LEVEL = -O
+SWIFT_COMPILATION_MODE = wholemodule
+GCC_OPTIMIZATION_LEVEL = s
+ENABLE_TESTABILITY = NO
+```
+
+The three files are the whole story: the base holds what every configuration shares, and the Debug and Release files differ only in optimisation, compilation mode, testability, and the DEBUG condition. A setting changed in the project editor instead of here is invisible in review and will drift — which is why the review for a configuration change starts by asking which file it landed in.
+
 ---
 
 ## 4. Signing, Entitlements, and Capabilities

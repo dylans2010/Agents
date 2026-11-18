@@ -67,6 +67,39 @@ One traced flow teaches more than ten skimmed directories. It reveals the layeri
 
 Write the map: entry points, the traced flow, module sentences, seams, and open questions with file references. Then start the actual task. Return to exploration only when the task hits something the map does not explain.
 
+### Example: a first-hour map for a notes app
+
+After one hour in an unfamiliar notes app, the map is short enough to fit in a note and specific enough to start work from:
+
+```text
+Entry points
+  App struct NotesApp, root view NotesListView
+  URL handler opens a note by identifier
+  Background task refreshes the note index nightly
+
+Traced flow: opening a note
+  NotesListView row tap
+  NotesListViewModel.open(noteID:)
+  NoteStore.load(id:)
+  SQLiteNoteStore reads the notes table
+  NoteDetailView renders the loaded Note value
+
+Modules
+  NotesFeature owns the list and detail screens, depends on NotesDomain
+  NotesDomain owns Note, the NoteStore protocol, and the sync rules
+  NotesPersistence owns SQLiteNoteStore, depends on NotesDomain only
+
+Seams
+  NoteStore protocol: persistence can be swapped without touching views
+  SyncEngine protocol: sync can be replaced per account type
+
+Open questions
+  Who calls SyncEngine.run: a timer, a launch hook, or both
+  Whether NoteDetailView or the store owns the autosave timer
+```
+
+Every line names a file or a type that was actually read. If the next task is adding a note template, work starts at `NotesListViewModel`; the map says so, and nothing else in the map needs to be true first.
+
 ---
 
 ## 3. Reading Order

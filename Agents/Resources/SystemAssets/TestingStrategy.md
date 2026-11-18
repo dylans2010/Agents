@@ -61,6 +61,35 @@ A meaningful test has these properties:
 - **Minimal.** It sets up only what the behaviour needs. A test with fifty lines of setup is testing the setup, and it will break when the setup changes.
 - **Honest about its dependencies.** If it needs the network, the disk, or the clock, it says so — by being in the integration tier, not by secretly depending on them in the unit tier.
 
+### 3.2 Example: a test that can fail, and one that cannot
+
+A meaningful test asserts behaviour — saving an empty document produces an empty file:
+
+```swift
+@Test("Saving an empty document produces an empty file")
+func savingEmptyDocumentProducesEmptyFile() throws {
+    let document = Document(title: "Untitled", body: "")
+    let url = FileManager.default.temporaryDirectory.appending(path: "empty-document.txt")
+    try document.save(to: url)
+    let saved = try String(contentsOf: url, encoding: .utf8)
+    #expect(saved.isEmpty)
+    try FileManager.default.removeItem(at: url)
+}
+```
+
+This test fails if `save` writes a header, a newline, or default content instead of the empty body — it pins the behaviour. Contrast the same scenario written as a test that cannot fail:
+
+```swift
+@Test("Saving does not crash")
+func savingDoesNotCrash() throws {
+    let document = Document(title: "Untitled", body: "")
+    let url = FileManager.default.temporaryDirectory.appending(path: "weak-document.txt")
+    try document.save(to: url)
+}
+```
+
+The second test passes even if `save` writes nothing at all, or writes the wrong content — it asserts nothing about behaviour, so the only way it fails is by throwing. The first test earns its place by being seen to fail: break `save` so it writes a single space, watch the test go red, then restore it.
+
 ### 3.1 Test tiers
 
 - **Unit tests.** Fast, isolated, no I/O. The bulk of the suite. Run on every change.

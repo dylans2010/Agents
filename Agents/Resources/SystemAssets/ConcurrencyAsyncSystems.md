@@ -43,6 +43,38 @@ A race is two accesses to the same mutable state, at least one a write, with no 
 - **Callback on the wrong executor.** A completion handler that mutates UI state from a background thread, or mutates shared state from whatever thread the framework happened to use.
 - **Mutable capture.** A closure that captures a mutable variable and runs on two threads, or runs after the variable's owner has moved on.
 
+### Example: the check-then-act race, as an interleaving
+
+Two tasks ask a cache for the same note at the same time. Each checks, finds nothing, loads, and stores — and the second store overwrites the first:
+
+```swift
+actor NoteCache {
+    private var cached: [String: Note] = [:]
+
+    func note(for id: String) async -> Note {
+        if let found = cached[id] {
+            return found
+        }
+        let loaded = await loadFromDisk(id: id)
+        cached[id] = loaded
+        return loaded
+    }
+}
+```
+
+The actor serialises each individual access, but the sequence is not atomic: while the first task awaits the disk load, the second task enters the actor and runs the same check. The interleaving:
+
+```text
+Task A: checks cache, misses
+Task B: checks cache, misses
+Task A: awaits loadFromDisk, suspends
+Task B: awaits loadFromDisk, suspends
+Task A: resumes, stores its copy, returns
+Task B: resumes, stores its copy, overwrites
+```
+
+The fix is to make the check and the store one atomic unit inside the actor: keep the in-flight load in the actor's state before awaiting, so the second caller finds the in-flight load and awaits the same result instead of starting a second one. The actor did not fail — the code asked it to protect two separate accesses and expected it to protect the sequence between them.
+
 ### 2.2 Prevention
 
 - **Give the state an owner.** An actor, a serial queue, a lock — one mechanism, applied consistently, for all access to that state. Mixed mechanisms (sometimes the actor, sometimes a direct access) are worse than none, because they create the illusion of safety.

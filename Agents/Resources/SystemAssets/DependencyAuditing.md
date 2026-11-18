@@ -63,6 +63,24 @@ Every dependency gets one verdict:
 - **Remove** — nothing uses it, or its use is trivial. Removal is verified by the build and the test suite, not by grep alone (a dependency can be referenced by generated code or configuration).
 - **Accept** — keep as-is, with the reason and the risk recorded, and a revisit date. An accepted risk with a date is a decision; an unexamined risk is negligence.
 
+### Example: one audit verdict, worked
+
+A notes app depends on a date-formatting library pinned at 2.1.0. The audit's findings and verdict, written down so the next audit does not repeat the work:
+
+```text
+Dependency: DateFormatKit 2.1.0, direct, MIT licence
+Used by:    three call sites in the export feature
+Health:     last release 14 months ago, 30 open issues,
+            no maintainer reply in 6 months
+Currency:   latest is 3.0.0, a major behind; migration renames two types
+Overlap:    Foundation now provides the two formatters the app uses
+Security:   no advisories for 2.1.0
+Verdict:    REPLACE with Foundation formatters; delete the dependency
+Evidence:   build and full test suite pass with the dependency removed
+```
+
+The decisive finding is the overlap, not the staleness: the library is unmaintained and a major behind, but what makes replacement cheap is that the platform already provides the two formatters the app actually uses. Had the app used the library's calendar arithmetic as well, the verdict would have been Update with a planned migration, not Replace.
+
 ---
 
 ## 3. Adoption Criteria for New Dependencies

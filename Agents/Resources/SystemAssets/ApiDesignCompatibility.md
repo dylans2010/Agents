@@ -99,6 +99,32 @@ A change is breaking if it can break a correct caller. Check every interface cha
 - **Widen, do not narrow.** A function that accepted a narrow type can be widened to accept a broader one; the reverse breaks callers. The same applies to thrown errors and to preconditions.
 - **Versioned payloads.** For persisted data and network messages, include a version field from day one and write the migration before the new version ships. A format without a version field cannot evolve.
 
+### 5.3 Example: evolving a save API without breaking callers
+
+A document store starts with one save method. A later release needs an option to skip the backup step, and an old quick-save method needs to go away — both without breaking existing callers:
+
+```swift
+struct DocumentStore {
+    func save(document: Document, options: SaveOptions = SaveOptions()) throws
+}
+
+struct SaveOptions {
+    var createBackup: Bool = true
+    var flushImmediately: Bool = false
+}
+
+extension DocumentStore {
+    @available(*, deprecated, renamed: "save(document:options:)")
+    func quickSave(document: Document) throws {
+        var options = SaveOptions()
+        options.createBackup = false
+        try save(document: document, options: options)
+    }
+}
+```
+
+The new parameter has a default, and the default preserves the old behaviour, so every existing `save(document:)` call site still compiles and behaves identically. The deprecated `quickSave` still works — it forwards to the new method — and names its replacement, with removal planned for the next major version. The change that was rejected in review: adding a required parameter to `save`, which would have broken every caller in a minor release.
+
 ---
 
 ## 6. Failure Cases and Pitfalls

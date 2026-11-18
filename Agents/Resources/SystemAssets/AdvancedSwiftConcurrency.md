@@ -34,6 +34,58 @@ An actor is a reference type whose mutable state is isolated to the actor: only 
 
 - **They do not prevent logical races.** Two tasks can each read a value, compute, and write it back through the actor — serialised, but still interleaved. The actor guarantees the individual accesses are atomic; it does not guarantee the read-compute-write sequence is atomic. A sequence that must be atomic belongs inside a single actor method.
 - **They do not prevent re-entrancy interleaving.** While an actor method awaits, another task can enter the actor and observe or change state. A method that checks a condition, awaits, and then acts on the condition may find the condition changed. Re-check after every `await`, or restructure so the check and the act happen without an intervening suspension.
+
+### Example: the re-entrancy interleaving
+
+Two tasks ask a loader for the same note at the same time. Each checks, finds the note not yet loaded, and starts a fetch — and the note is published twice:
+
+```swift
+actor NoteLoader {
+    private var loaded: Set<String> = []
+
+    func loadIfNeeded(id: String) async {
+        guard loaded.contains(id) == false else {
+            return
+        }
+        let note = await fetchFromDisk(id: id)
+        loaded.insert(id)
+        publish(note)
+    }
+}
+```
+
+The interleaving, step by step:
+
+```text
+Task A: checks loaded, id is absent
+Task B: checks loaded, id is absent
+Task A: awaits fetchFromDisk, suspends
+Task B: awaits fetchFromDisk, suspends
+Task A: resumes, inserts id, publishes the note
+Task B: resumes, inserts id again, publishes the note a second time
+```
+
+The actor serialised every individual access — nothing here is a data race — and the bug still happened, because the check and the act are separated by a suspension point. The fix is to re-check after the `await`, so the second task finds the note already loaded and returns without publishing:
+
+```swift
+actor NoteLoader {
+    private var loaded: Set<String> = []
+
+    func loadIfNeeded(id: String) async {
+        guard loaded.contains(id) == false else {
+            return
+        }
+        let note = await fetchFromDisk(id: id)
+        guard loaded.contains(id) == false else {
+            return
+        }
+        loaded.insert(id)
+        publish(note)
+    }
+}
+```
+
+The re-check prevents the double publish. If the duplicate fetch itself is the problem rather than the double publish, track the in-flight load in the actor's state so the second caller awaits the first caller's result — see `ConcurrencyAsyncSystems.md`.
 - **They do not make the code fast.** Every cross-actor call is a hop with scheduling cost. An actor called in a tight loop, or an actor that does heavy computation, serialises work that could have run in parallel. Keep actor methods short and non-blocking.
 - **They do not isolate what escapes.** A mutable reference handed out of an actor (a class instance, a mutable collection passed by reference) can be mutated from outside the actor. Isolation ends at the boundary; what crosses it must be a value, an immutable snapshot, or a `Sendable` type.
 

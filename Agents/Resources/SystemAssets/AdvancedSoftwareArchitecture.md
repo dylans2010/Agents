@@ -95,6 +95,39 @@ Merging is not a failure of the earlier split. Codebases breathe: boundaries tha
 - **Platform code at the edges.** AppKit, UIKit, SwiftUI, Core Data, and third-party SDKs live in infrastructure or presentation modules. Pure logic modules import Foundation only. If a logic module imports a UI framework, the boundary has leaked.
 - **No upward references in tests either.** A test target for a low-level module must not import a high-level module to build fixtures. Fixtures live at or below the module under test.
 
+### 5.1 Example: a notes app's module map
+
+A small notes app split into four modules shows the direction rules in practice. The feature module depends on the domain's protocols, the infrastructure module implements them, and nothing depends upward:
+
+```text
+NotesFeature  ->  NotesDomain  <-  NotesPersistence
+     |                ^
+     |                |
+     +------>  NotesCore (value types, errors)
+```
+
+Concretely, the feature module depends on a persistence protocol owned by the domain, never on the concrete store:
+
+```swift
+protocol NoteStore {
+    func save(note: Note) throws
+    func loadAll() throws -> [Note]
+}
+
+struct NotesViewModel {
+    let store: NoteStore
+    var title: String
+    var body: String
+
+    func saveCurrentNote() throws {
+        let note = Note(title: title, body: body)
+        try store.save(note: note)
+    }
+}
+```
+
+The direction is verifiable from the build: `NotesDomain` imports Foundation only, `NotesFeature` imports `NotesDomain` and `NotesCore`, and `NotesPersistence` is the only module that imports the persistence framework. If a feature file ever imports the persistence framework directly, the boundary has leaked and that import is the finding.
+
 ## 6. Failure Cases and Pitfalls
 
 - **The god module.** One target that everything imports because "it's convenient". Symptoms: build times grow superlinearly, unrelated changes conflict, tests cannot run in isolation. Fix by extracting the stable core first, then the next most-depended-upon piece.

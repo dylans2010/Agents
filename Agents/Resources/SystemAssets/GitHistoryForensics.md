@@ -41,6 +41,32 @@ When something that worked now fails, and the failure appeared somewhere in a ra
 4. **Verify the boundary.** Confirm the commit before the result passes and the commit itself fails, with the same predicate. A bisect that lands on a commit whose parent was never tested is unverified.
 5. **Read the commit, not just its title.** The diff of the introducing commit is the cause — or the trigger. Distinguish the two: a commit can expose a pre-existing defect without being its cause. If the defect predates the commit, the commit is the trigger and the real cause is older.
 
+### 2.2 Example: a worked bisect session
+
+A scrolling regression appeared somewhere between the last release and the current tip. The predicate is the scrolling performance test from `ComplexDebugging.md`, and the session starts by verifying both bounds before any bisection:
+
+```text
+$ git checkout v2.3.0
+$ ./scripts/scroll-repro.sh
+$ echo $?
+0
+$ git checkout main
+$ ./scripts/scroll-repro.sh
+$ echo $?
+1
+```
+
+The good bound passes and the bad bound fails, so the search is valid. The bisect itself is four commands:
+
+```text
+$ git bisect start
+$ git bisect bad HEAD
+$ git bisect good v2.3.0
+$ git bisect run ./scripts/scroll-repro.sh
+```
+
+The run ends by naming the first bad commit. Its diff adds a drop shadow to every list cell — and reading the diff, not just the message, is what identifies the cause: the commit's message says "polish list appearance" and says nothing about shadows being expensive. The boundary is verified directly: the commit's parent passes the predicate and the commit itself fails it. The commit is the trigger, not the whole cause — the shadow is expensive only because cells are rebuilt on every scroll event — so the fix addresses both: the shadow is cached, and the rebuild is debounced.
+
 ### 2.1 When bisect misleads
 
 - **The failure is flaky.** A predicate that answers wrongly some of the time sends the search down the wrong half. Make the predicate deterministic first — or run it multiple times per step and require agreement.

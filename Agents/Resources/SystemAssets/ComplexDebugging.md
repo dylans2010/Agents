@@ -60,6 +60,27 @@ When the cause is somewhere in a large space — a range of commits, a range of 
 
 Bisection works on commits (`git bisect`, see `GitHistoryForensics.md`), on inputs (delta debugging), and on code (disable half the suspects). The discipline is the same: a clean predicate and a halving step.
 
+### 3.1 Example: bisecting a scrolling regression
+
+A list that scrolled smoothly in the last release now stutters, and the range is the 40 commits since that release. The predicate is a script that runs the scrolling performance test and exits non-zero when the frame rate falls below the budget:
+
+```sh
+#!/bin/sh
+set -e
+xcodebuild test -scheme Notes -only-testing NotesUITests/ScrollingTests/testListScrollStaysAboveFiftyFramesPerSecond
+```
+
+`git bisect run` treats exit 0 as good and any other exit code as bad, so the script needs no output parsing — the test result is the predicate. The session is four commands:
+
+```text
+git bisect start
+git bisect bad HEAD
+git bisect good v2.3.0
+git bisect run ./scripts/scroll-repro.sh
+```
+
+The run ends by naming the first bad commit. Its diff adds a drop shadow to every list cell, and removing the shadow restores the frame rate. The boundary is then verified directly: the commit's parent passes the predicate and the commit itself fails it. Note what the bisect found and what it did not: the shadow is the trigger, and the underlying cause is that cells are rebuilt on every scroll event, which is why an expensive cell became a visible regression at all.
+
 ---
 
 ## 4. Hypothesis Testing

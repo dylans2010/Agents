@@ -43,6 +43,37 @@ Characterisation tests describe what the code **actually does**, not what it sho
 
 Characterisation tests are scaffolding: they exist to be run during the refactor. Some may be deleted or replaced by proper specification tests afterwards; the safety they provided is not deleted with them.
 
+### 2.1 Example: characterising a pricing function
+
+A legacy pricing function computes a total from a unit price and a quantity. Reading it shows a bulk discount and a cap, but not the exact thresholds — those come from running it. The characterised behaviour, recorded before any refactoring:
+
+```text
+total(for: 0)    -> 0
+total(for: 1)    -> 100
+total(for: 10)   -> 1000, no discount at exactly ten
+total(for: 11)   -> 990, ten percent discount above ten
+total(for: 100)  -> 9000, discount capped at one thousand
+```
+
+The cap was the surprise: nothing in the surrounding code mentions it, and it only shows up at large quantities. It is recorded as characterised behaviour and filed separately as a suspected defect, not "fixed" inside the refactor. The tests pin the observed behaviour:
+
+```swift
+@Test("Bulk discount applies only above ten items")
+func bulkDiscountThreshold() {
+    let pricing = LegacyPricing(unitPrice: Decimal(100))
+    #expect(pricing.total(for: 10) == Decimal(1000))
+    #expect(pricing.total(for: 11) == Decimal(990))
+}
+
+@Test("Bulk discount is capped at one thousand")
+func bulkDiscountCap() {
+    let pricing = LegacyPricing(unitPrice: Decimal(100))
+    #expect(pricing.total(for: 100) == Decimal(9000))
+}
+```
+
+Both tests pass against the unchanged code. If a refactor step changes any of these numbers, the step changed behaviour — the tests say so before the change is reviewed, not after it ships.
+
 ---
 
 ## 3. Methodology: Seams

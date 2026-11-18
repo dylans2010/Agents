@@ -52,6 +52,44 @@ Do not use this asset as a substitute for profiling. Suspect a leak; prove it wi
 - **Object ↔ timer / observation / subscription.** A repeating timer, a notification observer, or a Combine/AsyncSequence subscription retains its target or its closure. The owner must invalidate, cancel, or remove it at teardown — and the teardown must actually run. A subscription stored in a bag that is never cleared is a leak.
 - **Object ↔ task.** A `Task` that captures its owner and runs indefinitely (or until a condition that never arrives) keeps the owner alive. The task must be cancelled when the owner dies, and must check for cancellation.
 
+### Example: the object-and-closure cycle, broken
+
+A sync object stores a completion closure, and the closure captures the object — a loop of two strong references, so neither is ever released:
+
+```swift
+final class NoteSyncer {
+    var onSyncFinished: () -> Void = {}
+
+    func start() {
+        onSyncFinished = {
+            self.markSyncComplete()
+        }
+    }
+
+    func markSyncComplete() {
+    }
+}
+```
+
+The memory graph shows the loop directly: `NoteSyncer` holds `onSyncFinished` strongly, and `onSyncFinished` holds `NoteSyncer` strongly. Breaking it means weakening one edge — the capture, since the object must keep owning its handler:
+
+```swift
+final class NoteSyncer {
+    var onSyncFinished: () -> Void = {}
+
+    func start() {
+        onSyncFinished = { [weak self] in
+            self?.markSyncComplete()
+        }
+    }
+
+    func markSyncComplete() {
+    }
+}
+```
+
+After the fix, opening and closing the sync screen twenty times leaves the persistent count for `NoteSyncer` flat at zero between cycles. The `weak` capture is not a guess applied at random: it is the specific edge in the loop the memory graph identified, and the verification names that loop.
+
 ### 3.2 Diagnosis
 
 - **Allocations instrument, persistent count.** An object type whose persistent count grows across repeated open/close cycles is leaking. The count is the evidence; the graph is the diagnosis.

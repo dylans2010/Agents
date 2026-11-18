@@ -72,11 +72,43 @@ def main():
         raise SystemExit("sync-system-assets: no system assets found at %s@%s" % (UPSTREAM_DIR, PINNED_REVISION))
     os.makedirs(dest_dir, exist_ok=True)
     manifest_path = os.path.join(dest_dir, ".sync-manifest.json")
+    manifest_missing = False
     try:
         with open(manifest_path, "r", encoding="utf-8") as handle:
-            previously_synced = set(json.load(handle))
+            parsed_manifest = json.load(handle)
+    except FileNotFoundError:
+        previously_synced = set()
+        manifest_missing = True
     except (OSError, ValueError):
         previously_synced = set()
+    else:
+        if not isinstance(parsed_manifest, list) or not all(
+            isinstance(name, str) for name in parsed_manifest
+        ):
+            print(
+                "sync-system-assets: warning: manifest %s is malformed "
+                "(expected a JSON list of file names); ignoring it, nothing "
+                "will be deleted as stale" % manifest_path
+            )
+            previously_synced = set()
+        else:
+            previously_synced = set(parsed_manifest)
+    if manifest_missing:
+        unexpected = sorted(
+            name
+            for name in os.listdir(dest_dir)
+            if name.endswith(".md")
+            and name not in expected
+            and os.path.isfile(os.path.join(dest_dir, name))
+        )
+        if unexpected:
+            print(
+                "sync-system-assets: warning: no sync manifest found; the "
+                "following files are on disk but are not part of the upstream "
+                "set, and were left untouched - review them manually:"
+            )
+            for name in unexpected:
+                print("sync-system-assets: unexpected file: %s" % name)
     downloaded = {}
     for name in sorted(expected):
         blob = api_get("%s/repos/%s/git/blobs/%s" % (API_BASE, UPSTREAM_REPO, expected[name]))
