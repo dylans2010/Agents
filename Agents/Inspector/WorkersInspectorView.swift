@@ -118,7 +118,10 @@ struct WorkersInspectorView: View {
                         .foregroundStyle(AppTheme.secondaryLabel)
                         .lineLimit(2)
                     Spacer()
-                    Button("Dismiss") { self.errorText = nil }
+                    Button("Dismiss") {
+                        self.errorText = nil
+                        consecutiveFailures = 0
+                    }
                         .buttonStyle(.borderless)
                         .font(.system(size: 11))
                 }
@@ -156,7 +159,7 @@ struct WorkersInspectorView: View {
             await loadWorkers()
             while !Task.isCancelled {
                 let baseSeconds: Int = filteredWorkers.contains(where: \.isRunning) ? 3 : 10
-                let multiplier = min(1 << consecutiveFailures, 8)
+                let multiplier = 1 << min(consecutiveFailures, 3)
                 try? await Task.sleep(for: .seconds(baseSeconds * multiplier))
                 if Task.isCancelled { break }
                 if await loadWorkers(silent: true) {
@@ -166,7 +169,7 @@ struct WorkersInspectorView: View {
                     }
                 } else {
                     consecutiveFailures += 1
-                    if consecutiveFailures >= 3 {
+                    if consecutiveFailures >= 3, errorText == nil || errorText == Self.pausedUpdatesNote {
                         errorText = Self.pausedUpdatesNote
                     }
                 }
@@ -174,6 +177,9 @@ struct WorkersInspectorView: View {
         }
         .onChange(of: scopeFilter) { _, _ in
             consecutiveFailures = 0
+            if errorText == Self.pausedUpdatesNote {
+                errorText = nil
+            }
         }
         .confirmationDialog(
             "Delete Worker Record?",
@@ -215,7 +221,9 @@ struct WorkersInspectorView: View {
                 Button {
                     Task {
                         consecutiveFailures = 0
-                        await loadWorkers()
+                        if await loadWorkers(), errorText == Self.pausedUpdatesNote {
+                            errorText = nil
+                        }
                     }
                 } label: {
                     if isLoading {
@@ -240,7 +248,7 @@ struct WorkersInspectorView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 220)
+                .frame(maxWidth: 280)
                 Spacer(minLength: 4)
             }
             HStack(spacing: 8) {
@@ -573,7 +581,7 @@ struct WorkersInspectorView: View {
 
     @discardableResult
     private func loadWorkers(silent: Bool = false) async -> Bool {
-        guard let client = appModel.runtime else { return false }
+        guard let client = appModel.runtime else { return true }
         if !silent {
             isLoading = true
         }
