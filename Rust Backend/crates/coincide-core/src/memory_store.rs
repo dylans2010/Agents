@@ -3,7 +3,6 @@ use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub const MEMORY_DOCUMENT: &str = "memory.json";
 pub const MAX_KEY_CHARS: usize = 256;
 pub const MAX_VALUE_BYTES: usize = 64 * 1024;
 pub const MAX_SCOPE_CHARS: usize = 512;

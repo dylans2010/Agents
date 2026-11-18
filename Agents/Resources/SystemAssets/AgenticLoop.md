@@ -54,9 +54,9 @@ The agent never crosses this boundary: it does not reimplement Agents' tools, an
 
 ## 3. The Bridge
 
-At session start Agents serializes JSON schemas for all registered Swift tools from `SystemToolRegistry.systemTools`, and Antigravity registers them as executable functions inside its agent loop. When Antigravity decides to execute a tool it emits a `tool.execute` JSON-RPC request over the IPC socket; Agents validates the arguments, checks permissions, executes the Swift tool asynchronously, and returns structured results; Antigravity continues its iterative reasoning turn.
+Antigravity runs as a stdio subprocess spawned and driven by Rust (`provider_antigravity.rs`: `Transport::spawn_antigravity`, JSON-RPC over stdin/stdout). At session start Agents mounts the system tools over MCP: the `session/new` request carries `mcpServers` served by `coincide-mcp-server` from its Rust `DEFINITIONS` table, and Antigravity calls tools through MCP `tools/list` + `tools/call`. The only methods Agents answers inbound from Antigravity on that stdio channel are `fs/read_text_file`, `fs/write_text_file`, `session/request_permission`, and `session/update`. There is no `tool.execute` method and no IPC socket to Swift: the only Unix socket is the engine control socket the MCP server uses to reach the engine. See the Mount rule in `docs/SYSTEM-TOOLSET.md` for the full mount policy.
 
-Runtime events (`agent.progress`, `tool.started`, `tool.completed`, `tool.failed`, `worker.started`, `worker.completed`) are translated at the IPC boundary into native models: streaming Markdown is parsed incrementally, tool execution appears as compact activity items, and worker events update the worker records (`WorkerRecord`) surfaced in `WorkersInspectorView`.
+Runtime events (`agent.progress`, `tool.started`, `tool.completed`, `tool.failed`, `worker.started`, `worker.completed`) arriving over the stdio JSON-RPC channel are translated into native models: streaming Markdown is parsed incrementally, tool execution appears as compact activity items, and worker events update the worker records (`WorkerRecord`) surfaced in `WorkersInspectorView`.
 
 ---
 

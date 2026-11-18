@@ -132,9 +132,30 @@ fn legacy_document(db: &Connection, name: &str) -> Result<Option<(Value, bool)>>
         )
         .optional()?;
     if let Some(document) = from_documents {
-        return Ok(serde_json::from_str(&document)
-            .ok()
-            .map(|value| (value, true)));
+        match serde_json::from_str(&document) {
+            Ok(value) => return Ok(Some((value, true))),
+            Err(_) => {
+                let mut quarantine = format!("{name}.corrupt");
+                let mut suffix = 2;
+                while db
+                    .query_row(
+                        "SELECT 1 FROM documents WHERE name=?1",
+                        [&quarantine],
+                        |_| Ok(()),
+                    )
+                    .optional()?
+                    .is_some()
+                {
+                    quarantine = format!("{name}.corrupt-{suffix}");
+                    suffix += 1;
+                }
+                let _ = db.execute(
+                    "UPDATE documents SET name=?1 WHERE name=?2",
+                    params![quarantine, name],
+                );
+                return Ok(None);
+            }
+        }
     }
     let from_original: Option<Vec<u8>> = db
         .query_row(

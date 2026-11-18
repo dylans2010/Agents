@@ -62,7 +62,7 @@ Assist's system prompt and tool guidance come from System Assets (`Agents/Resour
 
 ## System Toolset
 
-Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs 332 tools (63 distinct actions) behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction only for **Codex and Claude**; other providers receive the tools and assets through the bundled MCP server instead. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
+Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs 332 tools (63 distinct actions) behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction for **Codex and Claude**: Codex gets the system prompt only (no MCP mount), while Claude gets both the prompt (`--append-system-prompt`) and the MCP mount. Cursor, Grok, Antigravity, and ACP providers get the MCP mount; OpenCode and Lithos reject System Tools. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
 
 ## Liquid Glass
 

@@ -1340,6 +1340,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "coincide-mcp-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "coincide-core",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "coincide-native-host-tests"
 version = "0.1.0"
 dependencies = [

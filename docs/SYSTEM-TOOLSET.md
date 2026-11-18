@@ -55,6 +55,8 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
 
 Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 332 tools, 63 distinct actions: several tools share one action (`workspace.read_file` x59, `terminal.create` x60, `workspace.write_file` x47, `workspace.search_regex` x37, `computer_use.request` x22, `workspace.read_dir` x15, `workspace.files` x7, `workspace.edit_file` x4, `workspace.move_file` x4, `workspace.search` x3, `git.log` x3, `workspace.delete_file` x3, `workspace.copy_file` x3, `memory.store` x3, `web.fetch` x4, `git.diff` x2, `git.diff.range` x2, `workspace.delete_directory` x2, `workspace.create_dir` x2, `git.actions.run` x2, `git.branches.list` x2, `memory.snapshot` x2, `workers.spawn` x2, `git.checkpoints.restore` x2, `system.info` x2, plus 38 single-tool actions).
 
+Production tool execution is the Rust MCP server, not the Swift registry: `tools/call` in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` dispatches the 332 `DEFINITIONS` entries either to `coincide_core::workspace_tools` directly or via `engine_request` over the engine control socket (`<data_dir>/control.sock`). The Swift `SystemToolRegistry` is the canonical schema mirror (definitions, the Rust cross-check test, the UI display filter); its `execute()` is exercised by tests, not by the production turn path. The `Real backend` column below describes each action's backend on either side of that mirror.
+
 | Tool | Action | Channel | Real backend |
 | --- | --- | --- | --- |
 | `read_file` | `workspace.read_file` | desktop | FFI `workspace.read_file` arm -> `coincide_core::workspace_tools::read_file` |
@@ -87,21 +89,21 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `git_branch_list` | `git.branches.list` | engine | Engine `git.branches.list` (optional `scope`), polled via `git.actions.result` |
 | `git_branch_create` | `git.branches.create` | engine | Engine `git.branches.create` (`name`), polled via `git.actions.result` |
 | `git_branch_checkout` | `git.branches.checkout` | engine | Engine `git.branches.checkout` (`name`), polled via `git.actions.result` |
-| `mem_store` | `memory.store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::store_entry` (SQLite `memory.json`) |
-| `mem_retrieve` | `memory.retrieve` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::retrieve_entry` (SQLite `memory.json`) |
-| `view_memory` | `memory.list` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::list_entries` (SQLite `memory.json`) |
-| `mem_delete` | `memory.delete` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::delete_entry` (SQLite `memory.json`) |
-| `mem_clear` | `memory.clear` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::clear_scope` (SQLite `memory.json`) |
-| `mem_context_snapshot` | `memory.snapshot` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::snapshot_context` (SQLite `memory.json`) |
-| `context_persistence_store` | `memory.context_store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::context_store` (SQLite `memory.json`) |
-| `use_workers` | `workers.spawn` | desktop | FFI `workers.*` arm -> `Engine::workers_spawn` (record in SQLite `workers.json`) |
-| `list_workers` | `workers.list` | desktop | FFI `workers.*` arm -> `Engine::workers_list` (record in SQLite `workers.json`) |
-| `worker_status` | `workers.status` | desktop | FFI `workers.*` arm -> `Engine::workers_status` (record in SQLite `workers.json`) |
-| `worker_result` | `workers.result` | desktop | FFI `workers.*` arm -> `Engine::workers_result` (record in SQLite `workers.json`) |
-| `cancel_worker` | `workers.cancel` | desktop | FFI `workers.*` arm -> `Engine::workers_cancel` (record in SQLite `workers.json`) |
-| `intel_plan_task` | `workers.plan` | desktop | FFI `workers.*` arm -> `Engine::workers_plan` (record in SQLite `workers.json`) |
-| `intel_breakdown_task` | `workers.breakdown` | desktop | FFI `workers.*` arm -> `Engine::workers_breakdown` (record in SQLite `workers.json`) |
-| `execution_plan` | `workers.execution_plan` | desktop | FFI `workers.*` arm -> `Engine::workers_execution_plan` (record in SQLite `workers.json`) |
+| `mem_store` | `memory.store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::store_entry` (SQLite `memory_entries`) |
+| `mem_retrieve` | `memory.retrieve` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::retrieve_entry` (SQLite `memory_entries`) |
+| `view_memory` | `memory.list` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::list_entries` (SQLite `memory_entries`) |
+| `mem_delete` | `memory.delete` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::delete_entry` (SQLite `memory_entries`) |
+| `mem_clear` | `memory.clear` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::clear_scope` (SQLite `memory_entries`) |
+| `mem_context_snapshot` | `memory.snapshot` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::snapshot_context` (SQLite `memory_entries`) |
+| `context_persistence_store` | `memory.context_store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::context_store` (SQLite `memory_entries`) |
+| `use_workers` | `workers.spawn` | desktop | FFI `workers.*` arm -> `Engine::workers_spawn` (record in SQLite `worker_records`) |
+| `list_workers` | `workers.list` | desktop | FFI `workers.*` arm -> `Engine::workers_list` (record in SQLite `worker_records`) |
+| `worker_status` | `workers.status` | desktop | FFI `workers.*` arm -> `Engine::workers_status` (record in SQLite `worker_records`) |
+| `worker_result` | `workers.result` | desktop | FFI `workers.*` arm -> `Engine::workers_result` (record in SQLite `worker_records`) |
+| `cancel_worker` | `workers.cancel` | desktop | FFI `workers.*` arm -> `Engine::workers_cancel` (record in SQLite `worker_records`) |
+| `intel_plan_task` | `workers.plan` | desktop | FFI `workers.*` arm -> `Engine::workers_plan` (plan in SQLite `worker_plans`) |
+| `intel_breakdown_task` | `workers.breakdown` | desktop | FFI `workers.*` arm -> `Engine::workers_breakdown` (plan in SQLite `worker_plans`) |
+| `execution_plan` | `workers.execution_plan` | desktop | FFI `workers.*` arm -> `Engine::workers_execution_plan` (plan in SQLite `worker_plans`) |
 | `list_apps` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
 | `list_windows` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
 | `get_window_state` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
@@ -148,10 +150,10 @@ Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row b
 | `git_branch_compare` | `git.diff.range` | engine | Engine `git.diff.range`, async workspace channel polled via `workspace.result` |
 | `project_diff` | `git.diff` | engine | Engine `git.diff`, async workspace channel polled via `workspace.result` |
 | `git_branch_manager` | `git.branches.list` | engine | Dispatches on `action`: list/create/checkout/delete via Engine `git.branches.*`, polled via `git.actions.result`; delete requires `confirm=true` |
-| `save_to_memory` | `memory.store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::store_entry` (SQLite `memory.json`) |
+| `save_to_memory` | `memory.store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::store_entry` (SQLite `memory_entries`) |
 | `use_mcp` | `mcp.tools` | desktop | Local meta-tool over the live registry: `list` / `list_tools` / recursive `SystemToolRegistry.execute`; only the `coincide` server exists |
 | `take_screenshot` | `computer_use.request` | engine | Engine `computer_use.request` (`get_desktop_state` with `include_screenshot`), polled via `computer_use.result`; FFI Pump drains it into the native macOS executor |
-| `start_subagent` | `workers.spawn` | desktop | FFI `workers.*` arm -> `Engine::workers_spawn` (record in SQLite `workers.json`) (alias of `use_workers`) |
+| `start_subagent` | `workers.spawn` | desktop | FFI `workers.*` arm -> `Engine::workers_spawn` (record in SQLite `worker_records`) (alias of `use_workers`) |
 | `git_stash_operator` | `git.stash` | engine | Engine `git.stash` (`workspace_git::stash` on the hardened `git()` runner), polled via `workspace.result`; pop/drop require `confirm=true` |
 | `git_blame_inspector` | `git.blame` | engine | Engine `git.blame` (`git blame --line-porcelain`), polled via `workspace.result` |
 | `git_bisect` | `git.bisect` | engine | Engine `git.bisect` (start/good/bad/skip/reset/log), polled via `workspace.result` |
@@ -856,14 +858,14 @@ What is enforced for real in this slice:
 
 - The system prompt is delivered as a genuine developer/system instruction
   for Codex and Claude, never as user text.
-- `SystemToolRegistry` (Swift) registers exactly sixty-five tools, each mapped to a
-  real core action that was verified against the FFI dispatch:
-  `workspace.read_file`, `workspace.write_file`, `workspace.files`,
-  `workspace.search` (synchronous desktop actions) and `terminal.create`,
-  `terminal.write`, `terminal.read`, `git.status`, `git.diff` (engine RPC;
-  the git actions run through the async workspace-operation channel and the
-  registry polls `workspace.result` for the outcome). Slice 1 added
-  seventeen more, all real:
+- `SystemToolRegistry` (Swift) registers exactly 332 tools in 63 distinct
+  actions, each mapped to a real core action; the Rust MCP server table in
+  `Rust Backend/crates/coincide-mcp-server/src/tools.rs` carries the same 332
+  names, actions, and channels, and the Rust cross-check test asserts the two
+  tables match exactly (see "The 332-tool registry" above). Production
+  execution is the MCP server's `tools/call`, not the Swift registry's
+  `execute()`. Slice 1 added seventeen more tools to the original set, all
+  real:
   - File mutation, as new `desktop_call` actions on real filesystem calls
     with the same canonical-root containment as `workspace.write_file`:
     `workspace.delete_file` (`delete_file`), `workspace.delete_directory`
@@ -895,14 +897,17 @@ What is enforced for real in this slice:
     `memory.context_store` (`mem_store`, `mem_retrieve`, `view_memory`,
     `mem_delete`, `mem_clear`, `mem_context_snapshot`,
     `context_persistence_store`). Slice 3 added seven, all real:
-    - Store design: one document in the existing SQLite `documents` table,
-      `memory.json` (`coincide-core/src/memory_store.rs`), holding
-      `{"version": 1, "entries": {<composite key>: {key, scope, value,
-      updatedAt}}}` where the composite key is the scope, a unit-separator
-      character, and the key. It is the same table and the same
-      `Store::save_document` / `Store::document` calls the rest of the
-      engine already uses, so entries survive restarts; the Rust and Swift
-      round-trip tests reopen the store and read the entry back.
+    - Store design: one row per entry in the SQLite `memory_entries` table
+      (`coincide-core/src/memory_store.rs`), with a composite key
+      (`composite_key` primary key), a `scope`, and the entry JSON holding
+      `{key, scope, value, updatedAt}`; the composite key is the scope, a
+      unit-separator character, and the key. Entries survive restarts; the
+      Rust and Swift round-trip tests reopen the store and read the entry
+      back. A pre-Slice-15 `memory.json` document in the `documents` table
+      is migrated once, transactionally, into `memory_entries` on open
+      (`coincide-core/src/store.rs`); a document that cannot be parsed is
+      quarantined under a `memory.json.corrupt` name so the migration does
+      not re-attempt on every open, and its bytes are preserved.
     - Scopes: `global`, or `workspace:<identifier>` where the identifier is
       normally the absolute project path. The same key in two scopes is two
       different entries. A list with no scope returns entries from all
@@ -951,8 +956,7 @@ What is enforced for real in this slice:
       provider selection, access mode, interaction mode, system prompt, and
       toolset, then starts the turn with `agent.send` carrying the worker's
       task (at most 500 characters, per the catalog) plus its target files.
-      The worker record lives in the same SQLite `documents` table as
-      memory, under `workers.json`
+      The worker record lives in the SQLite `worker_records` table
       (`coincide-core/src/worker_store.rs`): id, name, parent thread id,
       child thread id, task, provider, target files, status, cancel flag,
       transcript start index, transcript item count, elapsed seconds,
@@ -1000,7 +1004,12 @@ What is enforced for real in this slice:
     - Plans are a mechanical decomposition, not LLM planning, per the
       catalog's own Known Limitations. `intel_plan_task` splits the task
       into sentences, packs them into steps of at most 500 characters (at
-      most 16 steps), and stores the plan under `workers.json`.
+      most 16 steps), and stores the plan in the `worker_plans` table. A
+      pre-Slice-15 `workers.json` document in the `documents` table is
+      migrated once, transactionally, into `worker_records` / `worker_plans`
+      on open; a document that cannot be parsed is quarantined under a
+      `workers.json.corrupt` name so the migration does not re-attempt on
+      every open, and its bytes are preserved.
       `intel_breakdown_task` expands each step by splitting on `;`, then
       `, `, capped at 3 sub-steps per step; a step with no separators stays
       one step. A plan is a list of worker tasks the parent can spawn: each
