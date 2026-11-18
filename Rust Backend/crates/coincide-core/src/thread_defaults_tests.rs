@@ -18,6 +18,29 @@ fn rows(engine: &mut Engine) -> Value {
 }
 
 #[test]
+fn assistant_id_is_stored_and_must_be_a_uuid() {
+    let (_dir, mut engine) = fixture();
+    let id = "00000000-0000-4000-8000-000000000001";
+    let thread = engine
+        .execute("threads.create", &json!({"assistantId": id}))
+        .unwrap();
+    assert_eq!(thread["assistantId"], id);
+    assert_eq!(
+        engine
+            .store
+            .thread(thread["id"].as_str().unwrap())
+            .unwrap()["assistantId"],
+        id
+    );
+    let error = engine
+        .execute("threads.create", &json!({"assistantId": "not-a-uuid"}))
+        .unwrap_err();
+    assert!(error.to_string().contains("Assistant ID must be a UUID"));
+    let plain = engine.execute("threads.create", &json!({})).unwrap();
+    assert!(plain["assistantId"].is_null());
+}
+
+#[test]
 fn project_override_is_lazy_and_preserves_exact_selection_and_source_documents() {
     let (_dir, mut engine) = fixture();
     let project = Uuid::new_v4().to_string();

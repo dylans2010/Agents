@@ -268,6 +268,41 @@ struct AgentsRuntimeTests {
         await model.shutdown()
     }
 
+    @Test("AppModel launches an assistant thread carrying its id and tools")
+    @MainActor
+    func appModelLaunchAssistant() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-launch-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+
+        let projID = await model.addProject(at: projectDir.path, name: "LaunchProject")
+        #expect(projID != nil)
+
+        let assistant = RemoteAssistant(
+            id: UUID(),
+            name: "Reviewer",
+            category: .codeReviewSecurity,
+            systemPrompt: "Review the diff for security issues.",
+            allowedTools: ["read_file"],
+            provider: "claude",
+            model: "claude-sonnet-4"
+        )
+        await model.launchAssistant(assistant, task: "Review the latest diff.", in: projID)
+        await model.refreshWorkspace()
+        let launched = model.workspace.threads.first { $0.assistantId == assistant.id.uuidString }
+        #expect(launched != nil)
+        #expect(launched?.allowedTools == ["read_file"])
+        #expect(model.selectedThread?.id == launched?.id)
+
+        await model.shutdown()
+    }
+
     @Test("RuntimePollStatus decodes turnResults serial and recent entries")
     func pollStatusDecodesTurnResults() throws {
         let payload = """

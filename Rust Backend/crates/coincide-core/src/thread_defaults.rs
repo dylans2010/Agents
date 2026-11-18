@@ -96,6 +96,7 @@ impl Engine {
                     | "systemPrompt"
                     | "toolset"
                     | "allowedTools"
+                    | "assistantId"
             )),
             "New-thread request contains unsupported options"
         );
@@ -319,6 +320,16 @@ impl Engine {
         }
         if let Some(allowed_tools) = allowed_tools {
             thread["allowedTools"] = json!(allowed_tools);
+        }
+        let assistant_id = fields
+            .get("assistantId")
+            .filter(|value| !value.is_null())
+            .map(|value| value.as_str().context("Assistant ID must be text"))
+            .transpose()?
+            .map(|id| Uuid::parse_str(id).context("Assistant ID must be a UUID"))
+            .transpose()?;
+        if let Some(assistant_id) = assistant_id {
+            thread["assistantId"] = json!(assistant_id.to_string());
         }
         if let Some(cwd) = cwd {
             thread["worktreePath"] = json!(cwd);

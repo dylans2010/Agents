@@ -147,6 +147,15 @@ struct WorkersTests {
         await client.close()
     }
 
+    @Test("Assistant-scoped worker listing reaches the engine and decodes empty")
+    func listWorkersFiltersByAssistantId() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let listed = try await client.listWorkers(assistantId: UUID().uuidString)
+        #expect(listed.isEmpty)
+        await client.close()
+    }
+
     @Test("Plan round trip: draft, expand, and the plan survives a reopen")
     func planRoundTrip() async throws {
         let (client, tempRoot) = try Self.makeClient()

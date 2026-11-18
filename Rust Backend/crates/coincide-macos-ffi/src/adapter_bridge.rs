@@ -186,8 +186,9 @@ fn execute_adapter_call(
             system_prompt,
             toolset,
             allowed_tools,
+            assistant_id,
         } => {
-            let id = adapter.new_thread(project_id, &adapter.workspace_runs()?, system_prompt, toolset, allowed_tools)?;
+            let id = adapter.new_thread(project_id, &adapter.workspace_runs()?, system_prompt, toolset, allowed_tools, assistant_id)?;
             Ok(("thread", protocol::value_body(id)))
         }
         Request::NewBotConversation { bot_id } => {

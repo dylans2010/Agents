@@ -332,6 +332,7 @@ pub enum Request {
         system_prompt: Option<String>,
         toolset: Option<String>,
         allowed_tools: Option<Vec<String>>,
+        assistant_id: Option<String>,
     },
     NewBotConversation {
         bot_id: Uuid,
@@ -560,6 +561,10 @@ impl ClientMessage {
                             })
                             .collect::<Result<Vec<_>, _>>()?,
                     ),
+                },
+                assistant_id: match fields.get("assistantId") {
+                    None | Some(Value::Null) => None,
+                    some => Some(uuid(some)?.to_string()),
                 },
             },
             "newBotConversation" => Request::NewBotConversation {
@@ -929,6 +934,8 @@ pub struct ThreadSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allowed_tools: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub assistant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub running_since: Option<f64>,
 }
 
@@ -1172,6 +1179,23 @@ mod tests {
                 include_archived: false
             }
         );
+        let assistant = Uuid::new_v4();
+        assert_eq!(
+            decode(json!({"v":1,"id":"n","type":"newThread","body":{"assistantId":assistant}}))
+                .unwrap()
+                .request,
+            Request::NewThread {
+                project_id: None,
+                system_prompt: None,
+                toolset: None,
+                allowed_tools: None,
+                assistant_id: Some(assistant.to_string()),
+            }
+        );
+        assert!(decode(
+            json!({"v":1,"id":"n","type":"newThread","body":{"assistantId":"not-a-uuid"}})
+        )
+        .is_err());
         let hello = decode(json!({"v":1,"id":"c","type":"hello","body":{"deviceID":"D","token":"T","appVersion":"1.0"}})).unwrap();
         assert!(
             matches!(hello.request, Request::Hello(Hello { ref device_id, .. }) if device_id == "D")

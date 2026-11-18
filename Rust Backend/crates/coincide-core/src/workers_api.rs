@@ -98,27 +98,62 @@ impl Engine {
         provider: &str,
     ) -> Result<Value> {
         let cwd = self.working_directory(parent)?;
+        let assistant = match &request.assistant_id {
+            Some(id) => Some(crate::api::assistants_api::find_assistant(
+                &self.store,
+                uuid::Uuid::parse_str(id).context("Invalid assistant ID")?,
+            )?),
+            None => None,
+        };
         let mut child_params = json!({
             "projectId": parent["projectID"],
             "cwd": cwd.to_string_lossy(),
             "title": format!("Worker: {}", request.name),
         });
-        if parent["selection"].is_object() {
-            child_params["selection"] = parent["selection"].clone();
+        if let Some(assistant) = &assistant {
+            if let Some(assistant_provider) = &assistant.provider {
+                child_params["selection"] = json!({
+                    "provider": assistant_provider,
+                    "modelID": assistant.model.clone().unwrap_or_else(|| "default".to_owned()),
+                });
+            } else if parent["selection"].is_object() {
+                child_params["selection"] = parent["selection"].clone();
+            }
+            child_params["assistantId"] = json!(assistant.id);
+        } else {
+            if parent["selection"].is_object() {
+                child_params["selection"] = parent["selection"].clone();
+            }
+            if let Some(assistant_id) = parent["assistantId"]
+                .as_str()
+                .filter(|id| uuid::Uuid::parse_str(id).is_ok())
+            {
+                child_params["assistantId"] = json!(assistant_id);
+            }
         }
         for key in ["accessMode", "interactionMode"] {
             if parent[key].is_string() {
                 child_params[key] = parent[key].clone();
             }
         }
-        if !parent["systemPrompt"].is_null() {
-            child_params["systemPrompt"] = parent["systemPrompt"].clone();
-        }
-        if !parent["toolset"].is_null() {
-            child_params["toolset"] = parent["toolset"].clone();
-        }
-        if !parent["allowedTools"].is_null() {
-            child_params["allowedTools"] = parent["allowedTools"].clone();
+        if let Some(assistant) = &assistant {
+            child_params["systemPrompt"] = json!(assistant.system_prompt);
+            if let Some(allowed_tools) = &assistant.allowed_tools {
+                if !allowed_tools.is_empty() {
+                    child_params["toolset"] = json!("system");
+                    child_params["allowedTools"] = json!(allowed_tools);
+                }
+            }
+        } else {
+            if !parent["systemPrompt"].is_null() {
+                child_params["systemPrompt"] = parent["systemPrompt"].clone();
+            }
+            if !parent["toolset"].is_null() {
+                child_params["toolset"] = parent["toolset"].clone();
+            }
+            if !parent["allowedTools"].is_null() {
+                child_params["allowedTools"] = parent["allowedTools"].clone();
+            }
         }
         let child = self.create_ordinary_thread(&child_params)?;
         let child_id = text(&child, "id");
@@ -147,11 +182,15 @@ impl Engine {
                 "Worker turn could not start ({error}); the empty worker thread {child_id} remains as an ordinary thread"
             );
         }
+        let effective_provider = assistant
+            .as_ref()
+            .and_then(|assistant| assistant.provider.clone())
+            .unwrap_or_else(|| provider.to_owned());
         let record = worker_store::insert_record(
             &mut self.store,
             request,
             &child_id,
-            provider,
+            &effective_provider,
             transcript_start,
         )?;
         Ok(record)
@@ -259,10 +298,16 @@ impl Engine {
 
     pub fn workers_list(&mut self, params: &Value) -> Result<Value> {
         let parent = params.get("parentThreadId").and_then(Value::as_str);
+        let assistant = params.get("assistantId").and_then(Value::as_str);
         let mut records = worker_store::load_workers(&self.store)?;
         if let Some(parent) = parent {
             records.retain(|record| {
                 record.get("parentThreadId").and_then(Value::as_str) == Some(parent)
+            });
+        }
+        if let Some(assistant) = assistant {
+            records.retain(|record| {
+                record.get("assistantId").and_then(Value::as_str) == Some(assistant)
             });
         }
         let mut changed = false;
@@ -615,6 +660,216 @@ mod tests {
             .expect("worker thread remains after its turn fails to start");
         let child_doc = engine.store.thread(&child.id).unwrap();
         assert_eq!(child_doc["allowedTools"], json!(["read_file", "use_workers"]));
+    }
+
+    fn seed_assistant(engine: &mut Engine) -> String {
+        let id = "00000000-0000-4000-8000-000000000001";
+        let listed = engine.execute("assistants.list", &json!({})).unwrap();
+        engine
+            .execute(
+                "assistants.save",
+                &json!({
+                    "assistant": {
+                        "id": id,
+                        "name": "Reviewer",
+                        "description": "Reviews diffs",
+                        "icon": "magnifyingglass",
+                        "category": "code-review-security",
+                        "systemPrompt": "Review the diff for security issues.",
+                        "intendedTasks": ["Review pull requests"],
+                        "expectedOutputFormat": "A list of findings",
+                        "allowedTools": ["write_file"],
+                        "provider": "claude",
+                        "model": "sonnet",
+                        "permissionProfile": "read-only",
+                        "inputRequirements": ["A diff"],
+                        "version": 1,
+                        "source": "custom",
+                        "isFavorite": false,
+                        "lastUsedAt": Value::Null,
+                        "createdAt": 1_000_000,
+                        "updatedAt": 1_000_000
+                    },
+                    "baseline": listed["baseline"],
+                }),
+            )
+            .unwrap();
+        id.to_owned()
+    }
+
+    #[test]
+    fn spawn_with_assistant_id_builds_child_from_assistant_config() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant(&mut engine);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["selection"]["provider"], "claude");
+        assert_eq!(child_doc["selection"]["modelID"], "sonnet");
+        assert_eq!(
+            child_doc["systemPrompt"],
+            "Review the diff for security issues."
+        );
+        assert_eq!(child_doc["toolset"], "system");
+        assert_eq!(child_doc["allowedTools"], json!(["write_file"]));
+        assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_without_assistant_id_inherits_parent_assistant_id() {
+        let mut engine = test_engine();
+        let parent = make_thread(&mut engine);
+        let assistant_id = "00000000-0000-4000-8000-000000000001";
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["assistantId"] = json!(assistant_id);
+        parent_doc["allowedTools"] = json!(["read_file", "use_workers"]);
+        engine.store.save(&parent_doc).unwrap();
+        let _ = engine.workers_spawn(&spawn_request(&parent, "alpha", "Do the thing."));
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["assistantId"], assistant_id);
+        assert_eq!(
+            child_doc["allowedTools"],
+            json!(["read_file", "use_workers"])
+        );
+    }
+
+    #[test]
+    fn spawn_with_unknown_assistant_id_errors_without_creating_a_child() {
+        let mut engine = test_engine();
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        engine.store.save(&parent_doc).unwrap();
+        let unknown = "00000000-0000-4000-8000-000000000099";
+        let error = engine
+            .workers_spawn(&json!({
+                "parentThreadId": parent,
+                "name": "alpha",
+                "task": "Do the thing.",
+                "targetFiles": [],
+                "assistantId": unknown,
+            }))
+            .unwrap_err();
+        assert!(error.to_string().contains("Unknown assistant"));
+        assert!(engine
+            .store
+            .summaries("", true)
+            .unwrap()
+            .iter()
+            .all(|summary| summary.title != "Worker: alpha"));
+    }
+
+    #[test]
+    fn spawn_request_rejects_malformed_assistant_id() {
+        let error = worker_store::parse_spawn_request(&json!({
+            "parentThreadId": "parent",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": "not-a-uuid",
+        }))
+        .unwrap_err();
+        assert!(error.to_string().contains("Assistant ID must be a UUID"));
+        let parsed = worker_store::parse_spawn_request(&json!({
+            "parentThreadId": "parent",
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": "00000000-0000-4000-8000-000000000001",
+        }))
+        .unwrap();
+        assert_eq!(
+            parsed.assistant_id.as_deref(),
+            Some("00000000-0000-4000-8000-000000000001")
+        );
+        let plain =
+            worker_store::parse_spawn_request(&spawn_request("parent", "beta", "Do the thing."))
+                .unwrap();
+        assert!(plain.assistant_id.is_none());
+    }
+
+    #[test]
+    fn worker_record_carries_assistant_id() {
+        let mut engine = test_engine();
+        let parent = make_thread(&mut engine);
+        let request = worker_store::parse_spawn_request(&json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": "00000000-0000-4000-8000-000000000001",
+        }))
+        .unwrap();
+        let record =
+            worker_store::insert_record(&mut engine.store, &request, "child-thread", "claude", 0)
+                .unwrap();
+        assert_eq!(record["assistantId"], "00000000-0000-4000-8000-000000000001");
+        let plain =
+            worker_store::parse_spawn_request(&spawn_request(&parent, "beta", "Do the thing."))
+                .unwrap();
+        let plain_record =
+            worker_store::insert_record(&mut engine.store, &plain, "child-thread", "codex", 0)
+                .unwrap();
+        assert!(plain_record["assistantId"].is_null());
+    }
+
+    #[test]
+    fn workers_list_filters_by_assistant_id() {
+        let mut engine = test_engine();
+        let parent = make_thread(&mut engine);
+        let assistant_a = "00000000-0000-4000-8000-000000000001";
+        let assistant_b = "00000000-0000-4000-8000-000000000002";
+        let seed = |engine: &mut Engine, name: &str, assistant: Option<&str>| {
+            let mut params = spawn_request(&parent, name, "Do the thing.");
+            if let Some(assistant) = assistant {
+                params["assistantId"] = json!(assistant);
+            }
+            let request = worker_store::parse_spawn_request(&params).unwrap();
+            worker_store::insert_record(&mut engine.store, &request, "child-thread", "codex", 0)
+                .unwrap()
+        };
+        let first = seed(&mut engine, "alpha", Some(assistant_a));
+        let _second = seed(&mut engine, "beta", Some(assistant_b));
+        let _third = seed(&mut engine, "gamma", None);
+        let listed = engine
+            .workers_list(&json!({"assistantId": assistant_a}))
+            .unwrap();
+        let ids: Vec<&str> = listed["workers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|record| record["id"].as_str())
+            .collect();
+        assert_eq!(ids, vec![first["id"].as_str().unwrap()]);
+        let combined = engine
+            .workers_list(&json!({"parentThreadId": parent, "assistantId": assistant_b}))
+            .unwrap();
+        assert_eq!(combined["workers"].as_array().unwrap().len(), 1);
     }
 
     #[test]

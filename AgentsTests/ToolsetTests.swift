@@ -516,7 +516,7 @@ struct ToolsetTests {
         )
         let data = try encoder.encode(message)
         let decoded = try decoder.decode(RemoteClientMessage.self, from: data)
-        guard case .newThread(let decodedProject, let prompt, let toolset, let allowedTools) = decoded.request else {
+        guard case .newThread(let decodedProject, let prompt, let toolset, let allowedTools, let assistantId) = decoded.request else {
             Issue.record("Expected newThread request")
             return
         }
@@ -535,7 +535,7 @@ struct ToolsetTests {
         )
         let data = try encoder.encode(message)
         let decoded = try decoder.decode(RemoteClientMessage.self, from: data)
-        guard case .newThread(_, _, _, let allowedTools) = decoded.request else {
+        guard case .newThread(_, _, _, let allowedTools, _) = decoded.request else {
             Issue.record("Expected newThread request")
             return
         }
@@ -567,7 +567,7 @@ struct ToolsetTests {
         let decoded = try RemoteProtocol.makeDecoder().decode(
             RemoteClientMessage.self, from: Data(json.utf8)
         )
-        guard case .newThread(let project, let prompt, let toolset, let allowedTools) = decoded.request else {
+        guard case .newThread(let project, let prompt, let toolset, let allowedTools, _) = decoded.request else {
             Issue.record("Expected newThread request")
             return
         }

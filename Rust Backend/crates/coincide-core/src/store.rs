@@ -310,6 +310,8 @@ pub struct ThreadNavigation {
     /// The thread's selected agent, for the sidebar row's logo.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_id: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -862,7 +864,7 @@ impl Store {
     /// holding the engine lock. Preserve the complete queue and JSON types.
     pub(crate) fn thread_selection_snapshot(&self, id: &str) -> Result<Value> {
         let document: String = self.connection()?.query_row(
-            "SELECT json_object('id', document -> '$.id', 'selection', document -> '$.selection', 'accessMode', document -> '$.accessMode', 'interactionMode', document -> '$.interactionMode', 'botID', document -> '$.botID', 'rustBotContext', document -> '$.rustBotContext', 'projectID', document -> '$.projectID', 'projectPath', document -> '$.projectPath', 'worktreePath', document -> '$.worktreePath', 'rustMessageQueue', document -> '$.rustMessageQueue') FROM threads WHERE id=?1",
+            "SELECT json_object('id', document -> '$.id', 'selection', document -> '$.selection', 'accessMode', document -> '$.accessMode', 'interactionMode', document -> '$.interactionMode', 'botID', document -> '$.botID', 'assistantId', document -> '$.assistantId', 'rustBotContext', document -> '$.rustBotContext', 'projectID', document -> '$.projectID', 'projectPath', document -> '$.projectPath', 'worktreePath', document -> '$.worktreePath', 'rustMessageQueue', document -> '$.rustMessageQueue') FROM threads WHERE id=?1",
             [id],
             |row| row.get(0),
         )?;
@@ -875,6 +877,7 @@ impl Store {
                 'projectID', document -> '$.projectID',
                 'worktreePath', document -> '$.worktreePath',
                 'botID', document -> '$.botID',
+                'assistantId', document -> '$.assistantId',
                 'rustBotContext', json_object('cwd', document -> '$.rustBotContext.cwd')
             ) FROM threads WHERE id=?1",
             [id],
@@ -922,6 +925,7 @@ impl Store {
                 'worktreePath', document -> '$.worktreePath',
                 'draft', document -> '$.draft',
                 'botID', document -> '$.botID',
+                'assistantId', document -> '$.assistantId',
                 'toolset', document -> '$.toolset',
                 'allowedTools', document -> '$.allowedTools',
                 'rustMessageQueue', document -> '$.rustMessageQueue'
@@ -2595,6 +2599,12 @@ fn validate_patch(patch: &serde_json::Map<String, Value>) -> Result<()> {
                     crate::agent::validate_allowed_tools_value(value)?;
                 }
             }
+            "assistantId" => ensure!(
+                value
+                    .as_str()
+                    .is_some_and(|id| Uuid::parse_str(id).is_ok()),
+                "Assistant ID must be a UUID"
+            ),
             "snoozedUntil" => ensure!(
                 value.is_null() || snooze_timestamp(value).is_some(),
                 "Invalid snooze date"
@@ -3655,6 +3665,7 @@ mod navigation_metadata_tests {
             .new_thread("00000000-0000-0000-0000-000000000000")
             .unwrap();
         thread["botID"] = json!("117E51F1-9D63-43DD-AF75-A5709E1B0123");
+        thread["assistantId"] = json!("00000000-0000-4000-8000-000000000001");
         thread["branch"] = json!("feature/sidebar");
         thread["updatedAt"] = json!(100.);
         thread["items"] = json!([{ "id": "017E51F1-9D63-43DD-AF75-A5709E1B0123", "kind":"assistant", "text":" Hello\n\tfrom the bot " }]);
@@ -3663,6 +3674,10 @@ mod navigation_metadata_tests {
         let rows = store.summaries("", false).unwrap();
         let metadata = rows[0].navigation.as_ref().unwrap();
         assert_eq!(metadata.bot_id.as_deref(), thread["botID"].as_str());
+        assert_eq!(
+            metadata.assistant_id.as_deref(),
+            thread["assistantId"].as_str()
+        );
         assert_eq!(metadata.branch.as_deref(), Some("feature/sidebar"));
         assert_eq!(metadata.preview.as_deref(), Some("Hello from the bot"));
         assert_eq!(metadata.item_count, Some(1));

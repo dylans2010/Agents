@@ -2,6 +2,7 @@ use crate::store::Store;
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 pub const MAX_WORKER_NAME_CHARS: usize = 128;
 pub const MAX_TASK_CHARS: usize = 500;
@@ -109,6 +110,7 @@ pub struct SpawnRequest {
     pub task: String,
     pub target_files: Vec<String>,
     pub parent_thread_id: String,
+    pub assistant_id: Option<String>,
 }
 
 pub fn parse_spawn_request(params: &Value) -> Result<SpawnRequest> {
@@ -117,11 +119,19 @@ pub fn parse_spawn_request(params: &Value) -> Result<SpawnRequest> {
         !parent_thread_id.trim().is_empty(),
         "Parent thread ID must not be empty"
     );
+    let assistant_id = opt_str(params, "assistantId")
+        .map(|id| {
+            Uuid::parse_str(&id)
+                .map(|parsed| parsed.to_string())
+                .context("Assistant ID must be a UUID")
+        })
+        .transpose()?;
     Ok(SpawnRequest {
         name: validate_worker_name(&req_str(params, "name")?)?,
         task: validate_task(&req_str(params, "task")?)?,
         target_files: validate_target_files(opt_string_array(params, "targetFiles"))?,
         parent_thread_id,
+        assistant_id,
     })
 }
 
@@ -187,6 +197,11 @@ pub fn worker_record_json(
         "task": request.task,
         "provider": provider,
         "targetFiles": request.target_files,
+        "assistantId": request
+            .assistant_id
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
         "status": "running",
         "cancelRequested": false,
         "transcriptStart": transcript_start,
@@ -675,6 +690,7 @@ mod tests {
                 task: "Do the thing.".to_owned(),
                 target_files: Vec::new(),
                 parent_thread_id: parent.to_owned(),
+                assistant_id: None,
             };
             let mut record =
                 worker_record_json(id, &request, "child-thread", "codex", 0, created_at);
@@ -692,6 +708,7 @@ mod tests {
             task: "Do the thing.".to_owned(),
             target_files: Vec::new(),
             parent_thread_id: parent.to_owned(),
+            assistant_id: None,
         };
         insert_record(&mut store, &request, "child-thread", "codex", 0).unwrap();
         let ids: Vec<String> = load_workers(&store)
@@ -731,6 +748,7 @@ mod tests {
                 task: "Do the thing.".to_owned(),
                 target_files: Vec::new(),
                 parent_thread_id: parent.to_owned(),
+                assistant_id: None,
             };
             let mut record = worker_record_json(
                 id,
@@ -748,6 +766,7 @@ mod tests {
             task: "Do the thing.".to_owned(),
             target_files: Vec::new(),
             parent_thread_id: parent.to_owned(),
+            assistant_id: None,
         };
         insert_record(&mut store, &request, "child-thread", "codex", 0).unwrap();
         let ids: Vec<String> = load_workers(&store)

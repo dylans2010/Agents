@@ -41,6 +41,22 @@ fn load(store: &Store) -> Result<Snapshot> {
     })
 }
 
+pub(crate) fn find_assistant(store: &Store, id: Uuid) -> Result<Assistant> {
+    let snapshot = load(store)?;
+    let found = snapshot.document["assistants"]
+        .as_array()
+        .context("Invalid assistants envelope")?
+        .iter()
+        .find(|assistant| {
+            assistant["id"]
+                .as_str()
+                .and_then(|value| Uuid::parse_str(value).ok())
+                == Some(id)
+        })
+        .with_context(|| format!("Unknown assistant '{id}'"))?;
+    validate_assistant(found)
+}
+
 fn response(snapshot: &Snapshot, assistant: Option<&Value>) -> Value {
     let mut result = json!({"baseline": snapshot.baseline, "origin": snapshot.origin, "version": 1});
     if let Some(assistant) = assistant {

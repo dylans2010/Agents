@@ -408,14 +408,14 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         _ = try await adapterCall(.updateSettings(settings))
     }
 
-    public func newThread(projectID: UUID? = nil, systemPrompt: String? = nil, toolset: AgentToolset? = nil, allowedTools: [String]? = nil) async throws -> UUID {
+    public func newThread(projectID: UUID? = nil, systemPrompt: String? = nil, toolset: AgentToolset? = nil, allowedTools: [String]? = nil, assistantId: String? = nil) async throws -> UUID {
         let unknown = SystemToolRegistry.unknownToolNames(in: allowedTools)
         guard unknown.isEmpty else {
             throw AgentsRuntimeError.desktopFailure(
                 "Unknown thread tools: \(unknown.joined(separator: ", ")). Threads can only allow tools from the system toolset."
             )
         }
-        let res = try await adapterCall(.newThread(projectID: projectID, systemPrompt: systemPrompt, toolset: toolset?.rawValue, allowedTools: allowedTools))
+        let res = try await adapterCall(.newThread(projectID: projectID, systemPrompt: systemPrompt, toolset: toolset?.rawValue, allowedTools: allowedTools, assistantId: assistantId))
         guard case .thread(let id) = res else {
             throw AgentsRuntimeError.unexpectedResult(expected: "thread", actual: "\(res)")
         }
@@ -1505,6 +1505,15 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
             params["parentThreadId"] = .string(parentThreadId)
         }
         let env = try await desktopCall(action: "workers.list", params: params, as: WorkerListEnvelope.self)
+        return env.workers ?? []
+    }
+
+    public func listWorkers(assistantId: String) async throws -> [WorkerRecord] {
+        let env = try await desktopCall(
+            action: "workers.list",
+            params: ["assistantId": .string(assistantId)],
+            as: WorkerListEnvelope.self
+        )
         return env.workers ?? []
     }
 

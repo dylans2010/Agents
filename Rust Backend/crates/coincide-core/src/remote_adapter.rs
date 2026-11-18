@@ -55,6 +55,7 @@ struct ThreadFields {
     item_count: usize,
     queued: usize,
     bot_id: Option<String>,
+    assistant_id: Option<String>,
     toolset: Option<String>,
     allowed_tools: Option<Vec<String>>,
 }
@@ -476,6 +477,10 @@ impl Adapter {
                 .as_str()
                 .and_then(|id| Uuid::parse_str(id).ok())
                 .map(|id| upper(&id.to_string())),
+            assistant_id: document["assistantId"]
+                .as_str()
+                .and_then(|id| Uuid::parse_str(id).ok())
+                .map(|id| id.to_string()),
             toolset: document["toolset"].as_str().map(str::to_owned),
             allowed_tools: document["allowedTools"].as_array().map(|names| {
                 names
@@ -590,6 +595,7 @@ impl Adapter {
             item_count: fields.item_count,
             toolset: fields.toolset.clone(),
             allowed_tools: fields.allowed_tools.clone(),
+            assistant_id: fields.assistant_id.clone(),
             running_since: runs.started_at.get(&id).copied(),
             id,
         }
@@ -1665,11 +1671,19 @@ impl Adapter {
         system_prompt: Option<String>,
         toolset: Option<String>,
         allowed_tools: Option<Vec<String>>,
+        assistant_id: Option<String>,
     ) -> Result<String, RemoteError> {
         let system_prompt = system_prompt
             .as_deref()
             .filter(|prompt| !prompt.trim().is_empty());
         let allowed_tools = allowed_tools.filter(|list| !list.is_empty());
+        let assistant_id = assistant_id
+            .map(|id| {
+                Uuid::parse_str(&id)
+                    .map(|parsed| parsed.to_string())
+                    .map_err(|_| RemoteError::bad_request())
+            })
+            .transpose()?;
         crate::agent::validate_system_prompt_and_toolset(
             system_prompt,
             toolset.as_deref(),
@@ -1702,7 +1716,7 @@ impl Adapter {
                 && !t.is_hidden
                 && !t.has_worktree
         }) {
-            if system_prompt.is_some() || toolset.is_some() || allowed_tools.is_some() {
+            if system_prompt.is_some() || toolset.is_some() || allowed_tools.is_some() || assistant_id.is_some() {
                 let empty_id =
                     Uuid::parse_str(&empty.id).map_err(|_| RemoteError::bad_request())?;
                 let (resolved, document) = self.document(empty_id)?;
@@ -1726,6 +1740,9 @@ impl Adapter {
                 if let Some(allowed_tools) = allowed_tools.as_deref() {
                     patch.insert("allowedTools".into(), json!(allowed_tools));
                 }
+                if let Some(assistant_id) = assistant_id.as_deref() {
+                    patch.insert("assistantId".into(), json!(assistant_id));
+                }
                 self.call(
                     "threads.patch",
                     json!({"threadId": resolved, "patch": patch}),
@@ -1738,7 +1755,12 @@ impl Adapter {
         } else {
             json!(project.id)
         };
-        let created = self.call("threads.create", json!({"projectId": project_id}))?;
+        let mut create_params = serde_json::Map::new();
+        create_params.insert("projectId".into(), project_id);
+        if let Some(assistant_id) = assistant_id.as_deref() {
+            create_params.insert("assistantId".into(), json!(assistant_id));
+        }
+        let created = self.call("threads.create", Value::Object(create_params))?;
         let created_id = upper(created["id"].as_str().unwrap_or_default());
         if system_prompt.is_some() || toolset.is_some() || allowed_tools.is_some() {
             let id = Uuid::parse_str(&created_id).map_err(|_| RemoteError::bad_request())?;
@@ -2650,13 +2672,13 @@ mod tests {
         let adapter = Adapter::new(shared.clone(), "fixture");
         let runs = Runs::default();
         assert!(adapter
-            .new_thread(None, &runs, None, Some("system".to_owned()), None)
+            .new_thread(None, &runs, None, Some("system".to_owned()), None, None)
             .is_err());
         let (_, document) = adapter.document(empty_id).unwrap();
         assert!(document["toolset"].is_null());
         assert!(document["systemPrompt"].is_null());
         let reused = adapter
-            .new_thread(None, &runs, None, Some("provider".to_owned()), None)
+            .new_thread(None, &runs, None, Some("provider".to_owned()), None, None)
             .unwrap();
         assert_eq!(reused, upper(empty["id"].as_str().unwrap()));
         let (_, document) = adapter.document(empty_id).unwrap();
@@ -2680,9 +2702,9 @@ mod tests {
         let adapter = Adapter::new(shared.clone(), "fixture");
         let runs = Runs::default();
         assert!(adapter
-            .new_thread(None, &runs, None, Some("system".to_owned()), None)
+            .new_thread(None, &runs, None, Some("system".to_owned()), None, None)
             .is_err());
-        let created = adapter.new_thread(None, &runs, None, None, None).unwrap();
+        let created = adapter.new_thread(None, &runs, None, None, None, None).unwrap();
         let (_, document) =
             adapter.document(Uuid::parse_str(&created).unwrap()).unwrap();
         assert!(document["toolset"].is_null());
@@ -2705,7 +2727,8 @@ mod tests {
                 &runs,
                 None,
                 Some("provider".to_owned()),
-                Some(vec!["read_file".to_owned()])
+                Some(vec!["read_file".to_owned()]),
+                None
             )
             .is_err());
         assert!(adapter
@@ -2714,7 +2737,8 @@ mod tests {
                 &runs,
                 None,
                 Some("system".to_owned()),
-                Some(vec!["read_file".to_owned(), "read_file".to_owned()])
+                Some(vec!["read_file".to_owned(), "read_file".to_owned()]),
+                None
             )
             .is_err());
         let created = adapter
@@ -2724,6 +2748,7 @@ mod tests {
                 None,
                 Some("system".to_owned()),
                 Some(vec!["read_file".to_owned(), "use_workers".to_owned()]),
+                None,
             )
             .unwrap();
         let (_, document) =
@@ -2733,6 +2758,27 @@ mod tests {
             json!(["read_file", "use_workers"])
         );
         assert_eq!(document["toolset"], "system");
+    }
+
+    #[test]
+    fn new_thread_stores_assistant_id_and_rejects_malformed_ids() {
+        let directory = tempfile::tempdir().unwrap();
+        let engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        let assistant = "00000000-0000-4000-8000-000000000001";
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, Some(assistant.to_owned()))
+            .unwrap();
+        let (_, document) =
+            adapter.document(Uuid::parse_str(&created).unwrap()).unwrap();
+        assert_eq!(document["assistantId"], assistant);
+        assert!(adapter
+            .new_thread(None, &runs, None, None, None, Some("not-a-uuid".to_owned()))
+            .is_err());
     }
 
     #[test]

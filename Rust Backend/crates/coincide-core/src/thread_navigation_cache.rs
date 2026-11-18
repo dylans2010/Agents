@@ -54,6 +54,10 @@ fn metadata(thread: &Value) -> Option<ThreadNavigation> {
         .as_str()
         .filter(|id| Uuid::parse_str(id).is_ok())
         .map(str::to_owned);
+    let assistant_id = thread["assistantId"]
+        .as_str()
+        .filter(|id| Uuid::parse_str(id).is_ok())
+        .map(str::to_owned);
     let preview = bot_id.as_ref().and_then(|_| {
         thread["items"].as_array()?.iter().rev().find_map(|item| {
             if !matches!(item["kind"].as_str(), Some("user" | "assistant")) {
@@ -77,6 +81,7 @@ fn metadata(thread: &Value) -> Option<ThreadNavigation> {
             .filter(|provider| !provider.is_empty())
             .map(|provider| provider.chars().take(64).collect()),
         bot_id,
+        assistant_id,
         branch: thread["branch"]
             .as_str()
             .filter(|branch| !branch.is_empty())
@@ -97,6 +102,7 @@ fn metadata(thread: &Value) -> Option<ThreadNavigation> {
         ),
     };
     (value.bot_id.is_some()
+        || value.assistant_id.is_some()
         || value.branch.is_some()
         || value.created_at.is_some()
         || value.updated_at.is_some()

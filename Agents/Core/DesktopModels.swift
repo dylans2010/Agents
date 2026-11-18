@@ -1315,6 +1315,7 @@ public nonisolated struct WorkerRecord: Codable, Hashable, Sendable, Identifiabl
     public var error: String?
     public var result: String?
     public var progress: WorkerProgress?
+    public var assistantId: String? = nil
 
     public var isTerminal: Bool {
         status == "completed" || status == "failed" || status == "cancelled"

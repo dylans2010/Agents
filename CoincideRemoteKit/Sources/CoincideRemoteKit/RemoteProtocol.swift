@@ -223,7 +223,7 @@ public enum RemoteRequest: Hashable, Sendable {
     case dismissQuestion(threadID: UUID, itemID: UUID)
     case updateSettings(RemoteThreadSettings)
     /// Nil starts a chat.
-    case newThread(projectID: UUID?, systemPrompt: String?, toolset: String?, allowedTools: [String]?)
+    case newThread(projectID: UUID?, systemPrompt: String?, toolset: String?, allowedTools: [String]?, assistantId: String? = nil)
     case threadAction(threadID: UUID, action: RemoteThreadAction)
     case updateStoredPrompt(threadID: UUID, systemPrompt: String, allowedTools: [String]?)
     /// The changes of one turn (the id of the item that opened it), or the thread's uncommitted changes for nil.
@@ -398,6 +398,7 @@ private struct RequestBody: Codable {
     var allowedTools: [String]?
     var botID: UUID?
     var assistantID: UUID?
+    var assistantId: String?
     var deletesConversations: Bool?
     var key: String?
     var value: RemoteSettingValue?
@@ -482,7 +483,7 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case "updateSettings": request = .updateSettings(try body(RemoteThreadSettings.self))
         case "newThread":
             let f = try fields()
-            request = .newThread(projectID: f.projectID, systemPrompt: f.systemPrompt, toolset: f.toolset, allowedTools: f.allowedTools)
+            request = .newThread(projectID: f.projectID, systemPrompt: f.systemPrompt, toolset: f.toolset, allowedTools: f.allowedTools, assistantId: f.assistantId)
         case "threadAction":
             let f = try fields()
             request = .threadAction(threadID: try need(f.threadID, "threadID"), action: try need(f.action, "action"))
@@ -621,11 +622,12 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case .dismissQuestion(let threadID, let itemID):
             f.threadID = threadID
             f.itemID = itemID
-        case .newThread(let projectID, let systemPrompt, let toolset, let allowedTools):
+        case .newThread(let projectID, let systemPrompt, let toolset, let allowedTools, let assistantId):
             f.projectID = projectID
             f.systemPrompt = systemPrompt
             f.toolset = toolset
             f.allowedTools = allowedTools
+            f.assistantId = assistantId
         case .setProjectExpanded(let projectID, let expanded):
             f.projectID = projectID
             f.expanded = expanded

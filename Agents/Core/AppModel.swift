@@ -430,7 +430,7 @@ public final class AppModel {
     }
 
     @discardableResult
-    public func createNewThread(in projectID: UUID? = nil, allowedTools: [String]? = nil) async -> UUID? {
+    public func createNewThread(in projectID: UUID? = nil, allowedTools: [String]? = nil, assistantId: String? = nil) async -> UUID? {
         guard let client = runtime else { return nil }
         let resolvedProject: UUID? = projectID ?? {
             if let proj = selectedProject, !proj.isChats { return proj.id }
@@ -438,7 +438,7 @@ public final class AppModel {
         }()
         do {
             let prompt = agentToolset == .system ? systemPromptForSelectedThread.text : nil
-            let newID = try await client.newThread(projectID: resolvedProject, systemPrompt: prompt, toolset: agentToolset, allowedTools: allowedTools)
+            let newID = try await client.newThread(projectID: resolvedProject, systemPrompt: prompt, toolset: agentToolset, allowedTools: allowedTools, assistantId: assistantId)
             await refreshWorkspace()
             selectThread(newID)
             return newID
@@ -616,6 +616,30 @@ public final class AppModel {
             let tid = try await client.newBotConversation(botID: botID)
             await refreshWorkspace()
             selectThread(tid)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    public func launchAssistant(_ assistant: RemoteAssistant, task: String, in projectID: UUID? = nil) async {
+        guard let client = runtime else { return }
+        do {
+            let prompt = systemPrompt(
+                for: nil,
+                provider: assistant.provider,
+                model: assistant.model,
+                assistant: AssistantPromptDescriptor(assistant)
+            ).text
+            let threadID = try await client.newThread(
+                projectID: projectID,
+                systemPrompt: prompt,
+                toolset: .system,
+                allowedTools: assistant.allowedTools,
+                assistantId: assistant.id.uuidString
+            )
+            await refreshWorkspace()
+            selectThread(threadID)
+            _ = await sendMessage(text: task, to: threadID)
         } catch {
             presentError(error)
         }

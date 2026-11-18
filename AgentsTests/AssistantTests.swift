@@ -176,6 +176,68 @@ struct AssistantTests {
         #expect(roundTripped.request == .deleteAssistant(assistantID: id))
     }
 
+    @Test("New-thread request carries the assistant id and defaults it to nil")
+    func newThreadRequestCarriesAssistantId() throws {
+        let id = UUID()
+        let message = RemoteClientMessage(request: .newThread(
+            projectID: nil, systemPrompt: "Behave.", toolset: "system",
+            allowedTools: ["read_file"], assistantId: id.uuidString))
+        let data = try RemoteProtocol.makeEncoder().encode(message)
+        let decoded = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect((decoded?["body"] as? [String: Any])?["assistantId"] as? String == id.uuidString)
+        let roundTripped = try RemoteProtocol.makeDecoder().decode(RemoteClientMessage.self, from: data)
+        #expect(roundTripped.request == .newThread(
+            projectID: nil, systemPrompt: "Behave.", toolset: "system",
+            allowedTools: ["read_file"], assistantId: id.uuidString))
+        let legacy = RemoteClientMessage(request: .newThread(
+            projectID: nil, systemPrompt: nil, toolset: nil, allowedTools: nil))
+        let legacyData = try RemoteProtocol.makeEncoder().encode(legacy)
+        let legacyDecoded = try RemoteProtocol.makeDecoder().decode(RemoteClientMessage.self, from: legacyData)
+        guard case .newThread(_, _, _, _, let legacyAssistant) = legacyDecoded.request else {
+            Issue.record("Expected newThread request")
+            return
+        }
+        #expect(legacyAssistant == nil)
+    }
+
+    @Test("Thread summary carries the assistant id and decodes legacy summaries without it")
+    func threadSummaryAssistantIdRoundTrips() throws {
+        let encoder = RemoteProtocol.makeEncoder()
+        let decoder = RemoteProtocol.makeDecoder()
+        let id = UUID()
+        let summary = RemoteThreadSummary(
+            id: UUID(),
+            projectID: UUID(),
+            title: "Test",
+            selection: RemoteSelection(provider: "codex", modelID: "default", modelName: "Default"),
+            assistantId: id.uuidString
+        )
+        let data = try encoder.encode(summary)
+        #expect(try decoder.decode(RemoteThreadSummary.self, from: data).assistantId == id.uuidString)
+        let legacy = RemoteThreadSummary(
+            id: UUID(),
+            projectID: UUID(),
+            title: "Test",
+            selection: RemoteSelection(provider: "codex", modelID: "default", modelName: "Default")
+        )
+        let legacyData = try encoder.encode(legacy)
+        #expect(!String(data: legacyData, encoding: .utf8)!.contains("assistantId"))
+        #expect(try decoder.decode(RemoteThreadSummary.self, from: legacyData).assistantId == nil)
+    }
+
+    @Test("Worker record decodes the assistant id")
+    func workerRecordDecodesAssistantId() throws {
+        let json = """
+            {"id":"w1","name":"alpha","parentThreadId":"p","threadId":"t","task":"Do it.","provider":"codex","targetFiles":[],"status":"running","cancelRequested":false,"transcriptStart":0,"transcriptItems":0,"elapsedSeconds":0,"createdAt":0,"startedAt":0,"completedAt":null,"error":null,"result":null,"assistantId":"AAAAAAAA-1111-4111-8111-111111111111"}
+            """
+        let record = try JSONDecoder().decode(WorkerRecord.self, from: Data(json.utf8))
+        #expect(record.assistantId == "AAAAAAAA-1111-4111-8111-111111111111")
+        let legacy = try JSONDecoder().decode(WorkerRecord.self, from: Data("""
+            {"id":"w1","name":"alpha","parentThreadId":"p","threadId":"t","task":"Do it.","provider":"codex","targetFiles":[],"status":"running","cancelRequested":false,"transcriptStart":0,"transcriptItems":0,"elapsedSeconds":0,"createdAt":0,"startedAt":0,"completedAt":null,"error":null,"result":null}
+            """.utf8))
+        #expect(legacy.assistantId == nil)
+    }
+
     @Test("Save-assistant request carries the draft as the body")
     func saveAssistantRequestShape() throws {
         let draft = RemoteAssistantDraft(name: "New", category: .buildingFixing, systemPrompt: "Fix it.")
