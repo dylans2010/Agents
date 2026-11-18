@@ -49,6 +49,7 @@ struct AssistantTaskManagerTests {
         var runNowError: Error?
         var recordOutcomeCalls: [(taskId: String, workerId: String)] = []
         var recordOutcomeError: Error?
+        var workerStatusError: Error?
 
         func setTasks(_ value: [AssistantTaskRecord]) { tasks = value }
         func setWorker(_ value: WorkerRecord) { workers[value.id] = value }
@@ -57,6 +58,7 @@ struct AssistantTaskManagerTests {
         func setNow(_ value: Int64) { now = value }
         func setRunNowError(_ value: Error?) { runNowError = value }
         func setRecordOutcomeError(_ value: Error?) { recordOutcomeError = value }
+        func setWorkerStatusError(_ value: Error?) { workerStatusError = value }
         func setParentThreadID(_ value: UUID) { parentThreadID = value }
         func setDeleteParentThreadError(_ value: Error?) { deleteParentThreadError = value }
         func setExtraListValues(_ value: [JSONValue]) { extraListValues = value }
@@ -188,6 +190,10 @@ struct AssistantTaskManagerTests {
         }
 
         func workerStatus(workerId: String) async throws -> WorkerRecord {
+            if let workerStatusError {
+                self.workerStatusError = nil
+                throw workerStatusError
+            }
             guard let worker = workers[workerId] else {
                 throw FakeTaskError(message: "Unknown worker")
             }
@@ -682,6 +688,60 @@ struct AssistantTaskManagerTests {
         #expect(outcome.outcomes[0].outcome == "interrupted")
         #expect(outcome.outcomes[0].parentThreadID == nil)
         #expect(await fake.deleteParentThreadCalls.isEmpty)
+    }
+
+    @Test("Reconcile deletes the parent thread when worker status throws transiently")
+    func reconcileDeletesParentThreadWhenWorkerStatusThrowsTransiently() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let parentThreadID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        let task = Self.makeTaskWithWorker(assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: parentThreadID.uuidString,
+            status: "failed", error: "Provider blew up"
+        ))
+        await fake.setWorkerStatusError(FakeTaskError(message: "Worker status unavailable"))
+        let outcome = await manager.pollNow()
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].outcome == "failed")
+        #expect(outcome.outcomes[0].retryScheduled == true)
+        #expect(outcome.outcomes[0].notifyRequested == false)
+        #expect(outcome.outcomes[0].parentThreadID == parentThreadID)
+        #expect(outcome.reconcileFailures.isEmpty)
+        #expect(await fake.deleteParentThreadCalls == [parentThreadID])
+    }
+
+    @Test("Reconcile notifies and deletes the parent thread when worker status throws transiently")
+    func reconcileNotifiesAndDeletesParentThreadWhenWorkerStatusThrowsTransiently() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let parentThreadID = UUID()
+        let (notifications, poster) = await makeNotifications()
+        let manager = await makeManagerWithNotifications(
+            fake: fake, assistantID: assistantID, workspaceID: workspaceID, notifications: notifications
+        )
+        let task = Self.makeTaskWithWorker(assistantID: assistantID, workspaceID: workspaceID, behavior: "notify")
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: parentThreadID.uuidString,
+            status: "failed", error: "Provider blew up"
+        ))
+        await fake.setWorkerStatusError(FakeTaskError(message: "Worker status unavailable"))
+        let outcome = await manager.pollNow()
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].outcome == "failed")
+        #expect(outcome.outcomes[0].notifyRequested == true)
+        #expect(outcome.outcomes[0].parentThreadID == parentThreadID)
+        #expect(outcome.reconcileFailures.isEmpty)
+        #expect(await fake.deleteParentThreadCalls == [parentThreadID])
+        #expect(poster.requests.count == 1)
+        #expect(poster.requests[0].identifier == "assistant-runFailed-worker-1")
+        #expect(poster.requests[0].content.title == "Reviewer")
+        #expect(poster.requests[0].content.body == "Failed: Nightly review")
     }
 
     @Test("Run-now tracks the spawned worker as active")

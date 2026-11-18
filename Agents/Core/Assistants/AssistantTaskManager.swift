@@ -841,21 +841,14 @@ public actor AssistantTaskManager {
         var assistantNames: [UUID: String]?
         for task in tasks {
             for workerID in task.activeWorkerIds {
-                let worker: WorkerRecord
+                let worker: WorkerRecord?
                 do {
-                    worker = try await runtime.workerStatus(workerId: workerID)
+                    let status = try await runtime.workerStatus(workerId: workerID)
+                    guard status.isTerminal else { continue }
+                    worker = status
                 } catch {
-                    do {
-                        outcome.outcomes.append(try await recordOutcome(task: task, workerID: workerID))
-                    } catch {
-                        outcome.reconcileFailures.append(AssistantTaskDecodeFailure(
-                            taskID: task.id,
-                            message: "Could not record the outcome of worker \(workerID): \(error.localizedDescription)"
-                        ))
-                    }
-                    continue
+                    worker = nil
                 }
-                guard worker.isTerminal else { continue }
                 do {
                     let recorded = try await recordOutcome(task: task, workerID: workerID)
                     outcome.outcomes.append(recorded)
@@ -864,7 +857,7 @@ public actor AssistantTaskManager {
                             let listed = try? await runtime.listAssistants()
                             assistantNames = Dictionary(uniqueKeysWithValues: (listed?.assistants ?? []).map { ($0.id, $0.name) })
                         }
-                        await notifications?.notifyWorkerTerminal(worker, assistantName: assistantNames?[task.assistantID])
+                        await notifications?.notifyWorkerTerminal(worker ?? fallbackWorkerRecord(for: recorded, task: task), assistantName: assistantNames?[task.assistantID])
                     }
                     if let parentThreadID = recorded.parentThreadID {
                         try? await runtime.deleteParentThread(parentThreadID)
@@ -878,6 +871,30 @@ public actor AssistantTaskManager {
             }
         }
         return outcome
+    }
+
+    private func fallbackWorkerRecord(for recorded: AssistantTaskOutcomeRecord, task: AssistantTaskRecord) -> WorkerRecord {
+        WorkerRecord(
+            id: recorded.workerID,
+            name: task.name,
+            parentThreadId: recorded.parentThreadID?.uuidString ?? "",
+            threadId: recorded.workerID,
+            task: task.name,
+            provider: "",
+            targetFiles: [],
+            status: recorded.outcome,
+            cancelRequested: false,
+            transcriptStart: 0,
+            transcriptItems: 0,
+            elapsedSeconds: 0,
+            createdAt: 0,
+            startedAt: 0,
+            completedAt: nil,
+            error: recorded.outcome == "failed" ? recorded.task.lastMessage : nil,
+            result: recorded.outcome == "completed" ? recorded.task.lastMessage : nil,
+            progress: nil,
+            assistantId: task.assistantID.uuidString
+        )
     }
 
     private func recordOutcome(task: AssistantTaskRecord, workerID: String) async throws -> AssistantTaskOutcomeRecord {
