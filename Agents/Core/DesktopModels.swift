@@ -206,6 +206,18 @@ nonisolated extension KeyedDecodingContainer where K == AnyCodingKey {
 
 // MARK: - Runtime Poll Status
 
+public nonisolated struct TurnResultEntry: Codable, Hashable, Sendable {
+    public var serial: UInt64
+    public var threadID: String
+    public var outcome: String
+
+    public init(serial: UInt64 = 0, threadID: String = "", outcome: String = "") {
+        self.serial = serial
+        self.threadID = threadID
+        self.outcome = outcome
+    }
+}
+
 public nonisolated struct RuntimePollStatus: Codable, Hashable, Sendable {
     public var busy: Bool
     public var revision: UInt64
@@ -221,6 +233,8 @@ public nonisolated struct RuntimePollStatus: Codable, Hashable, Sendable {
     public var shutdownRequested: Bool
     public var legacyImportAvailable: Bool
     public var legacyAntigravityBinary: String?
+    public var turnResultsSerial: UInt64
+    public var turnResultsRecent: [TurnResultEntry]
 
     public init(
         busy: Bool = false,
@@ -236,7 +250,9 @@ public nonisolated struct RuntimePollStatus: Codable, Hashable, Sendable {
         requestedOpenThreadID: String? = nil,
         shutdownRequested: Bool = false,
         legacyImportAvailable: Bool = false,
-        legacyAntigravityBinary: String? = nil
+        legacyAntigravityBinary: String? = nil,
+        turnResultsSerial: UInt64 = 0,
+        turnResultsRecent: [TurnResultEntry] = []
     ) {
         self.busy = busy
         self.revision = revision
@@ -252,6 +268,8 @@ public nonisolated struct RuntimePollStatus: Codable, Hashable, Sendable {
         self.shutdownRequested = shutdownRequested
         self.legacyImportAvailable = legacyImportAvailable
         self.legacyAntigravityBinary = legacyAntigravityBinary
+        self.turnResultsSerial = turnResultsSerial
+        self.turnResultsRecent = turnResultsRecent
     }
 
     public init(from decoder: Decoder) throws {
@@ -319,6 +337,33 @@ public nonisolated struct RuntimePollStatus: Codable, Hashable, Sendable {
         self.shutdownRequested = c.bool("shutdownRequested") ?? false
         self.legacyImportAvailable = c.bool("legacyImportAvailable", "legacy_import_available", "canImportLegacy") ?? false
         self.legacyAntigravityBinary = c.string("legacyAntigravityBinary", "legacy_antigravity_binary", "antigravityBinary")
+        if let turnResults = c.decodeValue([String: JSONValue].self, keys: "turnResults") {
+            self.turnResultsSerial = turnResults["serial"]?.uint64Value ?? 0
+            self.turnResultsRecent = turnResults["recent"]?.arrayValue?.compactMap { entry in
+                guard let object = entry.objectValue,
+                      let threadID = object["threadId"]?.stringValue,
+                      !threadID.isEmpty
+                else { return nil }
+                return TurnResultEntry(
+                    serial: object["serial"]?.uint64Value ?? 0,
+                    threadID: threadID,
+                    outcome: object["outcome"]?.stringValue ?? ""
+                )
+            } ?? []
+        } else {
+            self.turnResultsSerial = 0
+            self.turnResultsRecent = []
+        }
+    }
+
+    public func newlyFinishedTurns(since lastSerial: UInt64) -> (entries: [TurnResultEntry], watermark: UInt64) {
+        if turnResultsSerial < lastSerial {
+            return ([], turnResultsSerial)
+        }
+        let entries = turnResultsRecent
+            .filter { $0.serial > lastSerial }
+            .sorted { $0.serial < $1.serial }
+        return (entries, max(lastSerial, turnResultsSerial))
     }
 
     public var totalAttentionCount: Int {

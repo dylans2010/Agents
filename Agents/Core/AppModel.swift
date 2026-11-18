@@ -109,6 +109,7 @@ public final class AppModel {
     @ObservationIgnored private var lastObservedRevision: UInt64 = 0
     @ObservationIgnored private var lastObservedRunningIDs: Set<String> = []
     @ObservationIgnored private var lastObservedAttentionCount: Int = 0
+    @ObservationIgnored private var lastObservedTurnSerial: UInt64 = 0
     @ObservationIgnored private var lastPollActive: Bool = false
     @ObservationIgnored private var pollFastUntil: Date = .distantPast
 
@@ -212,6 +213,7 @@ public final class AppModel {
                 self.lastObservedRevision = initialStatus.revision
                 self.lastObservedRunningIDs = Set(initialStatus.runningThreadIDs)
                 self.lastObservedAttentionCount = initialStatus.totalAttentionCount
+                self.lastObservedTurnSerial = initialStatus.turnResultsSerial
                 self.lastPollActive = initialStatus.busy || initialStatus.running > 0 || initialStatus.starting > 0 || !initialStatus.runningThreadIDs.isEmpty
                 onStatusChanged?(initialStatus)
             }
@@ -273,6 +275,8 @@ public final class AppModel {
         let revisionChanged = polled.revision != lastObservedRevision
         let runningChanged = currentRunning != previousRunning || polled.running != status.running || polled.starting != status.starting
         let attentionChanged = polled.totalAttentionCount != lastObservedAttentionCount
+        let (finishedTurns, finishedTurnWatermark) = polled.newlyFinishedTurns(since: lastObservedTurnSerial)
+        let turnFinishedChanged = !finishedTurns.isEmpty
 
         self.status = polled
         onStatusChanged?(polled)
@@ -298,8 +302,9 @@ public final class AppModel {
         lastObservedRevision = polled.revision
         lastObservedRunningIDs = currentRunning
         lastObservedAttentionCount = polled.totalAttentionCount
+        lastObservedTurnSerial = finishedTurnWatermark
 
-        if revisionChanged || runningChanged || attentionChanged {
+        if revisionChanged || runningChanged || attentionChanged || turnFinishedChanged {
             await refreshWorkspace()
             if let activeUUID = selectedThreadUUID {
                 if let transcript = try? await client.openThread(activeUUID) {
@@ -310,10 +315,8 @@ public final class AppModel {
                 await refreshTerminals()
             }
 
-            // Notify completion for threads whose agent turn just finished
-            let finishedIDs = previousRunning.subtracting(currentRunning)
-            for finishedID in finishedIDs {
-                if let uuid = UUID(uuidString: finishedID),
+            for entry in finishedTurns {
+                if let uuid = UUID(uuidString: entry.threadID),
                    let summary = workspace.threads.first(where: { $0.id == uuid })
                 {
                     onAgentTurnFinished?(summary)

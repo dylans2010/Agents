@@ -74,21 +74,32 @@ fast-poll window so the loop is already fast when the engine reports the
 new turn; `stopActiveTurn` clears that window. Turns started outside the
 app (remote, CLI, scheduled task) are picked up by the next idle poll
 within 1 s, at which point the loop drops back to 150 ms. The poll
-compares revision, running set, and attention count on every tick, and
+compares revision, running set, attention count, and the turn-results
+serial on every tick, and
 `sendMessage` itself refreshes the workspace and transcript immediately.
 
-Known limitation: a turn that both starts and finishes inside one 1 s
-idle window never fires `onAgentTurnFinished`. The completion callback
-fires only for threads observed in `previousRunning` that are gone from
-the next poll's running set, and no signal the poll can see identifies a
-turn that completed unseen: the engine `revision` is a global counter
-bumped by unrelated dispatches (memory, schedules, settings), the
-attention count only moves on approvals and questions, and neither the
-poll status nor the thread summaries carry a last-finished-turn marker
-or a turn-history query. A sub-second turn still refreshes the workspace
-through the revision change, so its results appear; only the completion
-callback (notification/sound) is skipped. Fixing this needs a new
-engine-side finished-turn marker; none was invented here.
+Turn completion is observed through the engine `turnResults` field in
+the `app.status` payload (`thread_activity_api.rs`): a session-global
+monotonically increasing `serial` plus the last 64 finished turns as
+`recent` entries (`serial`, `threadId`, `outcome` of `completed`,
+`failed`, or `interrupted`). The engine records exactly one entry per
+finished run when its provider session drains, for every finish path
+including cancellation, and the control-server loop drains the engine
+every 20 ms, so a turn that both starts and finishes inside one 1 s
+idle window is still present in `recent` on the next poll. `AppModel`
+keeps a `lastObservedTurnSerial` watermark seeded from the bootstrap
+poll and fires `onAgentTurnFinished` exactly once per entry with a
+newer serial, in serial order; entries whose thread is gone from the
+refreshed workspace still advance the watermark. If the engine
+restarts and the serial resets below the watermark, the watermark
+adopts the new serial and nothing fires from that poll, so a restarted
+session never replays its history as notifications. The old
+running-set transition no longer fires the callback: a thread leaves
+`running` only when its run is drained, and the drain always records
+the turn result first, so the two signals agree on every finish. The
+engine `revision` alone would not suffice: it is a global counter
+bumped by unrelated dispatches (memory, schedules, settings), and the
+attention count only moves on approvals and questions.
 
 ## 4. Transcript markdown memoization
 

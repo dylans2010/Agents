@@ -267,4 +267,50 @@ struct AgentsRuntimeTests {
 
         await model.shutdown()
     }
+
+    @Test("RuntimePollStatus decodes turnResults serial and recent entries")
+    func pollStatusDecodesTurnResults() throws {
+        let payload = """
+        {"busy":false,"revision":7,"running":[],"starting":[],"pendingApprovalsCount":0,"pendingQuestionsCount":0,"turnResults":{"serial":3,"recent":[{"serial":2,"threadId":"11111111-1111-1111-1111-111111111111","outcome":"completed"},{"serial":3,"threadId":"22222222-2222-2222-2222-222222222222","outcome":"failed"}]}}
+        """
+        let status = try RemoteProtocol.makeDecoder().decode(RuntimePollStatus.self, from: Data(payload.utf8))
+        #expect(status.turnResultsSerial == 3)
+        #expect(status.turnResultsRecent.count == 2)
+        #expect(status.turnResultsRecent[0].serial == 2)
+        #expect(status.turnResultsRecent[0].threadID == "11111111-1111-1111-1111-111111111111")
+        #expect(status.turnResultsRecent[0].outcome == "completed")
+        #expect(status.turnResultsRecent[1].serial == 3)
+        #expect(status.turnResultsRecent[1].threadID == "22222222-2222-2222-2222-222222222222")
+        #expect(status.turnResultsRecent[1].outcome == "failed")
+    }
+
+    @Test("RuntimePollStatus without turnResults decodes to an empty result list")
+    func pollStatusWithoutTurnResults() throws {
+        let payload = """
+        {"busy":false,"revision":7,"running":[],"starting":[],"pendingApprovalsCount":0,"pendingQuestionsCount":0}
+        """
+        let status = try RemoteProtocol.makeDecoder().decode(RuntimePollStatus.self, from: Data(payload.utf8))
+        #expect(status.turnResultsSerial == 0)
+        #expect(status.turnResultsRecent.isEmpty)
+    }
+
+    @Test("Newly finished turns fire exactly once and survive an engine serial reset")
+    func newlyFinishedTurnsExactlyOnce() {
+        let status = RuntimePollStatus(
+            turnResultsSerial: 3,
+            turnResultsRecent: [
+                TurnResultEntry(serial: 2, threadID: "11111111-1111-1111-1111-111111111111", outcome: "completed"),
+                TurnResultEntry(serial: 3, threadID: "22222222-2222-2222-2222-222222222222", outcome: "failed"),
+            ]
+        )
+        let first = status.newlyFinishedTurns(since: 1)
+        #expect(first.entries.map(\.serial) == [2, 3])
+        #expect(first.watermark == 3)
+        let second = status.newlyFinishedTurns(since: first.watermark)
+        #expect(second.entries.isEmpty)
+        #expect(second.watermark == 3)
+        let reset = status.newlyFinishedTurns(since: 9)
+        #expect(reset.entries.isEmpty)
+        #expect(reset.watermark == 3)
+    }
 }
