@@ -1053,10 +1053,14 @@ What is enforced for real in this slice:
     "arguments":{...}}`, poll `computer_use.result` until ready (up to 15
     seconds; the engine deadline is 10 seconds). Required arguments are
     validated against the tool's own definition before any runtime call.
-    The catalog IDs are the real ones: there is no `take_screenshot` or
-    `use_app` tool. Screenshots are taken by `get_window_state` /
-    `get_desktop_state` with `include_screenshot`, and apps are launched by
-    `launch_app`.
+    The catalog IDs are the real ones. Two more registered tools share the
+    `computer_use.request` action without being catalog entries:
+    `take_screenshot` delegates to `get_desktop_state` with
+    `include_screenshot`, and `use_app` dispatches action names onto the
+    catalog tools, erroring honestly on the nine actions with no engine tool
+    (`activate`, `close_application`, `select_window`,
+    `get_focused_element`, `select_all`, `copy`, `paste`,
+    `wait_for_element`, `wait_for_window`).
   - Screenshots are filed by the engine as 0600 PNG files, newest 32 per
     thread, and listed by the new `computer_use.screenshots` engine method.
     The Inspector › Computer Use tab lists them and shows the real files;
