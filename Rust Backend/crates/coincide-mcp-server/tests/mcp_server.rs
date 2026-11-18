@@ -617,6 +617,30 @@ fn prompts_get_errors_honestly_without_a_stored_prompt() {
 }
 
 #[test]
+fn oversized_invalid_utf8_and_non_object_frames_get_errors_and_the_server_survives() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let mut session = Session::spawn(workspace.path(), None);
+    initialize(&mut session);
+    let oversized = "x".repeat(17 * 1024 * 1024);
+    session.stdin.write_all(oversized.as_bytes()).unwrap();
+    session.stdin.write_all(b"\n").unwrap();
+    session.stdin.flush().unwrap();
+    let rejected = session.read_response();
+    assert_eq!(rejected["error"]["code"], -32700);
+    session.stdin.write_all(b"[1, 2, 3]\n").unwrap();
+    session.stdin.flush().unwrap();
+    let invalid = session.read_response();
+    assert_eq!(invalid["error"]["code"], -32600);
+    session.stdin.write_all(b"\xff\xfe\n").unwrap();
+    session.stdin.flush().unwrap();
+    let bad_utf8 = session.read_response();
+    assert_eq!(bad_utf8["error"]["code"], -32700);
+    let ping = session.request("ping", json!({}));
+    assert!(ping.get("error").is_none(), "ping failed after bad frames: {ping}");
+    session.close();
+}
+
+#[test]
 fn stdin_eof_exits_cleanly() {
     let workspace = temp_dir("agents-mcp-workspace");
     let session = Session::spawn(workspace.path(), None);

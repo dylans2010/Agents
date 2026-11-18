@@ -8,6 +8,8 @@ use std::{
     process::ExitCode,
 };
 
+use serde_json::Value;
+
 pub struct ServerState {
     pub cwd: PathBuf,
     pub thread_id: Option<String>,
@@ -17,6 +19,7 @@ pub struct ServerState {
 }
 
 const USAGE: &str = "coincide-mcp-server --cwd <dir> [--thread-id <id>] [--socket <path>] [--assets-dir <dir>]";
+const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
 
 fn parse_args(args: &[String]) -> Result<ServerState, String> {
     let mut cwd: Option<PathBuf> = None;
@@ -62,6 +65,84 @@ fn parse_args(args: &[String]) -> Result<ServerState, String> {
     })
 }
 
+enum FrameRead {
+    Eof,
+    Line(Vec<u8>),
+    Oversized,
+}
+
+fn drain_to_newline(reader: &mut impl BufRead) -> std::io::Result<()> {
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return Ok(());
+        }
+        match available.iter().position(|byte| *byte == b'\n') {
+            Some(end) => {
+                reader.consume(end + 1);
+                return Ok(());
+            }
+            None => {
+                let len = available.len();
+                reader.consume(len);
+            }
+        }
+    }
+}
+
+fn read_frame_line(reader: &mut impl BufRead) -> std::io::Result<FrameRead> {
+    let mut raw: Vec<u8> = Vec::new();
+    loop {
+        if raw.len() > MAX_FRAME_BYTES {
+            drain_to_newline(reader)?;
+            return Ok(FrameRead::Oversized);
+        }
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            if raw.is_empty() {
+                return Ok(FrameRead::Eof);
+            }
+            return Ok(FrameRead::Line(raw));
+        }
+        match available.iter().position(|byte| *byte == b'\n') {
+            Some(end) => {
+                let room = MAX_FRAME_BYTES + 1 - raw.len();
+                let take = (end + 1).min(room);
+                raw.extend_from_slice(&available[..take]);
+                reader.consume(take);
+                if take < end + 1 {
+                    drain_to_newline(reader)?;
+                    return Ok(FrameRead::Oversized);
+                }
+                return Ok(FrameRead::Line(raw));
+            }
+            None => {
+                let room = MAX_FRAME_BYTES + 1 - raw.len();
+                let take = available.len().min(room);
+                raw.extend_from_slice(&available[..take]);
+                reader.consume(take);
+                if take < available.len() {
+                    drain_to_newline(reader)?;
+                    return Ok(FrameRead::Oversized);
+                }
+            }
+        }
+    }
+}
+
+fn write_response(writer: &mut impl Write, response: &Value) -> Result<(), String> {
+    let mut encoded = serde_json::to_string(response)
+        .map_err(|error| format!("Failed encoding MCP response: {error}"))?;
+    encoded.push('\n');
+    writer
+        .write_all(encoded.as_bytes())
+        .map_err(|error| format!("Failed writing MCP response: {error}"))?;
+    writer
+        .flush()
+        .map_err(|error| format!("Failed flushing MCP response: {error}"))?;
+    Ok(())
+}
+
 fn run() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let state = parse_args(&args)?;
@@ -69,23 +150,38 @@ fn run() -> Result<(), String> {
     let mut reader = BufReader::new(stdin.lock());
     let stdout = std::io::stdout();
     let mut writer = stdout.lock();
-    let mut line = String::new();
     loop {
-        line.clear();
-        let read = reader
-            .read_line(&mut line)
-            .map_err(|error| format!("Failed reading MCP input: {error}"))?;
-        if read == 0 {
-            return Ok(());
-        }
-        let trimmed = line.trim();
+        let raw = match read_frame_line(&mut reader)
+            .map_err(|error| format!("Failed reading MCP input: {error}"))?
+        {
+            FrameRead::Eof => return Ok(()),
+            FrameRead::Oversized => {
+                write_response(
+                    &mut writer,
+                    &protocol::parse_error_response("Request frame exceeds 16 MiB"),
+                )?;
+                continue;
+            }
+            FrameRead::Line(raw) => raw,
+        };
+        let text = match String::from_utf8(raw) {
+            Ok(text) => text,
+            Err(_) => {
+                write_response(
+                    &mut writer,
+                    &protocol::parse_error_response("Request is not valid UTF-8"),
+                )?;
+                continue;
+            }
+        };
+        let trimmed = text.trim();
         if trimmed.is_empty() {
             continue;
         }
         let response = match serde_json::from_str::<serde_json::Value>(trimmed) {
             Ok(request) => {
                 if !request.is_object() {
-                    protocol::parse_error_response("Request must be a JSON object")
+                    protocol::invalid_request_response("Request must be a JSON object")
                 } else {
                     match protocol::handle(&state, &request) {
                         Some(response) => response,
@@ -95,15 +191,7 @@ fn run() -> Result<(), String> {
             }
             Err(error) => protocol::parse_error_response(&format!("Parse error: {error}")),
         };
-        let mut encoded = serde_json::to_string(&response)
-            .map_err(|error| format!("Failed encoding MCP response: {error}"))?;
-        encoded.push('\n');
-        writer
-            .write_all(encoded.as_bytes())
-            .map_err(|error| format!("Failed writing MCP response: {error}"))?;
-        writer
-            .flush()
-            .map_err(|error| format!("Failed flushing MCP response: {error}"))?;
+        write_response(&mut writer, &response)?;
     }
 }
 

@@ -155,3 +155,7 @@ fn get_prompt(state: &crate::ServerState, params: &Value) -> Result<Value, (i64,
 pub fn parse_error_response(message: &str) -> Value {
     error_response(&Value::Null, -32700, message)
 }
+
+pub fn invalid_request_response(message: &str) -> Value {
+    error_response(&Value::Null, -32600, message)
+}

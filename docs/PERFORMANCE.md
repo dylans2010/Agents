@@ -154,3 +154,99 @@ Protocol constraints, kept deliberately narrow:
 - Windows is unchanged: `ControlClient::call` delegates to the existing
   one-shot named-pipe `request` there, since the Windows transport is
   one frame plus an acknowledgement byte per connection.
+
+## 6. MCP server robustness (Slice 31)
+
+No build or test was run for this slice: there is no Swift or Rust
+toolchain in this environment, so everything below is statically
+validated only. The `cargo test` run on Dylan's Mac remains the gate,
+including the new
+`oversized_invalid_utf8_and_non_object_frames_get_errors_and_the_server_survives`
+test in `coincide-mcp-server/tests/mcp_server.rs`, which is
+written-not-executed here. Registry unchanged: 332 Swift = 332 Rust,
+0 mismatches (Python replication of
+`tool_table_matches_swift_registry`, including param descriptions).
+
+### Fixed: unbounded stdio frame (main.rs)
+
+Before: the stdio loop used `BufRead::read_line` into a reused `String`
+with no length limit, so one provider sending a 100 MB line (or a line
+that never ends) grew the server's memory without bound, and an
+invalid-UTF-8 line made `read_line` return `Err`, which ended `run()`
+and killed the server for every provider. A valid-JSON non-object
+frame (for example `[1, 2, 3]`) was answered with -32700 (Parse error),
+which the JSON-RPC spec reserves for invalid JSON.
+
+After: `read_frame_line` reads through `fill_buf`/`consume` with a
+16 MiB cap on frame content (plus the newline). A frame over the cap
+is drained through its newline (so the next frame still parses) and
+answered with -32700, and the loop continues. A frame that is not
+valid UTF-8 is answered with -32700 and the loop continues, because
+the bytes are read first and validated with `String::from_utf8`
+afterwards instead of letting `read_line` fail the whole process.
+A valid-JSON non-object frame is now answered with -32600 (Invalid
+Request) via the new `protocol::invalid_request_response`. The 16 MiB
+bound is sized from the largest legitimate inbound frame: local file
+tools cap content at 3 MiB (`MAX_FILE_WRITE_BYTES` in
+`workspace_tools.rs`, enforced by both `write_file` and the
+`read_workspace_text` read path), and engine-routed calls are capped
+by the 4 MiB control-socket frame (`MAX_FRAME` in `control.rs`), so
+16 MiB is more than 5x the largest legitimate argument payload and
+4x the control frame. Outbound tool results are unaffected: they are
+written with no cap, and engine results are already bounded by the
+4 MiB control frame on the reply side.
+
+### Verified already correct, left untouched
+
+- One malformed frame never killed the loop: a `serde_json` parse
+  failure already produced a -32700 response and continued, and
+  deeply nested JSON fails inside `serde_json::from_str::<Value>`
+  under the default 128-deep recursion limit (no `unbounded_depth`
+  feature in `Cargo.toml`), so it is a -32700, not a stack overflow.
+- `tools/call` argument validation returns -32602 for a missing name
+  and for non-object arguments (`protocol.rs` `call_tool`), unknown
+  tools return -32602 (`tools.rs` `call`, both the upfront
+  `definition` check and the catch-all arm), engine-unreachable
+  returns a result with `isError: true` so a request with an id
+  always gets a response, and `prompts/get` with no stored prompt
+  returns -32602. An object with no method returns -32600 with its
+  id. Notifications (no id) get no response, as specified.
+- stdin EOF exits 0 (`FrameRead::Eof` returns `Ok(())`, covered by the
+  existing `stdin_eof_exits_cleanly` test). SIGPIPE is ignored by the
+  Rust runtime, so a dead provider turns the response write into an
+  EPIPE error and the process exits 1 instead of dying on the signal
+  or wedging in a write loop; every response is flushed explicitly,
+  so SIGTERM cannot lose a buffered response. A broken stdout ends
+  the process on the first failed write.
+- No `unwrap`/`expect` reachable from hostile tool input can panic
+  the server: the yaml colon unwraps are guarded by `is_some()`
+  checks on the same value, `whole_word_replace` returns early on an
+  empty search string, `g6_xcstrings_set` forces objects before
+  unwrapping, the JSON-to-CSV unwrap runs only after a loop that
+  rejects every non-object record, and `code_mutation_engine`
+  unwraps the symbol only after proving it is `Some`. The remaining
+  `expect` calls are in the `#[cfg(test)]` Swift-registry parser.
+- `ServerState` accumulates no per-call state, and the `ControlClient`
+  `Mutex` is held only across one `engine_request` at a time.
+
+### Known limitation, documented not fixed: sequential loop blocking
+
+The server loop handles one request at a time, so a slow `tools/call`
+stalls every other provider's calls until it finishes. Every path is
+already bounded, so this is a latency problem, not a hang: the poll
+loops cap at 100 x 100 ms (`workspace.result`), 1200 x 100 ms
+(`git.workspace.result`, about 120 s), 60 x 250 ms
+(`computer_use.result`), and `timeoutSeconds * 4` polls at 250 ms
+for `git.actions.result` (up to 600 s for `git_push`/`git_pull`),
+and `run_terminal_command` clamps its caller timeout to 5..3600 s;
+each control-socket round-trip carries the
+10 s read timeout from `connect_stream`. No `tools/call`-level
+timeout was added, because the legitimate ceiling is a long build:
+`run_build`/`run_tests` default to 600 s and allow up to 3600 s, so
+any timeout short enough to matter would break real builds, and any
+timeout long enough to allow them would not bound the stall
+meaningfully. Fixing this properly needs a concurrent loop or
+per-call worker threads, which is a protocol-transport change, not a
+minimal robustness fix. The `ControlClient` mutex is the same issue,
+not a separate one: the loop is sequential, so the mutex never
+contends with a second call while one is in flight.
