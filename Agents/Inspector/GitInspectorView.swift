@@ -29,6 +29,17 @@ struct GitInspectorView: View {
     @State private var isCreatingCheckpoint: Bool = false
     @State private var isLoadingCheckpoints: Bool = false
     @State private var inspectedCheckpointDiff: InspectedCheckpointPatch?
+    @State private var inspectedHistoryCommit: InspectedCheckpointPatch?
+    @State private var isLoadingHistoryDetail: Bool = false
+
+    @State private var historyCommits: [GitHistoryCommit] = []
+    @State private var isLoadingHistory: Bool = false
+    @State private var historyErrorMessage: String?
+    @State private var historyHasMore: Bool = false
+
+    @State private var worktreesList: [GitWorktreeEntry] = []
+
+    @State private var pendingRestoreTurn: TurnGitCheckpoint?
 
     var body: some View {
         Group {
@@ -50,6 +61,8 @@ struct GitInspectorView: View {
                         branchAndCheckoutCard
                         changedFilesSummaryCard
                         commitComposerCard
+                        historyCard
+                        worktreesCard
                         checkpointsSectionCard
                     }
                     .padding(10)
@@ -66,6 +79,32 @@ struct GitInspectorView: View {
         }
         .sheet(item: $inspectedCheckpointDiff) { patch in
             CheckpointDiffPreviewSheet(patch: patch, fontScale: appModel.fontScale)
+        }
+        .sheet(item: $inspectedHistoryCommit) { patch in
+            CheckpointDiffPreviewSheet(patch: patch, fontScale: appModel.fontScale)
+        }
+        .confirmationDialog(
+            "Restore Files to This Checkpoint?",
+            isPresented: Binding(
+                get: { pendingRestoreTurn != nil },
+                set: { if !$0 { pendingRestoreTurn = nil } }
+            ),
+            presenting: pendingRestoreTurn
+        ) { turn in
+            Button("Rewind & Restore Files", role: .destructive) {
+                pendingRestoreTurn = nil
+                Task {
+                    if let uuid = UUID(uuidString: turn.userItemID) {
+                        _ = await appModel.rewindConversation(to: uuid, revertsFiles: true)
+                        await loadCheckpointsAndPorcelain()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingRestoreTurn = nil
+            }
+        } message: { turn in
+            Text("This rewinds the conversation to before “\(turnTitle(for: turn.userItemID))” and restores workspace files to that checkpoint. Messages after it are removed.")
         }
         .confirmationDialog(
             "Push Directly to Default Branch?",
@@ -581,6 +620,152 @@ struct GitInspectorView: View {
         .background(cardBackground)
     }
 
+    private var historyCard: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Label("History", systemImage: "clock.arrow.circlepath")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryLabel)
+                Spacer()
+                if isLoadingHistory {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Button {
+                        Task { await loadHistory(reset: true) }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Refresh History")
+                    .accessibilityLabel("Refresh history")
+                }
+            }
+
+            if let error = historyErrorMessage, !error.isEmpty {
+                Text(error)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(AppTheme.warning)
+            }
+
+            if historyCommits.isEmpty && !isLoadingHistory {
+                Text("No commits on this branch yet.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+                    .padding(.vertical, 2)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(historyCommits) { commit in
+                        Button {
+                            Task { await previewHistoryCommit(commit) }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(String(commit.sha.prefix(8)))
+                                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(AppTheme.accent)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(commit.subject)
+                                        .font(.system(size: 11.5, weight: .medium))
+                                        .foregroundStyle(AppTheme.primaryLabel)
+                                        .lineLimit(1)
+                                    Text("\(commit.authorName) · \(commit.authorDate.formatted(date: .abbreviated, time: .shortened))")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(AppTheme.secondaryLabel)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                                if isLoadingHistoryDetail {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 9.5, weight: .semibold))
+                                        .foregroundStyle(AppTheme.tertiaryLabel)
+                                }
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(
+                                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
+                                    .fill(AppTheme.controlBackground)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                if historyHasMore {
+                    Button("Load More Commits") {
+                        Task { await loadHistory(reset: false) }
+                    }
+                    .controlSize(.small)
+                    .disabled(isLoadingHistory)
+                }
+            }
+        }
+        .padding(10)
+        .background(cardBackground)
+    }
+
+    private var worktreesCard: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Label("Worktrees", systemImage: "square.split.2x1")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryLabel)
+                Spacer()
+                Text("\(worktreesList.count)")
+                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+            }
+
+            if worktreesList.isEmpty {
+                Text("No worktrees recorded for this repository.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+                    .padding(.vertical, 2)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(worktreesList) { worktree in
+                        HStack(spacing: 6) {
+                            Image(systemName: worktree.isMain ? "house.fill" : "square.split.2x1")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(AppTheme.accent)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text((worktree.path as NSString).abbreviatingWithTildeInPath)
+                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(AppTheme.primaryLabel)
+                                    .lineLimit(1)
+                                Text("\(worktree.branch ?? "Detached HEAD")\(worktree.head.map { " · \($0.prefix(8))" } ?? "")")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(AppTheme.secondaryLabel)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            if worktree.path == canonicalRepoRoot {
+                                badgePill("Current", tint: AppTheme.success)
+                            } else if worktree.isMain {
+                                badgePill("Main", tint: AppTheme.secondaryLabel)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(
+                            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
+                                .fill(AppTheme.controlBackground)
+                        )
+                    }
+                }
+                Text("Start a new isolated worktree, or return to the local folder, from the branch card above. Switching to another existing worktree is not available yet.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(AppTheme.tertiaryLabel)
+            }
+        }
+        .padding(10)
+        .background(cardBackground)
+    }
+
     // MARK: - 4. Turn & Manual Git Checkpoints Card
 
     private var checkpointsSectionCard: some View {
@@ -728,6 +913,14 @@ struct GitInspectorView: View {
                                 }
                                 .controlSize(.mini)
                             }
+
+                            if turn.complete && !turn.running && turn.fileCount > 0 {
+                                Button("Restore") {
+                                    pendingRestoreTurn = turn
+                                }
+                                .controlSize(.mini)
+                                .help("Rewind the conversation and restore workspace files to this checkpoint")
+                            }
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
@@ -838,6 +1031,8 @@ struct GitInspectorView: View {
             statusBreakdown = nil
             manualCheckpoints = []
             turnCheckpoints = []
+            historyCommits = []
+            worktreesList = []
             return
         }
 
@@ -846,6 +1041,7 @@ struct GitInspectorView: View {
             appModel.activeCheckout = checkout
         }
         await loadCheckpointsAndPorcelain()
+        await loadHistory(reset: true)
     }
 
     private func performCheckoutChange(_ action: RemoteCheckoutAction) async {
@@ -906,6 +1102,8 @@ struct GitInspectorView: View {
             statusBreakdown = nil
             manualCheckpoints = []
             turnCheckpoints = []
+            historyCommits = []
+            worktreesList = []
             canonicalRepoRoot = nil
             currentHeadOID = nil
             checkpointStatusMessage = nil
@@ -990,6 +1188,15 @@ struct GitInspectorView: View {
                 resultMethod: "git.workspace.result"
             )
             let worktrees = worktreesVal["worktrees"]?.arrayValue ?? []
+            self.worktreesList = worktrees.enumerated().compactMap { index, wt in
+                guard let path = wt["worktree"]?.stringValue, !path.isEmpty else { return nil }
+                return GitWorktreeEntry(
+                    path: path,
+                    branch: wt["branch"]?.stringValue,
+                    head: wt["HEAD"]?.stringValue,
+                    isMain: index == 0
+                )
+            }
             let matchingTree = worktrees.first { wt in
                 guard let wtPath = wt["worktree"]?.stringValue else { return false }
                 let canonWT = URL(fileURLWithPath: wtPath).resolvingSymlinksInPath().path
@@ -1020,7 +1227,76 @@ struct GitInspectorView: View {
         } catch {
             // Gracefully handle subdirectories or non-git folders without intrusive error dialogs
             self.manualCheckpoints = []
+            self.worktreesList = []
             self.checkpointStatusMessage = nil
+        }
+    }
+
+    private func loadHistory(reset: Bool = true) async {
+        guard let client = appModel.runtime, let tid = appModel.selectedThreadUUID else { return }
+        if reset {
+            historyCommits = []
+            historyErrorMessage = nil
+        }
+        isLoadingHistory = true
+        defer { isLoadingHistory = false }
+        do {
+            let value = try await client.runWorkspaceOperation(
+                method: "git.log",
+                params: [
+                    "threadId": .string(tid.uuidString.lowercased()),
+                    "limit": .int(50),
+                    "skip": .int(Int64(reset ? 0 : historyCommits.count)),
+                ]
+            )
+            let commits = (value["commits"]?.arrayValue ?? []).compactMap { entry -> GitHistoryCommit? in
+                guard let sha = entry["sha"]?.stringValue, !sha.isEmpty,
+                      let subject = entry["subject"]?.stringValue
+                else { return nil }
+                return GitHistoryCommit(
+                    sha: sha,
+                    parents: entry["parents"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+                    authorName: entry["authorName"]?.stringValue ?? "",
+                    authorEmail: entry["authorEmail"]?.stringValue ?? "",
+                    authorDate: Date(timeIntervalSince1970: entry["authorDate"]?.doubleValue ?? 0),
+                    subject: subject,
+                    body: entry["body"]?.stringValue ?? ""
+                )
+            }
+            if reset {
+                historyCommits = commits
+            } else {
+                historyCommits.append(contentsOf: commits)
+            }
+            historyHasMore = commits.count == 50
+        } catch {
+            historyErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func previewHistoryCommit(_ commit: GitHistoryCommit) async {
+        guard let client = appModel.runtime, let tid = appModel.selectedThreadUUID else { return }
+        isLoadingHistoryDetail = true
+        defer { isLoadingHistoryDetail = false }
+        do {
+            let value = try await client.runWorkspaceOperation(
+                method: "git.show",
+                params: [
+                    "threadId": .string(tid.uuidString.lowercased()),
+                    "sha": .string(commit.sha),
+                ]
+            )
+            let rawPatch = value["diff"]?.stringValue ?? ""
+            let parsed = RemoteDiffParsing.split(rawPatch, title: "Commit \(String(commit.sha.prefix(8)))")
+            inspectedHistoryCommit = InspectedCheckpointPatch(
+                id: commit.sha,
+                commit: commit.sha,
+                rawPatch: rawPatch,
+                parsedDiff: parsed,
+                title: "Commit"
+            )
+        } catch {
+            appModel.presentError(error)
         }
     }
 
@@ -1163,6 +1439,25 @@ private struct GitPorcelainBreakdown: Equatable {
     let untracked: Int
 }
 
+private struct GitHistoryCommit: Identifiable, Hashable {
+    let sha: String
+    let parents: [String]
+    let authorName: String
+    let authorEmail: String
+    let authorDate: Date
+    let subject: String
+    let body: String
+    var id: String { sha }
+}
+
+private struct GitWorktreeEntry: Identifiable, Hashable {
+    let path: String
+    let branch: String?
+    let head: String?
+    let isMain: Bool
+    var id: String { path }
+}
+
 private struct ManualGitCheckpoint: Identifiable, Hashable {
     let id: String
     let commit: String
@@ -1181,6 +1476,15 @@ private struct InspectedCheckpointPatch: Identifiable {
     let commit: String
     let rawPatch: String
     let parsedDiff: RemoteDiff
+    let title: String
+
+    init(id: String, commit: String, rawPatch: String, parsedDiff: RemoteDiff, title: String = "Checkpoint") {
+        self.id = id
+        self.commit = commit
+        self.rawPatch = rawPatch
+        self.parsedDiff = parsedDiff
+        self.title = title
+    }
 }
 
 private struct CheckpointDiffPreviewSheet: View {
@@ -1192,7 +1496,7 @@ private struct CheckpointDiffPreviewSheet: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Checkpoint \(String(patch.id.prefix(8)))")
+                    Text("\(patch.title) \(String(patch.id.prefix(8)))")
                         .font(.system(size: 13.5, weight: .semibold))
                     Text("Commit \(patch.commit)")
                         .font(.system(size: 11, design: .monospaced))

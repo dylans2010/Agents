@@ -48,6 +48,10 @@ struct WorkspaceFilesInspectorView: View {
     @State private var pendingOpenAction: PendingFileSelection?
     @State private var showUnsavedDiscardAlert: Bool = false
 
+    @State private var pendingDeleteEntry: WorkspaceFileEntry?
+    @State private var renameEntry: WorkspaceFileEntry?
+    @State private var renameText: String = ""
+
     private var activeCwd: String {
         appModel.activeWorkingDirectory ?? FileManager.default.homeDirectoryForCurrentUser.path
     }
@@ -107,6 +111,68 @@ struct WorkspaceFilesInspectorView: View {
             }
         } message: { _ in
             Text("You have unsaved edits in the Inspector Editor. Save before switching files?")
+        }
+        .confirmationDialog(
+            "Delete \((pendingDeleteEntry?.name ?? "File"))?",
+            isPresented: Binding(
+                get: { pendingDeleteEntry != nil },
+                set: { if !$0 { pendingDeleteEntry = nil } }
+            ),
+            presenting: pendingDeleteEntry
+        ) { entry in
+            if entry.isDirectory {
+                Button("Delete Contents Too", role: .destructive) {
+                    pendingDeleteEntry = nil
+                    Task { await deleteEntry(entry, recursive: true) }
+                }
+                Button("Delete Empty Folder", role: .destructive) {
+                    pendingDeleteEntry = nil
+                    Task { await deleteEntry(entry, recursive: false) }
+                }
+            } else {
+                Button("Delete", role: .destructive) {
+                    pendingDeleteEntry = nil
+                    Task { await deleteEntry(entry, recursive: false) }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingDeleteEntry = nil
+            }
+        } message: { entry in
+            Text("“\(entry.path)” is permanently removed from the workspace. This cannot be undone.")
+        }
+        .sheet(item: $renameEntry) { entry in
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Rename \(entry.isDirectory ? "Folder" : "File")")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(entry.path)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+                TextField("New name", text: $renameText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12.5, design: .monospaced))
+                    .onSubmit {
+                        submitRename(entry)
+                    }
+                HStack {
+                    Spacer()
+                    Button("Cancel") {
+                        renameEntry = nil
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    Button("Rename") {
+                        submitRename(entry)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(sanitizedRenameText.isEmpty || sanitizedRenameText == entry.name)
+                }
+            }
+            .padding(18)
+            .frame(minWidth: 320, idealWidth: 360, maxWidth: 420)
+            .onAppear {
+                renameText = entry.name
+            }
         }
     }
 
@@ -221,6 +287,12 @@ struct WorkspaceFilesInspectorView: View {
                                 },
                                 onOpenExternal: { editor in
                                     openInExternalEditor(path: entry.path, line: nil, column: nil, target: editor)
+                                },
+                                onRename: {
+                                    renameEntry = entry
+                                },
+                                onDelete: {
+                                    pendingDeleteEntry = entry
                                 }
                             )
                         }
@@ -595,6 +667,69 @@ struct WorkspaceFilesInspectorView: View {
         }
     }
 
+    private var sanitizedRenameText: String {
+        renameText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "")
+    }
+
+    private func submitRename(_ entry: WorkspaceFileEntry) {
+        let name = sanitizedRenameText
+        guard !name.isEmpty, name != entry.name else { return }
+        renameEntry = nil
+        Task { await performRename(entry, to: name) }
+    }
+
+    private func deleteEntry(_ entry: WorkspaceFileEntry, recursive: Bool) async {
+        guard let client = appModel.runtime else { return }
+        do {
+            if entry.isDirectory {
+                try await client.deleteWorkspaceDirectory(cwd: activeCwd, path: entry.path, recursive: recursive)
+            } else {
+                try await client.deleteWorkspaceFile(cwd: activeCwd, path: entry.path)
+            }
+            if let docPath = loadedDocument?.path, docPath == entry.path || docPath.hasPrefix(entry.path + "/") {
+                loadedDocument = nil
+                editorContent = ""
+                selectedFilePath = nil
+            }
+            appModel.presentToast("Deleted", detail: entry.name, style: .success)
+            await executeQuery()
+            await appModel.refreshDiff()
+            await appModel.refreshGitState()
+        } catch {
+            appModel.presentError(error)
+        }
+    }
+
+    private func performRename(_ entry: WorkspaceFileEntry, to newName: String) async {
+        guard let client = appModel.runtime else { return }
+        if loadedDocument?.path == entry.path && isDirty {
+            appModel.presentToast(
+                "Save or Revert First",
+                detail: "You have unsaved edits in \(entry.name). Save or revert before renaming it.",
+                style: .warning
+            )
+            return
+        }
+        let parent = (entry.path as NSString).deletingLastPathComponent
+        let destination = parent.isEmpty ? newName : parent + "/" + newName
+        do {
+            try await client.moveWorkspaceFile(cwd: activeCwd, path: entry.path, destination: destination)
+            if loadedDocument?.path == entry.path {
+                loadedDocument = nil
+                editorContent = ""
+                selectedFilePath = nil
+            }
+            appModel.presentToast("Renamed", detail: "\(entry.name) → \(newName)", style: .success)
+            await executeQuery()
+            await appModel.refreshDiff()
+            await appModel.refreshGitState()
+        } catch {
+            appModel.presentError(error)
+        }
+    }
+
     private func saveCurrentDocument() async {
         guard let client = appModel.runtime,
               var doc = loadedDocument,
@@ -723,6 +858,8 @@ private struct WorkspaceFileRow: View {
     let onMentionInComposer: () -> Void
     let onRevealInFinder: () -> Void
     let onOpenExternal: (ExternalAppTarget?) -> Void
+    let onRename: () -> Void
+    let onDelete: () -> Void
 
     @State private var isHovered: Bool = false
 
@@ -794,6 +931,9 @@ private struct WorkspaceFileRow: View {
                 Divider()
             }
             Button("Reveal in Finder", systemImage: "folder", action: onRevealInFinder)
+            Divider()
+            Button("Rename…", systemImage: "pencil", action: onRename)
+            Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
         }
     }
 }

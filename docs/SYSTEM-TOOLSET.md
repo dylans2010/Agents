@@ -69,7 +69,7 @@ responses. Protocol version `2025-03-26`.
   (`tools`, `resources`, `prompts`), and server info
   `coincide-mcp-server`.
 - `ping` — returns `{}`.
-- `tools/list` — the real 26-tool registry, with the same names, descriptions,
+- `tools/list` — the real 65-tool registry, with the same names, descriptions,
   input schemas, and parameters as the Swift `SystemToolRegistry`. A
   cross-check test in the server crate parses the Swift registry source and
   asserts the two tables match exactly.
@@ -128,7 +128,7 @@ What is enforced for real in this slice:
 
 - The system prompt is delivered as a genuine developer/system instruction
   for Codex and Claude, never as user text.
-- `SystemToolRegistry` (Swift) registers exactly forty-one tools, each mapped to a
+- `SystemToolRegistry` (Swift) registers exactly sixty-five tools, each mapped to a
   real core action that was verified against the FFI dispatch:
   `workspace.read_file`, `workspace.write_file`, `workspace.files`,
   `workspace.search` (synchronous desktop actions) and `terminal.create`,
@@ -342,10 +342,52 @@ What is enforced for real in this slice:
     anywhere in the engine and is not registered; it would need a whole
     new ScreenCaptureKit recorder.
 
+- Git history and branch compare (slice 6): four engine methods on the same
+  async workspace channel as `git.status` / `git.diff`, polled through
+  `workspace.result`, all reading the repository through the core's hardened
+  git runner (the `git` binary, hooks disabled, no network) — never shelled
+  out from Swift:
+  - `git.log` — commit list for the current branch, newest first, with
+    pagination (`limit` 1–200, `skip`). Each commit carries its SHA, parents,
+    author name and email, author date as a unix timestamp, subject, and
+    body. Implemented in `coincide-core/src/workspace.rs` as `log`, parsing
+    `git log --format=` output split on record/field separators.
+  - `git.show` — one commit by full SHA: metadata, changed files with
+    additions/deletions (from `--name-status` plus `--numstat`), and the full
+    patch (capped at 2 MiB, reported as `truncated`). Merge commits list no
+    files, because `git show` reports no name-status for a merge; the patch
+    is git's combined diff.
+  - `git.diff.range` — three-dot compare of two references (`from...to`,
+    merge base of `from` against `to`). Both references are resolved to
+    commit OIDs first, so only real commits are compared, and the response
+    reports the resolved OIDs. Returns changed files and the full patch.
+  - `git.diff.branch` — the working tree against the base the branch left,
+    reusing the `workspace_diff::review` `Branch` scope the core already had
+    but the UI never wired.
+  - Registered as `git_log`, `git_show`, `git_diff_range`, and
+    `git_diff_branch` in both the Swift registry and the MCP server.
+  - UI: Inspector › Git has a History card (50 commits per page, tap a
+    commit for its files and diff) and a Worktrees card (read-only list from
+    the existing `git.worktrees.list`); Inspector › Changes gains a Branch
+    vs Base scope and a Compare Branches scope with branch pickers. The
+    branch card's existing switch/create/worktree controls are unchanged.
+  - Checkpoint restore: a turn checkpoint's Restore button rewinds the
+    conversation to before that turn's user message and restores workspace
+    files to the checkpoint, through the real `rewind` call with
+    `revertFiles: true`, behind an explicit confirmation that later
+    messages are removed. Manual staged checkpoints have no restore
+    primitive: they keep Diff and Copy only.
+  - File delete/rename in the Files inspector uses Slice 1's real FFI
+    actions (`workspace.delete_file`, `workspace.delete_directory`,
+    `workspace.move_file`) with a confirmation dialog for delete; a
+    directory delete offers empty-only or recursive, and renaming the open
+    file with unsaved edits is refused until the edits are saved or
+    reverted.
+
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 5, 61 tools are real. These catalog tools are NOT
+registry. After slice 6, 65 tools are real. These catalog tools are NOT
 implemented, and why:
 
 - Memory (`save_to_memory`, `manage_memory`, `conversation_context_manager`):
@@ -378,9 +420,16 @@ implemented, and why:
   no pbxproj writer exists anywhere; `file_write` does not register files
   in Xcode projects. This is the riskiest missing primitive; it is not
   faked here.
-- Git gaps: `git_stash_operator`, rollback/reset-hard, `git_log_viewer`,
-  `git_blame_inspector`, `git_branch_compare`, `git_bisect`,
-  `git_cherry_pick` have no engine method. Slice 6 owns the git follow-ups.
+- Git gaps: `git_log_viewer` is now real as `git.log` / `git.show`, and
+  `git_branch_compare` is now real as `git.diff.range` plus the branch scope
+  — see the Enforcement boundary above. Still missing, with no engine
+  method and nothing faked: `git_stash_operator` (no stash primitive exists
+  in either git layer, and `workspace_git.rs` explicitly excludes
+  reset/clean), rollback/reset-hard, `git_blame_inspector`, `git_bisect`,
+  `git_cherry_pick`. Switching to another existing worktree is also not
+  available: the engine has `git.worktrees.useExisting`, but the Swift
+  checkout action enum exposes only local/new/previous worktrees, so the
+  Worktrees card is a read-only list until that action is wired.
 - Everything else in the catalog (~240 IDs) stays PARTIAL: reachable in
   principle via the real terminal RPC or read/write/search composition, but
   not tool-shaped, and not claimed as implemented. In particular the

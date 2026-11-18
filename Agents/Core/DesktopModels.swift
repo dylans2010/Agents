@@ -2005,11 +2005,15 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
 public nonisolated enum DiffScope: Codable, Hashable, Sendable {
     case uncommitted
     case turn(UUID)
+    case branch
+    case compare(from: String, to: String)
 
     public var turnID: UUID? {
         switch self {
         case .uncommitted: nil
         case .turn(let id): id
+        case .branch: nil
+        case .compare: nil
         }
     }
 }

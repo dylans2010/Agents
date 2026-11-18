@@ -838,7 +838,29 @@ public final class AppModel {
         guard let client = runtime, let tid = selectedThreadUUID else { return }
         if let scope { activeDiffScope = scope }
         do {
-            activeDiff = try await client.fetchDiff(thread: tid, scope: activeDiffScope)
+            switch activeDiffScope {
+            case .branch:
+                let value = try await client.runWorkspaceOperation(
+                    method: "git.diff.branch",
+                    params: ["threadId": .string(tid.uuidString.lowercased())]
+                )
+                let patch = value["patch"]?.stringValue ?? ""
+                let base = value["baseLabel"]?.stringValue ?? "base"
+                activeDiff = RemoteDiffParsing.split(patch, title: "Branch vs \(base)")
+            case .compare(let from, let to):
+                let value = try await client.runWorkspaceOperation(
+                    method: "git.diff.range",
+                    params: [
+                        "threadId": .string(tid.uuidString.lowercased()),
+                        "from": .string(from),
+                        "to": .string(to),
+                    ]
+                )
+                let patch = value["diff"]?.stringValue ?? ""
+                activeDiff = RemoteDiffParsing.split(patch, title: "Compare \(from)…\(to)")
+            default:
+                activeDiff = try await client.fetchDiff(thread: tid, scope: activeDiffScope)
+            }
         } catch {
             self.lastError = error.localizedDescription
         }

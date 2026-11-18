@@ -5,6 +5,7 @@ use anyhow::{Context, Result, bail, ensure};
 pub(crate) use path::{external_git_directory, external_git_path};
 use serde_json::{Value, json};
 use std::{
+    collections::HashMap,
     io::Read,
     path::{Component, Path},
     process::{Command, Stdio},
@@ -331,6 +332,262 @@ pub fn diff(directory: &Path, path: Option<&str>, staged: bool) -> Result<Value>
     Ok(json!({"diff":String::from_utf8(git(directory,&args)?)?,"staged":staged}))
 }
 
+pub fn log(directory: &Path, limit: usize, skip: usize) -> Result<Value> {
+    ensure!((1..=200).contains(&limit), "Limit must be 1–200");
+    ensure!(skip <= 100_000, "Skip must be at most 100000");
+    let (bytes, truncated) = git_with(
+        directory,
+        &[
+            "log",
+            "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%b%x1e",
+            &format!("--max-count={limit}"),
+            &format!("--skip={skip}"),
+        ],
+        &GitOptions {
+            timeout: Duration::from_secs(60),
+            truncate: true,
+            ..GitOptions::default()
+        },
+    )?;
+    let text = String::from_utf8(bytes)?;
+    let mut records: Vec<&str> = text.split('\u{1e}').collect();
+    if truncated {
+        records.pop();
+    }
+    let commits: Vec<Value> = records.into_iter().filter_map(parse_log_record).collect();
+    Ok(json!({"commits": commits, "truncated": truncated}))
+}
+
+fn parse_log_record(record: &str) -> Option<Value> {
+    let record = record.strip_prefix('\n').unwrap_or(record);
+    if record.is_empty() {
+        return None;
+    }
+    let fields: Vec<&str> = record.split('\0').collect();
+    let [sha, parents, author_name, author_email, author_date, subject, body] =
+        fields.as_slice()
+    else {
+        return None;
+    };
+    Some(json!({
+        "sha": sha,
+        "parents": parents.split(' ').filter(|parent| !parent.is_empty()).collect::<Vec<_>>(),
+        "authorName": author_name,
+        "authorEmail": author_email,
+        "authorDate": author_date.parse::<i64>().unwrap_or(0),
+        "subject": subject,
+        "body": body.trim_end_matches('\n'),
+    }))
+}
+
+fn validate_sha(sha: &str) -> Result<()> {
+    ensure!(
+        matches!(sha.len(), 40 | 64) && sha.bytes().all(|b| b.is_ascii_hexdigit()),
+        "Expected a full commit SHA"
+    );
+    Ok(())
+}
+
+fn resolve_commit(directory: &Path, reference: &str) -> Result<String> {
+    ensure!(
+        !reference.is_empty()
+            && reference.len() <= 255
+            && !reference.starts_with('-')
+            && !reference.chars().any(char::is_control),
+        "Invalid Git reference"
+    );
+    let oid = git(
+        directory,
+        &[
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            &format!("{reference}^{{commit}}"),
+        ],
+    )?;
+    let oid = String::from_utf8(oid)?.trim().to_owned();
+    validate_sha(&oid)?;
+    Ok(oid)
+}
+
+fn parse_name_status(text: &str) -> Result<Vec<(char, String, Option<String>)>> {
+    let mut entries = Vec::new();
+    let mut records = text.split('\0').filter(|record| !record.is_empty());
+    while let Some(record) = records.next() {
+        let (status, path) = record
+            .split_once('\t')
+            .context("Malformed name-status record")?;
+        let kind = status.chars().next().context("Empty name-status record")?;
+        let original = if kind == 'R' || kind == 'C' {
+            Some(
+                records
+                    .next()
+                    .context("Missing rename source")?
+                    .to_owned(),
+            )
+        } else {
+            None
+        };
+        entries.push((kind, path.to_owned(), original));
+    }
+    Ok(entries)
+}
+
+fn parse_numstat(text: &str) -> Vec<(String, u64, u64)> {
+    let fields: Vec<&str> = text.split('\0').collect();
+    let mut result = Vec::new();
+    let mut index = 0;
+    while index < fields.len() {
+        let parts: Vec<&str> = fields[index].splitn(3, '\t').collect();
+        index += 1;
+        let [additions, deletions, path] = parts.as_slice() else {
+            continue;
+        };
+        let mut path = (*path).to_owned();
+        if path.is_empty() {
+            if index + 1 >= fields.len() {
+                break;
+            }
+            path = fields[index + 1].into();
+            index += 2;
+        }
+        if path.is_empty() {
+            continue;
+        }
+        result.push((
+            path,
+            additions.parse().unwrap_or(0),
+            deletions.parse().unwrap_or(0),
+        ));
+    }
+    result
+}
+
+fn status_letter(kind: char) -> &'static str {
+    match kind {
+        'A' | 'C' => "added",
+        'D' => "deleted",
+        'R' => "renamed",
+        _ => "modified",
+    }
+}
+
+fn files_from_status(
+    entries: Vec<(char, String, Option<String>)>,
+    counts: &HashMap<String, (u64, u64)>,
+) -> Vec<Value> {
+    entries
+        .into_iter()
+        .map(|(kind, path, original)| {
+            let (additions, deletions) = counts.get(&path).copied().unwrap_or_default();
+            json!({
+                "path": path,
+                "oldPath": original,
+                "status": status_letter(kind),
+                "additions": additions,
+                "deletions": deletions,
+            })
+        })
+        .collect()
+}
+
+fn range_patch(directory: &Path, args: &[&str]) -> Result<(String, bool)> {
+    let (bytes, truncated) = git_with(
+        directory,
+        args,
+        &GitOptions {
+            timeout: Duration::from_secs(60),
+            max_output: 2 * 1024 * 1024,
+            truncate: true,
+            ..GitOptions::default()
+        },
+    )?;
+    Ok((String::from_utf8_lossy(&bytes).into_owned(), truncated))
+}
+
+pub fn commit_detail(directory: &Path, sha: &str) -> Result<Value> {
+    validate_sha(sha)?;
+    let oid = resolve_commit(directory, sha)?;
+    let (meta, _) = git_with(
+        directory,
+        &[
+            "log",
+            "-1",
+            "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%b%x1e",
+            &oid,
+        ],
+        &GitOptions {
+            timeout: Duration::from_secs(60),
+            ..GitOptions::default()
+        },
+    )?;
+    let meta = String::from_utf8(meta)?;
+    let commit = parse_log_record(&meta).context("Commit not found")?;
+    let status_bytes = git(
+        directory,
+        &["show", "--format=", "--name-status", "-z", "--root", &oid],
+    )?;
+    let entries = parse_name_status(&String::from_utf8_lossy(&status_bytes))?;
+    let numstat_bytes = git(
+        directory,
+        &["show", "--format=", "--numstat", "-z", "--root", &oid],
+    )?;
+    let counts: HashMap<String, (u64, u64)> = parse_numstat(&String::from_utf8_lossy(&numstat_bytes))
+        .into_iter()
+        .map(|(path, additions, deletions)| (path, (additions, deletions)))
+        .collect();
+    let files = files_from_status(entries, &counts);
+    let (patch, truncated) = range_patch(
+        directory,
+        &[
+            "show",
+            "--format=",
+            "--patch",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            &oid,
+        ],
+    )?;
+    Ok(json!({"commit": commit, "files": files, "diff": patch, "truncated": truncated}))
+}
+
+pub fn diff_range(directory: &Path, from: &str, to: &str) -> Result<Value> {
+    let from = resolve_commit(directory, from)?;
+    let to = resolve_commit(directory, to)?;
+    let range = format!("{from}...{to}");
+    let status_bytes = git(
+        directory,
+        &["diff", "--name-status", "-z", "--no-color", &range],
+    )?;
+    let entries = parse_name_status(&String::from_utf8_lossy(&status_bytes))?;
+    let numstat_bytes = git(
+        directory,
+        &["diff", "--numstat", "-z", "--no-color", &range],
+    )?;
+    let counts: HashMap<String, (u64, u64)> = parse_numstat(&String::from_utf8_lossy(&numstat_bytes))
+        .into_iter()
+        .map(|(path, additions, deletions)| (path, (additions, deletions)))
+        .collect();
+    let files = files_from_status(entries, &counts);
+    let (patch, truncated) = range_patch(
+        directory,
+        &[
+            "diff",
+            "--patch",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            &range,
+        ],
+    )?;
+    Ok(json!({"from": from, "to": to, "files": files, "diff": patch, "truncated": truncated}))
+}
+
+pub fn branch_diff(directory: &Path) -> Result<Value> {
+    crate::workspace_diff::review(directory, crate::workspace_diff::Scope::Branch, false)
+}
+
 pub fn files(directory: &Path, query: &str, limit: usize) -> Result<Value> {
     ensure!((1..=5000).contains(&limit), "Limit must be 1–5000");
     let bytes = git(
@@ -562,5 +819,63 @@ mod tests {
             std::os::unix::fs::symlink(outside.path(), dir.path().join("escape")).unwrap();
             assert!(read_file(dir.path(), "escape", 0, 10).is_err());
         }
+    }
+    #[test]
+    fn git_history_lists_commits_and_shows_files_and_range_diffs() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        git(root, &["init", "-q"]).unwrap();
+        let identity = [
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "-c",
+            "commit.gpgSign=false",
+        ];
+        let commit = |message: &str| {
+            let mut args = identity.to_vec();
+            args.extend(["commit", "-qm", message]);
+            git(root, &args).unwrap();
+        };
+        std::fs::write(root.join("a.txt"), "one\n").unwrap();
+        git(root, &["add", "--", "a.txt"]).unwrap();
+        commit("first");
+        std::fs::write(root.join("a.txt"), "one\ntwo\n").unwrap();
+        std::fs::write(root.join("b.txt"), "bee\n").unwrap();
+        git(root, &["add", "--", "a.txt", "b.txt"]).unwrap();
+        commit("second");
+        let head = String::from_utf8(git(root, &["rev-parse", "HEAD"]).unwrap())
+            .unwrap()
+            .trim()
+            .to_owned();
+        let history = log(root, 10, 0).unwrap();
+        let commits = history["commits"].as_array().unwrap();
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0]["subject"], "second");
+        assert_eq!(commits[1]["subject"], "first");
+        assert_eq!(commits[0]["parents"].as_array().unwrap().len(), 1);
+        assert_eq!(commits[1]["parents"].as_array().unwrap().len(), 0);
+        assert!(commits[0]["authorDate"].as_i64().unwrap() > 0);
+        assert_eq!(log(root, 1, 1).unwrap()["commits"][0]["subject"], "first");
+        assert!(log(root, 0, 0).is_err());
+        assert!(log(root, 201, 0).is_err());
+        let detail = commit_detail(root, &head).unwrap();
+        assert_eq!(detail["commit"]["subject"], "second");
+        assert_eq!(detail["files"].as_array().unwrap().len(), 2);
+        assert!(detail["diff"].as_str().unwrap().contains("+two"));
+        assert!(detail["diff"].as_str().unwrap().contains("b.txt"));
+        assert!(commit_detail(root, &"0".repeat(40)).is_err());
+        assert!(commit_detail(root, "not-a-sha").is_err());
+        let first = commits[1]["sha"].as_str().unwrap().to_owned();
+        let range = diff_range(root, &first, &head).unwrap();
+        assert_eq!(range["from"], first);
+        assert_eq!(range["to"], head);
+        assert_eq!(range["files"].as_array().unwrap().len(), 2);
+        assert!(range["diff"].as_str().unwrap().contains("+two"));
+        assert!(diff_range(root, "nope", &head).is_err());
+        assert!(diff_range(root, &first, "--bad").is_err());
+        let branch = branch_diff(root).unwrap();
+        assert_eq!(branch["patch"], "");
     }
 }

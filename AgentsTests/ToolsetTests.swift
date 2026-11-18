@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 61)
+        #expect(tools.count == 65)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -75,6 +75,7 @@ struct ToolsetTests {
             "workspace.copy_file", "workspace.create_dir", "workspace.read_dir",
             "workspace.edit_file", "workspace.search_regex",
             "terminal.create", "terminal.write", "terminal.read", "git.status", "git.diff",
+            "git.log", "git.show", "git.diff.range", "git.diff.branch",
             "git.actions.run", "git.actions.pull", "git.branches.list", "git.branches.create",
             "git.branches.checkout",
             "memory.store", "memory.retrieve", "memory.list", "memory.delete",
@@ -122,6 +123,29 @@ struct ToolsetTests {
         #expect(SystemToolRegistry.definition(named: "edit_file", for: .system)?.parameters.map(\.name).contains("mode") == true)
         #expect(SystemToolRegistry.definition(named: "read_directory", for: .system)?.parameters.map(\.name).contains("recursive") == true)
         #expect(SystemToolRegistry.definition(named: "git_commit", for: .system)?.parameters.map(\.name).contains("message") == true)
+    }
+
+    @Test("Slice 6 tools register with their real backend actions")
+    func sliceSixToolsRegister() {
+        let expected: [(String, String)] = [
+            ("git_log", "git.log"),
+            ("git_show", "git.show"),
+            ("git_diff_range", "git.diff.range"),
+            ("git_diff_branch", "git.diff.branch"),
+        ]
+        for (name, action) in expected {
+            guard let definition = SystemToolRegistry.definition(named: name, for: .system) else {
+                Issue.record("Missing system tool \(name)")
+                continue
+            }
+            #expect(definition.action == action)
+            #expect(definition.channel == .engine)
+            #expect(definition.parameters.contains { $0.required })
+        }
+        #expect(SystemToolRegistry.definition(named: "git_log", for: .system)?.parameters.map(\.name) == ["threadId", "limit", "skip"])
+        #expect(SystemToolRegistry.definition(named: "git_show", for: .system)?.parameters.map(\.name) == ["threadId", "sha"])
+        #expect(SystemToolRegistry.definition(named: "git_diff_range", for: .system)?.parameters.map(\.name) == ["threadId", "from", "to"])
+        #expect(SystemToolRegistry.definition(named: "git_diff_branch", for: .system)?.parameters.map(\.name) == ["threadId"])
     }
 
     @Test("Provider Tools mode registers no system tools")

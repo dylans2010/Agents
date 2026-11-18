@@ -688,6 +688,66 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         )
     }
 
+    public func runWorkspaceOperation(method: String, params: [String: JSONValue], timeoutSeconds: Int = 30) async throws -> JSONValue {
+        guard let threadID = params["threadId"]?.stringValue else {
+            throw AgentsRuntimeError.desktopFailure("Workspace operation requires a threadId.")
+        }
+        let started = try await engineRPC(method: method, params: params)
+        guard let operationId = started["operationId"]?.stringValue else {
+            return started
+        }
+        let deadline = ContinuousClock.now + .seconds(timeoutSeconds)
+        while ContinuousClock.now < deadline {
+            try Task.checkCancellation()
+            let polled = try await engineRPC(
+                method: "workspace.result",
+                params: [
+                    "threadId": .string(threadID),
+                    "operationId": .string(operationId),
+                ]
+            )
+            if polled["ready"]?.boolValue == true {
+                let result = polled["result"] ?? .object([:])
+                if let errorText = result["error"]?.stringValue, !errorText.isEmpty {
+                    throw AgentsRuntimeError.desktopFailure(errorText)
+                }
+                return result
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        throw AgentsRuntimeError.desktopFailure("Workspace operation timed out.")
+    }
+
+    public func runGitActionsOperation(method: String, params: [String: JSONValue], timeoutSeconds: Int = 60) async throws -> JSONValue {
+        guard let threadID = params["threadId"]?.stringValue else {
+            throw AgentsRuntimeError.desktopFailure("Git operation requires a threadId.")
+        }
+        let started = try await engineRPC(method: method, params: params)
+        guard let operationId = started["operationId"]?.stringValue else {
+            return started
+        }
+        let deadline = ContinuousClock.now + .seconds(timeoutSeconds)
+        while ContinuousClock.now < deadline {
+            try Task.checkCancellation()
+            let polled = try await engineRPC(
+                method: "git.actions.result",
+                params: [
+                    "threadId": .string(threadID),
+                    "operationId": .string(operationId),
+                ]
+            )
+            if polled["ready"]?.boolValue == true {
+                let result = polled["result"] ?? .object([:])
+                if let errorText = result["error"]?.stringValue, !errorText.isEmpty {
+                    throw AgentsRuntimeError.desktopFailure(errorText)
+                }
+                return result
+            }
+            try await Task.sleep(for: .milliseconds(250))
+        }
+        throw AgentsRuntimeError.desktopFailure("Git operation timed out.")
+    }
+
     public func computerUseStatus() async throws -> ComputerUseStatus {
         try await desktopCall(action: "computer_use.status", as: ComputerUseStatus.self)
     }

@@ -23,7 +23,7 @@ struct WorkersTests {
     @Test("Worker tools register with their real backend actions")
     func workerToolsRegister() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 41)
+        #expect(tools.count == 65)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let expected: [(String, String)] = [
             ("use_workers", "workers.spawn"),

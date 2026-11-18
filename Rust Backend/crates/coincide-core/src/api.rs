@@ -772,7 +772,7 @@ impl Engine {
                 self.launch_schedule(&job)?;
                 Ok(json!({"task":crate::schedule_service::ScheduleService::new(&mut self.store).list()?.into_iter().find(|v|v["id"]==id)}))
             }
-            "git.status" | "git.diff" | "files.list" | "files.read" => {
+            "git.status" | "git.diff" | "git.log" | "git.show" | "git.diff.range" | "git.diff.branch" | "files.list" | "files.read" => {
                 self.require_background_admission()?;
                 ensure!(self.workspace_pending.len()<32,"Too many workspace operations; collect results first");
                 let thread=required(p,"threadId")?;
@@ -787,6 +787,10 @@ impl Engine {
                         match method.as_str() {
                             "git.status"=>crate::workspace::status(&cwd),
                             "git.diff"=>crate::workspace::diff(&cwd,params["path"].as_str(),params["staged"].as_bool().unwrap_or(false)),
+                            "git.log"=>crate::workspace::log(&cwd,params["limit"].as_u64().unwrap_or(50) as usize,params["skip"].as_u64().unwrap_or(0) as usize),
+                            "git.show"=>crate::workspace::commit_detail(&cwd,required(&params,"sha")?),
+                            "git.diff.range"=>crate::workspace::diff_range(&cwd,required(&params,"from")?,required(&params,"to")?),
+                            "git.diff.branch"=>crate::workspace::branch_diff(&cwd),
                             "files.list"=>crate::workspace::files(&cwd,params["query"].as_str().unwrap_or(""),params["limit"].as_u64().unwrap_or(200) as usize),
                             "files.read"=>crate::workspace::read_file(&cwd,required(&params,"path")?,params["lineOffset"].as_u64().unwrap_or(0) as usize,params["lineLimit"].as_u64().unwrap_or(200) as usize),
                             _=>unreachable!(),
@@ -930,7 +934,7 @@ impl Engine {
             "app.capabilities" => {
                 let mut methods = vec![
                 "app.status", "app.quit", "app.activate", "terminal.create", "terminal.list", "terminal.read", "terminal.prompt_marks", "terminal.scroll", "terminal.selection", "terminal.input", "terminal.write", "terminal.clear", "terminal.resize", "terminal.close",
-                "app.capabilities", "notifications.status", "host.awake.status", "host.awake.configure", "providers.list", "providers.antigravity.status", "browser.request", "browser.result", "browser.bookmarks.list", "browser.bookmarks.import", "browser.bookmarks.open", "browser.settings.read", "browser.settings.patch", "git.status", "git.diff", "files.list", "files.read", "workspace.result", "attachments.add", "attachments.remove",
+                "app.capabilities", "notifications.status", "host.awake.status", "host.awake.configure", "providers.list", "providers.antigravity.status", "browser.request", "browser.result", "browser.bookmarks.list", "browser.bookmarks.import", "browser.bookmarks.open", "browser.settings.read", "browser.settings.patch", "git.status", "git.diff", "git.log", "git.show", "git.diff.range", "git.diff.branch", "files.list", "files.read", "workspace.result", "attachments.add", "attachments.remove",
                 "schedules.list", "schedules.create", "schedules.patch", "schedules.pause", "schedules.resume", "schedules.delete", "schedules.run-now",
                 "projects.list", "projects.create", "projects.patch", "settings.read", "settings.patch",
                 "threads.list", "threads.resolve_id",

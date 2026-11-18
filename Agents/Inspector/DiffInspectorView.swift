@@ -12,6 +12,11 @@ struct DiffInspectorView: View {
     @State private var wrapsLines: Bool = false
     @State private var isLoading: Bool = false
     @State private var scrollRequestID: String?
+    @State private var showCompareSheet: Bool = false
+    @State private var compareFrom: String = ""
+    @State private var compareTo: String = ""
+    @State private var compareBranches: [String] = []
+    @State private var isLoadingCompareBranches: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,6 +45,9 @@ struct DiffInspectorView: View {
         .background(AppTheme.windowBackground)
         .task(id: DiffLoadKey(threadID: appModel.selectedThreadID, scope: appModel.activeDiffScope, token: refreshToken)) {
             await reloadDiff()
+        }
+        .sheet(isPresented: $showCompareSheet) {
+            compareSheet
         }
     }
 
@@ -125,6 +133,29 @@ struct DiffInspectorView: View {
                         }
                     }
 
+                    Button {
+                        Task { await appModel.refreshDiff(scope: .branch) }
+                    } label: {
+                        HStack {
+                            Text("Branch vs Base")
+                            if appModel.activeDiffScope == .branch {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                    Button {
+                        Task { await loadCompareBranches() }
+                        showCompareSheet = true
+                    } label: {
+                        HStack {
+                            Text("Compare Branches…")
+                            if case .compare = appModel.activeDiffScope {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
                     let turns = availableTurnScopes
                     if !turns.isEmpty {
                         Divider()
@@ -145,7 +176,7 @@ struct DiffInspectorView: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: appModel.activeDiffScope == .uncommitted ? "square.and.pencil" : "clock.arrow.circlepath")
+                        Image(systemName: scopeButtonIcon)
                             .font(.system(size: 11, weight: .medium))
                         Text(scopeButtonTitle)
                             .font(.system(size: 11.5, weight: .medium))
@@ -265,6 +296,19 @@ struct DiffInspectorView: View {
                 return "Turn: \(match.label)"
             }
             return "Turn Changes"
+        case .branch:
+            return appModel.activeDiff?.title.isEmpty == false ? (appModel.activeDiff?.title ?? "Branch vs Base") : "Branch vs Base"
+        case .compare(let from, let to):
+            return "Compare \(from)…\(to)"
+        }
+    }
+
+    private var scopeButtonIcon: String {
+        switch appModel.activeDiffScope {
+        case .uncommitted: "square.and.pencil"
+        case .turn: "clock.arrow.circlepath"
+        case .branch: "arrow.triangle.branch"
+        case .compare: "arrow.left.arrow.right"
         }
     }
 
@@ -413,6 +457,94 @@ struct DiffInspectorView: View {
         } else if selectedFilePath == nil {
             selectedFilePath = rawDiffFiles.first?.path
         }
+    }
+
+    private func loadCompareBranches() async {
+        guard let client = appModel.runtime, let tid = appModel.selectedThreadUUID else { return }
+        isLoadingCompareBranches = true
+        defer { isLoadingCompareBranches = false }
+        do {
+            let value = try await client.runGitActionsOperation(
+                method: "git.branches.list",
+                params: ["threadId": .string(tid.uuidString.lowercased())]
+            )
+            let branches = value["branches"]?.arrayValue ?? []
+            let local = branches.compactMap { branch -> (name: String, isCurrent: Bool, isDefault: Bool)? in
+                guard let name = branch["name"]?.stringValue, branch["isRemote"]?.boolValue != true else { return nil }
+                return (name, branch["isCurrent"]?.boolValue ?? false, branch["isDefault"]?.boolValue ?? false)
+            }
+            compareBranches = local.map { $0.name }
+            if compareFrom.isEmpty {
+                compareFrom = local.first(where: { $0.isDefault })?.name ?? local.first?.name ?? "main"
+            }
+            if compareTo.isEmpty {
+                compareTo = local.first(where: { $0.isCurrent })?.name ?? local.first?.name ?? ""
+            }
+        } catch {
+            appModel.presentError(error)
+        }
+    }
+
+    private var compareSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Compare Branches")
+                .font(.system(size: 14, weight: .semibold))
+            Text("Shows what changed between the merge base of the first branch and the second branch.")
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.secondaryLabel)
+            if isLoadingCompareBranches {
+                ProgressView()
+                    .controlSize(.small)
+            } else if compareBranches.isEmpty {
+                Text("No local branches found for this thread.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+            } else {
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("From")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                        Picker("From branch", selection: $compareFrom) {
+                            ForEach(compareBranches, id: \.self) { branch in
+                                Text(branch).tag(branch)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.tertiaryLabel)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("To")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.secondaryLabel)
+                        Picker("To branch", selection: $compareTo) {
+                            ForEach(compareBranches, id: \.self) { branch in
+                                Text(branch).tag(branch)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                }
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    showCompareSheet = false
+                }
+                .keyboardShortcut(.cancelAction)
+                Button("Compare") {
+                    showCompareSheet = false
+                    Task { await appModel.refreshDiff(scope: .compare(from: compareFrom, to: compareTo)) }
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(compareFrom.isEmpty || compareTo.isEmpty || compareFrom == compareTo)
+            }
+        }
+        .padding(18)
+        .frame(minWidth: 340, idealWidth: 400, maxWidth: 460)
     }
 
     private func firstTargetLine(in file: RemoteDiff.File) -> Int? {

@@ -153,6 +153,47 @@ public nonisolated enum SystemToolRegistry {
             ]
         ),
         SystemToolDefinition(
+            name: "git_log",
+            description: "List git commits for a thread working directory, newest first, with author, date, message, and parents.",
+            action: "git.log",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "limit", type: "integer", required: false, description: "Maximum commits to return, 1–200. Defaults to 50."),
+                SystemToolParameter(name: "skip", type: "integer", required: false, description: "Commits to skip for pagination. Defaults to 0."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_show",
+            description: "Show one git commit for a thread working directory: its metadata, changed files, and full diff.",
+            action: "git.show",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "sha", type: "string", required: true, description: "Full 40- or 64-character commit SHA."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_diff_range",
+            description: "Diff two git references for a thread working directory, comparing the merge base of the first against the second, with changed files and the full patch.",
+            action: "git.diff.range",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "from", type: "string", required: true, description: "Base reference, such as a branch name or commit SHA."),
+                SystemToolParameter(name: "to", type: "string", required: true, description: "Reference to compare against the base, such as a branch name or commit SHA."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "git_diff_branch",
+            description: "Diff the thread branch working tree against the base it branched from, with the full patch.",
+            action: "git.diff.branch",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+            ]
+        ),
+        SystemToolDefinition(
             name: "delete_file",
             description: "Delete a file in the thread working directory. Refuses directories and symlinks.",
             action: "workspace.delete_file",
@@ -809,6 +850,28 @@ public nonisolated enum SystemToolRegistry {
                 params["staged"] = .bool(staged)
             }
             return try await runGitOperation(method: "git.diff", threadId: threadId, params: params, tool: name, runtime: runtime)
+        case "git_log":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            var params: [String: JSONValue] = [:]
+            if let limit = optionalInt(arguments, "limit") {
+                params["limit"] = .int(Int64(limit))
+            }
+            if let skip = optionalInt(arguments, "skip") {
+                params["skip"] = .int(Int64(skip))
+            }
+            return try await runGitOperation(method: "git.log", threadId: threadId, params: params, tool: name, runtime: runtime)
+        case "git_show":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let sha = try requiredString(arguments, "sha", tool: name)
+            return try await runGitOperation(method: "git.show", threadId: threadId, params: ["sha": .string(sha)], tool: name, runtime: runtime)
+        case "git_diff_range":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let from = try requiredString(arguments, "from", tool: name)
+            let to = try requiredString(arguments, "to", tool: name)
+            return try await runGitOperation(method: "git.diff.range", threadId: threadId, params: ["from": .string(from), "to": .string(to)], tool: name, runtime: runtime)
+        case "git_diff_branch":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            return try await runGitOperation(method: "git.diff.branch", threadId: threadId, params: [:], tool: name, runtime: runtime)
         case "delete_file":
             let cwd = try requiredString(arguments, "cwd", tool: name)
             let path = try requiredString(arguments, "path", tool: name)

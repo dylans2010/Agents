@@ -179,6 +179,70 @@ pub static DEFINITIONS: &[ToolDef] = &[
         ],
     },
     ToolDef {
+        name: "git_log",
+        description: "List git commits for a thread working directory, newest first, with author, date, message, and parents.",
+        action: "git.log",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "limit",
+                kind: "integer",
+                required: false,
+                description: "Maximum commits to return, 1–200. Defaults to 50.",
+            },
+            ToolParam {
+                name: "skip",
+                kind: "integer",
+                required: false,
+                description: "Commits to skip for pagination. Defaults to 0.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "git_show",
+        description: "Show one git commit for a thread working directory: its metadata, changed files, and full diff.",
+        action: "git.show",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "sha",
+                kind: "string",
+                required: true,
+                description: "Full 40- or 64-character commit SHA.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "git_diff_range",
+        description: "Diff two git references for a thread working directory, comparing the merge base of the first against the second, with changed files and the full patch.",
+        action: "git.diff.range",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "from",
+                kind: "string",
+                required: true,
+                description: "Base reference, such as a branch name or commit SHA.",
+            },
+            ToolParam {
+                name: "to",
+                kind: "string",
+                required: true,
+                description: "Reference to compare against the base, such as a branch name or commit SHA.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "git_diff_branch",
+        description: "Diff the thread branch working tree against the base it branched from, with the full patch.",
+        action: "git.diff.branch",
+        channel: "engine",
+        params: &[P_THREAD_ID],
+    },
+    ToolDef {
         name: "delete_file",
         description: "Delete a file in the thread working directory. Refuses directories and symlinks.",
         action: "workspace.delete_file",
@@ -1660,6 +1724,37 @@ pub fn call(
             }
             run_git_operation(state, "git.diff", &thread_id, params)
         }
+        "git_log" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let mut params = json!({});
+            if let Some(limit) = opt_u64(&args, "limit") {
+                params["limit"] = json!(limit);
+            }
+            if let Some(skip) = opt_u64(&args, "skip") {
+                params["skip"] = json!(skip);
+            }
+            run_git_operation(state, "git.log", &thread_id, params)
+        }
+        "git_show" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let sha = req_str(&args, "sha", name)?;
+            run_git_operation(state, "git.show", &thread_id, json!({"sha": sha}))
+        }
+        "git_diff_range" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            let from = req_str(&args, "from", name)?;
+            let to = req_str(&args, "to", name)?;
+            run_git_operation(
+                state,
+                "git.diff.range",
+                &thread_id,
+                json!({"from": from, "to": to}),
+            )
+        }
+        "git_diff_branch" => {
+            let thread_id = req_str(&args, "threadId", name)?;
+            run_git_operation(state, "git.diff.branch", &thread_id, json!({}))
+        }
         "run_build" | "run_tests" => {
             let thread_id = req_str(&args, "threadId", name)?;
             let command = req_str(&args, "command", name)?;
@@ -1884,7 +1979,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 61, "Swift registry must hold 61 tools");
+        assert_eq!(swift.len(), 65, "Swift registry must hold 65 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");
