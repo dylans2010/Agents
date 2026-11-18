@@ -16835,30 +16835,6 @@ fn g6_misc_call(
     }
 }
 
-fn g6_use_app_inner_tool(action: &str) -> Option<&'static str> {
-    match action {
-        "list_applications" => Some("list_apps"),
-        "inspect_application" => Some("list_windows"),
-        "launch" => Some("launch_app"),
-        "list_windows" => Some("list_windows"),
-        "inspect_ui" | "get_accessibility_tree" => Some("get_window_state"),
-        "click" | "activate_element" => Some("click"),
-        "double_click" => Some("double_click"),
-        "right_click" => Some("right_click"),
-        "move_pointer" => Some("move_cursor"),
-        "drag" => Some("drag"),
-        "scroll" => Some("scroll"),
-        "type_text" => Some("type_text"),
-        "press_key" => Some("press_key"),
-        "press_shortcut" => Some("hotkey"),
-        "set_element_value" => Some("set_value"),
-        "select_menu" => Some("invoke_menu"),
-        "verify" => Some("verify_state"),
-        "take_screenshot" => Some("get_desktop_state"),
-        _ => None,
-    }
-}
-
 fn g6_use_app(
     state: &crate::ServerState,
     name: &str,
@@ -16882,19 +16858,11 @@ fn g6_use_app(
             "{name} action {action} has no engine tool; the capability is not implemented."
         )));
     }
-    let Some(mapped) = g6_use_app_inner_tool(&action) else {
+    let Some(mapped) = coincide_core::agent::profile_gate::use_app_inner_tool(&action) else {
         return Err(failed(format!(
             "{name} action {action} is not a known action."
         )));
     };
-    if let crate::assets::ThreadProfile::Known(profile) =
-        crate::assets::stored_thread_profile(state).map_err(|error| failed(error.to_string()))?
-    {
-        if coincide_core::agent::profile_gate::use_app_action_denied_by_profile(&action, &profile)
-        {
-            return Err(CallError::UnknownTool(mapped.to_owned()));
-        }
-    }
     let allowed = crate::assets::stored_allowed_tools(state)
         .map_err(|error| failed(error.to_string()))?;
     ensure_allowed(mapped, allowed.as_deref())?;
@@ -21561,22 +21529,22 @@ mod tests {
 
     #[test]
     fn use_app_inner_action_gate() {
-        assert_eq!(g6_use_app_inner_tool("list_applications"), Some("list_apps"));
-        assert_eq!(g6_use_app_inner_tool("inspect_application"), Some("list_windows"));
-        assert_eq!(g6_use_app_inner_tool("launch"), Some("launch_app"));
-        assert_eq!(g6_use_app_inner_tool("inspect_ui"), Some("get_window_state"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("list_applications"), Some("list_apps"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("inspect_application"), Some("list_windows"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("launch"), Some("launch_app"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("inspect_ui"), Some("get_window_state"));
         assert_eq!(
-            g6_use_app_inner_tool("get_accessibility_tree"),
+            coincide_core::agent::profile_gate::use_app_inner_tool("get_accessibility_tree"),
             Some("get_window_state")
         );
-        assert_eq!(g6_use_app_inner_tool("click"), Some("click"));
-        assert_eq!(g6_use_app_inner_tool("activate_element"), Some("click"));
-        assert_eq!(g6_use_app_inner_tool("press_shortcut"), Some("hotkey"));
-        assert_eq!(g6_use_app_inner_tool("take_screenshot"), Some("get_desktop_state"));
-        assert_eq!(g6_use_app_inner_tool("verify"), Some("verify_state"));
-        assert_eq!(g6_use_app_inner_tool("activate"), None);
-        assert_eq!(g6_use_app_inner_tool("no_such_action"), None);
-        let inner = g6_use_app_inner_tool("click").expect("click maps to an inner tool");
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("click"), Some("click"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("activate_element"), Some("click"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("press_shortcut"), Some("hotkey"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("take_screenshot"), Some("get_desktop_state"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("verify"), Some("verify_state"));
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("activate"), None);
+        assert_eq!(coincide_core::agent::profile_gate::use_app_inner_tool("no_such_action"), None);
+        let inner = coincide_core::agent::profile_gate::use_app_inner_tool("click").expect("click maps to an inner tool");
         assert!(ensure_allowed(inner, None).is_ok());
         assert!(ensure_allowed(
             inner,
@@ -22178,7 +22146,6 @@ mod tests {
             .filter(|name| !coincide_core::agent::profile_gate::READ_ONLY_DENIED_TOOLS.contains(name))
             .collect();
         for tool in &seen {
-
             assert!(
                 definition(tool).is_some(),
                 "allowed tool {tool} is not a registry tool"
@@ -22186,7 +22153,6 @@ mod tests {
         }
         assert_eq!(seen.len(), 185, "read-only allow set must hold 185 tools");
         for tool in coincide_core::agent::profile_gate::READ_ONLY_DENIED_TOOLS {
-
             assert!(
                 !seen.contains(tool),
                 "tool {tool} is both allowed and denied for read-only"

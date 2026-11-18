@@ -3234,6 +3234,32 @@ mod tests {
     }
 
     #[test]
+    fn enforce_profile_tools_leaves_provider_toolset_threads_unceilinged() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(&adapter, "read-only", None);
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, Some(assistant.clone()), None)
+            .unwrap();
+        let (resolved, _) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        adapter
+            .call(
+                "threads.patch",
+                json!({"threadId": resolved, "patch": {"assistantId": assistant, "toolset": "provider", "allowedTools": ["write_file", "read_file"]}}),
+            )
+            .unwrap();
+        adapter
+            .enforce_profile_tools(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        assert_eq!(
+            stored_tools(&adapter, &created),
+            json!(["write_file", "read_file"])
+        );
+    }
+
+    #[test]
     fn update_stored_prompt_narrows_by_assistant_profile() {
         let (_directory, adapter) = fixture_adapter();
         let runs = Runs::default();

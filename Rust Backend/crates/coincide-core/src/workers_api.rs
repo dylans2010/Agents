@@ -239,6 +239,21 @@ impl Engine {
                         ) {
                             child_params["allowedTools"] = json!(narrowed);
                         }
+                    } else if parent["toolset"].as_str() != Some("provider")
+                        && matches!(
+                            inherited.permission_profile.as_str(),
+                            "read-only" | "approval-required"
+                        )
+                    {
+                        let materialized = crate::agent::profile_gate::materialized_allowed_tools(
+                            &inherited.permission_profile,
+                            None,
+                        )
+                        .unwrap_or_default();
+                        if !materialized.is_empty() {
+                            child_params["toolset"] = json!("system");
+                            child_params["allowedTools"] = json!(materialized);
+                        }
                     }
                 }
             }

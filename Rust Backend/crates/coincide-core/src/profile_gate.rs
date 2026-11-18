@@ -176,16 +176,6 @@ pub fn use_app_inner_tool(action: &str) -> Option<&'static str> {
     }
 }
 
-pub fn use_app_action_denied_by_profile(action: &str, profile: &str) -> bool {
-    match profile {
-        "workspace-modify" | "terminal" => false,
-        _ => match use_app_inner_tool(action) {
-            Some(inner) => tool_denied_by_profile(profile, inner),
-            None => true,
-        },
-    }
-}
-
 pub fn effective_allowed_tools(
     profile: &str,
     allowed_tools: Option<&[String]>,
@@ -292,6 +282,7 @@ mod tests {
             "type_text",
             "press_key",
             "launch_app",
+            "use_app",
             "use_mcp",
             "use_system",
             "use_workers",
@@ -348,7 +339,6 @@ mod tests {
             "reverse_analyze",
             "test_coverage_report",
             "test_coverage_reporter",
-            "use_app",
             "docs_index_build",
             "environment_variable_manager",
             "get_desktop_state",
@@ -491,7 +481,6 @@ mod tests {
             assert!(tool_denied_by_profile("bogus", tool));
             assert!(tool_denied_by_profile("", tool));
         }
-        assert!(use_app_action_denied_by_profile("take_screenshot", "bogus"));
     }
 
     #[test]
@@ -522,43 +511,6 @@ mod tests {
         assert_eq!(use_app_inner_tool("activate"), None);
         assert_eq!(use_app_inner_tool("close_application"), None);
         assert_eq!(use_app_inner_tool("no_such_action"), None);
-    }
-
-    #[test]
-    fn use_app_actions_are_gated_by_inner_tool_and_profile() {
-        assert!(use_app_action_denied_by_profile("click", "read-only"));
-        assert!(use_app_action_denied_by_profile("type_text", "read-only"));
-        assert!(use_app_action_denied_by_profile("launch", "read-only"));
-        assert!(!use_app_action_denied_by_profile(
-            "take_screenshot",
-            "read-only"
-        ));
-        assert!(!use_app_action_denied_by_profile(
-            "list_applications",
-            "read-only"
-        ));
-        assert!(!use_app_action_denied_by_profile("inspect_ui", "read-only"));
-        assert!(!use_app_action_denied_by_profile("verify", "read-only"));
-        assert!(use_app_action_denied_by_profile(
-            "close_application",
-            "read-only"
-        ));
-        assert!(!use_app_action_denied_by_profile(
-            "click",
-            "approval-required"
-        ));
-        assert!(use_app_action_denied_by_profile(
-            "close_application",
-            "approval-required"
-        ));
-        assert!(!use_app_action_denied_by_profile(
-            "click",
-            "workspace-modify"
-        ));
-        assert!(!use_app_action_denied_by_profile(
-            "close_application",
-            "workspace-modify"
-        ));
     }
 
     #[test]
@@ -684,6 +636,7 @@ mod tests {
             "icon_generator_tool",
             "project_capabilities",
             "project_info_plist",
+            "use_app",
             "use_mcp",
             "use_system",
             "git_branch_manager",
@@ -693,11 +646,7 @@ mod tests {
                 "{tool} must be denied for read-only"
             );
         }
-        for tool in [
-            "test_coverage_report",
-            "test_coverage_reporter",
-            "use_app",
-        ] {
+        for tool in ["test_coverage_report", "test_coverage_reporter"] {
             assert!(
                 !tool_denied_by_profile("read-only", tool),
                 "{tool} must be allowed for read-only"
