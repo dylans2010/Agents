@@ -256,6 +256,8 @@ public final class AppModel {
                 self.lastObservedTurnSerial = initialStatus.turnResultsSerial
                 self.lastPollActive = initialStatus.busy || initialStatus.running > 0 || initialStatus.starting > 0 || !initialStatus.runningThreadIDs.isEmpty
                 onStatusChanged?(initialStatus)
+            } else {
+                recordPollFailure("Initial status poll failed")
             }
 
             await refreshWorkspace()
