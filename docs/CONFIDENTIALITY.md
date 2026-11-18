@@ -102,7 +102,7 @@ still needs the model-side refusal behavior and the approval flow to hold.
 
 Display-title genericization is heuristic, not exact:
 `AssistantToolActivity.isRawToolIdentifier` treats any single
-whitespace-free token with a lowercase letter followed by an uppercase
+whitespace-free token with any lowercase letter anywhere and any uppercase
 letter after the first character (among other raw-identifier shapes) as a
 raw identifier, so a genuine human single-token title with that shape — a
 brand-style token such as `iOS`, `macOS`, `GitHub`, `OpenAI`, or `McDonald`
@@ -114,7 +114,8 @@ leak; revisit only if a real human title of that shape is observed.
 A residual raw channel sits outside the gate: the remote error envelope
 serializes the whole `RemoteError`, code and message together
 (`remote_protocol.rs:676-678`, `failure()`), and `dispatch_adapter_call`
-returns that envelope for every adapter handler
+returns the same whole-`RemoteError` payload in its own
+`{"ok":false,"error":…}` envelope for every adapter handler
 (`adapter_bridge.rs:35-46`), so a handler failure carries its message to
 the phone unredacted. In `handle_pull_requests` an availability failure is
 mapped to an unavailable list, but a failure of the list call itself

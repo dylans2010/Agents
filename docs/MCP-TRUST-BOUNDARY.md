@@ -36,7 +36,7 @@ The only clients are the external provider agent processes:
   <data_dir>/control.sock`. `server_command_and_args` has exactly two
   callers: `session_servers` (`mcp.rs:93-97`) and `claude_config_path`
   (`mcp.rs:99-130`). The file-write code inside `claude_config_path` is
-  `mcp.rs:111-130`; what follows it (lines 131+) is the `#[cfg(test)]`
+  `mcp.rs:111-130`; what follows it (line 132 onward) is the `#[cfg(test)]`
   test module, not production code.
 - The command and args are handed to the provider agent process, which
   spawns the server itself and owns its pipes: ACP `session/new`
@@ -96,7 +96,7 @@ same models read the full text of the Safeguards, Identity, and
 tool-routing guidance on demand. That guidance is not carried in full by
 the stored prompt: the stored prompt inlines only the condensed baseline
 covering identity and safeguards (the baseline text is appended into the
-composed prompt parts in `SystemPromptBuilder.swift:82-83`), and no asset
+composed prompt parts in `SystemPromptBuilder.swift:87`), and no asset
 or prompt text instructs the model to use `resources/read` — the
 read-before-using instruction lives in the server's `prompts/list`
 description (`protocol.rs:56-62`). `resources/read` therefore serves full
