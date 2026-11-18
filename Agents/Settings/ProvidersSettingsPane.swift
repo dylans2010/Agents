@@ -202,7 +202,7 @@ public struct ProvidersSettingsPane: View {
                     .font(.system(size: 12.5, weight: .medium))
                     .lineLimit(1)
                 Text(providerStatusText(provider))
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.tertiaryLabel)
             }
 
@@ -226,7 +226,7 @@ public struct ProvidersSettingsPane: View {
                             .font(.system(size: 15, weight: .semibold))
 
                         Text(providerStatusText(provider))
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(providerStatusTint(provider))
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
@@ -381,7 +381,7 @@ public struct ProvidersSettingsPane: View {
                                 .font(.system(size: 12.5, weight: .medium))
                             if let envVar = account.keyVariable {
                                 Text(envVar)
-                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(AppTheme.tertiaryLabel)
                             }
                         }
@@ -464,7 +464,7 @@ public struct ProvidersSettingsPane: View {
                                     .font(.system(size: 12.5, weight: .medium))
                                 if let home = profile.homePath {
                                     Text(home)
-                                        .font(.system(size: 10.5, design: .monospaced))
+                                        .font(.system(size: 11, design: .monospaced))
                                         .foregroundStyle(AppTheme.tertiaryLabel)
                                         .lineLimit(1)
                                         .truncationMode(.middle)
@@ -703,13 +703,13 @@ public struct ProvidersSettingsPane: View {
                     if let exec = agent.executable, !exec.isEmpty {
                         let cmdPreview = ([exec] + agent.arguments).joined(separator: " ")
                         Text(cmdPreview)
-                            .font(.system(size: 10.5, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .lineLimit(1)
                     }
                     if let site = agent.website, let url = URL(string: site) {
                         Link("Website ↗", destination: url)
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                     }
                 }
             }
@@ -748,7 +748,7 @@ public struct ProvidersSettingsPane: View {
 
     private func badge(_ title: String, tint: Color) -> some View {
         Text(title)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(tint)
             .padding(.horizontal, 6)
             .padding(.vertical, 1.5)

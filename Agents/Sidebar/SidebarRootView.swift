@@ -268,7 +268,7 @@ public struct SidebarRootView: View {
                     dismissedLegacyImportBanner = true
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9.5, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                 }
                 .buttonStyle(.plain)
@@ -589,7 +589,7 @@ public struct SidebarRootView: View {
             HStack(spacing: 6) {
                 Text("Snoozed")
                 Text("\(snoozedThreads.count)")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                 Spacer()
                 Button("Unsnooze All") {
@@ -601,7 +601,7 @@ public struct SidebarRootView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(AppTheme.secondaryLabel)
                 .help("Wake all snoozed threads")
             }
@@ -634,7 +634,7 @@ public struct SidebarRootView: View {
                 Text("Archived")
                 if !archivedThreads.isEmpty {
                     Text("\(archivedThreads.count)")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                 }
                 Spacer()
@@ -642,7 +642,7 @@ public struct SidebarRootView: View {
                     appModel.showArchivedThreads = false
                 }
                 .buttonStyle(.plain)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(AppTheme.secondaryLabel)
             }
         }
@@ -814,7 +814,7 @@ private struct SidebarBotRow: View {
 
                 if let selection = bot.selection {
                     Text(AgentBranding.displayName(for: selection.provider))
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .lineLimit(1)
                 }
@@ -836,7 +836,7 @@ private struct SidebarBotRow: View {
 
             if attentionCount > 0 {
                 Text("\(attentionCount)")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(AppTheme.onAccent)
                     .padding(.horizontal, 5.5)
                     .padding(.vertical, 1.5)
@@ -937,7 +937,7 @@ private struct SidebarProjectHeaderLabel: View {
 
                 if !pathExistsOnDisk {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 8))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.warning)
                         .offset(x: 3, y: 2)
                 }
@@ -965,7 +965,7 @@ private struct SidebarProjectHeaderLabel: View {
                 .help("New Thread in \(project.name)")
             } else if !isExpanded && threadCount > 0 {
                 Text("\(threadCount)")
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                     .monospacedDigit()
             }

@@ -145,7 +145,7 @@ public struct ConversationRootView: View {
                                 .controlSize(.mini)
                         } else if thread.isPinned {
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 10))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.accent)
                         }
 
@@ -157,7 +157,7 @@ public struct ConversationRootView: View {
 
                         if let schedules = thread.scheduleCount, schedules > 0 {
                             Image(systemName: "clock.fill")
-                                .font(.system(size: 10))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.info)
                         }
                     }
@@ -244,7 +244,7 @@ public struct ConversationRootView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: isWorktree ? "square.split.2x1" : "arrow.triangle.branch")
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(isWorktree ? AppTheme.accent : AppTheme.secondaryLabel)
 
                         Text(branchLabel)
@@ -254,7 +254,7 @@ public struct ConversationRootView: View {
                             .frame(maxWidth: 150)
 
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                     .padding(.horizontal, 8)
@@ -354,7 +354,7 @@ public struct ConversationRootView: View {
 
                 if uncommittedDiffFileCount > 0 {
                     Text("\(uncommittedDiffFileCount)")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundStyle(AppTheme.onAccent)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)

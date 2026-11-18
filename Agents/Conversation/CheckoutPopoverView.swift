@@ -52,7 +52,7 @@ struct CheckoutPopoverView: View {
                 // Workspace Mode Section
                 VStack(alignment: .leading, spacing: 6) {
                     Text("WORKSPACE ISOLATION")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(AppTheme.tertiaryLabel)
 
                     HStack(spacing: 6) {
@@ -113,7 +113,7 @@ struct CheckoutPopoverView: View {
                 VStack(alignment: .leading, spacing: 7) {
                     HStack {
                         Text(checkout.workspace == .newWorktree ? "BASE BRANCH" : "BRANCH")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                         Spacer()
                         if let activeBranch = checkout.workspace == .newWorktree ? checkout.baseBranch : checkout.branch {
@@ -176,7 +176,7 @@ struct CheckoutPopoverView: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("CREATE NEW BRANCH")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(AppTheme.tertiaryLabel)
 
                         HStack(spacing: 6) {
@@ -241,7 +241,7 @@ struct CheckoutPopoverView: View {
                         .lineLimit(1)
                 }
                 Text(subtitle)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.secondaryLabel)
                     .lineLimit(1)
             }
@@ -277,7 +277,7 @@ struct CheckoutPopoverView: View {
         } label: {
             HStack(spacing: 7) {
                 Image(systemName: isSelected ? "checkmark" : "arrow.triangle.branch")
-                    .font(.system(size: 10.5, weight: isSelected ? .bold : .regular))
+                    .font(.system(size: 11, weight: isSelected ? .bold : .regular))
                     .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.tertiaryLabel)
                     .frame(width: 14)
 
@@ -291,7 +291,7 @@ struct CheckoutPopoverView: View {
 
                 if branch.isRemote {
                     Text("remote")
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
@@ -300,7 +300,7 @@ struct CheckoutPopoverView: View {
 
                 if branch.isCheckedOutElsewhere {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.warning)
                         .help("Checked out in another worktree")
                 }

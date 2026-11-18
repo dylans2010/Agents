@@ -119,7 +119,7 @@ public struct RemoteSettingsPane: View {
         let label = snapshot.enabled ? snapshot.status.capitalized : "Off"
         let tint = isLive ? AppTheme.success : (snapshot.enabled ? AppTheme.warning : AppTheme.tertiaryLabel)
         return Text(label)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(tint)
             .padding(.horizontal, 6)
             .padding(.vertical, 1.5)
@@ -267,7 +267,7 @@ public struct RemoteSettingsPane: View {
                                     .font(.system(size: 13, weight: .medium))
                                 if device.isConnected {
                                     Text("Connected")
-                                        .font(.system(size: 10, weight: .semibold))
+                                        .font(.system(size: 11, weight: .semibold))
                                         .foregroundStyle(AppTheme.success)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 1)

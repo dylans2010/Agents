@@ -184,7 +184,7 @@ public struct AntigravitySettingsPane: View {
         let current = readiness
         return HStack(spacing: 5) {
             Image(systemName: current.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
             Text(current.label)
                 .font(.system(size: 11, weight: .semibold))
         }
@@ -227,7 +227,7 @@ public struct AntigravitySettingsPane: View {
 
                 if let exec = probe.executablePath, !exec.isEmpty {
                     Text(exec)
-                        .font(.system(size: 10.5, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .textSelection(.enabled)
                 }
@@ -280,7 +280,7 @@ public struct AntigravitySettingsPane: View {
                         Text((helper as NSString).lastPathComponent)
                             .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                         Text("(\(helper))")
-                            .font(.system(size: 10.5, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -389,7 +389,7 @@ public struct AntigravitySettingsPane: View {
                                     .font(.system(size: 13, weight: .medium))
 
                                 Text(account.hasKey ? "macOS Keychain" : "Missing Key")
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(account.hasKey ? AppTheme.success : AppTheme.danger)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 1.5)
@@ -400,7 +400,7 @@ public struct AntigravitySettingsPane: View {
                             }
 
                             Text(account.keyVariable ?? "GEMINI_API_KEY")
-                                .font(.system(size: 10.5, design: .monospaced))
+                                .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
 

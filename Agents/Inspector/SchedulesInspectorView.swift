@@ -231,7 +231,7 @@ struct SchedulesInspectorView: View {
             case .thread(let threadID):
                 let thread = appModel.workspace.threads.first(where: { $0.id == threadID })
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(AppTheme.accent)
                 Text(thread?.title.isEmpty == false ? (thread?.title ?? "Thread") : "Thread Schedule")
                     .font(.system(size: 11, weight: .semibold))
@@ -241,7 +241,7 @@ struct SchedulesInspectorView: View {
             case .project(let projectID):
                 let project = appModel.workspace.projects.first(where: { $0.id == projectID })
                 Image(systemName: project?.isChats == true ? "tray" : "folder")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(AppTheme.secondaryLabel)
                 Text(project?.name ?? "Project")
                     .font(.system(size: 11, weight: .semibold))
@@ -359,7 +359,7 @@ private struct ScheduledTaskCard: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(AppTheme.primaryLabel)
                         Text("Created by an agent. Approve to allow scheduled execution.")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }
 
@@ -391,7 +391,7 @@ private struct ScheduledTaskCard: View {
 
                 if task.createdByAgent == true {
                     Text("Agent")
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppTheme.info)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
@@ -401,7 +401,7 @@ private struct ScheduledTaskCard: View {
                 Spacer(minLength: 4)
 
                 Text(stateLabel)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(stateTint)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -420,7 +420,7 @@ private struct ScheduledTaskCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Image(systemName: "repeat")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .frame(width: 12)
                     Text(formattedRecurrenceSummary)
@@ -431,7 +431,7 @@ private struct ScheduledTaskCard: View {
                 if let nextRun = task.nextRunAt, !task.isPaused {
                     HStack(spacing: 5) {
                         Image(systemName: "clock")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.accent)
                             .frame(width: 12)
                         Text("Next: \(nextRun.formatted(date: .abbreviated, time: .shortened))")
@@ -442,11 +442,11 @@ private struct ScheduledTaskCard: View {
 
                 HStack(spacing: 5) {
                     Image(systemName: task.isThreadSchedule ? "arrow.turn.down.right" : "folder")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .frame(width: 12)
                     Text(targetSummary)
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .lineLimit(1)
                 }
@@ -454,11 +454,11 @@ private struct ScheduledTaskCard: View {
                 if let lastMessage = task.lastMessage, !lastMessage.isEmpty {
                     HStack(spacing: 5) {
                         Image(systemName: task.state == .failed ? "exclamationmark.circle" : "info.circle")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundStyle(task.state == .failed ? AppTheme.danger : AppTheme.tertiaryLabel)
                             .frame(width: 12)
                         Text(lastMessage)
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(task.state == .failed ? AppTheme.danger : AppTheme.tertiaryLabel)
                             .lineLimit(2)
                     }

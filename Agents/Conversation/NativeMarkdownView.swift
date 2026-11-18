@@ -743,7 +743,7 @@ struct NativeCodeBlockCard: View {
             HStack(spacing: 8) {
                 HStack(spacing: 5) {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                     Text(displayLanguage)
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -752,7 +752,7 @@ struct NativeCodeBlockCard: View {
 
                 if lineCount > 1 {
                     Text("· \(lineCount) lines")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                 }
 
@@ -769,7 +769,7 @@ struct NativeCodeBlockCard: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(didCopy ? AppTheme.success : AppTheme.secondaryLabel)
                         Text(didCopy ? "Copied" : "Copy")
                             .font(.system(size: 11, weight: .medium))
@@ -906,7 +906,7 @@ struct NativeMarkdownTableView: View {
 
             HStack {
                 Text("\(table.rows.count) \(table.rows.count == 1 ? "row" : "rows")")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                 Spacer()
                 Button {
@@ -919,7 +919,7 @@ struct NativeMarkdownTableView: View {
                     }
                 } label: {
                     Label(copiedTSV ? "Copied TSV" : "Copy Table", systemImage: copiedTSV ? "checkmark" : "tablecells")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(copiedTSV ? AppTheme.success : AppTheme.secondaryLabel)
                 }
                 .buttonStyle(.plain)

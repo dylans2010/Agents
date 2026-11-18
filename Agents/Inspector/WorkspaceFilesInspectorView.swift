@@ -376,10 +376,10 @@ struct WorkspaceFilesInspectorView: View {
                     if doc.isTruncated {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.warning)
                             Text("Large file preview truncated at \(ByteCountFormatter.string(fromByteCount: doc.sizeBytes, countStyle: .file)). Read-only in Inspector — open externally to edit full file.")
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                                 .lineLimit(2)
                             Spacer()
@@ -438,7 +438,7 @@ struct WorkspaceFilesInspectorView: View {
                         .fill(AppTheme.warning)
                         .frame(width: 6, height: 6)
                     Text("Modified")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.warning)
                 }
                 .padding(.horizontal, 5)
@@ -548,14 +548,14 @@ struct WorkspaceFilesInspectorView: View {
     private func editorStatusBar(_ doc: WorkspaceFileDocument) -> some View {
         HStack(spacing: 8) {
             Text("Ln \(cursorLine), Col \(cursorColumn)")
-                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(AppTheme.secondaryLabel)
 
             Text("·")
                 .foregroundStyle(AppTheme.quaternaryLabel)
 
             Text(doc.path)
-                .font(.system(size: 10, design: .monospaced))
+                .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(AppTheme.tertiaryLabel)
                 .lineLimit(1)
                 .truncationMode(.head)
@@ -564,7 +564,7 @@ struct WorkspaceFilesInspectorView: View {
 
             if let lang = doc.language, !lang.isEmpty {
                 Text(lang.uppercased())
-                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AppTheme.tertiaryLabel)
             }
 
@@ -572,7 +572,7 @@ struct WorkspaceFilesInspectorView: View {
                 wrapsLines.toggle()
             } label: {
                 Text(wrapsLines ? "Wrap: On" : "Wrap: Off")
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundStyle(wrapsLines ? AppTheme.accent : AppTheme.tertiaryLabel)
             }
             .buttonStyle(.plain)
@@ -882,7 +882,7 @@ private struct WorkspaceFileRow: View {
 
             if let dir = directoryPrefix {
                 Text(dir)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -892,14 +892,14 @@ private struct WorkspaceFileRow: View {
 
             if let status = entry.gitStatus, !status.isEmpty {
                 Text(status.uppercased())
-                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(DiffFileStatusStyle.tint(for: status))
             }
 
             if isHovered && !entry.isDirectory {
                 Button(action: onMentionInComposer) {
                     Image(systemName: "at")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
                 .buttonStyle(.borderless)
@@ -951,7 +951,7 @@ private struct WorkspaceSearchHitRow: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 5) {
                 Image(systemName: fileIcon(for: hit.path, isDirectory: false))
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.secondaryLabel)
                 Text(hit.path)
                     .font(.system(size: 11, weight: .medium))
@@ -960,7 +960,7 @@ private struct WorkspaceSearchHitRow: View {
                     .truncationMode(.head)
                 Spacer(minLength: 4)
                 Text(":\(hit.lineNumber)")
-                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AppTheme.accent)
             }
 

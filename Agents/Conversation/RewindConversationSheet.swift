@@ -35,7 +35,7 @@ struct RewindConversationSheet: View {
             // Selected message preview
             VStack(alignment: .leading, spacing: 6) {
                 Text("SELECTED MESSAGE")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(AppTheme.tertiaryLabel)
 
                 Text(item.text.isEmpty ? "(Attachment message)" : item.text)
@@ -87,7 +87,7 @@ struct RewindConversationSheet: View {
                 } else if options.canRevertFiles {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("WORKSPACE FILES")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(AppTheme.tertiaryLabel)
 
                         rewindModeCard(

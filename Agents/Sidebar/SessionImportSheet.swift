@@ -288,7 +288,7 @@ public struct SessionImportSheet: View {
 
                     if session.alreadyImported {
                         Text("Imported")
-                            .font(.system(size: 9.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(AppTheme.info)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
@@ -314,13 +314,13 @@ public struct SessionImportSheet: View {
 
                     if session.messageCount > 0 {
                         Text("\(session.messageCount) msg\(session.messageCount == 1 ? "" : "s")")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
 
                     if let updated = session.updatedAt {
                         Text(SidebarThreadRow.compactRelativeAge(from: updated))
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .monospacedDigit()
                     }

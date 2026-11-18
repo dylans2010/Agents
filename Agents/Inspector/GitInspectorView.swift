@@ -221,12 +221,12 @@ struct GitInspectorView: View {
 
                     if let upstream = gitState?.upstream, !upstream.isEmpty {
                         Text("Tracking \(upstream)")
-                            .font(.system(size: 10.5, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .lineLimit(1)
                     } else if let head = currentHeadOID {
                         Text("HEAD \(String(head.prefix(8)))")
-                            .font(.system(size: 10.5, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                 }
@@ -437,7 +437,7 @@ struct GitInspectorView: View {
                     HStack(spacing: 3) {
                         Text("View Diff")
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 9.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                     }
                     .font(.system(size: 11, weight: .medium))
                 }
@@ -462,7 +462,7 @@ struct GitInspectorView: View {
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundStyle(tint)
             Text(title)
-                .font(.system(size: 10))
+                .font(.system(size: 11))
                 .foregroundStyle(AppTheme.secondaryLabel)
                 .lineLimit(1)
         }
@@ -530,7 +530,7 @@ struct GitInspectorView: View {
                         .font(.system(size: 11.5, weight: .medium))
                         .foregroundStyle(AppTheme.primaryLabel)
                     Text("Commits onto a new branch named for this change")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                 }
             }
@@ -616,7 +616,7 @@ struct GitInspectorView: View {
                             .foregroundStyle(AppTheme.primaryLabel)
                         if let detail = outcome.detail, !detail.isEmpty {
                             Text(detail)
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                                 .lineLimit(2)
                         }
@@ -665,7 +665,7 @@ struct GitInspectorView: View {
 
             if let error = historyErrorMessage, !error.isEmpty {
                 Text(error)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.warning)
             }
 
@@ -682,7 +682,7 @@ struct GitInspectorView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Text(String(commit.sha.prefix(8)))
-                                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                                     .foregroundStyle(AppTheme.accent)
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(commit.subject)
@@ -690,7 +690,7 @@ struct GitInspectorView: View {
                                         .foregroundStyle(AppTheme.primaryLabel)
                                         .lineLimit(1)
                                     Text("\(commit.authorName) · \(commit.authorDate.formatted(date: .abbreviated, time: .shortened))")
-                                        .font(.system(size: 10))
+                                        .font(.system(size: 11))
                                         .foregroundStyle(AppTheme.secondaryLabel)
                                         .lineLimit(1)
                                 }
@@ -700,7 +700,7 @@ struct GitInspectorView: View {
                                         .controlSize(.small)
                                 } else {
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 9.5, weight: .semibold))
+                                        .font(.system(size: 11, weight: .semibold))
                                         .foregroundStyle(AppTheme.tertiaryLabel)
                                 }
                             }
@@ -737,7 +737,7 @@ struct GitInspectorView: View {
                     .foregroundStyle(AppTheme.primaryLabel)
                 Spacer()
                 Text("\(worktreesList.count)")
-                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AppTheme.secondaryLabel)
             }
 
@@ -751,7 +751,7 @@ struct GitInspectorView: View {
                     ForEach(worktreesList) { worktree in
                         HStack(spacing: 6) {
                             Image(systemName: worktree.isMain ? "house.fill" : "square.split.2x1")
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.accent)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text((worktree.path as NSString).abbreviatingWithTildeInPath)
@@ -759,7 +759,7 @@ struct GitInspectorView: View {
                                     .foregroundStyle(AppTheme.primaryLabel)
                                     .lineLimit(1)
                                 Text("\(worktree.branch ?? "Detached HEAD")\(worktree.head.map { " · \($0.prefix(8))" } ?? "")")
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                                     .lineLimit(1)
                             }
@@ -789,7 +789,7 @@ struct GitInspectorView: View {
                     }
                 }
                 Text("Switch to another existing worktree before the first message. Start a new isolated worktree, or return to the local folder, from the branch card above.")
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.tertiaryLabel)
             }
         }
@@ -855,7 +855,7 @@ struct GitInspectorView: View {
 
             if let msg = checkpointStatusMessage, !msg.isEmpty {
                 Text(msg)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.tertiaryLabel)
             }
 
@@ -863,13 +863,13 @@ struct GitInspectorView: View {
             if !manualCheckpoints.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("MANUAL STAGED CHECKPOINTS (\(manualCheckpoints.count))")
-                        .font(.system(size: 9.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.tertiaryLabel)
 
                     ForEach(manualCheckpoints) { cp in
                         HStack(spacing: 6) {
                             Image(systemName: "bookmark.fill")
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.accent)
 
                             VStack(alignment: .leading, spacing: 1) {
@@ -877,7 +877,7 @@ struct GitInspectorView: View {
                                     .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                                     .foregroundStyle(AppTheme.primaryLabel)
                                 Text("Commit \(String(cp.commit.prefix(10)))")
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(AppTheme.tertiaryLabel)
                             }
 
@@ -899,7 +899,7 @@ struct GitInspectorView: View {
                                 appModel.presentToast("Copied Checkpoint OID", detail: String(cp.commit.prefix(12)), style: .info)
                             } label: {
                                 Image(systemName: "doc.on.doc")
-                                    .font(.system(size: 10.5))
+                                    .font(.system(size: 11))
                             }
                             .buttonStyle(.borderless)
                             .help("Copy Commit OID")
@@ -919,7 +919,7 @@ struct GitInspectorView: View {
             if !turnCheckpoints.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TURN CHECKPOINTS (\(turnCheckpoints.count))")
-                        .font(.system(size: 9.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.tertiaryLabel)
 
                     ForEach(turnCheckpoints) { turn in
@@ -934,7 +934,7 @@ struct GitInspectorView: View {
                                     .foregroundStyle(AppTheme.primaryLabel)
                                     .lineLimit(1)
                                 Text("\(turn.fileCount) changed file\(turn.fileCount == 1 ? "" : "s")\(turn.complete ? "" : " · In progress")")
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                             }
 
@@ -1035,7 +1035,7 @@ struct GitInspectorView: View {
 
     private func badgePill(_ text: String, tint: Color) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            .font(.system(size: 11, weight: .semibold, design: .monospaced))
             .foregroundStyle(tint)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

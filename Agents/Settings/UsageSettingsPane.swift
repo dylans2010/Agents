@@ -204,7 +204,7 @@ public struct UsageSettingsPane: View {
                 .minimumScaleFactor(0.75)
 
             Text(subtitle)
-                .font(.system(size: 10.5))
+                .font(.system(size: 11))
                 .foregroundStyle(tint)
                 .lineLimit(1)
         }
@@ -305,7 +305,7 @@ public struct UsageSettingsPane: View {
                             Spacer()
                             if let checked = usage.checkedAt {
                                 Text("Checked \(checked, style: .relative) ago")
-                                    .font(.system(size: 10.5))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(AppTheme.tertiaryLabel)
                             }
                         }
@@ -321,7 +321,7 @@ public struct UsageSettingsPane: View {
                                         .foregroundStyle(tintForPercentage(win.usedPercent))
                                     if let reset = win.resetsAt {
                                         Text("· resets \(reset, style: .relative)")
-                                            .font(.system(size: 10.5))
+                                            .font(.system(size: 11))
                                             .foregroundStyle(AppTheme.tertiaryLabel)
                                     }
                                 }
@@ -367,7 +367,7 @@ public struct UsageSettingsPane: View {
                                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                                     .lineLimit(1)
                                 Text(AgentBranding.displayName(for: row.provider))
-                                    .font(.system(size: 10.5))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(AppTheme.tertiaryLabel)
                             }
                             Spacer()
@@ -375,7 +375,7 @@ public struct UsageSettingsPane: View {
                                 Text(formatCompactCount(row.totals.totalTokens))
                                     .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
                                 Text(formatCurrency(row.totals.estimatedCostUSD))
-                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                             }
                         }
@@ -419,7 +419,7 @@ public struct UsageSettingsPane: View {
                                 Text(formatCompactCount(row.totals.totalTokens))
                                     .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
                                 Text(formatCurrency(row.totals.estimatedCostUSD))
-                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                             }
                         }

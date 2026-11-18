@@ -192,7 +192,7 @@ struct AgentModelPickerPopover: View {
             // Left column: Provider Rail
             VStack(alignment: .leading, spacing: 6) {
                 Text("AGENT")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                     .padding(.horizontal, 8)
                     .padding(.top, 4)
@@ -282,13 +282,13 @@ struct AgentModelPickerPopover: View {
                             .lineLimit(1)
                         if normID == "antigravity" {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 9.5, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(AgentBranding.color(for: "antigravity"))
                         }
                     }
                     if provider.isACP {
                         Text("ACP Agent")
-                            .font(.system(size: 9.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                 }
@@ -354,7 +354,7 @@ struct AgentModelPickerPopover: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Gemini API keys (Google AI Studio / Enterprise) are safe to use. Third-party OAuth access may violate Google’s Antigravity terms.")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -364,7 +364,7 @@ struct AgentModelPickerPopover: View {
                                 Text("Read Google’s Antigravity Terms")
                                 Image(systemName: "arrow.up.right.square")
                             }
-                            .font(.system(size: 10.5, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(AppTheme.info)
                         }
                     }
@@ -383,7 +383,7 @@ struct AgentModelPickerPopover: View {
     private func accountPickerSection(provider: DesktopProviderInfo, accounts: [UnifiedAccountOption]) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(AgentBranding.normalizedID(provider.id) == "antigravity" ? "GEMINI API KEY ACCOUNT" : "ACCOUNT")
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(AppTheme.tertiaryLabel)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -426,7 +426,7 @@ struct AgentModelPickerPopover: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("MODEL")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(AppTheme.tertiaryLabel)
 
                 Spacer()
@@ -438,7 +438,7 @@ struct AgentModelPickerPopover: View {
                         ProgressView().controlSize(.mini)
                     } else {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }
                 }
@@ -450,7 +450,7 @@ struct AgentModelPickerPopover: View {
             if modelList.count > 5 || !modelFilter.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                     TextField("Search models…", text: $modelFilter)
                         .textFieldStyle(.plain)
@@ -482,7 +482,7 @@ struct AgentModelPickerPopover: View {
                                 } label: {
                                     HStack(spacing: 7) {
                                         Image(systemName: isSelected ? "checkmark" : "cpu")
-                                            .font(.system(size: 10.5, weight: isSelected ? .bold : .regular))
+                                            .font(.system(size: 11, weight: isSelected ? .bold : .regular))
                                             .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.tertiaryLabel)
                                             .frame(width: 14)
 
@@ -493,7 +493,7 @@ struct AgentModelPickerPopover: View {
                                                 .lineLimit(1)
                                             if model.name != model.id {
                                                 Text(model.id)
-                                                    .font(.system(size: 10, design: .monospaced))
+                                                    .font(.system(size: 11, design: .monospaced))
                                                     .foregroundStyle(AppTheme.tertiaryLabel)
                                                     .lineLimit(1)
                                             }
@@ -503,7 +503,7 @@ struct AgentModelPickerPopover: View {
 
                                         if model.supportsImages {
                                             Image(systemName: "photo")
-                                                .font(.system(size: 10))
+                                                .font(.system(size: 11))
                                                 .foregroundStyle(AppTheme.tertiaryLabel)
                                                 .help("Supports image inputs")
                                         }
@@ -516,7 +516,7 @@ struct AgentModelPickerPopover: View {
                                     toggleFavorite(provider: provider.id, model: model)
                                 } label: {
                                     Image(systemName: model.isFavorite ? "star.fill" : "star")
-                                        .font(.system(size: 10.5))
+                                        .font(.system(size: 11))
                                         .foregroundStyle(model.isFavorite ? AppTheme.favoriteStar : AppTheme.quaternaryLabel)
                                 }
                                 .buttonStyle(.plain)
@@ -542,7 +542,7 @@ struct AgentModelPickerPopover: View {
         let currentEffort = activeSelection.effort ?? model.defaultEffort ?? ""
         VStack(alignment: .leading, spacing: 5) {
             Text("REASONING EFFORT")
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(AppTheme.tertiaryLabel)
 
             HStack(spacing: 5) {
@@ -578,7 +578,7 @@ struct AgentModelPickerPopover: View {
 
         VStack(alignment: .leading, spacing: 5) {
             Text("SPEED")
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(AppTheme.tertiaryLabel)
 
             HStack(spacing: 5) {
@@ -590,7 +590,7 @@ struct AgentModelPickerPopover: View {
                         HStack(spacing: 4) {
                             if speed.id != RemoteThreadSettings.standardSpeed {
                                 Image(systemName: "bolt.fill")
-                                    .font(.system(size: 9.5))
+                                    .font(.system(size: 11))
                             }
                             Text(speed.name)
                                 .font(.system(size: 11, weight: selected ? .semibold : .regular))

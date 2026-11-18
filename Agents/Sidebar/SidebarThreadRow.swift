@@ -103,7 +103,7 @@ public struct SidebarThreadRow: View {
 
                     if thread.hasDraft {
                         Image(systemName: "square.and.pencil")
-                            .font(.system(size: 9.5, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .help("Unsent draft")
                     }
@@ -153,7 +153,7 @@ public struct SidebarThreadRow: View {
             if let branch = thread.branch?.trimmingCharacters(in: .whitespacesAndNewlines), !branch.isEmpty {
                 HStack(spacing: 3) {
                     Image(systemName: thread.hasWorktree ? "square.split.2x1" : "arrow.triangle.branch")
-                        .font(.system(size: 8.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                     Text(branch)
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .lineLimit(1)
@@ -165,7 +165,7 @@ public struct SidebarThreadRow: View {
             } else if thread.hasWorktree {
                 HStack(spacing: 3) {
                     Image(systemName: "square.split.2x1")
-                        .font(.system(size: 8.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                     Text("worktree")
                         .font(.system(size: 11, weight: .medium))
                 }
@@ -178,7 +178,7 @@ public struct SidebarThreadRow: View {
             if let scheduleCount = thread.scheduleCount, scheduleCount > 0 {
                 HStack(spacing: 2) {
                     Image(systemName: "clock")
-                        .font(.system(size: 8.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                     if scheduleCount > 1 {
                         Text("\(scheduleCount)")
                             .font(.system(size: 11, weight: .medium))
@@ -191,7 +191,7 @@ public struct SidebarThreadRow: View {
             if isSnoozedActive, let until = thread.snoozedUntil {
                 HStack(spacing: 3) {
                     Image(systemName: "moon.zzz.fill")
-                        .font(.system(size: 8.5))
+                        .font(.system(size: 11))
                     Text(Self.shortSnoozeLabel(until: until))
                         .font(.system(size: 11))
                         .lineLimit(1)

@@ -191,11 +191,11 @@ public struct ModelsSettingsPane: View {
                     HStack(spacing: 6) {
                         if !model.efforts.isEmpty {
                             Text("Reasoning:")
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                             ForEach(model.efforts, id: \.self) { effort in
                                 Text(effort)
-                                    .font(.system(size: 10, weight: effort == model.defaultEffort ? .semibold : .regular, design: .monospaced))
+                                    .font(.system(size: 11, weight: effort == model.defaultEffort ? .semibold : .regular, design: .monospaced))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 1)
@@ -208,12 +208,12 @@ public struct ModelsSettingsPane: View {
 
                         if !model.speeds.isEmpty {
                             Text("Speeds:")
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                                 .padding(.leading, 4)
                             ForEach(model.speeds) { speed in
                                 Text(speed.name)
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(AppTheme.secondaryLabel)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 1)
@@ -271,9 +271,9 @@ public struct ModelsSettingsPane: View {
     private func tagPill(_ title: String, icon: String, tint: Color) -> some View {
         HStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.system(size: 9))
+                .font(.system(size: 11))
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
         }
         .foregroundStyle(tint)
         .padding(.horizontal, 6)

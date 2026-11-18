@@ -109,7 +109,7 @@ private struct ToastBannerOverlay: View {
                 appModel.dismissToast()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(AppTheme.secondaryLabel)
             }
             .buttonStyle(.plain)

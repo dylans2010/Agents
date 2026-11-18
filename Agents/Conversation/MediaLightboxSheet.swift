@@ -159,9 +159,9 @@ private struct MediaThumbnailTile: View {
                 if isHovering || !media.label.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                         Text(media.label.isEmpty ? "Preview" : media.label)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .lineLimit(1)
                     }
                     .foregroundStyle(.white)

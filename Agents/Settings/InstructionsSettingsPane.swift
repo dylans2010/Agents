@@ -132,7 +132,7 @@ public struct InstructionsSettingsPane: View {
 
                 if let rel = item.relativePath, !rel.isEmpty {
                     Text(rel)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .lineLimit(1)
                 }
@@ -142,13 +142,13 @@ public struct InstructionsSettingsPane: View {
 
             if item.isSymlink {
                 Image(systemName: "link")
-                    .font(.system(size: 9.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                     .help(item.linkTarget ?? "Symbolic link")
             }
 
             Text(item.exists ? "Exists" : "Create")
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(item.exists ? AppTheme.success : AppTheme.info)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 1.5)
@@ -175,7 +175,7 @@ public struct InstructionsSettingsPane: View {
 
                             if hasUnsavedChanges {
                                 Text("Edited")
-                                    .font(.system(size: 10, weight: .semibold))
+                                    .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(AppTheme.warning)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 1)
@@ -184,7 +184,7 @@ public struct InstructionsSettingsPane: View {
                         }
 
                         Text(descriptor.path)
-                            .font(.system(size: 10.5, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .lineLimit(1)
                             .truncationMode(.middle)

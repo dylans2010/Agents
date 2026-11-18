@@ -352,7 +352,7 @@ struct WorkersInspectorView: View {
                 .lineLimit(3...6)
             HStack(spacing: 6) {
                 Text("\(spawnTask.count)/500")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(spawnTask.count > 500 ? AppTheme.warning : AppTheme.secondaryLabel)
                 Spacer()
             }
@@ -360,7 +360,7 @@ struct WorkersInspectorView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 11.5))
             Text("The worker runs a real provider turn on its own thread, inheriting this thread's provider and toolset. Target files must not overlap another running worker's files.")
-                .font(.system(size: 10.5))
+                .font(.system(size: 11))
                 .foregroundStyle(AppTheme.secondaryLabel)
             HStack(spacing: 8) {
                 Button("Spawn") {
@@ -421,7 +421,7 @@ struct WorkersInspectorView: View {
                 .disabled(planObjective.trimmingCharacters(in: .whitespaces).isEmpty || planMode.trimmingCharacters(in: .whitespaces).isEmpty || appModel.selectedThreadUUID == nil)
             }
             Text("Plans are mechanical sentence decomposition, not LLM planning. An execution plan also writes agent_notes.md in the parent working directory.")
-                .font(.system(size: 10.5))
+                .font(.system(size: 11))
                 .foregroundStyle(AppTheme.secondaryLabel)
             if let plan {
                 VStack(alignment: .leading, spacing: 4) {
@@ -442,13 +442,13 @@ struct WorkersInspectorView: View {
                     }
                     if let markdown = plan.markdown {
                         Text(markdown)
-                            .font(.system(size: 10.5, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.secondaryLabel)
                             .textSelection(.enabled)
                             .padding(.top, 4)
                     } else if let agentNotesPath = plan.agentNotesPath {
                         Text("Written to \(agentNotesPath).")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }
                 }
@@ -495,13 +495,13 @@ struct WorkersInspectorView: View {
                     .lineLimit(2)
                 HStack(spacing: 8) {
                     Text(worker.provider)
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                     Text("\(worker.transcriptItems) updates")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                     Text(elapsedLabel(worker.elapsedSeconds))
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                     Spacer()
                     if worker.isRunning {
@@ -545,7 +545,7 @@ struct WorkersInspectorView: View {
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
                 Text("Provider: \(worker.provider) · Elapsed: \(elapsedLabel(worker.elapsedSeconds)) · Updates: \(worker.transcriptItems)")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.secondaryLabel)
                 Button {
                     appModel.selectThread(worker.threadId)
@@ -583,7 +583,7 @@ struct WorkersInspectorView: View {
                     .controlSize(.small)
                     .disabled(cancellingIDs.contains(worker.id))
                     Text("Cancel asks the provider turn to stop. It is a stop request, not a kill: the provider winds down on its own schedule and the record stays cancelled.")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
                 if worker.status == "failed" || worker.status == "cancelled" {
@@ -594,7 +594,7 @@ struct WorkersInspectorView: View {
                     .controlSize(.small)
                     .disabled(retryingIDs.contains(worker.id))
                     Text("Retry spawns a new worker with the same name, task, and target files on the same parent thread. The old record stays for history.")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
                 if worker.isTerminal {
@@ -605,7 +605,7 @@ struct WorkersInspectorView: View {
                     .controlSize(.small)
                     .disabled(deletingIDs.contains(worker.id))
                     Text("Delete removes the worker record only. The worker thread stays in the thread list.")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
             }
@@ -624,7 +624,7 @@ struct WorkersInspectorView: View {
         default: color = AppTheme.secondaryLabel
         }
         return Text(status.capitalized)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

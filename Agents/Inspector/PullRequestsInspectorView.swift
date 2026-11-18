@@ -357,7 +357,7 @@ struct PullRequestsInspectorView: View {
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
                     }
-                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 }
             }
 
@@ -370,7 +370,7 @@ struct PullRequestsInspectorView: View {
 
                 if !pr.headBranch.isEmpty {
                     Text("\(pr.headBranch) → \(pr.baseBranch)")
-                        .font(.system(size: 10.5, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(AppTheme.secondaryLabel)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -386,7 +386,7 @@ struct PullRequestsInspectorView: View {
 
                 if let updated = pr.updatedAt {
                     Text(updated, style: .relative)
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                 }
             }
@@ -435,7 +435,7 @@ struct PullRequestsInspectorView: View {
     private func detailDescriptionCard(_ detail: RemotePullRequestDetail) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("DESCRIPTION")
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(AppTheme.tertiaryLabel)
 
             if detail.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -458,7 +458,7 @@ struct PullRequestsInspectorView: View {
     private func detailChecksCard(_ detail: RemotePullRequestDetail) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("CHECKS (\(detail.checks.count))")
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(AppTheme.tertiaryLabel)
 
             ForEach(Array(detail.checks.enumerated()), id: \.offset) { _, check in
@@ -488,7 +488,7 @@ struct PullRequestsInspectorView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("REVIEWS & COMMENTS")
-                    .font(.system(size: 9.5, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                 Spacer()
                 if isPerformingAction {
@@ -507,7 +507,7 @@ struct PullRequestsInspectorView: View {
                                     .foregroundStyle(AppTheme.primaryLabel)
                                 Spacer()
                                 Text(rev.state.replacingOccurrences(of: "_", with: " ").capitalized)
-                                    .font(.system(size: 9.5, weight: .semibold))
+                                    .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(reviewStateTint(rev.state))
                             }
                             if !rev.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -600,7 +600,7 @@ struct PullRequestsInspectorView: View {
                     .foregroundStyle(AppTheme.primaryLabel)
                 Spacer()
                 Text(detail.mergeability.capitalized)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(
                         conflicting
                             ? AppTheme.danger
@@ -669,7 +669,7 @@ struct PullRequestsInspectorView: View {
         }()
 
         return Text(label)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(tint)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -684,7 +684,7 @@ struct PullRequestsInspectorView: View {
         case .unknown: ("Review", AppTheme.secondaryLabel)
         }
         return Text(label)
-            .font(.system(size: 10, weight: .medium))
+            .font(.system(size: 11, weight: .medium))
             .foregroundStyle(tint)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -1102,13 +1102,13 @@ private struct PullRequestSummaryRow: View {
                 HStack(spacing: 5) {
                     if let author = pr.author, !author.isEmpty {
                         Text("@\(author)")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }
 
                     if !pr.headBranch.isEmpty {
                         Text("\(pr.headBranch) → \(pr.baseBranch)")
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -1122,7 +1122,7 @@ private struct PullRequestSummaryRow: View {
                 HStack(spacing: 4) {
                     if pr.isDraft {
                         Text("Draft")
-                            .font(.system(size: 9.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(AppTheme.secondaryLabel)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
@@ -1145,7 +1145,7 @@ private struct PullRequestSummaryRow: View {
                             ? "Approved"
                             : (review == .changesRequested ? "Changes" : "Review")
                     )
-                    .font(.system(size: 9.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(
                         review == .approved
                             ? AppTheme.success

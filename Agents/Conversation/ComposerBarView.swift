@@ -154,7 +154,7 @@ struct ComposerBarView: View {
                             appModel.voiceDictation.lastError = nil
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
                         .buttonStyle(.plain)
@@ -278,7 +278,7 @@ struct ComposerBarView: View {
                                 .frame(maxWidth: 120, alignment: .leading)
                             if let w = img.width, let h = img.height {
                                 Text("\(w)×\(h)")
-                                    .font(.system(size: 9.5, design: .monospaced))
+                                    .font(.system(size: 11, design: .monospaced))
                                     .foregroundStyle(AppTheme.tertiaryLabel)
                             }
                         }
@@ -310,7 +310,7 @@ struct ComposerBarView: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "at")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.system(size: 11, weight: .bold))
                                     .foregroundStyle(AppTheme.accent)
                                 Text((filePath as NSString).lastPathComponent)
                                     .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -325,7 +325,7 @@ struct ComposerBarView: View {
                             removeFileMention(filePath)
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
                         .buttonStyle(.plain)
@@ -383,14 +383,14 @@ struct ComposerBarView: View {
 
                     if let acctName = activeSelection.accountName, !acctName.isEmpty {
                         Text("· \(acctName)")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.secondaryLabel)
                             .lineLimit(1)
                     }
 
                     if let effort = activeSelection.effort, !effort.isEmpty {
                         Text(effort.uppercased())
-                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundStyle(AppTheme.accent)
                             .padding(.horizontal, 4.5)
                             .padding(.vertical, 1)
@@ -398,7 +398,7 @@ struct ComposerBarView: View {
                     }
 
                     Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 9.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                 }
                 .padding(.horizontal, 9)
@@ -460,7 +460,7 @@ struct ComposerBarView: View {
                             .controlSize(.mini)
                         if let dl = vd.downloadProgress {
                             Text("\(Int(dl * 100))%")
-                                .font(.system(size: 10, design: .monospaced))
+                                .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(AppTheme.secondaryLabel)
                         }
                     } else if vd.isRecording {
@@ -628,7 +628,7 @@ struct ComposerBarView: View {
                         .frame(width: 12, height: 12)
                 }
                 Text("\(Int(normalized.rounded()))%")
-                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(tint)
             }
             .padding(.horizontal, 7)
@@ -655,7 +655,7 @@ struct ComposerBarView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "stop.fill")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                         Text("Stop")
                             .font(.system(size: 11.5, weight: .semibold))
                     }
@@ -1127,7 +1127,7 @@ private struct QueuedMessagesStripView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.accent)
                 Text("QUEUED FOLLOW-UPS (\(messages.count))")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(AppTheme.secondaryLabel)
                 Spacer()
             }
@@ -1141,7 +1141,7 @@ private struct QueuedMessagesStripView: View {
 
                     if msg.imageCount > 0 {
                         Label("\(msg.imageCount)", systemImage: "photo")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }
 
@@ -1161,7 +1161,7 @@ private struct QueuedMessagesStripView: View {
                         Task { await appModel.removeQueuedMessage(msg.id) }
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(AppTheme.secondaryLabel)
                     }
                     .buttonStyle(.plain)
@@ -1204,11 +1204,11 @@ private struct ComposerCompletionsCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(trigger == "@" ? "WORKSPACE FILES" : "SLASH COMMANDS & SKILLS")
-                    .font(.system(size: 9.5, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                 Spacer()
                 Text("↑↓ Navigate · ↩ Insert · Esc Dismiss")
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.tertiaryLabel)
             }
             .padding(.horizontal, 12)
@@ -1307,7 +1307,7 @@ private struct ComposerUsageWarningBanner: View {
                 sendWarningAction(.dismiss)
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(AppTheme.secondaryLabel)
             }
             .buttonStyle(.plain)
@@ -1413,7 +1413,7 @@ private struct UsageQuotaPopoverContent: View {
 
                                 if let resets = window.resetsAt {
                                     Text("Resets \(resets.formatted(date: .abbreviated, time: .shortened))")
-                                        .font(.system(size: 10.5))
+                                        .font(.system(size: 11))
                                         .foregroundStyle(AppTheme.tertiaryLabel)
                                 }
                             }

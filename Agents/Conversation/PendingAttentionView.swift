@@ -144,7 +144,7 @@ private struct ApprovalAttentionCard: View {
 
             if item.isClipped {
                 Text("Details truncated for display.")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.tertiaryLabel)
             }
 
@@ -364,7 +364,7 @@ private struct QuestionAttentionCard: View {
             HStack(spacing: 6) {
                 if let header = question.header, !header.isEmpty {
                     Text(header.uppercased())
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(AppTheme.accent)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -372,7 +372,7 @@ private struct QuestionAttentionCard: View {
                 }
                 if question.allowsMultipleSelection {
                     Text("Select all that apply")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                 }
             }

@@ -163,7 +163,7 @@ public struct BotEditorSheet: View {
                         .foregroundStyle(AppTheme.primaryLabel)
 
                     Text(editingBot == nil ? "New Bot" : "Editing Bot")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.secondaryLabel)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
@@ -230,7 +230,7 @@ public struct BotEditorSheet: View {
                                         size: 38
                                     )
                                     Text(character.defaultName)
-                                        .font(.system(size: 10.5, weight: isSelected ? .semibold : .regular))
+                                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                                         .foregroundStyle(isSelected ? AppTheme.primaryLabel : AppTheme.secondaryLabel)
                                         .lineLimit(1)
                                 }
@@ -287,7 +287,7 @@ public struct BotEditorSheet: View {
                                             .fill(Color.black.opacity(0.55))
                                             .frame(width: 16, height: 16)
                                         Image(systemName: "checkmark")
-                                            .font(.system(size: 10, weight: .bold))
+                                            .font(.system(size: 11, weight: .bold))
                                             .foregroundStyle(.white)
                                             .shadow(color: .black.opacity(0.35), radius: 1, y: 0.5)
                                     }
@@ -379,7 +379,7 @@ public struct BotEditorSheet: View {
                                 .foregroundStyle(AppTheme.secondaryLabel)
                             Spacer()
                             Text("\(personalityState.custom.count)/\(BotPersonalityPreset.customLimit)")
-                                .font(.system(size: 10.5, design: .monospaced))
+                                .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
 

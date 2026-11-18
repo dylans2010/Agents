@@ -45,7 +45,7 @@ public struct WorkspaceInspectorRootView: View {
 
                     if let subtitle = headerSubtitle {
                         Text(subtitle)
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.secondaryLabel)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -227,7 +227,7 @@ private struct InspectorTabPillButton: View {
                     .font(.system(size: 11.5, weight: isSelected ? .semibold : .regular))
                 if let badgeText {
                     Text(badgeText)
-                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
                         .background(

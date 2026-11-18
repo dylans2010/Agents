@@ -340,7 +340,7 @@ public struct CommandPaletteSheet: View {
                     LazyVStack(alignment: .leading, spacing: 2, pinnedViews: []) {
                         ForEach(sections) { section in
                             Text(section.category.rawValue)
-                                .font(.system(size: 10.5, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                                 .textCase(.uppercase)
                                 .padding(.horizontal, 14)
@@ -447,7 +447,7 @@ public struct CommandPaletteSheet: View {
             if let proj = appModel.selectedProject, !proj.isChats {
                 HStack(spacing: 4) {
                     Image(systemName: "folder")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                     Text(proj.name)
                         .font(.system(size: 11))
                         .lineLimit(1)
@@ -464,7 +464,7 @@ public struct CommandPaletteSheet: View {
     private func keyHintLabel(keys: String, action: String) -> some View {
         HStack(spacing: 4) {
             Text(keys)
-                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundStyle(AppTheme.secondaryLabel)
                 .padding(.horizontal, 4.5)
                 .padding(.vertical, 1)

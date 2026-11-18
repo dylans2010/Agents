@@ -145,7 +145,7 @@ public struct TerminalDrawerRootView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 9.5, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                         Text("Scripts")
                             .font(.system(size: 11, weight: .medium))
                     }
@@ -163,7 +163,7 @@ public struct TerminalDrawerRootView: View {
             // Active Directory Breadcrumb Hint
             if let cwd = activeDirectoryLabel {
                 Text(cwd)
-                    .font(.system(size: 10.5, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -366,7 +366,7 @@ public struct TerminalDrawerRootView: View {
                             focusedPane = .primary
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 9.5, weight: .bold))
+                                .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                         }
                         .buttonStyle(.plain)
@@ -679,13 +679,13 @@ private struct TerminalTabChip: View {
                 ExitCodeBadge(exitCode: code)
             } else if session.bells > 0 {
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppTheme.warning)
             }
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 8.5, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(isHovering || isSelected ? AppTheme.secondaryLabel : AppTheme.tertiaryLabel)
                     .frame(width: 14, height: 14)
                     .contentShape(Rectangle())
@@ -724,7 +724,7 @@ private struct TerminalTabChip: View {
                 .frame(width: 6, height: 6)
         } else {
             Image(systemName: "terminal")
-                .font(.system(size: 9.5, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.tertiaryLabel)
         }
     }
@@ -755,7 +755,7 @@ private struct ExitCodeBadge: View {
 
     var body: some View {
         Text("exit \(exitCode)")
-            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+            .font(.system(size: 11, weight: .semibold, design: .monospaced))
             .foregroundStyle(exitCode == 0 ? AppTheme.secondaryLabel : AppTheme.danger)
             .padding(.horizontal, 4)
             .padding(.vertical, 1)

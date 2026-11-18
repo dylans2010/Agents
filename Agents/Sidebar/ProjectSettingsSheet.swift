@@ -381,7 +381,7 @@ public struct ProjectSettingsSheet: View {
                     scripts.swapAt(index, index - 1)
                 } label: {
                     Image(systemName: "chevron.up")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                 }
                 .buttonStyle(.borderless)
                 .disabled(index == 0)
@@ -393,7 +393,7 @@ public struct ProjectSettingsSheet: View {
                     scripts.swapAt(index, index + 1)
                 } label: {
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                 }
                 .buttonStyle(.borderless)
                 .disabled(index + 1 >= scripts.count)

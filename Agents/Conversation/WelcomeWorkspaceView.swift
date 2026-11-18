@@ -189,7 +189,7 @@ struct WelcomeWorkspaceView: View {
                                             .frame(maxWidth: 220)
                                     }
                                     Image(systemName: "chevron.up.chevron.down")
-                                        .font(.system(size: 10, weight: .semibold))
+                                        .font(.system(size: 11, weight: .semibold))
                                         .foregroundStyle(AppTheme.tertiaryLabel)
                                 }
                                 .padding(.horizontal, 12)
@@ -228,7 +228,7 @@ struct WelcomeWorkspaceView: View {
                 if !otherProviders.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("AVAILABLE AGENTS")
-                            .font(.system(size: 10.5, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(AppTheme.tertiaryLabel)
 
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -248,7 +248,7 @@ struct WelcomeWorkspaceView: View {
                 // Clickable Prompt Suggestions Grid
                 VStack(alignment: .leading, spacing: 10) {
                     Text("QUICK START PROMPTS")
-                        .font(.system(size: 10.5, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(AppTheme.tertiaryLabel)
 
                     LazyVGrid(
@@ -331,7 +331,7 @@ struct WelcomeWorkspaceView: View {
                                 .fill(AppTheme.success)
                                 .frame(width: 6.5, height: 6.5)
                             Text("Ready")
-                                .font(.system(size: 10.5, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(AppTheme.success)
                         }
                         .padding(.horizontal, 7)
@@ -343,7 +343,7 @@ struct WelcomeWorkspaceView: View {
                                 .fill(AppTheme.warning)
                                 .frame(width: 6.5, height: 6.5)
                             Text("API Key Needed")
-                                .font(.system(size: 10.5, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(AppTheme.warning)
                         }
                         .padding(.horizontal, 7)
@@ -477,7 +477,7 @@ struct WelcomeWorkspaceView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("SPECIALIST BOTS")
-                    .font(.system(size: 10.5, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                 Spacer()
                 Button {

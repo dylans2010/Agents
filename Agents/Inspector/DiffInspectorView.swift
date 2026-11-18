@@ -272,10 +272,10 @@ struct DiffInspectorView: View {
             if appModel.activeDiff?.isTruncated == true {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.warning)
                     Text("Large diff truncated for responsiveness. Open individual files in the Inspector Editor to view full contents.")
-                        .font(.system(size: 10.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                         .lineLimit(2)
                     Spacer(minLength: 0)
@@ -707,7 +707,7 @@ private struct DiffFileSummaryRow: View {
 
                     if let old = file.oldPath, old != file.path {
                         Text("← \((old as NSString).lastPathComponent)")
-                            .font(.system(size: 10.5))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppTheme.tertiaryLabel)
                             .lineLimit(1)
                     }
@@ -715,7 +715,7 @@ private struct DiffFileSummaryRow: View {
 
                 if let dir = directoryPrefix {
                     Text(dir)
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppTheme.tertiaryLabel)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -759,7 +759,7 @@ private struct DiffFileSummaryRow: View {
 
             if file.isBinary {
                 Text("BIN")
-                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AppTheme.secondaryLabel)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
@@ -779,7 +779,7 @@ private struct DiffFileSummaryRow: View {
                             .foregroundStyle(AppTheme.tertiaryLabel)
                     }
                 }
-                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
             }
         }
         .padding(.horizontal, 8)
@@ -875,7 +875,7 @@ private struct DiffFilePatchCard: View {
             Button(action: onToggleCollapse) {
                 HStack(spacing: 5) {
                     Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(AppTheme.secondaryLabel)
                         .frame(width: 10)
 
@@ -913,7 +913,7 @@ private struct DiffFilePatchCard: View {
                             .foregroundStyle(AppTheme.diffDeletionText)
                     }
                 }
-                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
             }
 
             HStack(spacing: 4) {
