@@ -333,7 +333,7 @@ impl Adapter {
         profile: &str,
         supplied: Option<&[String]>,
     ) -> Result<Option<Vec<String>>, RemoteError> {
-        let Some(effective) = crate::agent::effective_allowed_tools(profile, supplied) else {
+        let Some(effective) = crate::agent::profile_gate::materialized_allowed_tools(profile, supplied) else {
             return Ok(None);
         };
         if effective.is_empty() {
@@ -1633,7 +1633,12 @@ impl Adapter {
             document["assistantId"].as_str().filter(|id| !id.is_empty())
         {
             let assistant = self.assistant_record(id)?;
-            Self::ceiling_tools(&assistant.permission_profile, allowed_tools)?
+            match allowed_tools {
+                Some(allowed_tools) => {
+                    Self::ceiling_tools(&assistant.permission_profile, Some(allowed_tools))?
+                }
+                None => None,
+            }
         } else {
             allowed_tools.map(|list| list.to_vec())
         };
@@ -1962,7 +1967,12 @@ impl Adapter {
             document["assistantId"].as_str().filter(|id| !id.is_empty())
         {
             let assistant = self.assistant_record(id)?;
-            Self::ceiling_tools(&assistant.permission_profile, allowed_tools)?
+            match allowed_tools {
+                Some(allowed_tools) => {
+                    Self::ceiling_tools(&assistant.permission_profile, Some(allowed_tools))?
+                }
+                None => None,
+            }
         } else {
             allowed_tools.map(|list| list.to_vec())
         };
@@ -3166,6 +3176,61 @@ mod tests {
         assert!(adapter
             .enforce_profile_tools(Uuid::parse_str(&created).unwrap())
             .is_err());
+    }
+
+    #[test]
+    fn new_thread_with_read_only_assistant_and_no_lists_materializes_restricted_tools() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(&adapter, "read-only", None);
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, Some(assistant), None)
+            .unwrap();
+        let expected = crate::agent::profile_gate::materialized_allowed_tools("read-only", None)
+            .expect("read-only materializes a list");
+        assert_eq!(expected.len(), 185);
+        let stored = stored_tools(&adapter, &created);
+        let stored = stored
+            .as_array()
+            .expect("new thread stores a materialized list")
+            .iter()
+            .filter_map(|name| name.as_str().map(str::to_owned))
+            .collect::<Vec<_>>();
+        assert_eq!(stored, expected);
+    }
+
+    #[test]
+    fn enforce_profile_tools_materializes_restricted_tools_for_unlisted_thread() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(&adapter, "approval-required", None);
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, None, None)
+            .unwrap();
+        let (resolved, _) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        adapter
+            .call(
+                "threads.patch",
+                json!({"threadId": resolved, "patch": {"assistantId": assistant}}),
+            )
+            .unwrap();
+        adapter
+            .enforce_profile_tools(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        let expected =
+            crate::agent::profile_gate::materialized_allowed_tools("approval-required", None)
+                .expect("approval-required materializes a list");
+        assert_eq!(expected.len(), 248);
+        let stored = stored_tools(&adapter, &created);
+        let stored = stored
+            .as_array()
+            .expect("enforce stores a materialized list")
+            .iter()
+            .filter_map(|name| name.as_str().map(str::to_owned))
+            .collect::<Vec<_>>();
+        assert_eq!(stored, expected);
     }
 
     #[test]

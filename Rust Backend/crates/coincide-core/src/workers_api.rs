@@ -143,8 +143,16 @@ impl Engine {
                 .as_ref()
                 .filter(|tools| !tools.is_empty());
             if let Some(allowed_tools) = assistant_tools {
+                let narrowed = crate::agent::profile_gate::effective_allowed_tools(
+                    &assistant.permission_profile,
+                    Some(allowed_tools),
+                )
+                .unwrap_or_default();
+                if narrowed.is_empty() {
+                    bail!("This assistant has no tools available for this conversation.");
+                }
                 child_params["toolset"] = json!("system");
-                child_params["allowedTools"] = json!(allowed_tools);
+                child_params["allowedTools"] = json!(narrowed);
             } else {
                 let parent_toolset = parent["toolset"].as_str();
                 let parent_tools_non_empty = parent["allowedTools"]
@@ -166,8 +174,36 @@ impl Engine {
                     if !parent["toolset"].is_null() {
                         child_params["toolset"] = parent["toolset"].clone();
                     }
-                    if !parent["allowedTools"].is_null() {
-                        child_params["allowedTools"] = parent["allowedTools"].clone();
+                    if let Some(parent_tools) = parent["allowedTools"]
+                        .as_array()
+                        .filter(|list| !list.is_empty())
+                    {
+                        let parent_tools = parent_tools
+                            .iter()
+                            .filter_map(|name| name.as_str().map(str::to_owned))
+                            .collect::<Vec<_>>();
+                        let narrowed = crate::agent::profile_gate::effective_allowed_tools(
+                            &assistant.permission_profile,
+                            Some(&parent_tools),
+                        )
+                        .unwrap_or_default();
+                        if narrowed.is_empty() {
+                            bail!("This assistant has no tools available for this conversation.");
+                        }
+                        child_params["allowedTools"] = json!(narrowed);
+                    } else if matches!(
+                        assistant.permission_profile.as_str(),
+                        "read-only" | "approval-required"
+                    ) {
+                        let materialized = crate::agent::profile_gate::materialized_allowed_tools(
+                            &assistant.permission_profile,
+                            None,
+                        )
+                        .unwrap_or_default();
+                        if !materialized.is_empty() {
+                            child_params["toolset"] = json!("system");
+                            child_params["allowedTools"] = json!(materialized);
+                        }
                     }
                 }
             }
@@ -180,6 +216,31 @@ impl Engine {
             }
             if !parent["allowedTools"].is_null() {
                 child_params["allowedTools"] = parent["allowedTools"].clone();
+            }
+            if let Some(inherited_id) = parent["assistantId"]
+                .as_str()
+                .filter(|id| uuid::Uuid::parse_str(id).is_ok())
+                .and_then(|id| uuid::Uuid::parse_str(id).ok())
+            {
+                if let Ok(inherited) =
+                    crate::api::assistants_api::find_assistant(&self.store, inherited_id)
+                {
+                    if let Some(child_tools) = child_params["allowedTools"]
+                        .as_array()
+                        .filter(|list| !list.is_empty())
+                    {
+                        let child_tools = child_tools
+                            .iter()
+                            .filter_map(|name| name.as_str().map(str::to_owned))
+                            .collect::<Vec<_>>();
+                        if let Some(narrowed) = crate::agent::profile_gate::effective_allowed_tools(
+                            &inherited.permission_profile,
+                            Some(&child_tools),
+                        ) {
+                            child_params["allowedTools"] = json!(narrowed);
+                        }
+                    }
+                }
             }
         }
         let child = self.create_ordinary_thread(&child_params)?;
@@ -690,7 +751,10 @@ mod tests {
     }
 
     fn seed_assistant(engine: &mut Engine) -> String {
-        seed_assistant_with_allowed_tools(engine, Some(json!(["write_file"])))
+        seed_assistant_with_allowed_tools(
+            engine,
+            Some(json!(["read_file", "write_file"])),
+        )
     }
 
     fn seed_assistant_with_allowed_tools(
@@ -785,8 +849,89 @@ mod tests {
             "Review the diff for security issues."
         );
         assert_eq!(child_doc["toolset"], "system");
-        assert_eq!(child_doc["allowedTools"], json!(["write_file"]));
+        assert_eq!(child_doc["allowedTools"], json!(["read_file"]));
         assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_with_read_only_assistant_without_any_allowed_tool_fails_closed() {
+        let mut engine = test_engine();
+        let assistant_id =
+            seed_assistant_with_allowed_tools(&mut engine, Some(json!(["write_file"])));
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let error = engine.workers_spawn(&request).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("This assistant has no tools available for this conversation."));
+        let children = engine.store.summaries("", true).unwrap();
+        assert!(children
+            .iter()
+            .all(|summary| summary.title != "Worker: alpha"));
+    }
+
+    #[test]
+    fn spawn_with_assistant_without_lists_materializes_restricted_tools() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant_with_allowed_tools(&mut engine, None);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["toolset"], "system");
+        let tools = child_doc["allowedTools"]
+            .as_array()
+            .expect("spawn materializes a restricted list");
+        assert_eq!(tools.len(), 185);
+        assert!(tools.iter().all(|tool| tool != "write_file"));
+    }
+
+    #[test]
+    fn spawn_without_assistant_narrows_inherited_parent_tools() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant(&mut engine);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["assistantId"] = json!(assistant_id);
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file", "write_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let _ = engine.workers_spawn(&spawn_request(&parent, "alpha", "Do the thing."));
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["assistantId"], assistant_id);
+        assert_eq!(child_doc["allowedTools"], json!(["read_file"]));
     }
 
     #[test]

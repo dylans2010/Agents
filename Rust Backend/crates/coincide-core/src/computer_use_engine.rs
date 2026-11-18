@@ -269,6 +269,22 @@ impl Engine {
         let request = Request::parse(&bytes).map_err(|failure| {
             anyhow::anyhow!("Invalid typed Computer Use request: {failure:?}")
         })?;
+        if let Request::Call(tool) = &request {
+            let doc = self.store.thread(&thread.to_string())?;
+            if let Some(assistant_id) = doc["assistantId"].as_str() {
+                let id = uuid::Uuid::parse_str(assistant_id)
+                    .context("Computer Use thread has an invalid assistant")?;
+                let assistant = crate::api::assistants_api::find_assistant(&self.store, id)
+                    .context("Computer Use thread assistant not found")?;
+                ensure!(
+                    !crate::agent::profile_gate::tool_denied_by_profile(
+                        &assistant.permission_profile,
+                        tool.name()
+                    ),
+                    "Computer Use request is not allowed for this thread"
+                );
+            }
+        }
         let grant = self
             .computer_use
             .authority
@@ -779,6 +795,78 @@ mod tests {
             .finished = Some(Instant::now() - RETENTION);
         e.computer_use_expire();
         assert!(!e.computer_use.operations.contains_key(&abandoned));
+        assert!(e.computer_use_drain().is_empty());
+    }
+
+    fn attach_read_only_assistant(engine: &mut Engine, thread: &str) -> String {
+        let id = "00000000-0000-4000-8000-000000000001";
+        let listed = engine.execute("assistants.list", &json!({})).unwrap();
+        let assistant = json!({
+            "id": id,
+            "name": "Reviewer",
+            "description": "Reviews diffs",
+            "icon": "magnifyingglass",
+            "category": "code-review-security",
+            "systemPrompt": "Review the diff for security issues.",
+            "intendedTasks": ["Review pull requests"],
+            "expectedOutputFormat": "A list of findings",
+            "model": "sonnet",
+            "permissionProfile": "read-only",
+            "inputRequirements": ["A diff"],
+            "version": 1,
+            "source": "custom",
+            "isFavorite": false,
+            "lastUsedAt": Value::Null,
+            "createdAt": 1_000_000,
+            "updatedAt": 1_000_000
+        });
+        engine
+            .execute(
+                "assistants.save",
+                &json!({"assistant": assistant, "baseline": listed["baseline"]}),
+            )
+            .unwrap();
+        let mut doc = engine.store.thread(thread).unwrap();
+        doc["assistantId"] = json!(id);
+        engine.store.save(&doc).unwrap();
+        id.to_owned()
+    }
+
+    #[test]
+    fn read_only_thread_denies_mutating_computer_use_call() {
+        let (_dir, mut e, a, _) = fixture();
+        attach_read_only_assistant(&mut e, &a);
+        let click = json!({"threadId":a,"request":{"action":"call","name":"click","arguments":{"element_token":Uuid::new_v4()}}});
+        let error = e.execute("computer_use.request", &click).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Computer Use request is not allowed for this thread"));
+        assert!(e.computer_use_drain().is_empty());
+    }
+
+    #[test]
+    fn read_only_thread_allows_reader_computer_use_call() {
+        let (_dir, mut e, a, _) = fixture();
+        attach_read_only_assistant(&mut e, &a);
+        let observe = json!({"threadId":a,"request":{"action":"call","name":"get_window_state","arguments":{"pid":1,"window_id":1}}});
+        let operation = e
+            .execute("computer_use.request", &observe)
+            .unwrap()["operationId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert!(!operation.is_empty());
+        assert_eq!(e.computer_use_drain().len(), 1);
+    }
+
+    #[test]
+    fn computer_use_request_with_unknown_assistant_fails_closed() {
+        let (_dir, mut e, a, _) = fixture();
+        let mut doc = e.store.thread(&a).unwrap();
+        doc["assistantId"] = json!("00000000-0000-4000-8000-000000000099");
+        e.store.save(&doc).unwrap();
+        let click = json!({"threadId":a,"request":{"action":"call","name":"click","arguments":{"element_token":Uuid::new_v4()}}});
+        assert!(e.execute("computer_use.request", &click).is_err());
         assert!(e.computer_use_drain().is_empty());
     }
 }

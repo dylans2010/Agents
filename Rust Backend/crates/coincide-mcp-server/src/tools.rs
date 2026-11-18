@@ -16887,6 +16887,14 @@ fn g6_use_app(
             "{name} action {action} is not a known action."
         )));
     };
+    if let crate::assets::ThreadProfile::Known(profile) =
+        crate::assets::stored_thread_profile(state).map_err(|error| failed(error.to_string()))?
+    {
+        if coincide_core::agent::profile_gate::use_app_action_denied_by_profile(&action, &profile)
+        {
+            return Err(CallError::UnknownTool(mapped.to_owned()));
+        }
+    }
     let allowed = crate::assets::stored_allowed_tools(state)
         .map_err(|error| failed(error.to_string()))?;
     ensure_allowed(mapped, allowed.as_deref())?;
@@ -21661,6 +21669,11 @@ mod tests {
             "invoke_menu",
             "set_window_frame",
             "use_app",
+            "icon_generator_tool",
+            "project_capabilities",
+            "project_info_plist",
+            "use_mcp",
+            "use_system",
             "version_control_operator",
             "git_branch_manager",
             "test_snapshot_manage",
@@ -21737,8 +21750,8 @@ mod tests {
             "verify_state",
             "zoom",
             "take_screenshot",
-            "use_mcp",
-            "use_system",
+            "test_coverage_report",
+            "test_coverage_reporter",
             "open_in_finder",
             "reveal_in_finder",
             "plan-AskUser",
@@ -21774,7 +21787,6 @@ mod tests {
         for tool in [
             "create_terminal",
             "write_terminal",
-            "read_terminal",
             "run_build",
             "run_tests",
             "run_command",
@@ -21817,6 +21829,14 @@ mod tests {
             "delete_artifact",
             "test_snapshot_manage",
             "manage_memory",
+            "disk_space_analyzer",
+            "image_get_dimensions",
+            "process_monitor_tool",
+            "spm_dependency_tree",
+            "simulator_list",
+            "swift_format_lint",
+            "zip_file",
+            "use_system",
         ] {
             assert!(
                 profile_denied("approval-required", tool),
@@ -21835,6 +21855,10 @@ mod tests {
             "use_workers",
             "click",
             "use_app",
+            "read_terminal",
+            "use_mcp",
+            "project_info_plist",
+            "project_capabilities",
             "read_file",
             "git_status",
             "git_diff",
@@ -21979,13 +22003,17 @@ mod tests {
     fn profile_list_filtering() {
         let read_only =
             profile_list_names(&crate::assets::ThreadProfile::Known("read-only".to_owned()));
-        assert_eq!(read_only.len(), 190);
+        assert_eq!(read_only.len(), 185);
         assert!(!read_only.iter().any(|name| name == "write_file"));
         assert!(!read_only.iter().any(|name| name == "run_build"));
         assert!(!read_only.iter().any(|name| name == "git_commit"));
         assert!(!read_only.iter().any(|name| name == "mem_store"));
         assert!(!read_only.iter().any(|name| name == "use_workers"));
         assert!(!read_only.iter().any(|name| name == "click"));
+        assert!(!read_only.iter().any(|name| name == "use_mcp"));
+        assert!(!read_only.iter().any(|name| name == "use_system"));
+        assert!(read_only.iter().any(|name| name == "test_coverage_report"));
+        assert!(read_only.iter().any(|name| name == "test_coverage_reporter"));
         assert!(read_only.iter().any(|name| name == "read_file"));
         assert!(read_only.iter().any(|name| name == "git_status"));
         assert!(read_only.iter().any(|name| name == "mem_retrieve"));
@@ -21993,9 +22021,11 @@ mod tests {
         let approval = profile_list_names(&crate::assets::ThreadProfile::Known(
             "approval-required".to_owned(),
         ));
-        assert_eq!(approval.len(), 288);
+        assert_eq!(approval.len(), 248);
         assert!(approval.iter().any(|name| name == "write_file"));
         assert!(approval.iter().any(|name| name == "read_file"));
+        assert!(approval.iter().any(|name| name == "read_terminal"));
+        assert!(approval.iter().any(|name| name == "use_mcp"));
         assert!(!approval.iter().any(|name| name == "run_build"));
         assert!(!approval.iter().any(|name| name == "git_commit"));
         assert!(!approval.iter().any(|name| name == "delete_file"));
@@ -22037,11 +22067,11 @@ mod tests {
     fn profile_deny_sets_cover_only_registry_tools() {
         for (set, name) in [
             (
-                crate::assets::READ_ONLY_DENIED_TOOLS,
+                coincide_core::agent::profile_gate::READ_ONLY_DENIED_TOOLS,
                 "read-only",
             ),
             (
-                crate::assets::APPROVAL_REQUIRED_DENIED_TOOLS,
+                coincide_core::agent::profile_gate::APPROVAL_REQUIRED_DENIED_TOOLS,
                 "approval-required",
             ),
         ] {
@@ -22054,12 +22084,90 @@ mod tests {
                 assert!(seen.insert(*tool), "{name} deny set repeats {tool}");
             }
         }
-        for tool in crate::assets::APPROVAL_REQUIRED_DENIED_TOOLS {
+        let terminal_readers: &[&str] = &[
+            "binary_size_report",
+            "code_signing_diagnose",
+            "device_list",
+            "disk_space_analyzer",
+            "image_extract_metadata",
+            "image_get_dimensions",
+            "mach_o_binary_analyzer",
+            "package_dependency_audit",
+            "package_manifest_validate",
+            "process_monitor_tool",
+            "project_build_settings",
+            "project_scheme_list",
+            "project_signing",
+            "project_target_list",
+            "provisioning_check",
+            "provisioning_profile_reader",
+            "reverse_analyze",
+            "signing_certificate_inspector",
+            "simulator_list",
+            "spm_dependency_tree",
+            "swift_ast_inspector",
+            "test_coverage_report",
+            "test_coverage_reporter",
+            "xcode_build_settings_inspector",
+            "xcode_device_destination_finder",
+            "xcode_scheme_manager",
+            "xcode_toolchain_info",
+            "xcresult_parser",
+        ];
+        assert_eq!(terminal_readers.len(), 28);
+        for tool in terminal_readers {
             assert!(
-                crate::assets::READ_ONLY_DENIED_TOOLS.contains(tool),
-                "approval-required deny set must stay inside the read-only deny set: {tool}"
+                !crate::assets::tool_denied_by_profile("read-only", tool),
+                "read-only allows the pure reader {tool} even though it executes in a terminal"
+            );
+            assert!(
+                crate::assets::tool_denied_by_profile("approval-required", tool),
+                "approval-required denies the terminal-executing reader {tool}"
             );
         }
+    }
+
+    #[test]
+    fn profile_gate_agrees_with_core_canonical_lists() {
+        for definition in DEFINITIONS {
+            for profile in [
+                "read-only",
+                "approval-required",
+                "workspace-modify",
+                "terminal",
+                "unknown-profile",
+            ] {
+                assert_eq!(
+                    crate::assets::tool_denied_by_profile(profile, definition.name),
+                    coincide_core::agent::profile_gate::tool_denied_by_profile(
+                        profile,
+                        definition.name
+                    ),
+                    "MCP and core disagree on {profile} for {}",
+                    definition.name
+                );
+            }
+        }
+        assert_eq!(
+            DEFINITIONS
+                .iter()
+                .filter(|definition| crate::assets::tool_denied_by_profile(
+                    "read-only",
+                    definition.name
+                ))
+                .count(),
+            148
+        );
+        assert_eq!(
+            DEFINITIONS
+                .iter()
+                .filter(|definition| crate::assets::tool_denied_by_profile(
+                    "approval-required",
+                    definition.name
+                ))
+                .count(),
+            85
+        );
     }
 
     #[test]
@@ -22067,23 +22175,26 @@ mod tests {
         let seen: std::collections::HashSet<&str> = DEFINITIONS
             .iter()
             .map(|def| def.name)
-            .filter(|name| !crate::assets::READ_ONLY_DENIED_TOOLS.contains(name))
+            .filter(|name| !coincide_core::agent::profile_gate::READ_ONLY_DENIED_TOOLS.contains(name))
             .collect();
         for tool in &seen {
+
             assert!(
                 definition(tool).is_some(),
                 "allowed tool {tool} is not a registry tool"
             );
         }
-        assert_eq!(seen.len(), 190, "read-only allow set must hold 190 tools");
-        for tool in crate::assets::READ_ONLY_DENIED_TOOLS {
+        assert_eq!(seen.len(), 185, "read-only allow set must hold 185 tools");
+        for tool in coincide_core::agent::profile_gate::READ_ONLY_DENIED_TOOLS {
+
             assert!(
                 !seen.contains(tool),
                 "tool {tool} is both allowed and denied for read-only"
             );
         }
         assert_eq!(
-            seen.len() + crate::assets::READ_ONLY_DENIED_TOOLS.len(),
+            seen.len()
+                + coincide_core::agent::profile_gate::READ_ONLY_DENIED_TOOLS.len(),
             DEFINITIONS.len(),
             "read-only allow and deny sets must partition the registry"
         );

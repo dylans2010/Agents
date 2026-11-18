@@ -189,60 +189,6 @@ pub fn stored_allowed_tools(state: &crate::ServerState) -> Result<Option<Vec<Str
         })
         .filter(|names| !names.is_empty()))
 }
-pub static READ_ONLY_DENIED_TOOLS: &[&str] = &[
-        "asset_catalog_manager", "asset_image_add", "automated_repair_engine", "batch_rename_files",
-        "binary_plist_converter", "cancel_worker", "click", "click_point",
-        "clipboard_manager_tool", "code_format", "code_generate", "code_insert",
-        "code_multi_edit", "code_mutation_engine", "code_replace", "code_snippet_manager",
-        "colorset_builder", "compiler_diagnostics_engine", "context_persistence_store", "copy_file",
-        "create_artifact", "create_directory", "create_file", "create_terminal",
-        "csv_to_json", "dead_code_eliminator", "delete_artifact", "delete_directory",
-        "delete_file", "delete_worker", "dependency_resolution_engine", "dir_create",
-        "dir_delete", "docc_build", "docs_generate", "double_click",
-        "drag", "edit_file", "entitlements_manager", "env_capture_logs",
-        "execution_plan", "file_append", "file_backup", "file_copy",
-        "file_create", "file_delete", "file_move", "file_rename",
-        "file_write", "format_json_file", "generate_xcodeproj", "git_bisect",
-        "git_branch_checkout", "git_branch_create", "git_branch_manager", "git_cherry_pick",
-        "git_commit", "git_conflict_resolver", "git_pull", "git_push",
-        "git_stash_operator", "gzip_compress_file", "gzip_decompress_file", "hotkey",
-        "image_convert_format", "image_decode_base64", "image_generate_thumbnail", "import_cleanup",
-        "intel_breakdown_task", "intel_generate_tests", "intel_plan_task", "invoke_menu",
-        "json_to_csv", "json_to_plist", "json_validate", "launch_app",
-        "localization_manager", "localize_app", "manage_memory", "markdown_toc_generate",
-        "mem_clear", "mem_context_snapshot", "mem_delete", "mem_store",
-        "move_cursor", "move_file", "multi_edit_file", "package_dependency_add",
-        "package_dependency_update", "patch_application_engine", "performance_benchmark", "plist_edit",
-        "plist_editor", "plist_to_json", "preflight_checks", "press_key",
-        "project_archive", "project_build", "project_clean", "project_restore",
-        "project_snapshot", "project_test", "read_terminal", "readme_generate",
-        "regex_replace_in_files", "report_to_user", "right_click", "run_build",
-        "run_command", "run_tests", "safe_undo", "save_to_memory",
-        "scroll", "session_export", "set_value", "set_window_frame",
-        "simulator_boot", "simulator_controller", "start_subagent", "string_catalog_migrator",
-        "strings_localization", "svg_to_png", "swift_format_lint", "swift_package_manager",
-        "symbol_move_file", "symbol_rename_project", "system_notification_tool", "tar_archive_create",
-        "tar_archive_extract", "test_data_factory", "test_run_single", "test_snapshot_manage",
-        "type_text", "ui_test_scaffold", "unzip_file", "use_app",
-        "use_terminal", "use_workers", "version_control_operator", "write_file",
-        "write_terminal", "yaml_validate", "zip_file",
-];
-
-pub static APPROVAL_REQUIRED_DENIED_TOOLS: &[&str] = &[
-        "compiler_diagnostics_engine", "create_terminal", "delete_artifact", "delete_directory",
-        "delete_file", "delete_worker", "dependency_resolution_engine", "dir_delete",
-        "docc_build", "file_delete", "generate_xcodeproj", "git_bisect",
-        "git_branch_checkout", "git_branch_create", "git_branch_manager", "git_cherry_pick",
-        "git_commit", "git_conflict_resolver", "git_pull", "git_push",
-        "git_stash_operator", "manage_memory", "mem_clear", "mem_delete",
-        "package_dependency_update", "performance_benchmark", "project_archive", "project_build",
-        "project_clean", "project_restore", "project_snapshot", "project_test",
-        "read_terminal", "run_build", "run_command", "run_tests",
-        "safe_undo", "simulator_boot", "simulator_controller", "swift_package_manager",
-        "test_run_single", "test_snapshot_manage", "use_terminal", "version_control_operator",
-        "write_terminal",
-];
-
 pub enum ThreadProfile {
     Unbound,
     NoAssistant,
@@ -251,12 +197,7 @@ pub enum ThreadProfile {
 }
 
 pub fn tool_denied_by_profile(profile: &str, tool: &str) -> bool {
-    match profile {
-        "read-only" => READ_ONLY_DENIED_TOOLS.contains(&tool),
-        "approval-required" => APPROVAL_REQUIRED_DENIED_TOOLS.contains(&tool),
-        "workspace-modify" | "terminal" => false,
-        _ => true,
-    }
+    coincide_core::agent::profile_gate::tool_denied_by_profile(profile, tool)
 }
 
 pub fn thread_profile_allows(profile: &ThreadProfile, tool: &str) -> bool {

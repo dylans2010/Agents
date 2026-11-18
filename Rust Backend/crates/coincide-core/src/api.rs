@@ -1837,6 +1837,47 @@ impl Engine {
             SendOrigin::Remote(images),
         )
     }
+    fn enforce_profile_tools_for_send(&mut self, v: &mut Value) -> Result<()> {
+        if v["toolset"].as_str() == Some("provider") {
+            return Ok(());
+        }
+        let Some(assistant_id) = v["assistantId"].as_str().filter(|id| !id.is_empty()) else {
+            return Ok(());
+        };
+        let assistant = assistants_api::find_assistant(
+            &self.store,
+            Uuid::parse_str(assistant_id).context("Invalid assistant ID")?,
+        )?;
+        let stored = v["allowedTools"]
+            .as_array()
+            .filter(|list| !list.is_empty())
+            .map(|list| {
+                list.iter()
+                    .filter_map(|name| name.as_str().map(str::to_owned))
+                    .collect::<Vec<_>>()
+            });
+        let base = stored.as_deref().or(assistant
+            .allowed_tools
+            .as_deref()
+            .filter(|list| !list.is_empty()));
+        let Some(effective) = crate::agent::profile_gate::materialized_allowed_tools(
+            &assistant.permission_profile,
+            base,
+        ) else {
+            return Ok(());
+        };
+        if effective.is_empty() {
+            bail!("This assistant has no tools available for this conversation.");
+        }
+        if stored.as_deref() == Some(effective.as_slice()) {
+            return Ok(());
+        }
+        if stored.is_none() {
+            v["toolset"] = json!("system");
+        }
+        v["allowedTools"] = json!(effective);
+        Ok(())
+    }
     fn send_turn_if_unchanged(
         &mut self,
         p: &Value,
@@ -2027,6 +2068,7 @@ impl Engine {
             codex_profile.is_none() || system_instructions.is_none(),
             "System Tools cannot be used with a named Codex profile: a per-thread system prompt needs the default Codex session"
         );
+        self.enforce_profile_tools_for_send(&mut v)?;
         let allowed_tools = match v.get("allowedTools") {
             None | Some(Value::Null) => None,
             Some(value) => {
@@ -4677,6 +4719,93 @@ mod catalog_shutdown_adapter_tests {
         let reply =
             engine.dispatch(json!({"method":"agent.models.refresh","params":{"provider":"codex"}}));
         assert_eq!(reply["error"]["message"], "Engine admissions are frozen");
+    }
+
+    fn seed_send_assistant(engine: &mut Engine, profile: &str, allowed_tools: Option<Value>) -> String {
+        let id = "00000000-0000-4000-8000-000000000001";
+        let listed = engine.execute("assistants.list", &json!({})).unwrap();
+        let mut assistant = json!({
+            "id": id,
+            "name": "Reviewer",
+            "description": "Reviews diffs",
+            "icon": "magnifyingglass",
+            "category": "code-review-security",
+            "systemPrompt": "Review the diff for security issues.",
+            "intendedTasks": ["Review pull requests"],
+            "expectedOutputFormat": "A list of findings",
+            "model": "sonnet",
+            "permissionProfile": profile,
+            "inputRequirements": ["A diff"],
+            "version": 1,
+            "source": "custom",
+            "isFavorite": false,
+            "lastUsedAt": Value::Null,
+            "createdAt": 1_000_000,
+            "updatedAt": 1_000_000
+        });
+        if let Some(tools) = allowed_tools {
+            assistant["allowedTools"] = tools;
+        }
+        engine
+            .execute(
+                "assistants.save",
+                &json!({"assistant": assistant, "baseline": listed["baseline"]}),
+            )
+            .unwrap();
+        id.to_owned()
+    }
+
+    #[test]
+    fn send_enforce_narrows_stale_stored_tools_by_assistant_profile() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::fixture(Store::open(&dir.path().join("data.sqlite")).unwrap());
+        let assistant = seed_send_assistant(&mut engine, "read-only", None);
+        let mut v = engine.store.new_thread("").unwrap();
+        v["assistantId"] = json!(assistant);
+        v["allowedTools"] = json!(["write_file", "read_file"]);
+        engine.enforce_profile_tools_for_send(&mut v).unwrap();
+        assert_eq!(v["allowedTools"], json!(["read_file"]));
+    }
+
+    #[test]
+    fn send_enforce_materializes_restricted_tools_for_unlisted_thread() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::fixture(Store::open(&dir.path().join("data.sqlite")).unwrap());
+        let assistant = seed_send_assistant(&mut engine, "approval-required", None);
+        let mut v = engine.store.new_thread("").unwrap();
+        v["assistantId"] = json!(assistant);
+        engine.enforce_profile_tools_for_send(&mut v).unwrap();
+        let expected =
+            crate::agent::profile_gate::materialized_allowed_tools("approval-required", None)
+                .expect("approval-required materializes a list");
+        assert_eq!(expected.len(), 248);
+        assert_eq!(v["toolset"], json!("system"));
+        let stored = v["allowedTools"]
+            .as_array()
+            .expect("send enforce stores a materialized list")
+            .iter()
+            .filter_map(|name| name.as_str().map(str::to_owned))
+            .collect::<Vec<_>>();
+        assert_eq!(stored, expected);
+    }
+
+    #[test]
+    fn send_enforce_fails_closed_for_unknown_assistant() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::fixture(Store::open(&dir.path().join("data.sqlite")).unwrap());
+        let mut v = engine.store.new_thread("").unwrap();
+        v["assistantId"] = json!("00000000-0000-4000-8000-000000000099");
+        assert!(engine.enforce_profile_tools_for_send(&mut v).is_err());
+    }
+
+    #[test]
+    fn send_enforce_leaves_threads_without_assistants_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::fixture(Store::open(&dir.path().join("data.sqlite")).unwrap());
+        let mut v = engine.store.new_thread("").unwrap();
+        v["allowedTools"] = json!(["write_file"]);
+        engine.enforce_profile_tools_for_send(&mut v).unwrap();
+        assert_eq!(v["allowedTools"], json!(["write_file"]));
     }
 }
 
