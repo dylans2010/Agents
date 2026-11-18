@@ -511,7 +511,8 @@ No G4 tool was left unimplemented.
   This slice restores the two missing lines after the `height` parameter
   and removes the compensating pair at the end of the array; the registry
   now counts 166 definitions, 166 closers, 166 parameter-array closes,
-  and the cross-check passes exactly.
+  and the cross-check is written to pass exactly (no build or test run was
+  performed in this environment; the tests are written, not executed).
 
 ### Slice 12: G3 build/test/Xcode/devices
 
