@@ -1560,6 +1560,24 @@ implemented, and why:
   names still overpromise relative to what they do.
 - In Provider Tools mode the registry is empty and executing any system tool
   throws `SystemToolError.toolNotActive` before any runtime call.
+- A thread's `allowedTools` list is enforced in the MCP server, which is the
+  production execution path: the server reads the list from the session
+  thread's document over the control socket (`threads.read`, the same read
+  `stored_system_prompt` uses) on every `tools/list` and `tools/call`, with
+  no caching. `tools/list` returns only the allowed tools (a null or absent
+  list means all 333); `tools/call` rejects a disallowed name before
+  dispatch with the same `UnknownTool` error as an unknown name
+  (JSON-RPC -32602), so the two are indistinguishable to the caller. Unknown
+  names stored in the list are ignored, never surfaced. The same gate is
+  mirrored in Swift `SystemToolRegistry.execute()` through
+  `definition(named:for:allowedTools:)` for the test path only; it is not
+  an enforcement point. Worker turns are covered automatically: a worker
+  child thread inherits the parent's `allowedTools` (`workers_api.rs`), and
+  its MCP server is bound to the child thread, so it reads the child's
+  restricted list. A thread read that fails is a hard failure (list returns
+  -32602, call reports the failure) rather than a silent lift of the
+  restriction. Provider-native tools are still not covered by this: see
+  "What is NOT enforced yet" below.
 
 What is NOT enforced yet, and is not claimed:
 

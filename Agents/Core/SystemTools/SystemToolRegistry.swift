@@ -3837,12 +3837,20 @@ public nonisolated enum SystemToolRegistry {
         tools(for: toolset).first { $0.name == name }
     }
 
+    public static func definition(named name: String, for toolset: AgentToolset, allowedTools: [String]?) -> SystemToolDefinition? {
+        if let allowedTools, !allowedTools.isEmpty, !allowedTools.contains(name) {
+            return nil
+        }
+        return definition(named: name, for: toolset)
+    }
+
     public static func execute(
         _ name: String,
         arguments: [String: JSONValue],
         toolset: AgentToolset,
         runtime: AgentsRuntimeClient,
-        sessionThreadId: String? = nil
+        sessionThreadId: String? = nil,
+        allowedTools: [String]? = nil
     ) async throws -> JSONValue {
         var pinnedArguments = arguments
         if let sessionThreadId, !sessionThreadId.isEmpty {
@@ -3850,7 +3858,7 @@ public nonisolated enum SystemToolRegistry {
             pinnedArguments["parentThreadId"] = .string(sessionThreadId)
         }
         let arguments = pinnedArguments
-        guard let definition = definition(named: name, for: toolset) else {
+        guard let definition = definition(named: name, for: toolset, allowedTools: allowedTools) else {
             if systemTools.contains(where: { $0.name == name }) {
                 throw SystemToolError.toolNotActive(tool: name, toolset: toolset)
             }
@@ -4422,7 +4430,7 @@ public nonisolated enum SystemToolRegistry {
                 throw SystemToolError.missingArgument(tool: name, argument: "toolName")
             }
             if toolName == "list_tools" {
-                return .array(SystemToolRegistry.systemTools.map { .string($0.name) })
+                return .array(SystemToolRegistry.systemTools.filter { Self.definition(named: $0.name, for: toolset, allowedTools: allowedTools) != nil }.map { .string($0.name) })
             }
             guard toolName != "use_mcp" else {
                 throw SystemToolError.executionFailed(tool: name, message: "use_mcp cannot call itself.")
@@ -4436,7 +4444,7 @@ public nonisolated enum SystemToolRegistry {
                   case .object(let toolArguments) = parsed else {
                 throw SystemToolError.executionFailed(tool: name, message: "arguments must be a JSON object string.")
             }
-            return try await execute(toolName, arguments: toolArguments, toolset: toolset, runtime: runtime, sessionThreadId: sessionThreadId)
+            return try await execute(toolName, arguments: toolArguments, toolset: toolset, runtime: runtime, sessionThreadId: sessionThreadId, allowedTools: allowedTools)
         case "take_screenshot":
             let threadId = try requiredString(arguments, "threadId", tool: name)
             let includeScreenshot = optionalBool(arguments, "include_screenshot") ?? true

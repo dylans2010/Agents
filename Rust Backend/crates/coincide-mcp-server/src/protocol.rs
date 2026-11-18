@@ -83,7 +83,9 @@ fn dispatch(state: &crate::ServerState, method: &str, params: &Value) -> Result<
     match method {
         "initialize" => Ok(initialize_result()),
         "ping" => Ok(json!({})),
-        "tools/list" => Ok(json!({"tools": tools::list_json()})),
+        "tools/list" => tools::list_json(state)
+            .map(|tools| json!({"tools": tools}))
+            .map_err(|error| (-32602, error.to_string())),
         "tools/call" => call_tool(state, params),
         "resources/list" => list_resources(state),
         "resources/read" => read_resource(state, params),

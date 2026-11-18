@@ -322,6 +322,69 @@ struct ToolsetTests {
         await client.close()
     }
 
+    @Test("execute() enforces allowedTools, including through use_mcp")
+    func executeEnforcesAllowedTools() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        #expect(SystemToolRegistry.definition(named: "mem_store", for: .system, allowedTools: ["mem_store"]) != nil)
+        #expect(SystemToolRegistry.definition(named: "mem_store", for: .system, allowedTools: ["mem_retrieve"]) == nil)
+        #expect(SystemToolRegistry.definition(named: "mem_store", for: .system, allowedTools: ["mem_store", "not_a_tool"]) != nil)
+        #expect(SystemToolRegistry.definition(named: "mem_store", for: .system, allowedTools: nil) != nil)
+        #expect(SystemToolRegistry.definition(named: "mem_store", for: .system, allowedTools: []) != nil)
+        #expect(SystemToolRegistry.definition(named: "no_such_tool", for: .system, allowedTools: ["no_such_tool"]) == nil)
+        let stored = try await SystemToolRegistry.execute(
+            "mem_store",
+            arguments: ["key": .string("allowed"), "value": .string("yes"), "scope": .string("global")],
+            toolset: .system, runtime: client, allowedTools: ["mem_store"]
+        )
+        #expect(stored["overwritten"]?.boolValue == false)
+        let unlisted = try await SystemToolRegistry.execute(
+            "mem_store",
+            arguments: ["key": .string("unlisted"), "value": .string("yes"), "scope": .string("global")],
+            toolset: .system, runtime: client, allowedTools: nil
+        )
+        #expect(unlisted["overwritten"]?.boolValue == false)
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "mem_store",
+                arguments: ["key": .string("blocked"), "value": .string("no"), "scope": .string("global")],
+                toolset: .system, runtime: client, allowedTools: ["mem_retrieve"]
+            )
+            Issue.record("Expected toolNotActive error for disallowed mem_store")
+        } catch let error as SystemToolError {
+            #expect(error == .toolNotActive(tool: "mem_store", toolset: .system))
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "use_mcp",
+                arguments: [
+                    "serverName": .string("coincide"),
+                    "toolName": .string("mem_store"),
+                    "arguments": .string("{\"key\": \"via_mcp\", \"value\": \"no\", \"scope\": \"global\"}"),
+                ],
+                toolset: .system, runtime: client, allowedTools: ["use_mcp"]
+            )
+            Issue.record("Expected toolNotActive error for mem_store reached through use_mcp")
+        } catch let error as SystemToolError {
+            #expect(error == .toolNotActive(tool: "mem_store", toolset: .system))
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+        let viaMcp = try await SystemToolRegistry.execute(
+            "use_mcp",
+            arguments: [
+                "serverName": .string("coincide"),
+                "toolName": .string("mem_store"),
+                "arguments": .string("{\"key\": \"via_mcp\", \"value\": \"yes\", \"scope\": \"global\"}"),
+            ],
+            toolset: .system, runtime: client, allowedTools: ["use_mcp", "mem_store"]
+        )
+        #expect(viaMcp["overwritten"]?.boolValue == false)
+        await client.close()
+    }
+
     @Test("Executing a system tool without required arguments fails before any runtime call")
     func missingArgumentRefused() async throws {
         let (client, tempRoot) = try Self.makeClient()

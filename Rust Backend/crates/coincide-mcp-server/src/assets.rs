@@ -157,3 +157,35 @@ pub fn stored_system_prompt(state: &crate::ServerState) -> Result<Option<String>
         .filter(|prompt| !prompt.trim().is_empty())
         .map(str::to_owned))
 }
+
+pub fn stored_allowed_tools(state: &crate::ServerState) -> Result<Option<Vec<String>>> {
+    let Some(thread_id) = &state.thread_id else {
+        return Ok(None);
+    };
+    let response = coincide_core::control::request(
+        &state.socket,
+        &json!({"method": "threads.read", "params": {"threadId": thread_id}}),
+    )
+    .with_context(|| {
+        format!(
+            "Cannot reach the Agents engine control socket at {}",
+            state.socket.display()
+        )
+    })?;
+    if let Some(error) = response.get("error") {
+        bail!(
+            "{}",
+            error["message"].as_str().unwrap_or("Thread read failed")
+        );
+    }
+    let result = response.get("result").cloned().unwrap_or(Value::Null);
+    Ok(result["allowedTools"]
+        .as_array()
+        .map(|names| {
+            names
+                .iter()
+                .filter_map(|name| name.as_str().map(str::to_owned))
+                .collect::<Vec<_>>()
+        })
+        .filter(|names| !names.is_empty()))
+}

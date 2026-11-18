@@ -7783,9 +7783,14 @@ pub fn input_schema(def: &ToolDef) -> Value {
     })
 }
 
-pub fn list_json() -> Value {
+pub fn list_json(state: &crate::ServerState) -> Result<Value> {
+    let allowed = crate::assets::stored_allowed_tools(state)?;
+    Ok(list_json_filtered(allowed.as_deref()))
+}
+
+pub fn list_json_filtered(allowed_tools: Option<&[String]>) -> Value {
     Value::Array(
-        DEFINITIONS
+        allowed_definitions(allowed_tools)
             .iter()
             .map(|def| {
                 json!({
@@ -7796,6 +7801,16 @@ pub fn list_json() -> Value {
             })
             .collect(),
     )
+}
+
+fn allowed_definitions(allowed_tools: Option<&[String]>) -> Vec<&'static ToolDef> {
+    DEFINITIONS
+        .iter()
+        .filter(|def| match allowed_tools {
+            None => true,
+            Some(names) => names.iter().any(|name| name == def.name),
+        })
+        .collect()
 }
 
 pub enum CallError {
@@ -16895,6 +16910,14 @@ fn g6_use_app(
     }))
 }
 
+fn ensure_allowed(name: &str, allowed_tools: Option<&[String]>) -> Result<(), CallError> {
+    match allowed_tools {
+        None => Ok(()),
+        Some(names) if names.iter().any(|allowed| allowed == name) => Ok(()),
+        Some(_) => Err(CallError::UnknownTool(name.to_owned())),
+    }
+}
+
 pub fn call(
     state: &crate::ServerState,
     name: &str,
@@ -16903,6 +16926,9 @@ pub fn call(
     if definition(name).is_none() {
         return Err(CallError::UnknownTool(name.to_owned()));
     }
+    let allowed = crate::assets::stored_allowed_tools(state)
+        .map_err(|error| failed(error.to_string()))?;
+    ensure_allowed(name, allowed.as_deref())?;
     let args = with_session_defaults(state, arguments);
     match name {
         "read_file" => coincide_core::workspace_tools::read_file(&args).map_err(|e| failed(e.to_string())),
@@ -17393,7 +17419,10 @@ pub fn call(
                 }
             };
             if tool_name == "list_tools" {
-                return Ok(json!(DEFINITIONS.iter().map(|def| def.name).collect::<Vec<_>>()));
+                return Ok(json!(allowed_definitions(allowed.as_deref())
+                    .iter()
+                    .map(|def| def.name)
+                    .collect::<Vec<_>>()));
             }
             if tool_name == "use_mcp" {
                 return Err(failed("use_mcp cannot call itself."));
@@ -21426,5 +21455,57 @@ mod tests {
             default_parent_thread(&unbound, json!({"parentThreadId": "model-thread"}))["parentThreadId"],
             "model-thread"
         );
+    }
+
+    fn listed_names(value: &Value) -> Vec<&str> {
+        value
+            .as_array()
+            .expect("tool list")
+            .iter()
+            .map(|tool| tool["name"].as_str().expect("tool name"))
+            .collect()
+    }
+
+    #[test]
+    fn allowed_tools_list_filtering() {
+        assert_eq!(listed_names(&list_json_filtered(None)).len(), 333);
+        assert_eq!(
+            listed_names(&list_json_filtered(Some(&[
+                "read_file".to_owned(),
+                "write_file".to_owned()
+            ]))),
+            vec!["read_file", "write_file"]
+        );
+        assert_eq!(
+            listed_names(&list_json_filtered(Some(&[
+                "read_file".to_owned(),
+                "not_a_tool".to_owned()
+            ]))),
+            vec!["read_file"]
+        );
+        assert!(listed_names(&list_json_filtered(Some(&["not_a_tool".to_owned()]))).is_empty());
+    }
+
+    #[test]
+    fn allowed_tools_call_gate() {
+        assert!(ensure_allowed("read_file", None).is_ok());
+        assert!(ensure_allowed(
+            "read_file",
+            Some(&["read_file".to_owned()])
+        )
+        .is_ok());
+        assert!(ensure_allowed(
+            "read_file",
+            Some(&["read_file".to_owned(), "not_a_tool".to_owned()])
+        )
+        .is_ok());
+        assert!(definition("no_such_tool").is_none());
+        match ensure_allowed("write_file", Some(&["read_file".to_owned()])) {
+            Err(CallError::UnknownTool(name)) => assert_eq!(name, "write_file"),
+            Ok(()) => panic!("disallowed tool must be rejected"),
+            Err(CallError::Failed(message)) => {
+                panic!("disallowed tool must not report Failed: {message}")
+            }
+        }
     }
 }
