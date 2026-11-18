@@ -201,10 +201,16 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
 
     public func loadOrRebuild(progress: ((SystemAssetIndexProgress) -> Void)? = nil) throws -> SystemAssetIndex {
         lock.lock()
-        defer { lock.unlock() }
-        progress?(SystemAssetIndexProgress(phase: .loading, totalFiles: 0, processedFiles: 0, changedDocuments: 0))
+        var pending: [SystemAssetIndexProgress] = []
+        defer {
+            lock.unlock()
+            for event in pending {
+                progress?(event)
+            }
+        }
+        pending.append(SystemAssetIndexProgress(phase: .loading, totalFiles: 0, processedFiles: 0, changedDocuments: 0))
         if let loaded = readPersisted() {
-            progress?(SystemAssetIndexProgress(phase: .validating, totalFiles: loaded.documents.count, processedFiles: 0, changedDocuments: 0))
+            pending.append(SystemAssetIndexProgress(phase: .validating, totalFiles: loaded.documents.count, processedFiles: 0, changedDocuments: 0))
             do {
                 let repaired = try validateAndRepair(loaded)
                 let baseIndex = SystemAssetIndex(
@@ -229,7 +235,7 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
                     persistenceAvailable: _health.persistenceAvailable
                 )
                 do {
-                    let outcome = try refreshFromPayload(repaired, progress: progress)
+                    let outcome = try refreshFromPayload(repaired, progress: { pending.append($0) })
                     return outcome.index
                 } catch {
                     _health.lastRefreshError = Self.describe(error)
@@ -241,7 +247,7 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
             }
         }
         do {
-            return try fullRebuild(progress: progress)
+            return try fullRebuild(progress: { pending.append($0) })
         } catch let error as SystemAssetError {
             _loadError = error
             throw error
@@ -254,7 +260,13 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
 
     public func refresh(progress: ((SystemAssetIndexProgress) -> Void)? = nil) -> SystemAssetIndexRefreshResult {
         lock.lock()
-        defer { lock.unlock() }
+        var pending: [SystemAssetIndexProgress] = []
+        defer {
+            lock.unlock()
+            for event in pending {
+                progress?(event)
+            }
+        }
         guard _snapshot != nil else {
             return SystemAssetIndexRefreshResult(
                 succeeded: false,
@@ -271,7 +283,7 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
         }
         if let current = _payload {
             do {
-                let outcome = try refreshFromPayload(current, progress: progress)
+                let outcome = try refreshFromPayload(current, progress: { pending.append($0) })
                 return outcome.result
             } catch {
                 _health.lastRefreshError = Self.describe(error)
@@ -314,7 +326,7 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
                 lastRefreshError: nil,
                 persistenceAvailable: false
             )
-            progress?(SystemAssetIndexProgress(phase: .done, totalFiles: rebuilt.documentCount, processedFiles: rebuilt.documentCount, changedDocuments: changed.count))
+            pending.append(SystemAssetIndexProgress(phase: .done, totalFiles: rebuilt.documentCount, processedFiles: rebuilt.documentCount, changedDocuments: changed.count))
             return SystemAssetIndexRefreshResult(
                 succeeded: true,
                 error: nil,
@@ -406,6 +418,19 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
         let allPostings = payload.postings.values.flatMap { $0 }
         if allPostings.contains(where: { ($0.chunkID != nil && !chunkIDs.contains($0.chunkID!)) || !documentIDs.contains($0.documentID) }) {
             structuresDirty = true
+        }
+        if !structuresDirty {
+            let docLevelMissing = documents.contains { document in
+                let fields = [(document.title, SystemAssetPostingField.title), (document.fileName, .fileName), (document.id, .identifier)]
+                return fields.contains { field in
+                    SystemAssetIndex.tokenize(SystemAssetIndex.normalized(field.0)).contains { token in
+                        !(payload.postings[token] ?? []).contains { $0.chunkID == nil && $0.documentID == document.id && $0.field == field.1 }
+                    }
+                }
+            }
+            if docLevelMissing {
+                structuresDirty = true
+            }
         }
         if !reparsePaths.isEmpty {
             var byPath: [String: SystemAssetDocument] = [:]
@@ -531,6 +556,21 @@ public nonisolated final class SystemAssetIndexStore: @unchecked Sendable {
                 moved.id = (file.relativePath as NSString).deletingPathExtension
                 moved.fileName = file.fileURL.lastPathComponent
                 moved.relativePath = file.relativePath
+                if !oldDocument.rawText.contains("<!-- system-index-category:") {
+                    let directory = (file.relativePath as NSString).deletingLastPathComponent
+                    if !directory.isEmpty && directory != "." {
+                        moved.category = (directory as NSString).lastPathComponent
+                    } else {
+                        moved.category = "General"
+                    }
+                }
+                let hasHeading = oldDocument.rawText.components(separatedBy: "\n").contains { line in
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    return trimmed.hasPrefix("# ") && !String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces).isEmpty
+                }
+                if !hasHeading {
+                    moved.title = moved.id
+                }
                 documentsByPath.removeValue(forKey: matchPath)
                 documentsByPath[file.relativePath] = moved
                 fingerprints.removeValue(forKey: matchPath)

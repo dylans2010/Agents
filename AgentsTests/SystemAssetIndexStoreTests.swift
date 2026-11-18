@@ -133,6 +133,36 @@ struct SystemAssetIndexStoreTests {
         let renamed = try #require(manager.document(fileName: "Renamed.md"))
         #expect(renamed.contentHash == alphaHash)
         #expect(renamed.id == "Renamed")
+        #expect(renamed.title == "Alpha")
+    }
+
+    @Test("Renaming across directories re-derives category and a heading-less title")
+    func renameRederivesCategoryAndFallbackTitle() throws {
+        let source = Self.makeTemporaryDirectory()
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        let guides = source.appendingPathComponent("Guides")
+        try FileManager.default.createDirectory(at: guides, withIntermediateDirectories: true)
+        try "Body without a heading and token guidebody.\n".write(to: guides.appendingPathComponent("Old.md"), atomically: true, encoding: .utf8)
+        try "# Kept Title\n\nHeaded body with token headedbody.\n".write(to: guides.appendingPathComponent("Headed.md"), atomically: true, encoding: .utf8)
+        let manager = Self.makeManager(source: source, store: store)
+        let before = try #require(manager.document(fileName: "Old.md"))
+        #expect(before.category == "Guides")
+        #expect(before.title == "Guides/Old")
+        let other = source.appendingPathComponent("Other")
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        try FileManager.default.moveItem(at: guides.appendingPathComponent("Old.md"), to: other.appendingPathComponent("New.md"))
+        try FileManager.default.moveItem(at: guides.appendingPathComponent("Headed.md"), to: other.appendingPathComponent("Headed.md"))
+        let result = manager.refresh()
+        #expect(result.succeeded)
+        #expect(result.renamedDocumentIDs.count == 2)
+        let renamed = try #require(manager.document(fileName: "New.md"))
+        #expect(renamed.category == "Other")
+        #expect(renamed.title == "Other/New")
+        #expect(renamed.id == "Other/New")
+        let headed = try #require(manager.document(fileName: "Headed.md"))
+        #expect(headed.category == "Other")
+        #expect(headed.title == "Kept Title")
     }
 
     @Test("Touching a file without changing its bytes reports no content changes")
@@ -272,6 +302,46 @@ struct SystemAssetIndexStoreTests {
         #expect(index.keywords(forDocumentID: "Quokka").contains("notes"))
     }
 
+    @Test("Doc-level postings keep every document sharing a title or file-name token")
+    func docLevelPostingsKeepEveryDocument() throws {
+        let source = Self.makeTemporaryDirectory()
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        try "# Swift Guide\n\nFirst swift body.\n".write(to: source.appendingPathComponent("SwiftOne.md"), atomically: true, encoding: .utf8)
+        try "# Swift Notes\n\nSecond swift body.\n".write(to: source.appendingPathComponent("SwiftTwo.md"), atomically: true, encoding: .utf8)
+        let manager = Self.makeManager(source: source, store: store)
+        let index = try #require(manager.index)
+        let titleDocumentIDs = Set(index.postings(for: "swift").filter { $0.field == .title }.map(\.documentID))
+        #expect(titleDocumentIDs == ["SwiftOne", "SwiftTwo"])
+        let fileNameDocumentIDs = Set(index.postings(for: "md").filter { $0.field == .fileName }.map(\.documentID))
+        #expect(fileNameDocumentIDs == ["SwiftOne", "SwiftTwo"])
+    }
+
+    @Test("A persisted index with lossy doc-level postings is re-derived on load")
+    func lossyPersistedPostingsRederivedOnLoad() throws {
+        let source = Self.makeTemporaryDirectory()
+        let storeDir = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, storeDir]) }
+        try "# Swift Guide\n\nFirst swift body.\n".write(to: source.appendingPathComponent("SwiftOne.md"), atomically: true, encoding: .utf8)
+        try "# Swift Notes\n\nSecond swift body.\n".write(to: source.appendingPathComponent("SwiftTwo.md"), atomically: true, encoding: .utf8)
+        let first = Self.makeManager(source: source, store: storeDir)
+        #expect(first.isReady)
+        let firstVersion = first.indexHealth.indexVersion
+        let store = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: storeDir)
+        var payload = try SystemAssetIndexStore.decodePayload(Data(contentsOf: store.storeFileURL))
+        var swiftPostings = payload.postings["swift"] ?? []
+        swiftPostings.removeAll { $0.field == .title && $0.documentID == "SwiftOne" }
+        payload.postings["swift"] = swiftPostings
+        payload.checksum = SystemAssetIndexStore.checksum(of: payload)
+        try SystemAssetIndexStore.encodePayload(payload).write(to: store.storeFileURL, options: [.atomic])
+        let second = Self.makeManager(source: source, store: storeDir)
+        #expect(second.isReady)
+        let index = try #require(second.index)
+        let titleDocumentIDs = Set(index.postings(for: "swift").filter { $0.field == .title }.map(\.documentID))
+        #expect(titleDocumentIDs == ["SwiftOne", "SwiftTwo"])
+        #expect(second.indexHealth.indexVersion == firstVersion + 1)
+    }
+
     @Test("Relationships honor declared dependencies in both directions")
     func relationshipsFollowDependencies() throws {
         let source = Self.makeTemporaryDirectory()
@@ -310,6 +380,21 @@ struct SystemAssetIndexStoreTests {
         #expect(manager.indexHealth.lastRefreshChangedCount == 1)
         #expect(manager.indexHealth.lastRefreshAt != nil)
         #expect(manager.indexHealth.lastRefreshError == nil)
+    }
+
+    @Test("Progress callbacks may read the store without deadlocking")
+    func progressCallbacksMayReadStore() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        let manager = Self.makeManager(source: source, store: store)
+        var readCounts: [Int] = []
+        let result = manager.refresh { _ in
+            readCounts.append(manager.indexHealth.totalDocuments)
+        }
+        #expect(result.succeeded)
+        #expect(!readCounts.isEmpty)
+        #expect(readCounts.allSatisfy { $0 == 2 })
     }
 
     @Test("An unusable store directory degrades gracefully without disabling retrieval")

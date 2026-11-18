@@ -77,9 +77,6 @@ public nonisolated struct SystemAssetDocument: Sendable, Hashable, Codable {
         let marker = "<!-- system-index-category:"
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("#") {
-                break
-            }
             guard let range = trimmed.range(of: marker) else {
                 continue
             }
@@ -102,9 +99,6 @@ public nonisolated struct SystemAssetDocument: Sendable, Hashable, Codable {
         var found: [String] = []
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("#") {
-                break
-            }
             guard let range = trimmed.range(of: marker) else {
                 continue
             }
@@ -125,9 +119,6 @@ public nonisolated struct SystemAssetDocument: Sendable, Hashable, Codable {
         var found: [String] = []
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("#") {
-                break
-            }
             guard let range = trimmed.range(of: marker) else {
                 continue
             }

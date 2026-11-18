@@ -239,7 +239,7 @@ public nonisolated struct SystemAssetIndexStructures {
             }
         }
         for (token, occurrences) in counts {
-            let key = (chunkID ?? "") + "|" + field.rawValue
+            let key = documentID + "|" + (chunkID ?? "") + "|" + field.rawValue
             var byKey = accumulator[token] ?? [:]
             byKey[key] = SystemAssetPosting(chunkID: chunkID, documentID: documentID, field: field, weight: weight, occurrences: occurrences)
             accumulator[token] = byKey

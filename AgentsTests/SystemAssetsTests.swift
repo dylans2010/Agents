@@ -144,6 +144,12 @@ struct SystemAssetsTests {
         #expect(index.document(fileName: "CallTool.md")?.dependencies == ["Safeguards.md", "AvailableTools.md"])
     }
 
+    @Test("The central index records dependencies declared after its first heading")
+    func centralIndexRecordsPostHeadingDependencies() {
+        let manager = Self.manager()
+        #expect(manager.document(fileName: "AgentSystemAsset.md")?.dependencies == ["Safeguards.md", "CallTool.md"])
+    }
+
     @Test("Content hashes are stable across loads and sections are never empty")
     func contentHashComparison() throws {
         let directory = Self.assetsDirectory()
