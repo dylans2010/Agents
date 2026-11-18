@@ -52,10 +52,12 @@ public struct AssistantLaunchField: Identifiable, Hashable, Sendable {
 public struct AssistantLaunchResult: Hashable, Sendable {
     public let threadID: UUID?
     public let errorMessage: String?
+    public let warningMessage: String?
 
-    public init(threadID: UUID? = nil, errorMessage: String? = nil) {
+    public init(threadID: UUID? = nil, errorMessage: String? = nil, warningMessage: String? = nil) {
         self.threadID = threadID
         self.errorMessage = errorMessage
+        self.warningMessage = warningMessage
     }
 }
 
@@ -72,6 +74,7 @@ public final class AssistantLaunchViewModel {
     public private(set) var branches: [RemoteBranch]
     public private(set) var isLaunching: Bool = false
     public private(set) var launchError: String?
+    public private(set) var launchWarning: String?
     public private(set) var launchedThreadID: UUID?
 
     private let launcher: Launcher
@@ -107,6 +110,12 @@ public final class AssistantLaunchViewModel {
         let text = requirement.lowercased()
         if text.contains("scope") {
             return .scope
+        }
+        if text.contains("base branch and the head branch") || text.contains("list of") {
+            return .multiLineText
+        }
+        if text.contains("branch name and any ticket reference") || text.contains("branch or commit range") {
+            return .text
         }
         if text.contains("pasted") || text.contains("stack trace") || text.contains("crash report")
             || text.contains("crash log") || text.contains("log text") || text.contains("staged diff")
@@ -156,7 +165,7 @@ public final class AssistantLaunchViewModel {
             permissionProfile: assistant.permissionProfile.remote,
             inputRequirements: assistant.inputRequirements,
             version: assistant.version,
-            source: assistant.isBuiltIn ? .unknown : .custom
+            source: assistant.isBuiltIn ? .override : .custom
         )
     }
 
@@ -177,7 +186,7 @@ public final class AssistantLaunchViewModel {
         for field in fields {
             let value = field.assembledValue
             guard !value.isEmpty else { continue }
-            sections.append("\(field.title): \(value)")
+            sections.append("\(field.title) (\(field.requirement)): \(value)")
         }
         let extra = extraInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
         if !extra.isEmpty {
@@ -212,24 +221,27 @@ public final class AssistantLaunchViewModel {
         }
         isLaunching = true
         launchError = nil
+        launchWarning = nil
         launchedThreadID = nil
         let result = await launcher(remoteAssistant, assembledTask, projectID)
         isLaunching = false
         launchedThreadID = result.threadID
         launchError = result.errorMessage
+        launchWarning = result.warningMessage
     }
 
     public static func appModelLauncher(appModel: AppModel) -> Launcher {
         { assistant, task, projectID in
             let previousThreadID = appModel.selectedThreadID
-            let previousError = appModel.lastError
+            appModel.lastError = nil
             await appModel.launchAssistant(assistant, task: task, in: projectID)
+            let launchError = appModel.lastError
             if let selected = appModel.selectedThreadID,
                selected != previousThreadID,
                let threadID = UUID(uuidString: selected) {
-                return AssistantLaunchResult(threadID: threadID, errorMessage: nil)
+                return AssistantLaunchResult(threadID: threadID, errorMessage: nil, warningMessage: launchError)
             }
-            if let error = appModel.lastError, error != previousError {
+            if let error = launchError {
                 return AssistantLaunchResult(threadID: nil, errorMessage: error)
             }
             return AssistantLaunchResult(

@@ -69,6 +69,13 @@ public struct AssistantLaunchView: View {
                             isError: false
                         )
                     }
+                    if let warning = viewModel.wrappedValue.launchWarning {
+                        statusCard(
+                            text: "Launched, but a follow-up step failed: \(warning)",
+                            systemImage: "exclamationmark.triangle.fill",
+                            isError: true
+                        )
+                    }
                 }
                 .padding(16)
             }

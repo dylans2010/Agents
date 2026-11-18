@@ -84,12 +84,12 @@ struct AssistantLaunchViewModelTests {
             ("The crash report, stack trace, or crash log", .multiLineText),
             ("The review comments pasted from the pull request", .multiLineText),
             ("Diff, branch, or commit range under review", .multiLineText),
-            ("The base branch and the head branch for the pull request", .pullRequest),
+            ("The base branch and the head branch for the pull request", .multiLineText),
             ("Pull request number, branch name, or diff range to review", .pullRequest),
             ("The repository area or component the issue concerns, if known", .issue),
             ("The branch containing the changes under review", .branch),
             ("The default branch name the repository merges into", .branch),
-            ("The list of conflicted files, or the branch being merged", .branch),
+            ("The list of conflicted files, or the branch being merged", .multiLineText),
             ("Repository or directory to explain", .directory),
             ("The repository working directory to inspect", .directory),
             ("Manifests and lockfiles to audit: Package.swift, Package.resolved, Podfile, or Cartfile", .files),
@@ -101,10 +101,30 @@ struct AssistantLaunchViewModelTests {
             ("Behavior that must be preserved, including the tests that must keep passing", .constraints),
             ("The platforms, versions, or constraints the answer must respect", .constraints),
             ("Whether deletion is allowed, or report-only", .constraints),
+            ("The branch name and any ticket reference to mention in the message", .text),
+            ("The list of branches to evaluate, or permission to list all local branches", .multiLineText),
+            ("Branch or commit range included in the release", .text),
             ("The question about the repository", .text),
             ("Commit SHA or commit range to summarize", .text),
             ("The version number for the release notes", .text),
             ("The technical question to research", .text),
+        ]
+        for (requirement, expected) in cases {
+            #expect(
+                AssistantLaunchViewModel.kind(for: requirement) == expected,
+                "Requirement '\(requirement)' should map to \(expected)"
+            )
+        }
+    }
+
+    @Test("Multi-value, list, and range requirements map to free-text fields")
+    func multiValueRequirementsMapToFreeTextFields() {
+        let cases: [(String, AssistantLaunchFieldKind)] = [
+            ("The base branch and the head branch for the pull request", .multiLineText),
+            ("The list of conflicted files, or the branch being merged", .multiLineText),
+            ("The branch name and any ticket reference to mention in the message", .text),
+            ("The list of branches to evaluate, or permission to list all local branches", .multiLineText),
+            ("Branch or commit range included in the release", .text),
         ]
         for (requirement, expected) in cases {
             #expect(
@@ -153,9 +173,9 @@ struct AssistantLaunchViewModelTests {
         #expect(viewModel.assembledTask == """
             Build the thing
 
-            Branch: feature/x
+            Branch (The branch containing the changes under review): feature/x
 
-            Input: Crash on launch
+            Input (The issue text pasted from the tracker): Crash on launch
 
             Additional instructions: Be careful.
             """)
@@ -173,9 +193,9 @@ struct AssistantLaunchViewModelTests {
         #expect(viewModel.assembledTask == """
             Audit the dependencies
 
-            Directory: /Users/dylan/Projects/App
+            Directory (Repository or directory to explain): /Users/dylan/Projects/App
 
-            Files: /Users/dylan/Projects/App/Package.swift, /Users/dylan/Projects/App/Package.resolved
+            Files (Manifests and lockfiles to audit: Package.swift, Package.resolved, Podfile, or Cartfile): /Users/dylan/Projects/App/Package.swift, /Users/dylan/Projects/App/Package.resolved
             """)
     }
 
@@ -215,6 +235,37 @@ struct AssistantLaunchViewModelTests {
         #expect(viewModel.isLaunching == false)
     }
 
+    @Test("Launch surfaces a post-creation warning alongside the created thread")
+    func launchSurfacesWarningAlongsideSuccess() async {
+        let threadID = UUID()
+        let recorder = LaunchRecorder()
+        recorder.result = AssistantLaunchResult(threadID: threadID, errorMessage: nil, warningMessage: "Workspace refresh failed")
+        let viewModel = Self.viewModel(assistant: Self.definition(), recorder: recorder)
+        viewModel.task = "Build the thing"
+        await viewModel.launch()
+        #expect(viewModel.launchedThreadID == threadID)
+        #expect(viewModel.launchError == nil)
+        #expect(viewModel.launchWarning == "Workspace refresh failed")
+        #expect(viewModel.isLaunching == false)
+        recorder.result = AssistantLaunchResult(threadID: threadID, errorMessage: nil)
+        await viewModel.launch()
+        #expect(viewModel.launchedThreadID == threadID)
+        #expect(viewModel.launchWarning == nil)
+    }
+
+    @Test("App-model launcher does not report a stale error from before the launch")
+    func appModelLauncherDoesNotReportStaleError() async {
+        let appModel = AppModel()
+        appModel.lastError = "A stale error from an earlier action"
+        let launcher = AssistantLaunchViewModel.appModelLauncher(appModel: appModel)
+        let assistant = Self.viewModel(assistant: Self.definition()).remoteAssistant
+        let result = await launcher(assistant, "Build the thing", nil)
+        #expect(result.threadID == nil)
+        #expect(result.errorMessage == "The assistant did not start a conversation. The runtime may not be connected.")
+        #expect(result.warningMessage == nil)
+        #expect(appModel.lastError == nil)
+    }
+
     @Test("Launch does not run with an empty task")
     func launchDoesNotRunWithEmptyTask() async {
         let recorder = LaunchRecorder()
@@ -239,6 +290,10 @@ struct AssistantLaunchViewModelTests {
         let captured = recorder.calls[0].assistant
         #expect(captured.id == definition.persistenceID)
         #expect(captured.name == "Feature Builder")
+        #expect(captured.description == definition.description)
+        #expect(captured.icon == definition.icon)
+        #expect(captured.allowedTools == definition.allowedTools)
+        #expect(captured.source == .override)
         #expect(captured.category == .buildingFixing)
         #expect(captured.systemPrompt == definition.systemPrompt)
         #expect(captured.intendedTasks == ["Build features"])
