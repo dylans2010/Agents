@@ -90,17 +90,19 @@ struct SystemAssetsTests {
         #expect(manager.retrieve(request: nil, provider: nil, model: nil).isEmpty)
     }
 
-    @Test("Prompt construction includes the mandatory sections with Safeguards first")
-    func promptIncludesMandatorySections() {
+    @Test("Prompt starts with the concise baseline and never forces whole Safeguards or Identity")
+    func promptStartsWithConciseBaseline() throws {
         let manager = Self.manager()
         let prompt = manager.systemPrompt(for: "Fix the SwiftUI layout bug", provider: "claude", model: "sonnet")
+        let safeguards = try #require(manager.document(fileName: "Safeguards.md"))
+        let identity = try #require(manager.document(fileName: "Identity.md"))
         #expect(!prompt.isBaselineFallback)
         #expect(prompt.loadError == nil)
-        #expect(prompt.includedDocumentIDs.contains("Safeguards"))
-        #expect(prompt.includedDocumentIDs.contains("Identity"))
-        #expect(prompt.includedDocumentIDs.first == "Safeguards")
-        #expect(prompt.text.contains("Safeguards"))
+        #expect(prompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        #expect(!prompt.text.contains(safeguards.rawText))
+        #expect(!prompt.text.contains(identity.rawText))
         #expect(prompt.estimatedTokens > 0)
+        #expect(prompt.estimatedTokens <= SystemPromptBudget.defaultBudgetTokens)
     }
 
     @Test("Tool-related requests route AvailableTools and ToolRoutingPolicy")
@@ -253,25 +255,25 @@ struct SystemAssetsTests {
         #expect(descriptor.extraAssetFileNames.isEmpty)
     }
 
-    @Test("Assistant section is forced after Safeguards and Identity and carries its id")
-    func assistantSectionAfterMandatorySections() throws {
+    @Test("Assistant section follows the baseline and carries its id")
+    func assistantSectionAfterBaseline() throws {
         let manager = Self.manager()
         let prompt = manager.systemPrompt(
             for: "Fix the SwiftUI layout bug", provider: "claude", model: "sonnet",
             assistant: Self.assistantDescriptor())
-        #expect(!prompt.isBaselineFallback)
-        #expect(prompt.assistantID == "assistant-review")
-        #expect(prompt.includedDocumentIDs.first == "Safeguards")
-        #expect(prompt.includedDocumentIDs.dropFirst().first == "Identity")
-        #expect(prompt.text.contains("Assistant \"Reviewer\" instructions:"))
-        #expect(prompt.text.contains("Review every diff for secrets."))
         let safeguards = try #require(manager.document(fileName: "Safeguards.md"))
         let identity = try #require(manager.document(fileName: "Identity.md"))
-        let safeguardsRange = try #require(prompt.text.range(of: safeguards.rawText))
-        let identityRange = try #require(prompt.text.range(of: identity.rawText))
+        #expect(!prompt.isBaselineFallback)
+        #expect(prompt.assistantID == "assistant-review")
+        #expect(prompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        #expect(prompt.text.contains("Assistant \"Reviewer\" instructions:"))
+        #expect(prompt.text.contains("Review every diff for secrets."))
+        #expect(!prompt.text.contains(safeguards.rawText))
+        #expect(!prompt.text.contains(identity.rawText))
+        #expect(prompt.estimatedTokens <= SystemPromptBudget.defaultBudgetTokens)
+        let baselineRange = try #require(prompt.text.range(of: SystemPromptBuilder.conciseBaseline))
         let assistantRange = try #require(prompt.text.range(of: "Review every diff for secrets."))
-        #expect(identityRange.lowerBound >= safeguardsRange.upperBound)
-        #expect(assistantRange.lowerBound >= identityRange.upperBound)
+        #expect(assistantRange.lowerBound >= baselineRange.upperBound)
     }
 
     @Test("Assistant instructions survive a token budget that crowds out search results")
@@ -288,7 +290,7 @@ struct SystemAssetsTests {
         )
         #expect(!prompt.isBaselineFallback)
         #expect(prompt.assistantID == "assistant-review")
-        #expect(prompt.text.contains("Review every diff for secrets."))
+        #expect(prompt.text == SystemPromptBuilder.conciseBaseline + "\n\nAssistant \"Reviewer\" instructions:\nReview every diff for secrets.")
         #expect(!prompt.omittedDocumentIDs.isEmpty)
     }
 
@@ -304,16 +306,20 @@ struct SystemAssetsTests {
         #expect(prompt.text.contains("Review every diff for secrets."))
     }
 
-    @Test("An extra asset file loads into the prompt right after the Assistant section")
+    @Test("An extra asset file loads into the prompt after the Assistant section when the budget allows")
     func extraAssetLoads() throws {
         let manager = Self.manager()
+        let index = try #require(manager.index)
         let availableTools = try #require(manager.document(fileName: "AvailableTools.md"))
-        let prompt = manager.systemPrompt(
-            for: nil, provider: nil, model: nil,
+        let prompt = SystemPromptBuilder().build(
+            index: index,
+            request: nil, provider: nil, model: nil,
+            maxEstimatedTokens: 20000,
             assistant: Self.assistantDescriptor(extraAssetFileNames: ["AvailableTools.md"]))
         #expect(!prompt.isBaselineFallback)
         #expect(prompt.assistantID == "assistant-review")
-        #expect(prompt.includedDocumentIDs.prefix(3) == ["Safeguards", "Identity", "AvailableTools"])
+        #expect(prompt.includedDocumentIDs.first == "AvailableTools")
+        #expect(prompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
         #expect(prompt.text.contains(availableTools.rawText))
     }
 
@@ -330,7 +336,64 @@ struct SystemAssetsTests {
         #expect(viaManager.includedDocumentIDs == viaBuilder.includedDocumentIDs)
         #expect(viaManager.omittedDocumentIDs == viaBuilder.omittedDocumentIDs)
         #expect(viaManager.estimatedTokens == viaBuilder.estimatedTokens)
-        #expect(viaManager.includedDocumentIDs.first == "Safeguards")
+        #expect(viaManager.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+    }
+
+    @Test("Concise baseline stays below the target cap and is the fallback text")
+    func baselineSizeBelowTargetCap() {
+        let baselineTokens = max(1, SystemPromptBuilder.conciseBaseline.count / 4)
+        #expect(baselineTokens < 1000)
+        #expect(baselineTokens < SystemPromptBudget.defaultBudgetTokens / 2)
+        #expect(SystemPromptBuilder.minimalBaselinePrompt(error: nil).text == SystemPromptBuilder.conciseBaseline)
+        #expect(SystemPromptBuilder.minimalBaselinePrompt(error: nil).isBaselineFallback)
+    }
+
+    @Test("Assistant prompt respects the same budget and drops an extra asset that does not fit")
+    func assistantPromptRespectsBudget() throws {
+        let manager = Self.manager()
+        let availableTools = try #require(manager.document(fileName: "AvailableTools.md"))
+        let prompt = manager.systemPrompt(
+            for: "Fix the SwiftUI layout bug", provider: "claude", model: "sonnet",
+            assistant: Self.assistantDescriptor(extraAssetFileNames: ["AvailableTools.md"]))
+        #expect(!prompt.isBaselineFallback)
+        #expect(prompt.assistantID == "assistant-review")
+        #expect(prompt.text.contains("Review every diff for secrets."))
+        #expect(prompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        #expect(prompt.omittedDocumentIDs.contains("AvailableTools"))
+        #expect(!prompt.text.contains(availableTools.rawText))
+        #expect(prompt.estimatedTokens <= SystemPromptBudget.defaultBudgetTokens)
+    }
+
+    @Test("Per-model budget differs by verified context window")
+    func perModelBudgetDiffersByContextWindow() throws {
+        #expect(SystemPromptBudget.budget(contextWindowTokens: nil) == 6000)
+        #expect(SystemPromptBudget.budget(contextWindowTokens: 0) == 6000)
+        #expect(SystemPromptBudget.budget(contextWindowTokens: 200_000) == 6000)
+        #expect(SystemPromptBudget.budget(contextWindowTokens: 128_000) == 6000)
+        #expect(SystemPromptBudget.budget(contextWindowTokens: 32_000) == 2000)
+        #expect(SystemPromptBudget.budget(contextWindowTokens: 8_000) == 1500)
+        #expect(SystemPromptBudget.budget(contextWindowTokens: 32_000) != SystemPromptBudget.budget(contextWindowTokens: 200_000))
+        let manager = Self.manager()
+        let index = try #require(manager.index)
+        let small = SystemPromptBuilder().build(
+            index: index, request: "Run the build and fix the failing tests",
+            provider: nil, model: nil, contextWindowTokens: 32_000)
+        let large = SystemPromptBuilder().build(
+            index: index, request: "Run the build and fix the failing tests",
+            provider: nil, model: nil, contextWindowTokens: 200_000)
+        #expect(small.estimatedTokens <= 2000)
+        #expect(large.estimatedTokens <= 6000)
+    }
+
+    @Test("A core baseline rule appears exactly once in the composed prompt")
+    func dedupCoreRuleAppearsOnce() {
+        let manager = Self.manager()
+        let prompt = manager.systemPrompt(for: "Run the build and fix the failing tests", provider: "codex", model: "default")
+        #expect(prompt.estimatedTokens <= SystemPromptBudget.defaultBudgetTokens)
+        for rule in ["Never disclose the underlying model or provider", "Prefer native tools over terminal execution"] {
+            let occurrences = prompt.text.components(separatedBy: rule).count - 1
+            #expect(occurrences == 1)
+        }
     }
 
     private static let retrievalAlpha = "# Alpha Guide\n\n## Getting Started\nAlpha tokens live here for the alpha walkthrough.\n\n## Advanced Alpha\nDeep alpha material.\n"
@@ -417,5 +480,24 @@ struct SystemAssetsTests {
         let gamma = try #require(manager.document(fileName: "Gamma Notes.md"))
         #expect(gamma.rawText == Self.retrievalGamma)
         #expect(gamma.id == "Gamma Notes")
+    }
+
+    @Test("Retrieval stops before exceeding the remaining budget, most relevant first")
+    func retrievalStopsBeforeExceedingRemainingBudget() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        let index = try #require(manager.index)
+        let prompt = SystemPromptBuilder().build(
+            index: index, request: "getting started",
+            provider: nil, model: nil, maxEstimatedTokens: 520)
+        #expect(!prompt.isBaselineFallback)
+        #expect(prompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        #expect(prompt.estimatedTokens == 514)
+        #expect(prompt.estimatedTokens <= 520)
+        #expect(prompt.text.contains("Alpha tokens live here for the alpha walkthrough."))
+        #expect(!prompt.text.contains("Beta tokens live here for the beta walkthrough."))
+        #expect(prompt.includedDocumentIDs == ["Alpha"])
+        #expect(prompt.omittedDocumentIDs == ["Beta"])
     }
 }

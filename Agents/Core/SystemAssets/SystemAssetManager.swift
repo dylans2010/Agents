@@ -101,13 +101,13 @@ public nonisolated final class SystemAssetManager: Sendable {
         return search(query, limit: 10)
     }
 
-    public func systemPrompt(for request: String?, provider: String?, model: String?, assistant: AssistantPromptDescriptor? = nil) -> SystemPrompt {
+    public func systemPrompt(for request: String?, provider: String?, model: String?, assistant: AssistantPromptDescriptor? = nil, contextWindowTokens: Int? = nil) -> SystemPrompt {
         guard let index else {
             let baseline = SystemPromptBuilder.minimalBaselinePrompt(error: loadError)
             OutputRedactionGate.shared.registerSensitiveText(baseline.text)
             return baseline
         }
-        let prompt = SystemPromptBuilder().build(index: index, request: request, provider: provider, model: model, assistant: assistant)
+        let prompt = SystemPromptBuilder().build(index: index, request: request, provider: provider, model: model, contextWindowTokens: contextWindowTokens, assistant: assistant)
         OutputRedactionGate.shared.registerSensitiveText(prompt.text)
         return prompt
     }
