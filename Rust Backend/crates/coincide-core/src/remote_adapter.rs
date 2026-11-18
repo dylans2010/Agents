@@ -2340,8 +2340,6 @@ pub fn remote_item(item: &Value, index: usize, pending: &[PendingRequest]) -> It
             clipped |= cut;
             approval = Some(Approval {
                 options: approval_options(&params),
-                // The outcome is stored under the approval object; keep
-                // the top-level key as a fallback.
                 resolution: item["approval"]["resolution"]
                     .as_str()
                     .map(str::to_owned)

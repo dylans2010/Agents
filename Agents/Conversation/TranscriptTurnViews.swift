@@ -1388,14 +1388,6 @@ struct InlineApprovalHistoryCard: View {
     let item: RemoteItem
     let appModel: AppModel
 
-    /// One-line human summary of a resolved approval, built only from
-    /// already-safe fields in the stored request params: the provider's
-    /// display title, the approved command, or a human tool name. Raw
-    /// identifiers (`toolCallId`, `rawInput`, session/call IDs) are never
-    /// selected, so they cannot reach the card even though the full JSON
-    /// stays in `item.detail` for the live attention card. Nil while the
-    /// request is still waiting, and nil when no safe field is present.
-    /// The result is run through the redaction gate before it is returned.
     static func resolvedSummary(for item: RemoteItem) -> String? {
         guard !item.isWaiting else { return nil }
         guard let detail = item.detail, !detail.isEmpty,
