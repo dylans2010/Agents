@@ -408,14 +408,14 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         _ = try await adapterCall(.updateSettings(settings))
     }
 
-    public func newThread(projectID: UUID? = nil, systemPrompt: String? = nil, toolset: AgentToolset? = nil, allowedTools: [String]? = nil, assistantId: String? = nil) async throws -> UUID {
+    public func newThread(projectID: UUID? = nil, systemPrompt: String? = nil, toolset: AgentToolset? = nil, allowedTools: [String]? = nil, assistantId: String? = nil, selection: RemoteSelectionOverride? = nil) async throws -> UUID {
         let unknown = SystemToolRegistry.unknownToolNames(in: allowedTools)
         guard unknown.isEmpty else {
             throw AgentsRuntimeError.desktopFailure(
                 "Unknown thread tools: \(unknown.joined(separator: ", ")). Threads can only allow tools from the system toolset."
             )
         }
-        let res = try await adapterCall(.newThread(projectID: projectID, systemPrompt: systemPrompt, toolset: toolset?.rawValue, allowedTools: allowedTools, assistantId: assistantId))
+        let res = try await adapterCall(.newThread(projectID: projectID, systemPrompt: systemPrompt, toolset: toolset?.rawValue, allowedTools: allowedTools, assistantId: assistantId, selection: selection))
         guard case .thread(let id) = res else {
             throw AgentsRuntimeError.unexpectedResult(expected: "thread", actual: "\(res)")
         }
@@ -1478,12 +1478,19 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
     }
 
     public func spawnWorkers(parentThreadId: String, workers: [WorkerSpawnRequest]) async throws -> JSONValue {
-        let workerValues: [JSONValue] = workers.map { worker in
-            .object([
+        let workerValues: [JSONValue] = try workers.map { worker in
+            var object: [String: JSONValue] = [
                 "name": .string(worker.name),
                 "task": .string(worker.task),
                 "targetFiles": .array(worker.targetFiles.map { .string($0) }),
-            ])
+            ]
+            if let assistantId = worker.assistantId, !assistantId.isEmpty {
+                guard UUID(uuidString: assistantId) != nil else {
+                    throw AgentsRuntimeError.desktopFailure("Assistant ID must be a UUID")
+                }
+                object["assistantId"] = .string(assistantId)
+            }
+            return .object(object)
         }
         return try await desktopCall(
             action: "workers.spawn",

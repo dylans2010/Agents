@@ -303,6 +303,55 @@ struct AgentsRuntimeTests {
         await model.shutdown()
     }
 
+    @Test("AppModel launches an assistant thread on the assistant's configured provider and model")
+    @MainActor
+    func appModelLaunchAssistantAppliesModelConfig() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-launch-model-\\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+
+        let projID = await model.addProject(at: projectDir.path, name: "LaunchModelProject")
+        #expect(projID != nil)
+
+        let configured = RemoteAssistant(
+            id: UUID(),
+            name: "Reviewer",
+            category: .codeReviewSecurity,
+            systemPrompt: "Review the diff for security issues.",
+            allowedTools: ["read_file"],
+            provider: "claude",
+            model: "claude-sonnet-4"
+        )
+        await model.launchAssistant(configured, task: "Review the latest diff.", in: projID)
+        await model.refreshWorkspace()
+        let launched = model.workspace.threads.first { $0.assistantId == configured.id.uuidString }
+        #expect(launched != nil)
+        #expect(launched?.selection.provider == "claude")
+        #expect(launched?.selection.modelID == "claude-sonnet-4")
+
+        let appDefault = RemoteAssistant(
+            id: UUID(),
+            name: "Generalist",
+            category: .codeReviewSecurity,
+            systemPrompt: "Help with the code.",
+            allowedTools: ["read_file"]
+        )
+        await model.launchAssistant(appDefault, task: "Help with the code.", in: projID)
+        await model.refreshWorkspace()
+        let defaultLaunched = model.workspace.threads.first { $0.assistantId == appDefault.id.uuidString }
+        #expect(defaultLaunched != nil)
+        #expect(defaultLaunched?.selection.provider == "codex")
+        #expect(defaultLaunched?.selection.modelID == "default")
+
+        await model.shutdown()
+    }
+
     @Test("RuntimePollStatus decodes turnResults serial and recent entries")
     func pollStatusDecodesTurnResults() throws {
         let payload = """

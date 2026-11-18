@@ -269,6 +269,12 @@ impl ThreadAction {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct NewThreadSelection {
+    pub provider: Option<String>,
+    pub model_id: Option<String>,
+}
+
 /// A request this server carries out, decoded with the Swift decoder's rules.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Request {
@@ -333,6 +339,7 @@ pub enum Request {
         toolset: Option<String>,
         allowed_tools: Option<Vec<String>>,
         assistant_id: Option<String>,
+        selection: Option<NewThreadSelection>,
     },
     NewBotConversation {
         bot_id: Uuid,
@@ -391,6 +398,38 @@ fn integer(value: Option<&Value>) -> Result<Option<i64>, RemoteError> {
             .as_i64()
             .map(Some)
             .ok_or_else(RemoteError::bad_request),
+    }
+}
+
+fn optional_text(value: Option<&Value>) -> Result<Option<String>, RemoteError> {
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_str()
+            .map(str::to_owned)
+            .map(Some)
+            .ok_or_else(RemoteError::bad_request),
+    }
+}
+
+fn new_thread_selection(value: &Value) -> Result<Option<NewThreadSelection>, RemoteError> {
+    let selection = value
+        .as_object()
+        .ok_or_else(RemoteError::bad_request)?;
+    if !selection
+        .keys()
+        .all(|key| matches!(key.as_str(), "provider" | "modelID"))
+    {
+        return Err(RemoteError::bad_request());
+    }
+    let provider = optional_text(selection.get("provider"))?;
+    let model_id = optional_text(selection.get("modelID"))?;
+    match (&provider, &model_id) {
+        (None, None) => Ok(None),
+        _ => Ok(Some(NewThreadSelection {
+            provider,
+            model_id,
+        })),
     }
 }
 
@@ -565,6 +604,10 @@ impl ClientMessage {
                 assistant_id: match fields.get("assistantId") {
                     None | Some(Value::Null) => None,
                     some => Some(uuid(some)?.to_string()),
+                },
+                selection: match fields.get("selection") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => new_thread_selection(value)?,
                 },
             },
             "newBotConversation" => Request::NewBotConversation {
@@ -1190,8 +1233,78 @@ mod tests {
                 toolset: None,
                 allowed_tools: None,
                 assistant_id: Some(assistant.to_string()),
+                selection: None,
             }
         );
+        assert_eq!(
+            decode(json!({"v":1,"id":"n","type":"newThread","body":{"selection":{"provider":"claude","modelID":"claude-sonnet-4"}}}))
+                .unwrap()
+                .request,
+            Request::NewThread {
+                project_id: None,
+                system_prompt: None,
+                toolset: None,
+                allowed_tools: None,
+                assistant_id: None,
+                selection: Some(NewThreadSelection {
+                    provider: Some("claude".to_owned()),
+                    model_id: Some("claude-sonnet-4".to_owned()),
+                }),
+            }
+        );
+        assert_eq!(
+            decode(json!({"v":1,"id":"n","type":"newThread","body":{"selection":{"provider":"grok"}}}))
+                .unwrap()
+                .request,
+            Request::NewThread {
+                project_id: None,
+                system_prompt: None,
+                toolset: None,
+                allowed_tools: None,
+                assistant_id: None,
+                selection: Some(NewThreadSelection {
+                    provider: Some("grok".to_owned()),
+                    model_id: None,
+                }),
+            }
+        );
+        assert_eq!(
+            decode(json!({"v":1,"id":"n","type":"newThread","body":{"selection":{"modelID":"gpt-5"}}}))
+                .unwrap()
+                .request,
+            Request::NewThread {
+                project_id: None,
+                system_prompt: None,
+                toolset: None,
+                allowed_tools: None,
+                assistant_id: None,
+                selection: Some(NewThreadSelection {
+                    provider: None,
+                    model_id: Some("gpt-5".to_owned()),
+                }),
+            }
+        );
+        assert_eq!(
+            decode(json!({"v":1,"id":"n","type":"newThread","body":{"selection":{}}}))
+                .unwrap()
+                .request,
+            Request::NewThread {
+                project_id: None,
+                system_prompt: None,
+                toolset: None,
+                allowed_tools: None,
+                assistant_id: None,
+                selection: None,
+            }
+        );
+        assert!(decode(
+            json!({"v":1,"id":"n","type":"newThread","body":{"selection":{"provider":"claude","effort":"high"}}})
+        )
+        .is_err());
+        assert!(decode(
+            json!({"v":1,"id":"n","type":"newThread","body":{"selection":{"provider":7}}})
+        )
+        .is_err());
         assert!(decode(
             json!({"v":1,"id":"n","type":"newThread","body":{"assistantId":"not-a-uuid"}})
         )

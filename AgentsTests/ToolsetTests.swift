@@ -516,7 +516,7 @@ struct ToolsetTests {
         )
         let data = try encoder.encode(message)
         let decoded = try decoder.decode(RemoteClientMessage.self, from: data)
-        guard case .newThread(let decodedProject, let prompt, let toolset, let allowedTools, let assistantId) = decoded.request else {
+        guard case .newThread(let decodedProject, let prompt, let toolset, let allowedTools, let assistantId, _) = decoded.request else {
             Issue.record("Expected newThread request")
             return
         }
@@ -535,7 +535,7 @@ struct ToolsetTests {
         )
         let data = try encoder.encode(message)
         let decoded = try decoder.decode(RemoteClientMessage.self, from: data)
-        guard case .newThread(_, _, _, let allowedTools, _) = decoded.request else {
+        guard case .newThread(_, _, _, let allowedTools, _, _) = decoded.request else {
             Issue.record("Expected newThread request")
             return
         }
@@ -559,6 +559,106 @@ struct ToolsetTests {
         await client.close()
     }
 
+    @Test("New-thread creation applies a full selection override")
+    func newThreadAppliesFullSelection() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "SliceF6bSelection")
+        let created = try await client.newThread(
+            projectID: projectID,
+            selection: RemoteSelectionOverride(provider: "claude", modelID: "claude-sonnet-4"))
+        let workspace = try await client.fetchWorkspace()
+        let summary = workspace.threads.first { $0.id == created }
+        #expect(summary?.selection.provider == "claude")
+        #expect(summary?.selection.modelID == "claude-sonnet-4")
+        await client.close()
+    }
+
+    @Test("New-thread creation with a provider-only selection uses the provider default model")
+    func newThreadProviderOnlySelection() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "SliceF6bSelection")
+        let created = try await client.newThread(
+            projectID: projectID,
+            selection: RemoteSelectionOverride(provider: "grok"))
+        let workspace = try await client.fetchWorkspace()
+        let summary = workspace.threads.first { $0.id == created }
+        #expect(summary?.selection.provider == "grok")
+        #expect(summary?.selection.modelID == "default")
+        await client.close()
+    }
+
+    @Test("New-thread creation with a model-only selection keeps the default provider")
+    func newThreadModelOnlySelection() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "SliceF6bSelection")
+        let created = try await client.newThread(
+            projectID: projectID,
+            selection: RemoteSelectionOverride(modelID: "gpt-5"))
+        let workspace = try await client.fetchWorkspace()
+        let summary = workspace.threads.first { $0.id == created }
+        #expect(summary?.selection.provider == "codex")
+        #expect(summary?.selection.modelID == "gpt-5")
+        await client.close()
+    }
+
+    @Test("New-thread creation without a selection keeps today's defaults")
+    func newThreadWithoutSelectionKeepsDefaults() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "SliceF6bSelection")
+        let created = try await client.newThread(projectID: projectID)
+        let workspace = try await client.fetchWorkspace()
+        let summary = workspace.threads.first { $0.id == created }
+        #expect(summary?.selection.provider == "codex")
+        #expect(summary?.selection.modelID == "default")
+        await client.close()
+    }
+
+    @Test("New-thread creation rejects an unknown provider before creating anything")
+    func newThreadRejectsUnknownProvider() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "SliceF6bSelection")
+        await #expect(throws: AgentsRuntimeError.self) {
+            try await client.newThread(
+                projectID: projectID,
+                selection: RemoteSelectionOverride(provider: "not-a-provider"))
+        }
+        let workspace = try await client.fetchWorkspace()
+        #expect(workspace.threads.filter { $0.projectID == projectID }.isEmpty)
+        await client.close()
+    }
+
+    @Test("New-thread creation rejects an overlong model before creating anything")
+    func newThreadRejectsOverlongModel() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "SliceF6bSelection")
+        await #expect(throws: AgentsRuntimeError.self) {
+            try await client.newThread(
+                projectID: projectID,
+                selection: RemoteSelectionOverride(modelID: String(repeating: "m", count: 513)))
+        }
+        let workspace = try await client.fetchWorkspace()
+        #expect(workspace.threads.filter { $0.projectID == projectID }.isEmpty)
+        await client.close()
+    }
+
     @Test("Old new-thread messages without prompt fields decode to nils")
     func oldNewThreadDecodes() throws {
         let json = """
@@ -567,7 +667,7 @@ struct ToolsetTests {
         let decoded = try RemoteProtocol.makeDecoder().decode(
             RemoteClientMessage.self, from: Data(json.utf8)
         )
-        guard case .newThread(let project, let prompt, let toolset, let allowedTools, _) = decoded.request else {
+        guard case .newThread(let project, let prompt, let toolset, let allowedTools, _, _) = decoded.request else {
             Issue.record("Expected newThread request")
             return
         }

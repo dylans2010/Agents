@@ -204,6 +204,16 @@ public enum RemoteThreadAction: Codable, Hashable, Sendable {
     }
 }
 
+public struct RemoteSelectionOverride: Codable, Hashable, Sendable {
+    public var provider: String?
+    public var modelID: String?
+
+    public init(provider: String? = nil, modelID: String? = nil) {
+        self.provider = provider
+        self.modelID = modelID
+    }
+}
+
 public enum RemoteRequest: Hashable, Sendable {
     case hello(RemoteHello)
     case pair(RemotePairRequest)
@@ -223,7 +233,7 @@ public enum RemoteRequest: Hashable, Sendable {
     case dismissQuestion(threadID: UUID, itemID: UUID)
     case updateSettings(RemoteThreadSettings)
     /// Nil starts a chat.
-    case newThread(projectID: UUID?, systemPrompt: String?, toolset: String?, allowedTools: [String]?, assistantId: String? = nil)
+    case newThread(projectID: UUID?, systemPrompt: String?, toolset: String?, allowedTools: [String]?, assistantId: String? = nil, selection: RemoteSelectionOverride? = nil)
     case threadAction(threadID: UUID, action: RemoteThreadAction)
     case updateStoredPrompt(threadID: UUID, systemPrompt: String, allowedTools: [String]?)
     /// The changes of one turn (the id of the item that opened it), or the thread's uncommitted changes for nil.
@@ -399,6 +409,7 @@ private struct RequestBody: Codable {
     var botID: UUID?
     var assistantID: UUID?
     var assistantId: String?
+    var selection: RemoteSelectionOverride?
     var deletesConversations: Bool?
     var key: String?
     var value: RemoteSettingValue?
@@ -483,7 +494,7 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case "updateSettings": request = .updateSettings(try body(RemoteThreadSettings.self))
         case "newThread":
             let f = try fields()
-            request = .newThread(projectID: f.projectID, systemPrompt: f.systemPrompt, toolset: f.toolset, allowedTools: f.allowedTools, assistantId: f.assistantId)
+            request = .newThread(projectID: f.projectID, systemPrompt: f.systemPrompt, toolset: f.toolset, allowedTools: f.allowedTools, assistantId: f.assistantId, selection: f.selection)
         case "threadAction":
             let f = try fields()
             request = .threadAction(threadID: try need(f.threadID, "threadID"), action: try need(f.action, "action"))
@@ -622,12 +633,13 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case .dismissQuestion(let threadID, let itemID):
             f.threadID = threadID
             f.itemID = itemID
-        case .newThread(let projectID, let systemPrompt, let toolset, let allowedTools, let assistantId):
+        case .newThread(let projectID, let systemPrompt, let toolset, let allowedTools, let assistantId, let selection):
             f.projectID = projectID
             f.systemPrompt = systemPrompt
             f.toolset = toolset
             f.allowedTools = allowedTools
             f.assistantId = assistantId
+            f.selection = selection
         case .setProjectExpanded(let projectID, let expanded):
             f.projectID = projectID
             f.expanded = expanded

@@ -630,6 +630,9 @@ public final class AppModel {
     public func launchAssistant(_ assistant: RemoteAssistant, task: String, in projectID: UUID? = nil) async {
         guard let client = runtime else { return }
         do {
+            let selection = AssistantModelConfig(provider: assistant.provider, model: assistant.model)
+                .resolvingCurrent(provider: selectedThread?.selection.provider, model: selectedThread?.selection.modelID)
+                .selectionOverride
             let prompt = systemPrompt(
                 for: nil,
                 provider: assistant.provider,
@@ -641,7 +644,8 @@ public final class AppModel {
                 systemPrompt: prompt,
                 toolset: .system,
                 allowedTools: assistant.allowedTools,
-                assistantId: assistant.id.uuidString
+                assistantId: assistant.id.uuidString,
+                selection: selection
             )
             await refreshWorkspace()
             selectThread(threadID)

@@ -193,11 +193,68 @@ struct AssistantTests {
             projectID: nil, systemPrompt: nil, toolset: nil, allowedTools: nil))
         let legacyData = try RemoteProtocol.makeEncoder().encode(legacy)
         let legacyDecoded = try RemoteProtocol.makeDecoder().decode(RemoteClientMessage.self, from: legacyData)
-        guard case .newThread(_, _, _, _, let legacyAssistant) = legacyDecoded.request else {
+        guard case .newThread(_, _, _, _, let legacyAssistant, _) = legacyDecoded.request else {
             Issue.record("Expected newThread request")
             return
         }
         #expect(legacyAssistant == nil)
+    }
+
+    @Test("New-thread request carries the selection override and decodes legacy requests without it")
+    func newThreadRequestCarriesSelection() throws {
+        let message = RemoteClientMessage(request: .newThread(
+            projectID: nil, systemPrompt: nil, toolset: nil, allowedTools: nil,
+            selection: RemoteSelectionOverride(provider: "claude", modelID: "claude-sonnet-4")))
+        let data = try RemoteProtocol.makeEncoder().encode(message)
+        let decoded = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let selection = (decoded?["body"] as? [String: Any])?["selection"] as? [String: Any]
+        #expect(selection?["provider"] as? String == "claude")
+        #expect(selection?["modelID"] as? String == "claude-sonnet-4")
+        let roundTripped = try RemoteProtocol.makeDecoder().decode(RemoteClientMessage.self, from: data)
+        #expect(roundTripped.request == .newThread(
+            projectID: nil, systemPrompt: nil, toolset: nil, allowedTools: nil,
+            selection: RemoteSelectionOverride(provider: "claude", modelID: "claude-sonnet-4")))
+        let providerOnly = RemoteClientMessage(request: .newThread(
+            projectID: nil, systemPrompt: nil, toolset: nil, allowedTools: nil,
+            selection: RemoteSelectionOverride(provider: "grok")))
+        let providerData = try RemoteProtocol.makeEncoder().encode(providerOnly)
+        let providerDecoded = try RemoteProtocol.makeDecoder().decode(RemoteClientMessage.self, from: providerData)
+        guard case .newThread(_, _, _, _, _, let providerSelection) = providerDecoded.request else {
+            Issue.record("Expected newThread request")
+            return
+        }
+        #expect(providerSelection == RemoteSelectionOverride(provider: "grok"))
+        let legacy = RemoteClientMessage(request: .newThread(
+            projectID: nil, systemPrompt: nil, toolset: nil, allowedTools: nil))
+        let legacyData = try RemoteProtocol.makeEncoder().encode(legacy)
+        let legacyDecoded = try RemoteProtocol.makeDecoder().decode(RemoteClientMessage.self, from: legacyData)
+        guard case .newThread(_, _, _, _, _, let legacySelection) = legacyDecoded.request else {
+            Issue.record("Expected newThread request")
+            return
+        }
+        #expect(legacySelection == nil)
+    }
+
+    @Test("Assistant model configs map to the expected new-thread selection override")
+    func assistantModelConfigMapsToSelectionOverride() {
+        #expect(AssistantModelConfig.appDefault.selectionOverride == nil)
+        #expect(AssistantModelConfig.currentAppModel.selectionOverride == nil)
+        #expect(AssistantModelConfig.specific(provider: "claude", model: "claude-sonnet-4").selectionOverride
+            == RemoteSelectionOverride(provider: "claude", modelID: "claude-sonnet-4"))
+        #expect(AssistantModelConfig.providerOnly("grok").selectionOverride
+            == RemoteSelectionOverride(provider: "grok"))
+        #expect(AssistantModelConfig.modelOnly("gpt-5").selectionOverride
+            == RemoteSelectionOverride(modelID: "gpt-5"))
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: "claude", model: "claude-sonnet-4").selectionOverride
+            == RemoteSelectionOverride(provider: "claude", modelID: "claude-sonnet-4"))
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: "grok", model: nil).selectionOverride
+            == RemoteSelectionOverride(provider: "grok"))
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: nil, model: "gpt-5").selectionOverride
+            == RemoteSelectionOverride(modelID: "gpt-5"))
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: nil, model: nil).selectionOverride == nil)
+        #expect(AssistantModelConfig.specific(provider: "claude", model: "claude-sonnet-4")
+            .resolvingCurrent(provider: "grok", model: "other").selectionOverride
+            == RemoteSelectionOverride(provider: "claude", modelID: "claude-sonnet-4"))
     }
 
     @Test("Thread summary carries the assistant id and decodes legacy summaries without it")

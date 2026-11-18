@@ -1,3 +1,4 @@
+import CoincideRemoteKit
 import Foundation
 
 public enum AssistantModelConfig: Hashable, Sendable {
@@ -43,5 +44,18 @@ public enum AssistantModelConfig: Hashable, Sendable {
             return AssistantModelConfig(provider: provider, model: model)
         }
         return self
+    }
+
+    public var selectionOverride: RemoteSelectionOverride? {
+        switch self {
+        case .appDefault, .currentAppModel:
+            return nil
+        case .specific(let provider, let model):
+            return RemoteSelectionOverride(provider: provider, modelID: model)
+        case .providerOnly(let provider):
+            return RemoteSelectionOverride(provider: provider)
+        case .modelOnly(let model):
+            return RemoteSelectionOverride(modelID: model)
+        }
     }
 }

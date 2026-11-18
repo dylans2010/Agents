@@ -156,6 +156,86 @@ struct WorkersTests {
         await client.close()
     }
 
+    @Test("Worker spawn request carries an assistant id and decodes legacy requests without it")
+    func workerSpawnRequestAssistantIdRoundTrips() throws {
+        let encoder = JSONEncoder()
+        let decoder = JSONDecoder()
+        let withAssistant = WorkerSpawnRequest(
+            name: "alpha", task: "Do it.", targetFiles: [], assistantId: UUID().uuidString)
+        let data = try encoder.encode(withAssistant)
+        let decoded = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(decoded?["assistantId"] as? String == withAssistant.assistantId)
+        #expect(try decoder.decode(WorkerSpawnRequest.self, from: data) == withAssistant)
+        let withoutAssistant = WorkerSpawnRequest(name: "alpha", task: "Do it.", targetFiles: [])
+        let plainData = try encoder.encode(withoutAssistant)
+        let plainDecoded = try JSONSerialization.jsonObject(with: plainData) as? [String: Any]
+        #expect(plainDecoded?["assistantId"] == nil)
+        let legacy = "{\"name\":\"alpha\",\"task\":\"Do it.\",\"targetFiles\":[]}"
+        #expect(try decoder.decode(WorkerSpawnRequest.self, from: Data(legacy.utf8)).assistantId == nil)
+    }
+
+    @Test("Worker spawn rejects a malformed assistant id before any runtime call")
+    func spawnRejectsMalformedAssistantId() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "use_workers",
+                arguments: [
+                    "parentThreadId": .string(UUID().uuidString),
+                    "workers": .array([.object([
+                        "name": .string("alpha"),
+                        "task": .string("Do it."),
+                        "targetFiles": .array([]),
+                        "assistantId": .string("not-a-uuid"),
+                    ])]),
+                ],
+                toolset: .system, runtime: client
+            )
+            Issue.record("Expected rejection for a malformed assistant id")
+        } catch let error as AgentsRuntimeError {
+            guard case .desktopFailure(let message) = error else {
+                Issue.record("Unexpected runtime error: \\(error)")
+                return
+            }
+            #expect(message == "Assistant ID must be a UUID")
+        } catch {
+            Issue.record("Unexpected error: \\(error)")
+        }
+        await client.close()
+    }
+
+    @Test("Worker spawn with a valid or empty assistant id reaches the engine")
+    func spawnWithAssistantIdReachesEngine() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        for assistantId in [UUID().uuidString, ""] {
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    "use_workers",
+                    arguments: [
+                        "parentThreadId": .string(UUID().uuidString),
+                        "workers": .array([.object([
+                            "name": .string("alpha"),
+                            "task": .string("Do it."),
+                            "targetFiles": .array([]),
+                            "assistantId": .string(assistantId),
+                        ])]),
+                    ],
+                    toolset: .system, runtime: client
+                )
+                Issue.record("Expected failure for a missing parent thread")
+            } catch let error as AgentsRuntimeError {
+                guard case .desktopFailure(let message) = error, message == "Assistant ID must be a UUID" else {
+                    continue
+                }
+                Issue.record("Assistant id \\(assistantId.isEmpty ? "empty" : "valid") was rejected client-side")
+            } catch {
+            }
+        }
+        await client.close()
+    }
+
     @Test("Plan round trip: draft, expand, and the plan survives a reopen")
     func planRoundTrip() async throws {
         let (client, tempRoot) = try Self.makeClient()

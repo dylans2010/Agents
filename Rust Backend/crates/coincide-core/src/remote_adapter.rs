@@ -5,7 +5,7 @@
 //! adapter keeps only a cache of per-thread fields the sidebar summary needs.
 use super::protocol::{
     Approval, ApprovalOption, Bot, BotAvatar, Delivery, ErrorCode, Item, ItemPage, Media,
-    MediaData, Model, Project, Provider, Question, QuestionOption, QuestionSet, QueuedMessage,
+    MediaData, Model, NewThreadSelection, Project, Provider, Question, QuestionOption, QuestionSet, QueuedMessage,
     RemoteError, Script, Selection, SendRequest, ServerInfo, Speed, ThemeInfo, ThreadAction,
     ThreadSettings, ThreadSummary, Transcript, TurnState, Workspace,
 };
@@ -1662,6 +1662,30 @@ impl Adapter {
         Ok("queued")
     }
 
+    fn thread_matches_selection(
+        &self,
+        thread_id: &str,
+        selection: &Option<NewThreadSelection>,
+    ) -> Result<bool, RemoteError> {
+        let Some(requested) = selection else {
+            return Ok(true);
+        };
+        let id = Uuid::parse_str(thread_id).map_err(|_| RemoteError::bad_request())?;
+        let (_, document) = self.document(id)?;
+        let current = &document["selection"];
+        if let Some(provider) = &requested.provider {
+            if current["provider"].as_str() != Some(provider.as_str()) {
+                return Ok(false);
+            }
+        }
+        let expected_model = match &requested.model_id {
+            Some(model) => model.as_str(),
+            None if requested.provider.is_some() => "default",
+            None => return Ok(true),
+        };
+        Ok(current["modelID"].as_str() == Some(expected_model))
+    }
+
     /// A new thread in the project, or a chat for none, reusing an untouched
     /// one there as New Thread does.
     pub fn new_thread(
@@ -1672,6 +1696,7 @@ impl Adapter {
         toolset: Option<String>,
         allowed_tools: Option<Vec<String>>,
         assistant_id: Option<String>,
+        selection: Option<NewThreadSelection>,
     ) -> Result<String, RemoteError> {
         let system_prompt = system_prompt
             .as_deref()
@@ -1684,6 +1709,16 @@ impl Adapter {
                     .map_err(|_| RemoteError::bad_request())
             })
             .transpose()?;
+        if let Some(selection) = &selection {
+            if let Some(provider) = &selection.provider {
+                crate::agent::Provider::from_name(provider)
+                    .map_err(|error| RemoteError::failed(error.to_string()))?;
+            }
+            if let Some(model) = &selection.model_id {
+                crate::composer_selection::validate_model(model)
+                    .map_err(|error| RemoteError::failed(error.to_string()))?;
+            }
+        }
         crate::agent::validate_system_prompt_and_toolset(
             system_prompt,
             toolset.as_deref(),
@@ -1708,14 +1743,20 @@ impl Adapter {
                     RemoteError::new(ErrorCode::NotFound, "That project no longer exists.")
                 })?,
         };
-        if let Some(empty) = workspace.threads.iter().find(|t| {
+        let mut empty = workspace.threads.iter().find(|t| {
             t.project_id == project.id
                 && t.item_count == 0
                 && !t.has_draft
                 && !t.is_archived
                 && !t.is_hidden
                 && !t.has_worktree
-        }) {
+        });
+        if let Some(candidate) = empty {
+            if !self.thread_matches_selection(&candidate.id, &selection)? {
+                empty = None;
+            }
+        }
+        if let Some(empty) = empty {
             if system_prompt.is_some() || toolset.is_some() || allowed_tools.is_some() || assistant_id.is_some() {
                 let empty_id =
                     Uuid::parse_str(&empty.id).map_err(|_| RemoteError::bad_request())?;
@@ -1759,6 +1800,22 @@ impl Adapter {
         create_params.insert("projectId".into(), project_id);
         if let Some(assistant_id) = assistant_id.as_deref() {
             create_params.insert("assistantId".into(), json!(assistant_id));
+        }
+        if let Some(requested) = &selection {
+            let mut overrides = serde_json::Map::new();
+            if let Some(provider) = &requested.provider {
+                overrides.insert("provider".into(), json!(provider));
+            }
+            match &requested.model_id {
+                Some(model) => {
+                    overrides.insert("modelID".into(), json!(model));
+                }
+                None if requested.provider.is_some() => {
+                    overrides.insert("modelID".into(), json!("default"));
+                }
+                None => {}
+            }
+            create_params.insert("selection".into(), Value::Object(overrides));
         }
         let created = self.call("threads.create", Value::Object(create_params))?;
         let created_id = upper(created["id"].as_str().unwrap_or_default());
@@ -2672,13 +2729,13 @@ mod tests {
         let adapter = Adapter::new(shared.clone(), "fixture");
         let runs = Runs::default();
         assert!(adapter
-            .new_thread(None, &runs, None, Some("system".to_owned()), None, None)
+            .new_thread(None, &runs, None, Some("system".to_owned()), None, None, None)
             .is_err());
         let (_, document) = adapter.document(empty_id).unwrap();
         assert!(document["toolset"].is_null());
         assert!(document["systemPrompt"].is_null());
         let reused = adapter
-            .new_thread(None, &runs, None, Some("provider".to_owned()), None, None)
+            .new_thread(None, &runs, None, Some("provider".to_owned()), None, None, None)
             .unwrap();
         assert_eq!(reused, upper(empty["id"].as_str().unwrap()));
         let (_, document) = adapter.document(empty_id).unwrap();
@@ -2702,9 +2759,9 @@ mod tests {
         let adapter = Adapter::new(shared.clone(), "fixture");
         let runs = Runs::default();
         assert!(adapter
-            .new_thread(None, &runs, None, Some("system".to_owned()), None, None)
+            .new_thread(None, &runs, None, Some("system".to_owned()), None, None, None)
             .is_err());
-        let created = adapter.new_thread(None, &runs, None, None, None, None).unwrap();
+        let created = adapter.new_thread(None, &runs, None, None, None, None, None).unwrap();
         let (_, document) =
             adapter.document(Uuid::parse_str(&created).unwrap()).unwrap();
         assert!(document["toolset"].is_null());
@@ -2728,6 +2785,7 @@ mod tests {
                 None,
                 Some("provider".to_owned()),
                 Some(vec!["read_file".to_owned()]),
+                None,
                 None
             )
             .is_err());
@@ -2738,6 +2796,7 @@ mod tests {
                 None,
                 Some("system".to_owned()),
                 Some(vec!["read_file".to_owned(), "read_file".to_owned()]),
+                None,
                 None
             )
             .is_err());
@@ -2748,6 +2807,7 @@ mod tests {
                 None,
                 Some("system".to_owned()),
                 Some(vec!["read_file".to_owned(), "use_workers".to_owned()]),
+                None,
                 None,
             )
             .unwrap();
@@ -2771,14 +2831,207 @@ mod tests {
         let runs = Runs::default();
         let assistant = "00000000-0000-4000-8000-000000000001";
         let created = adapter
-            .new_thread(None, &runs, None, None, None, Some(assistant.to_owned()))
+            .new_thread(None, &runs, None, None, None, Some(assistant.to_owned()), None)
             .unwrap();
         let (_, document) =
             adapter.document(Uuid::parse_str(&created).unwrap()).unwrap();
         assert_eq!(document["assistantId"], assistant);
         assert!(adapter
-            .new_thread(None, &runs, None, None, None, Some("not-a-uuid".to_owned()))
+            .new_thread(None, &runs, None, None, None, Some("not-a-uuid".to_owned()), None)
             .is_err());
+    }
+
+    fn selection_thread(
+        adapter: &Adapter,
+        runs: &Runs,
+        selection: Option<NewThreadSelection>,
+    ) -> Value {
+        let created = adapter
+            .new_thread(None, runs, None, None, None, None, selection)
+            .unwrap();
+        let (_, document) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        document
+    }
+
+    #[test]
+    fn new_thread_applies_full_selection() {
+        let directory = tempfile::tempdir().unwrap();
+        let engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        let document = selection_thread(
+            &adapter,
+            &runs,
+            Some(NewThreadSelection {
+                provider: Some("claude".to_owned()),
+                model_id: Some("claude-sonnet-4".to_owned()),
+            }),
+        );
+        assert_eq!(document["selection"]["provider"], "claude");
+        assert_eq!(document["selection"]["modelID"], "claude-sonnet-4");
+    }
+
+    #[test]
+    fn new_thread_provider_only_uses_provider_default_model() {
+        let directory = tempfile::tempdir().unwrap();
+        let engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        let document = selection_thread(
+            &adapter,
+            &runs,
+            Some(NewThreadSelection {
+                provider: Some("grok".to_owned()),
+                model_id: None,
+            }),
+        );
+        assert_eq!(document["selection"]["provider"], "grok");
+        assert_eq!(document["selection"]["modelID"], "default");
+    }
+
+    #[test]
+    fn new_thread_model_only_keeps_default_provider() {
+        let directory = tempfile::tempdir().unwrap();
+        let engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        let document = selection_thread(
+            &adapter,
+            &runs,
+            Some(NewThreadSelection {
+                provider: None,
+                model_id: Some("gpt-5".to_owned()),
+            }),
+        );
+        assert_eq!(document["selection"]["provider"], "codex");
+        assert_eq!(document["selection"]["modelID"], "gpt-5");
+    }
+
+    #[test]
+    fn new_thread_without_selection_keeps_defaults() {
+        let directory = tempfile::tempdir().unwrap();
+        let engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        let document = selection_thread(&adapter, &runs, None);
+        assert_eq!(document["selection"]["provider"], "codex");
+        assert_eq!(document["selection"]["modelID"], "default");
+    }
+
+    #[test]
+    fn new_thread_rejects_unknown_provider_and_creates_nothing() {
+        let directory = tempfile::tempdir().unwrap();
+        let engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        assert!(adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                None,
+                None,
+                Some(NewThreadSelection {
+                    provider: Some("not-a-provider".to_owned()),
+                    model_id: None,
+                })
+            )
+            .is_err());
+        assert!(adapter.workspace(false, &runs).unwrap().threads.is_empty());
+    }
+
+    #[test]
+    fn new_thread_rejects_overlong_model_and_creates_nothing() {
+        let directory = tempfile::tempdir().unwrap();
+        let engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        assert!(adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                None,
+                None,
+                Some(NewThreadSelection {
+                    provider: None,
+                    model_id: Some("m".repeat(513)),
+                })
+            )
+            .is_err());
+        assert!(adapter.workspace(false, &runs).unwrap().threads.is_empty());
+    }
+
+    #[test]
+    fn new_thread_selection_reuse_matches_stored_selection() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let mut empty = engine.store.new_thread(NO_PROJECT).unwrap();
+        empty["selection"] = json!({"provider": "grok", "modelID": "default"});
+        engine.store.save(&empty).unwrap();
+        let empty_id = empty["id"].as_str().unwrap().to_owned();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        let reused = adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                None,
+                None,
+                Some(NewThreadSelection {
+                    provider: Some("grok".to_owned()),
+                    model_id: None,
+                }),
+            )
+            .unwrap();
+        assert_eq!(reused, upper(&empty_id));
+        let created = adapter
+            .new_thread(
+                None,
+                &runs,
+                None,
+                None,
+                None,
+                None,
+                Some(NewThreadSelection {
+                    provider: Some("claude".to_owned()),
+                    model_id: Some("claude-sonnet-4".to_owned()),
+                }),
+            )
+            .unwrap();
+        assert_ne!(created, upper(&empty_id));
+        let (_, document) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        assert_eq!(document["selection"]["provider"], "claude");
+        assert_eq!(document["selection"]["modelID"], "claude-sonnet-4");
     }
 
     #[test]

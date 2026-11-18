@@ -463,7 +463,7 @@ public nonisolated enum SystemToolRegistry {
             channel: .desktop,
             parameters: [
                 SystemToolParameter(name: "parentThreadId", type: "string", required: true, description: "Parent thread ID that owns the workers, pinned to the session thread when bound."),
-                SystemToolParameter(name: "workers", type: "array", required: true, description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles."),
+                SystemToolParameter(name: "workers", type: "array", required: true, description: "Workers to spawn, each with name, task of at most 500 characters, and targetFiles, plus an optional assistantId UUID whose assistant supplies the worker's provider and model."),
             ]
         ),
         SystemToolDefinition(
@@ -4116,7 +4116,8 @@ public nonisolated enum SystemToolRegistry {
                 return WorkerSpawnRequest(
                     name: workerName,
                     task: task,
-                    targetFiles: raw["targetFiles"]?.arrayValue?.compactMap(\.stringValue) ?? []
+                    targetFiles: raw["targetFiles"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+                    assistantId: raw["assistantId"]?.stringValue
                 )
             }
             return try await runtime.spawnWorkers(parentThreadId: parentThreadId, workers: workers)
@@ -4464,7 +4465,8 @@ public nonisolated enum SystemToolRegistry {
                 return WorkerSpawnRequest(
                     name: workerName,
                     task: task,
-                    targetFiles: raw["targetFiles"]?.arrayValue?.compactMap(\.stringValue) ?? []
+                    targetFiles: raw["targetFiles"]?.arrayValue?.compactMap(\.stringValue) ?? [],
+                    assistantId: raw["assistantId"]?.stringValue
                 )
             }
             return try await runtime.spawnWorkers(parentThreadId: parentThreadId, workers: workers)
