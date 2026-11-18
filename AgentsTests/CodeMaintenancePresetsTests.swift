@@ -127,6 +127,7 @@ struct CodeMaintenancePresetsTests {
             "move_file", "copy_file", "create_directory", "create_terminal",
             "write_terminal", "run_build", "run_tests", "git_commit", "git_push",
             "symbol_rename_project", "symbol_move_file", "dead_code_eliminator",
+            "manage_memory", "swift_package_manager",
         ]
         for preset in CodeMaintenancePresets.all where preset.permissionProfile == .readOnly {
             let tools = Set(preset.allowedTools ?? [])

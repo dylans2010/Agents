@@ -268,9 +268,9 @@ public enum RepositoryIntelligencePresets {
             ],
             expectedOutputFormat: "Documentation inventory with coverage per area; findings list of gaps and inaccuracies citing document and code; prioritized list of documentation fixes by reader impact.",
             allowedTools: [
-                "docs_index_build", "readme_locate", "readme_generate", "markdown_link_check",
-                "markdown_toc_generate", "docstring_generator", "api_docs_coverage",
-                "docs_generate", "read_file", "list_files", "search_files",
+                "docs_index_build", "readme_locate", "markdown_link_check",
+                "docstring_generator", "api_docs_coverage",
+                "read_file", "list_files", "search_files",
                 "file_type_breakdown", "license_header_check",
             ],
             modelConfig: .appDefault,
@@ -309,7 +309,7 @@ public enum RepositoryIntelligencePresets {
             expectedOutputFormat: "API surface overview grouped by module and type; reference entry per endpoint or function with signature, parameters, return value, errors, and behaviour notes; list of ambiguities or contradictions found.",
             allowedTools: [
                 "api_surface_extract", "api_endpoint_audit", "api_docs_coverage",
-                "docstring_generator", "docs_generate", "extract_code_symbols",
+                "docstring_generator", "extract_code_symbols",
                 "type_hierarchy", "search_symbol", "read_file", "search_regex",
                 "fetch_documentation",
             ],

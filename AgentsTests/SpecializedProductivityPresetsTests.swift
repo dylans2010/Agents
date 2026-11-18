@@ -44,6 +44,37 @@ struct SpecializedProductivityPresetsTests {
         "project-progress-reporter": ["commit log", "pull requests", "test coverage"],
     ]
 
+    private static let mutatingTools: Set<String> = [
+        "write_file", "file_write", "create_file", "file_create",
+        "edit_file", "multi_edit_file", "code_replace", "code_insert",
+        "code_multi_edit", "code_generate", "code_format", "swift_format_lint",
+        "delete_file", "file_delete", "delete_directory", "dir_delete",
+        "move_file", "file_move", "copy_file", "file_copy",
+        "create_directory", "dir_create", "file_append", "file_backup", "file_rename",
+        "regex_replace_in_files", "batch_rename_files",
+        "symbol_rename_project", "symbol_move_file", "import_cleanup",
+        "plist_edit", "plist_editor", "safe_undo",
+        "project_restore", "project_clean", "project_archive",
+        "create_terminal", "write_terminal", "read_terminal", "use_terminal",
+        "run_command", "run_build", "run_tests",
+        "git_commit", "git_push", "git_pull",
+        "git_branch_create", "git_branch_checkout", "git_cherry_pick",
+        "git_stash_operator", "git_conflict_resolver", "git_bisect",
+        "mem_store", "mem_delete", "mem_clear", "save_to_memory",
+        "context_persistence_store", "mem_context_snapshot",
+        "use_workers", "cancel_worker", "delete_worker", "start_subagent",
+        "create_artifact", "delete_artifact", "execution_plan",
+        "intel_plan_task", "intel_breakdown_task",
+        "automated_repair_engine", "patch_application_engine",
+        "code_mutation_engine", "dead_code_eliminator",
+        "docs_generate", "readme_generate", "markdown_toc_generate",
+        "strings_localization", "localize_app", "string_catalog_migrator",
+        "manage_memory", "swift_package_manager",
+        "click", "double_click", "right_click", "click_point", "drag",
+        "type_text", "set_value", "press_key", "hotkey", "scroll",
+        "move_cursor", "launch_app", "invoke_menu", "set_window_frame",
+    ]
+
     private static func slug(of definition: AssistantDefinition) -> String {
         String(definition.id.dropFirst("builtin.specialized-productivity.".count))
     }
@@ -138,6 +169,16 @@ struct SpecializedProductivityPresetsTests {
         #expect(fixer?.permissionProfile == .workspaceModify)
         let security = SpecializedProductivityPresets.all.first { Self.slug(of: $0) == "security-patch-assistant" }
         #expect(security?.permissionProfile == .approvalRequired)
+    }
+
+    @Test("Read-only presets grant no write, edit, terminal, or other mutating tool")
+    func readOnlyPresetsGrantNoMutatingTools() {
+        let readOnly = SpecializedProductivityPresets.all.filter { $0.permissionProfile == .readOnly }
+        #expect(readOnly.count == 8)
+        for definition in readOnly {
+            let tools = Set(definition.allowedTools ?? [])
+            #expect(tools.isDisjoint(with: Self.mutatingTools), "\(definition.name) is read-only but lists mutating tools")
+        }
     }
 
     @Test("Model config defaults to the app default for every preset")

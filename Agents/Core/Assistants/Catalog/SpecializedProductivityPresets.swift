@@ -69,8 +69,8 @@ public enum SpecializedProductivityPresets {
             ],
             expectedOutputFormat: "A report grouped by category: hardcoded strings, catalog gaps, pluralization and interpolation problems, formatting problems, and RTL and layout risks, each entry with file and line, the problem, and the concrete fix.",
             allowedTools: [
-                "localization_audit", "string_literal_audit", "string_catalog_migrator",
-                "strings_file_validate", "strings_localization", "localize_app", "search_regex",
+                "localization_audit", "string_literal_audit",
+                "strings_file_validate", "search_regex",
                 "search_text", "read_file", "view_file", "file_compare_diff",
             ],
             modelConfig: .appDefault,
@@ -318,7 +318,7 @@ public enum SpecializedProductivityPresets {
             allowedTools: [
                 "read_file", "search_files", "search_text", "search_symbol", "dependency_graph",
                 "import_graph", "symbol_reference_graph", "call_hierarchy", "project_structure_map",
-                "change_impact_estimate", "execution_plan", "code_summary", "view_file",
+                "change_impact_estimate", "code_summary", "view_file",
                 "file_compare_diff",
             ],
             modelConfig: .appDefault,

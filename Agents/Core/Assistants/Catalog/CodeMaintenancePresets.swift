@@ -175,10 +175,14 @@ public enum CodeMaintenancePresets {
                 "dependency_licenses", "dependency_resolution_engine",
                 "package_manifest_read", "package_manifest_validate",
                 "podfile_inspector", "carthage_cartfile_inspector",
-                "framework_linker_auditor", "swift_package_manager",
+                "framework_linker_auditor",
                 "search_files", "read_file",
             ],
             permissionProfile: .readOnly,
+            inputRequirements: [
+                "Manifests and lockfiles to audit: Package.swift, Package.resolved, Podfile, or Cartfile",
+                "Dependency risk focus, such as unused, outdated, or vulnerable packages (optional)",
+            ],
             version: 1
         ),
         AssistantDefinition(
@@ -243,7 +247,7 @@ public enum CodeMaintenancePresets {
             ],
             expectedOutputFormat: "A leak report per issue: the leaked object, the strong reference chain that keeps it alive, the file and line of each link, the recommended fix (weak or unowned capture, invalidation, or removal), and how to verify the fix.",
             allowedTools: [
-                "memory_leak_detector", "manage_memory", "runtime_diagnostics_engine",
+                "memory_leak_detector", "runtime_diagnostics_engine",
                 "swift_concurrency_analyzer", "extract_code_symbols", "search_regex",
                 "read_file", "search_files", "list_files",
             ],

@@ -58,6 +58,7 @@ struct RepositoryIntelligencePresetsTests {
         "symbol_rename_project", "symbol_move_file", "import_cleanup", "plist_edit",
         "plist_editor", "safe_undo", "start_subagent", "use_workers", "cancel_worker",
         "delete_worker", "execution_plan", "intel_plan_task", "intel_breakdown_task",
+        "docs_generate", "readme_generate", "markdown_toc_generate",
     ]
 
     @Test("Repository Intelligence group holds exactly the 10 presets in spec order")

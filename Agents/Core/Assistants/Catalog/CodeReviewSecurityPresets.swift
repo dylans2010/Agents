@@ -220,6 +220,10 @@ public enum CodeReviewSecurityPresets {
             ],
             modelConfig: .appDefault,
             permissionProfile: .readOnly,
+            inputRequirements: [
+                "Swift code, files, or modules to review",
+                "Review focus, such as correctness, concurrency, or idiomatic Swift (optional)",
+            ],
             version: 1
         ),
         AssistantDefinition(
@@ -261,6 +265,10 @@ public enum CodeReviewSecurityPresets {
             ],
             modelConfig: .appDefault,
             permissionProfile: .readOnly,
+            inputRequirements: [
+                "TypeScript code, files, or modules to review",
+                "Review focus, such as type safety, async behavior, or architecture (optional)",
+            ],
             version: 1
         ),
         AssistantDefinition(
@@ -338,6 +346,10 @@ public enum CodeReviewSecurityPresets {
             ],
             modelConfig: .appDefault,
             permissionProfile: .readOnly,
+            inputRequirements: [
+                "Codebase area or modules to audit for failure paths",
+                "Known failure scenarios or error paths to trace (optional)",
+            ],
             version: 1
         ),
         AssistantDefinition(
