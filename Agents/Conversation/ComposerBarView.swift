@@ -657,7 +657,7 @@ struct ComposerBarView: View {
                         Text("Stop")
                             .font(.system(size: 11.5, weight: .semibold))
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.onAccent)
                     .padding(.horizontal, 11)
                     .frame(height: 28)
                     .background(AppTheme.danger, in: Capsule())
@@ -688,7 +688,7 @@ struct ComposerBarView: View {
                                 .font(.system(size: 11.5, weight: .semibold))
                         }
                     }
-                    .foregroundStyle(hasSendablePayload ? Color.white : AppTheme.tertiaryLabel)
+                    .foregroundStyle(hasSendablePayload ? AppTheme.onAccent : AppTheme.tertiaryLabel)
                     .padding(.horizontal, isTurnRunning ? 11 : 9)
                     .frame(minWidth: 28, minHeight: 28)
                     .background(
@@ -1423,6 +1423,6 @@ private struct UsageQuotaPopoverContent: View {
             }
         }
         .padding(14)
-        .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
+        .frame(minWidth: 340, idealWidth: 360, maxWidth: 400)
     }
 }

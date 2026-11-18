@@ -63,17 +63,17 @@ struct ComputerUseInspectorView: View {
         Group {
             if let status {
                 if !status.enabled {
-                    banner(text: "Computer Use is off. Turn it on in Settings › Computer Use before running a tool.", tone: .orange)
+                    banner(text: "Computer Use is off. Turn it on in Settings › Computer Use before running a tool.", tone: AppTheme.warning)
                 } else if !status.accessibilityGranted || !status.screenCaptureGranted {
                     let missing = [
                         status.accessibilityGranted ? nil : "Accessibility",
                         status.screenCaptureGranted ? nil : "Screen Recording",
                     ].compactMap { $0 }.joined(separator: " and ")
-                    banner(text: "Computer Use is on, but \(missing) permission is not granted. Grant it in Settings › Computer Use.", tone: .orange)
+                    banner(text: "Computer Use is on, but \(missing) permission is not granted. Grant it in Settings › Computer Use.", tone: AppTheme.warning)
                 } else if !status.nativeCompiled {
-                    banner(text: "The native computer-use executor is not compiled into this build.", tone: .red)
+                    banner(text: "The native computer-use executor is not compiled into this build.", tone: AppTheme.danger)
                 } else {
-                    banner(text: "Computer Use is on. Granted threads: \(status.grantedThreads.count). Active threads: \(status.activeThreads.count).", tone: .green)
+                    banner(text: "Computer Use is on. Granted threads: \(status.grantedThreads.count). Active threads: \(status.activeThreads.count).", tone: AppTheme.success)
                 }
             } else {
                 banner(text: "Computer Use status has not loaded yet.", tone: .secondary)
