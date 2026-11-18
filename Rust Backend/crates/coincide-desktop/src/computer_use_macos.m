@@ -224,6 +224,8 @@ static NSDictionary *CUCapture(CGWindowID wid, pid_t pid, CGRect bounds,
     if (dispatch_semaphore_wait(
             list.ready, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)))
       return CUError(@"timed_out");
+    if (!list.value)
+      return CUError(@"native");
     SCWindow *target = nil;
     for (SCWindow *window in [(SCShareableContent *)list.value windows])
       if (window.windowID == wid && window.owningApplication.processID == pid)
@@ -1193,7 +1195,9 @@ static NSDictionary *CUExecute(CUContext *ctx, NSDictionary *r) {
   if ([op isEqualToString:@"request_screen"]) {
     CGRequestScreenCaptureAccess();
   }
-  if ([op isEqualToString:@"permissions"] || [op hasPrefix:@"request_"])
+  if ([op isEqualToString:@"permissions"] ||
+      [op isEqualToString:@"request_ax"] ||
+      [op isEqualToString:@"request_screen"])
     return @{
       // AXIsProcessTrusted returns a byte-sized Boolean. Boxing it directly
       // serializes 0/1 as JSON numbers, which the Rust bridge rejects.
