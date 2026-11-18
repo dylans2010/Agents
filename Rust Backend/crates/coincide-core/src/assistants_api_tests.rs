@@ -241,9 +241,10 @@ fn validation_rejects_allowed_tools_for_opencode_and_lithos() {
         with_tools["provider"] = json!(provider);
         with_tools["allowedTools"] = json!(["read_file"]);
         let error = validate_assistant(&with_tools).unwrap_err();
-        assert!(error.to_string().contains(&format!(
-            "Allowed tools are not supported for provider \"{provider}\": OpenCode and Lithos cannot use System Tools"
-        )));
+        assert_eq!(
+            error.to_string(),
+            format!("Allowed tools are not supported for provider \"{provider}\": OpenCode and Lithos cannot use System Tools")
+        );
         let mut empty_tools = record(ID);
         empty_tools["provider"] = json!(provider);
         empty_tools["allowedTools"] = json!([]);
@@ -264,6 +265,10 @@ fn validation_rejects_allowed_tools_for_opencode_and_lithos() {
     claude_tools["provider"] = json!("claude");
     claude_tools["allowedTools"] = json!(["read_file"]);
     assert!(validate_assistant(&claude_tools).is_ok());
+    let mut no_provider_tools = record(ID);
+    no_provider_tools["provider"] = Value::Null;
+    no_provider_tools["allowedTools"] = json!(["read_file"]);
+    assert!(validate_assistant(&no_provider_tools).is_ok());
 }
 
 #[test]
