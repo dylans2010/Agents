@@ -7785,7 +7785,27 @@ pub fn input_schema(def: &ToolDef) -> Value {
 
 pub fn list_json(state: &crate::ServerState) -> Result<Value> {
     let allowed = crate::assets::stored_allowed_tools(state)?;
-    Ok(list_json_filtered(allowed.as_deref()))
+    let profile = crate::assets::stored_thread_profile(state)?;
+    Ok(list_json_filtered_profile(allowed.as_deref(), &profile))
+}
+
+pub fn list_json_filtered_profile(
+    allowed_tools: Option<&[String]>,
+    profile: &crate::assets::ThreadProfile,
+) -> Value {
+    Value::Array(
+        allowed_definitions(allowed_tools)
+            .iter()
+            .filter(|def| crate::assets::thread_profile_allows(profile, def.name))
+            .map(|def| {
+                json!({
+                    "name": def.name,
+                    "description": def.description,
+                    "inputSchema": input_schema(def),
+                })
+            })
+            .collect(),
+    )
 }
 
 pub fn list_json_filtered(allowed_tools: Option<&[String]>) -> Value {
@@ -16926,6 +16946,16 @@ fn ensure_allowed(name: &str, allowed_tools: Option<&[String]>) -> Result<(), Ca
     }
 }
 
+fn ensure_profile_allowed(state: &crate::ServerState, name: &str) -> Result<(), CallError> {
+    let profile = crate::assets::stored_thread_profile(state)
+        .map_err(|error| failed(error.to_string()))?;
+    if crate::assets::thread_profile_allows(&profile, name) {
+        Ok(())
+    } else {
+        Err(CallError::UnknownTool(name.to_owned()))
+    }
+}
+
 pub fn call(
     state: &crate::ServerState,
     name: &str,
@@ -16934,6 +16964,7 @@ pub fn call(
     if definition(name).is_none() {
         return Err(CallError::UnknownTool(name.to_owned()));
     }
+    ensure_profile_allowed(state, name)?;
     let allowed = crate::assets::stored_allowed_tools(state)
         .map_err(|error| failed(error.to_string()))?;
     ensure_allowed(name, allowed.as_deref())?;
@@ -17427,8 +17458,11 @@ pub fn call(
                 }
             };
             if tool_name == "list_tools" {
+                let profile = crate::assets::stored_thread_profile(state)
+                    .map_err(|error| failed(error.to_string()))?;
                 return Ok(json!(allowed_definitions(allowed.as_deref())
                     .iter()
+                    .filter(|def| crate::assets::thread_profile_allows(&profile, def.name))
                     .map(|def| def.name)
                     .collect::<Vec<_>>()));
             }
@@ -21556,4 +21590,465 @@ mod tests {
             }
         }
     }
+    fn profile_denied(profile: &str, tool: &str) -> bool {
+        crate::assets::tool_denied_by_profile(profile, tool)
+    }
+
+    fn profile_list_names(profile: &crate::assets::ThreadProfile) -> Vec<String> {
+        listed_names(&list_json_filtered_profile(None, profile))
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    #[test]
+    fn profile_read_only_denies_write_tools() {
+        for tool in [
+            "write_file",
+            "file_write",
+            "create_file",
+            "file_create",
+            "edit_file",
+            "multi_edit_file",
+            "delete_file",
+            "file_delete",
+            "delete_directory",
+            "dir_delete",
+            "move_file",
+            "file_move",
+            "copy_file",
+            "file_copy",
+            "create_directory",
+            "dir_create",
+            "create_terminal",
+            "write_terminal",
+            "read_terminal",
+            "run_build",
+            "run_tests",
+            "run_command",
+            "use_terminal",
+            "git_commit",
+            "git_push",
+            "git_pull",
+            "git_branch_create",
+            "git_branch_checkout",
+            "git_cherry_pick",
+            "git_stash_operator",
+            "git_conflict_resolver",
+            "git_bisect",
+            "mem_store",
+            "mem_delete",
+            "mem_clear",
+            "save_to_memory",
+            "context_persistence_store",
+            "mem_context_snapshot",
+            "use_workers",
+            "cancel_worker",
+            "delete_worker",
+            "start_subagent",
+            "click",
+            "double_click",
+            "right_click",
+            "click_point",
+            "drag",
+            "type_text",
+            "set_value",
+            "press_key",
+            "hotkey",
+            "scroll",
+            "move_cursor",
+            "launch_app",
+            "invoke_menu",
+            "set_window_frame",
+            "use_app",
+            "version_control_operator",
+            "git_branch_manager",
+            "test_snapshot_manage",
+            "project_build",
+            "project_test",
+            "project_snapshot",
+            "project_restore",
+            "safe_undo",
+            "simulator_boot",
+            "simulator_controller",
+            "format_json_file",
+            "csv_to_json",
+            "json_to_csv",
+            "json_to_plist",
+            "plist_to_json",
+            "json_validate",
+            "yaml_validate",
+            "zip_file",
+            "unzip_file",
+            "tar_archive_create",
+            "tar_archive_extract",
+            "gzip_compress_file",
+            "gzip_decompress_file",
+            "clipboard_manager_tool",
+            "system_notification_tool",
+            "env_capture_logs",
+            "report_to_user",
+            "session_export",
+            "execution_plan",
+            "code_mutation_engine",
+            "dead_code_eliminator",
+            "preflight_checks",
+            "dependency_resolution_engine",
+            "code_format",
+            "code_generate",
+            "import_cleanup",
+            "create_artifact",
+            "delete_artifact",
+        ] {
+            assert!(
+                profile_denied("read-only", tool),
+                "read-only must deny {tool}"
+            );
+        }
+    }
+
+    #[test]
+    fn profile_read_only_allows_read_tools() {
+        for tool in [
+            "read_file",
+            "file_read",
+            "view_file",
+            "list_files",
+            "search_files",
+            "search_regex",
+            "read_directory",
+            "git_status",
+            "git_diff",
+            "git_log",
+            "git_show",
+            "git_diff_range",
+            "git_diff_branch",
+            "git_branch_list",
+            "git_blame_inspector",
+            "mem_retrieve",
+            "view_memory",
+            "list_workers",
+            "worker_status",
+            "worker_result",
+            "list_apps",
+            "list_windows",
+            "get_window_state",
+            "get_desktop_state",
+            "verify_state",
+            "zoom",
+            "take_screenshot",
+            "use_mcp",
+            "use_system",
+            "open_in_finder",
+            "reveal_in_finder",
+            "plan-AskUser",
+            "session_progress_report",
+            "environment_variable_manager",
+            "docs_index_build",
+            "json_validator_tool",
+            "yaml_parser_tool",
+            "xcode_scheme_manager",
+            "project_changelog",
+            "safe_validate_changes",
+            "github_repo",
+            "spm_dependency_tree",
+            "disk_space_analyzer",
+            "project_build_settings",
+            "simulator_list",
+            "search_web",
+            "read_url_content",
+            "fetch_documentation",
+            "list_artifacts",
+            "read_artifact",
+            "tool_capability_lookup",
+        ] {
+            assert!(
+                !profile_denied("read-only", tool),
+                "read-only must allow {tool}"
+            );
+        }
+    }
+
+    #[test]
+    fn profile_approval_required_denies_terminal_git_delete() {
+        for tool in [
+            "create_terminal",
+            "write_terminal",
+            "read_terminal",
+            "run_build",
+            "run_tests",
+            "run_command",
+            "use_terminal",
+            "project_build",
+            "project_test",
+            "test_run_single",
+            "docc_build",
+            "performance_benchmark",
+            "compiler_diagnostics_engine",
+            "generate_xcodeproj",
+            "package_dependency_update",
+            "swift_package_manager",
+            "dependency_resolution_engine",
+            "project_clean",
+            "project_archive",
+            "simulator_boot",
+            "simulator_controller",
+            "git_commit",
+            "git_push",
+            "git_pull",
+            "git_branch_create",
+            "git_branch_checkout",
+            "git_cherry_pick",
+            "git_stash_operator",
+            "git_conflict_resolver",
+            "git_bisect",
+            "git_branch_manager",
+            "version_control_operator",
+            "project_snapshot",
+            "project_restore",
+            "safe_undo",
+            "delete_file",
+            "file_delete",
+            "delete_directory",
+            "dir_delete",
+            "mem_delete",
+            "mem_clear",
+            "delete_worker",
+            "delete_artifact",
+            "test_snapshot_manage",
+            "manage_memory",
+        ] {
+            assert!(
+                profile_denied("approval-required", tool),
+                "approval-required must deny {tool}"
+            );
+        }
+    }
+
+    #[test]
+    fn profile_approval_required_allows_workspace_writes() {
+        for tool in [
+            "write_file",
+            "edit_file",
+            "create_file",
+            "mem_store",
+            "use_workers",
+            "click",
+            "use_app",
+            "read_file",
+            "git_status",
+            "git_diff",
+            "list_files",
+        ] {
+            assert!(
+                !profile_denied("approval-required", tool),
+                "approval-required must allow {tool}"
+            );
+        }
+        assert!(profile_denied("approval-required", "delete_file"));
+    }
+
+    #[test]
+    fn profile_workspace_modify_and_terminal_allow_everything() {
+        for profile in ["workspace-modify", "terminal"] {
+            for tool in [
+                "write_file",
+                "run_build",
+                "git_commit",
+                "delete_file",
+                "read_file",
+                "use_app",
+            ] {
+                assert!(
+                    !profile_denied(profile, tool),
+                    "{profile} must allow {tool}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn profile_unknown_profile_fails_closed() {
+        for tool in ["read_file", "write_file", "git_status"] {
+            assert!(
+                profile_denied("root", tool),
+                "unknown profile must deny {tool}"
+            );
+            assert!(
+                profile_denied("", tool),
+                "empty profile must deny {tool}"
+            );
+        }
+    }
+
+    #[test]
+    fn profile_no_assistant_thread_unchanged() {
+        for tool in ["read_file", "write_file", "run_build", "git_commit", "delete_file"] {
+            assert!(crate::assets::thread_profile_allows(
+                &crate::assets::ThreadProfile::NoAssistant,
+                tool
+            ));
+        }
+    }
+
+    #[test]
+    fn profile_list_filtering() {
+        let read_only =
+            profile_list_names(&crate::assets::ThreadProfile::Known("read-only".to_owned()));
+        assert_eq!(read_only.len(), 190);
+        assert!(!read_only.iter().any(|name| name == "write_file"));
+        assert!(!read_only.iter().any(|name| name == "run_build"));
+        assert!(!read_only.iter().any(|name| name == "git_commit"));
+        assert!(!read_only.iter().any(|name| name == "mem_store"));
+        assert!(!read_only.iter().any(|name| name == "use_workers"));
+        assert!(!read_only.iter().any(|name| name == "click"));
+        assert!(read_only.iter().any(|name| name == "read_file"));
+        assert!(read_only.iter().any(|name| name == "git_status"));
+        assert!(read_only.iter().any(|name| name == "mem_retrieve"));
+        assert!(read_only.iter().any(|name| name == "list_workers"));
+        let approval = profile_list_names(&crate::assets::ThreadProfile::Known(
+            "approval-required".to_owned(),
+        ));
+        assert_eq!(approval.len(), 288);
+        assert!(approval.iter().any(|name| name == "write_file"));
+        assert!(approval.iter().any(|name| name == "read_file"));
+        assert!(!approval.iter().any(|name| name == "run_build"));
+        assert!(!approval.iter().any(|name| name == "git_commit"));
+        assert!(!approval.iter().any(|name| name == "delete_file"));
+        assert_eq!(
+            profile_list_names(&crate::assets::ThreadProfile::NoAssistant).len(),
+            333
+        );
+        assert_eq!(
+            profile_list_names(&crate::assets::ThreadProfile::Unbound).len(),
+            0
+        );
+        assert_eq!(
+            profile_list_names(&crate::assets::ThreadProfile::UnknownAssistant).len(),
+            0
+        );
+    }
+
+    #[test]
+    fn profile_gate_unbound_server_fails_closed() {
+        let state = crate::ServerState {
+            cwd: std::path::PathBuf::from("/tmp"),
+            thread_id: None,
+            socket: std::path::PathBuf::from("/tmp/control.sock"),
+            assets_dir: None,
+            control: std::sync::Mutex::new(coincide_core::control::ControlClient::new(
+                std::path::PathBuf::from("/tmp/control.sock"),
+            )),
+        };
+        match ensure_profile_allowed(&state, "read_file") {
+            Err(CallError::UnknownTool(name)) => assert_eq!(name, "read_file"),
+            Ok(()) => panic!("unbound server must fail closed"),
+            Err(CallError::Failed(message)) => {
+                panic!("unbound server must report UnknownTool, not Failed: {message}")
+            }
+        }
+    }
+
+    #[test]
+    fn profile_deny_sets_cover_only_registry_tools() {
+        for (set, name) in [
+            (
+                crate::assets::READ_ONLY_DENIED_TOOLS,
+                "read-only",
+            ),
+            (
+                crate::assets::APPROVAL_REQUIRED_DENIED_TOOLS,
+                "approval-required",
+            ),
+        ] {
+            let mut seen = std::collections::HashSet::new();
+            for tool in set {
+                assert!(
+                    definition(tool).is_some(),
+                    "{name} deny set names unknown tool {tool}"
+                );
+                assert!(seen.insert(*tool), "{name} deny set repeats {tool}");
+            }
+        }
+        for tool in crate::assets::APPROVAL_REQUIRED_DENIED_TOOLS {
+            assert!(
+                crate::assets::READ_ONLY_DENIED_TOOLS.contains(tool),
+                "approval-required deny set must stay inside the read-only deny set: {tool}"
+            );
+        }
+    }
+
+    #[test]
+    fn profile_every_registry_tool_is_classified() {
+        let allowed: &[&str] = &[
+        "access_level_audit", "accessibility_audit", "accessibility_audit_scanner", "api_docs_coverage",
+        "api_endpoint_audit", "api_surface_extract", "asset_catalog_list", "autonomous_review_engine",
+        "binary_size_report", "build_configuration_list", "build_log_analyze", "build_phase_scripts_list",
+        "build_settings_diff", "build_system_detect", "bundle_resource_auditor", "call_hierarchy",
+        "carthage_cartfile_inspector", "change_impact_estimate", "code_comment_extract", "code_lint",
+        "code_metrics_analyzer", "code_signing_diagnose", "code_summary", "color_usage_audit",
+        "comment_density_report", "complexity_analysis", "concurrency_audit", "conflict_marker_scan",
+        "core_data_model_inspector", "count_file_lines", "crash_log_parse", "dead_code_scan",
+        "dependency_graph", "dependency_licenses", "deprecation_usage_scan", "derived_data_locate",
+        "device_list", "dir_read", "dir_size_report", "disk_space_analyzer",
+        "docs_index_build", "docstring_generator", "duplicate_code_scan", "empty_dirs_find",
+        "entitlements_diff", "entry_points_discover", "env_info", "environment_variable_manager",
+        "executable_files_scan", "external_resource_gateway", "extract_code_symbols", "fetch_documentation",
+        "file_checksum_verifier", "file_compare_diff", "file_hash_verify", "file_head_preview",
+        "file_metadata", "file_read", "file_type_breakdown", "find_duplicate_files",
+        "force_unwrap_scan", "framework_linker_auditor", "function_size_report", "generate_file_checksum",
+        "get_desktop_state", "get_window_state", "git_blame_inspector", "git_branch_compare",
+        "git_branch_list", "git_diff", "git_diff_branch", "git_diff_range",
+        "git_log", "git_log_viewer", "git_pr_summary", "git_review_diff",
+        "git_show", "git_status", "github_repo", "icon_generator_tool",
+        "image_asset_size_report", "image_encode_base64", "image_extract_metadata", "image_get_dimensions",
+        "import_graph", "info_plist_audit", "intel_explain_code", "interface_simulator",
+        "json_validator_tool", "license_header_check", "list_apps", "list_artifacts",
+        "list_directory", "list_files", "list_windows", "list_workers",
+        "localization_audit", "mach_o_binary_analyzer", "markdown_link_check", "mem_retrieve",
+        "memory_leak_detector", "network_security_auditor", "open_in_finder", "package_dependency_audit",
+        "package_manifest_read", "package_manifest_validate", "pbxproj_lint", "permissions_audit",
+        "plan-AskUser", "podfile_inspector", "privacy_manifest_auditor", "process_monitor_tool",
+        "project_build_settings", "project_capabilities", "project_changelog", "project_diff",
+        "project_entitlements", "project_info_plist", "project_scheme_list", "project_signing",
+        "project_structure_map", "project_target_list", "protocol_conformance_list", "provisioning_check",
+        "provisioning_profile_reader", "read_artifact", "read_directory", "read_file",
+        "read_url_content", "readme_locate", "recent_changes", "repo_overview",
+        "reveal_in_finder", "reverse_analyze", "runtime_diagnostics_engine", "safe_validate_changes",
+        "scheme_test_plan_list", "search_directory", "search_files", "search_regex",
+        "search_skills", "search_symbol", "search_text", "search_web",
+        "secrets_scan", "security_audit_scanner", "semantic_query_engine", "session_progress_report",
+        "signing_certificate_inspector", "simulator_list", "source_graph_builder", "spm_dependency_tree",
+        "stale_files_report", "string_literal_audit", "strings_file_validate", "swift_ast_inspector",
+        "swift_concurrency_analyzer", "swift_data_schema_auditor", "swift_migration_advisor", "symbol_reference_graph",
+        "symlink_audit", "take_screenshot", "target_dependencies_list", "target_source_list",
+        "test_coverage_report", "test_coverage_reporter", "test_flaky_detect", "test_log_parse",
+        "todo_fixme_scanner", "todo_scan", "tool_capability_lookup", "tree_view",
+        "type_hierarchy", "unused_imports_detector", "use_mcp", "use_system",
+        "verify_state", "view_file", "view_memory", "worker_result",
+        "worker_status", "workspace_settings_read", "xcode_build_settings_inspector", "xcode_device_destination_finder",
+        "xcode_scheme_manager", "xcode_toolchain_info", "xcresult_parser", "xctest_discovery",
+        "yaml_parser_tool", "zoom",
+        ];
+        let mut seen = std::collections::HashSet::new();
+        for tool in allowed {
+            assert!(
+                definition(tool).is_some(),
+                "allowed tool {tool} is not a registry tool"
+            );
+            assert!(seen.insert(*tool), "duplicate allowed tool {tool}");
+        }
+        for tool in crate::assets::READ_ONLY_DENIED_TOOLS {
+            assert!(
+                !seen.contains(tool),
+                "tool {tool} is both allowed and denied for read-only"
+            );
+        }
+        assert_eq!(
+            seen.len() + crate::assets::READ_ONLY_DENIED_TOOLS.len(),
+            DEFINITIONS.len(),
+            "read-only allow and deny sets must partition the registry"
+        );
+    }
+
 }
