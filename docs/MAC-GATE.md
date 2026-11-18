@@ -135,15 +135,15 @@ Measured test-attribute counts, excluding `vendor/`, counted by grep at
 time of writing. Two spellings count: the short form `#[test]` and the
 fully-qualified `#[::core::prelude::v1::test]` (used by the UI-test
 modules in `coincide-desktop`, which import it with
-`use ::core::prelude::v1::test;`). Raw short-form grep finds 2,199
+`use ::core::prelude::v1::test;`). Raw short-form grep finds 2,205
 matching lines, but one is prose inside a comment —
 `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`, a `//` comment
 reading "The glob brings GPUI's test attribute, which expands to
 #[test] again." — not a real attribute, so the short-form total is
-2,198. Fully-qualified grep finds 736 real attributes, all in
+2,204. Fully-qualified grep finds 736 real attributes, all in
 `coincide-desktop`; the 7 other lines matching that string are the
 `use ::core::prelude::v1::test;` imports, not attributes. The true
-total is **2,934** test attributes. Reproduce from `Rust Backend` with
+total is **2,940** test attributes. Reproduce from `Rust Backend` with
 `find crates -name '*.rs' -not -path '*/vendor/*' -exec grep -H
 '#\[test\]' {} + | wc -l` for the raw short-form count, then subtract
 matching lines whose `#[test]` sits inside a `//` comment (exactly one,
@@ -157,9 +157,9 @@ wc -l` for the fully-qualified count:
 | coincide-desktop | 367 | 736 | 1,103 |
 | coincide-awake-helper | 9 | 0 | 9 |
 | coincide-macos-ffi | 2 | 0 | 2 |
-| coincide-mcp-server | 10 | 0 | 10 |
+| coincide-mcp-server | 16 | 0 | 16 |
 | coincide-native-host-tests | 0 | 0 | 0 |
-| **Total** | **2,198** | **736** | **2,934** |
+| **Total** | **2,204** | **736** | **2,940** |
 
 Run the workspace suite from `Rust Backend`:
 
@@ -174,7 +174,7 @@ and CI do not cover the same surface (`.github/workflows/rust.yml`,
     cargo test -p coincide-desktop --locked --features native-notifications,native-microphone,native-computer-use
 
 Coverage gap to know about before interpreting results:
-`coincide-mcp-server` (10 tests) and `coincide-macos-ffi` (2 tests) have
+`coincide-mcp-server` (16 tests) and `coincide-macos-ffi` (2 tests) have
 no `cargo test` coverage in any CI job. Their first CI coverage is the
 `agents-app` job building them via the Xcode pre-build scripts. On the
 gate Mac, also run:
@@ -434,8 +434,8 @@ reason. A step that was not run is unchecked, not passed.
 - [ ] Step 3 — Agents Swift tests pass (AgentsTests, 105 `@Test`)
 - [ ] Step 4 — Coincide Remote tests pass (CoincideRemoteTests, 19
   `@Test`; UI tests ran, not skipped)
-- [ ] Step 5 — Rust tests pass (2,934 test attributes excl. vendor:
-  2,198 `#[test]` + 736 `#[::core::prelude::v1::test]`; incl.
+- [ ] Step 5 — Rust tests pass (2,940 test attributes excl. vendor:
+  2,204 `#[test]` + 736 `#[::core::prelude::v1::test]`; incl.
   `coincide-mcp-server` and `coincide-macos-ffi`); `cargo fmt --check`
   and clippy clean
 - [ ] Step 6 — CI green on the tested commit (`agents-app`,
