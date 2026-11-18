@@ -448,6 +448,7 @@ private struct QuestionAttentionCard: View {
                     SecureField("Enter secret value…", text: textBinding)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 12))
+                        .accessibilityLabel("Enter secret value")
                 } else {
                     TextField(
                         question.options.isEmpty ? "Type your answer…" : "Or enter a custom answer…",
@@ -455,6 +456,7 @@ private struct QuestionAttentionCard: View {
                     )
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
+                    .accessibilityLabel(question.options.isEmpty ? "Type your answer" : "Or enter a custom answer")
                 }
             }
         }
