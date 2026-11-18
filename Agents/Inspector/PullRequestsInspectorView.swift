@@ -755,7 +755,7 @@ struct PullRequestsInspectorView: View {
                     state: stateFilter.rawValue,
                     involvement: involvementScope
                 )
-                self.unavailableReason = listed.unavailable
+                self.unavailableReason = listed.unavailable.flatMap { $0.isEmpty ? nil : ErrorSanitizer.sanitizeText($0) }
                 self.pullRequests = listed.items
             }
 
