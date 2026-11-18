@@ -61,6 +61,7 @@ targets:
           - Agents.entitlements
     resources:
       - path: Agents/Resources/SystemAssets
+      - path: Agents/Resources/ProfileDenyLists.json
     dependencies:
       - package: CoincideRemoteKit
     settings:

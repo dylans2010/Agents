@@ -922,7 +922,7 @@ mod tests {
         let tools = child_doc["allowedTools"]
             .as_array()
             .expect("spawn materializes a restricted list");
-        assert_eq!(tools.len(), 185);
+        assert_eq!(tools.len(), 183);
         assert!(tools.iter().all(|tool| tool != "write_file"));
     }
 

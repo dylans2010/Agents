@@ -1505,6 +1505,7 @@ nobody over-claims it:
   note the list is checked per category by hand-written mutating-tool
   sets in the `*PresetsTests.swift` files, not by a registry-wide
   sweep (see `docs/ASSISTANTS.md`, "The read-only guarantee").
+- **One deny list, not two.** `Agents/Resources/ProfileDenyLists.json` is the single source of truth for the read-only (150 tools) and approval-required (86 tools) deny lists. Rust `profile_gate.rs` keeps its const arrays as the runtime enforcement authority and a test pins them to the manifest; Swift `SystemToolRegistry` loads the manifest from the app bundle at runtime and keeps no hand-maintained copy, failing closed (deny everything) if the file is missing. A cross-side parity test on each side fails if either side drifts from the manifest. The lists are the union of the two sides' old lists (the stricter side won every differing tool; the 20 reconciled tools and their reasons are recorded in the manifest's `notes.reconciliation`); approval-required is not a subset of read-only by design: 28 terminal-executing pure readers stay allowed for read-only and denied for approval-required.
 - **Validation rejections that do exist:** a non-empty
   `allowedTools` cannot combine with the provider toolset; a
   system prompt cannot combine with it either; System Tools are

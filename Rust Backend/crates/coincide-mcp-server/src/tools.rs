@@ -21971,7 +21971,7 @@ mod tests {
     fn profile_list_filtering() {
         let read_only =
             profile_list_names(&crate::assets::ThreadProfile::Known("read-only".to_owned()));
-        assert_eq!(read_only.len(), 185);
+        assert_eq!(read_only.len(), 183);
         assert!(!read_only.iter().any(|name| name == "write_file"));
         assert!(!read_only.iter().any(|name| name == "run_build"));
         assert!(!read_only.iter().any(|name| name == "git_commit"));
@@ -21980,6 +21980,8 @@ mod tests {
         assert!(!read_only.iter().any(|name| name == "click"));
         assert!(!read_only.iter().any(|name| name == "use_mcp"));
         assert!(!read_only.iter().any(|name| name == "use_system"));
+        assert!(!read_only.iter().any(|name| name == "github_repo"));
+        assert!(!read_only.iter().any(|name| name == "zoom"));
         assert!(read_only.iter().any(|name| name == "test_coverage_report"));
         assert!(read_only.iter().any(|name| name == "test_coverage_reporter"));
         assert!(read_only.iter().any(|name| name == "read_file"));
@@ -21989,7 +21991,7 @@ mod tests {
         let approval = profile_list_names(&crate::assets::ThreadProfile::Known(
             "approval-required".to_owned(),
         ));
-        assert_eq!(approval.len(), 248);
+        assert_eq!(approval.len(), 247);
         assert!(approval.iter().any(|name| name == "write_file"));
         assert!(approval.iter().any(|name| name == "read_file"));
         assert!(approval.iter().any(|name| name == "read_terminal"));
@@ -21997,6 +21999,7 @@ mod tests {
         assert!(!approval.iter().any(|name| name == "run_build"));
         assert!(!approval.iter().any(|name| name == "git_commit"));
         assert!(!approval.iter().any(|name| name == "delete_file"));
+        assert!(!approval.iter().any(|name| name == "github_repo"));
         assert_eq!(
             profile_list_names(&crate::assets::ThreadProfile::NoAssistant).len(),
             333
@@ -22124,7 +22127,7 @@ mod tests {
                     definition.name
                 ))
                 .count(),
-            148
+            150
         );
         assert_eq!(
             DEFINITIONS
@@ -22134,7 +22137,7 @@ mod tests {
                     definition.name
                 ))
                 .count(),
-            85
+            86
         );
     }
 
@@ -22151,7 +22154,7 @@ mod tests {
                 "allowed tool {tool} is not a registry tool"
             );
         }
-        assert_eq!(seen.len(), 185, "read-only allow set must hold 185 tools");
+        assert_eq!(seen.len(), 183, "read-only allow set must hold 183 tools");
         for tool in coincide_core::agent::profile_gate::READ_ONLY_DENIED_TOOLS {
             assert!(
                 !seen.contains(tool),

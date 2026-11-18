@@ -3656,24 +3656,29 @@ struct ToolsetTests {
     @Test("Permission profile deny sets name only registered tools")
     func permissionProfileDenySetsAreRegisteredTools() {
         let registered = Set(SystemToolRegistry.systemTools.map(\\.name))
-        #expect(SystemToolRegistry.readOnlyDeniedToolNames.count == 137)
-        #expect(SystemToolRegistry.terminalToolNames.count == 62)
-        #expect(SystemToolRegistry.gitMutatingToolNames.count == 10)
-        #expect(SystemToolRegistry.deleteToolNames.count == 10)
-        #expect(SystemToolRegistry.approvalRequiredDeniedToolNames.count == 81)
+        #expect(SystemToolRegistry.readOnlyDeniedToolNames.count == 150)
+        #expect(SystemToolRegistry.approvalRequiredDeniedToolNames.count == 86)
         #expect(SystemToolRegistry.readOnlyDeniedToolNames.isSubset(of: registered))
-        #expect(SystemToolRegistry.terminalToolNames.isSubset(of: registered))
-        #expect(SystemToolRegistry.gitMutatingToolNames.isSubset(of: registered))
-        #expect(SystemToolRegistry.deleteToolNames.isSubset(of: registered))
+        #expect(SystemToolRegistry.approvalRequiredDeniedToolNames.isSubset(of: registered))
         #expect(SystemToolRegistry.readOnlyDeniedToolNames.contains("write_file"))
         #expect(!SystemToolRegistry.readOnlyDeniedToolNames.contains("read_file"))
-        #expect(SystemToolRegistry.terminalToolNames.contains("use_terminal"))
-        #expect(SystemToolRegistry.gitMutatingToolNames.contains("git_push"))
-        #expect(SystemToolRegistry.deleteToolNames.contains("delete_file"))
-        #expect(SystemToolRegistry.terminalToolNames.contains("project_clean"))
-        #expect(SystemToolRegistry.deleteToolNames.contains("project_clean"))
         #expect(!SystemToolRegistry.approvalRequiredDeniedToolNames.contains("read_file"))
         #expect(!SystemToolRegistry.approvalRequiredDeniedToolNames.contains("mem_store"))
+        for tool in [
+            "dead_code_eliminator", "entitlements_manager", "env_capture_logs", "execution_plan",
+            "intel_breakdown_task", "intel_plan_task", "json_to_plist", "mem_context_snapshot",
+            "project_capabilities", "project_info_plist", "read_terminal", "system_notification_tool",
+            "use_mcp", "github_repo", "zoom",
+        ] {
+            #expect(SystemToolRegistry.readOnlyDeniedToolNames.contains(tool))
+        }
+        for tool in [
+            "git_conflict_resolver", "manage_memory", "project_restore", "project_snapshot",
+            "safe_undo", "github_repo",
+        ] {
+            #expect(SystemToolRegistry.approvalRequiredDeniedToolNames.contains(tool))
+        }
+        #expect(!SystemToolRegistry.approvalRequiredDeniedToolNames.contains("zoom"))
         #expect(SystemToolRegistry.isDeniedByPermissionProfile("write_file", profile: .readOnly))
         #expect(!SystemToolRegistry.isDeniedByPermissionProfile("read_file", profile: .readOnly))
         #expect(SystemToolRegistry.isDeniedByPermissionProfile("use_terminal", profile: .approvalRequired))
@@ -3683,6 +3688,23 @@ struct ToolsetTests {
         #expect(!SystemToolRegistry.isDeniedByPermissionProfile("write_file", profile: .workspaceModify))
         #expect(!SystemToolRegistry.isDeniedByPermissionProfile("use_terminal", profile: .terminal))
         #expect(!SystemToolRegistry.isDeniedByPermissionProfile("git_push", profile: .terminal))
+    }
+
+    @Test("Permission profile deny sets match the shared manifest")
+    func permissionProfileDenySetsMatchSharedManifest() throws {
+        let testFile = URL(fileURLWithPath: #filePath)
+        let manifestURL = testFile
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Agents/Resources/ProfileDenyLists.json")
+        let data = try Data(contentsOf: manifestURL)
+        let manifest = try JSONDecoder().decode(ProfileDenyLists.Manifest.self, from: data)
+        #expect(manifest.readOnlyDenied == manifest.readOnlyDenied.sorted())
+        #expect(manifest.approvalRequiredDenied == manifest.approvalRequiredDenied.sorted())
+        #expect(Set(manifest.readOnlyDenied).count == manifest.readOnlyDenied.count)
+        #expect(Set(manifest.approvalRequiredDenied).count == manifest.approvalRequiredDenied.count)
+        #expect(SystemToolRegistry.readOnlyDeniedToolNames == Set(manifest.readOnlyDenied))
+        #expect(SystemToolRegistry.approvalRequiredDeniedToolNames == Set(manifest.approvalRequiredDenied))
     }
 
 }

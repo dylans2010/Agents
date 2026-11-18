@@ -98,7 +98,7 @@ pub const READ_ONLY_DENIED_TOOLS: &[&str] = &["asset_catalog_manager", "asset_im
     "file_write", "format_json_file", "generate_xcodeproj", "git_bisect",
     "git_branch_checkout", "git_branch_create", "git_branch_manager", "git_cherry_pick",
     "git_commit", "git_conflict_resolver", "git_pull", "git_push",
-    "git_stash_operator", "gzip_compress_file", "gzip_decompress_file", "hotkey",
+    "git_stash_operator", "github_repo", "gzip_compress_file", "gzip_decompress_file", "hotkey",
     "icon_generator_tool", "image_convert_format", "image_decode_base64", "image_generate_thumbnail",
     "import_cleanup", "intel_breakdown_task", "intel_generate_tests", "intel_plan_task",
     "invoke_menu", "json_to_csv", "json_to_plist", "json_validate",
@@ -119,7 +119,7 @@ pub const READ_ONLY_DENIED_TOOLS: &[&str] = &["asset_catalog_manager", "asset_im
     "test_data_factory", "test_run_single", "test_snapshot_manage", "type_text",
     "ui_test_scaffold", "unzip_file", "use_app", "use_mcp",
     "use_system", "use_terminal", "use_workers", "version_control_operator",
-    "write_file", "write_terminal", "yaml_validate", "zip_file",];
+    "write_file", "write_terminal", "yaml_validate", "zip_file", "zoom",];
 
 pub const APPROVAL_REQUIRED_DENIED_TOOLS: &[&str] = &["binary_size_report", "code_signing_diagnose", "compiler_diagnostics_engine", "create_terminal",
     "delete_artifact", "delete_directory", "delete_file", "delete_worker",
@@ -127,7 +127,7 @@ pub const APPROVAL_REQUIRED_DENIED_TOOLS: &[&str] = &["binary_size_report", "cod
     "docc_build", "file_delete", "generate_xcodeproj", "git_bisect",
     "git_branch_checkout", "git_branch_create", "git_branch_manager", "git_cherry_pick",
     "git_commit", "git_conflict_resolver", "git_pull", "git_push",
-    "git_stash_operator", "gzip_compress_file", "gzip_decompress_file", "icon_generator_tool",
+    "git_stash_operator", "github_repo", "gzip_compress_file", "gzip_decompress_file", "icon_generator_tool",
     "image_convert_format", "image_extract_metadata", "image_generate_thumbnail", "image_get_dimensions",
     "mach_o_binary_analyzer", "manage_memory", "mem_clear", "mem_delete",
     "package_dependency_audit", "package_dependency_update", "package_manifest_validate", "performance_benchmark",
@@ -239,8 +239,8 @@ mod tests {
                 );
             }
         }
-        assert_eq!(READ_ONLY_DENIED_TOOLS.len(), 148);
-        assert_eq!(APPROVAL_REQUIRED_DENIED_TOOLS.len(), 85);
+        assert_eq!(READ_ONLY_DENIED_TOOLS.len(), 150);
+        assert_eq!(APPROVAL_REQUIRED_DENIED_TOOLS.len(), 86);
         assert!(READ_ONLY_DENIED_TOOLS.contains(&"git_branch_manager"));
         assert!(READ_ONLY_DENIED_TOOLS.contains(&"use_app"));
         assert!(APPROVAL_REQUIRED_DENIED_TOOLS.contains(&"git_branch_manager"));
@@ -248,6 +248,70 @@ mod tests {
         assert!(!APPROVAL_REQUIRED_DENIED_TOOLS.contains(&"read_file"));
         assert!(READ_ONLY_DENIED_TOOLS.contains(&"use_mcp"));
         assert!(!APPROVAL_REQUIRED_DENIED_TOOLS.contains(&"use_mcp"));
+    }
+
+    #[test]
+    fn deny_sets_match_shared_profile_deny_lists_manifest() {
+        let manifest = include_str!("../../../../Agents/Resources/ProfileDenyLists.json");
+        let parsed: serde_json::Value =
+            serde_json::from_str(manifest).expect("profile deny lists manifest parses");
+        let read_only = parsed["readOnlyDenied"]
+            .as_array()
+            .expect("manifest carries readOnlyDenied")
+            .iter()
+            .map(|name| name.as_str().expect("deny entry is a string"))
+            .collect::<Vec<_>>();
+        let approval = parsed["approvalRequiredDenied"]
+            .as_array()
+            .expect("manifest carries approvalRequiredDenied")
+            .iter()
+            .map(|name| name.as_str().expect("deny entry is a string"))
+            .collect::<Vec<_>>();
+        assert_eq!(READ_ONLY_DENIED_TOOLS, read_only.as_slice());
+        assert_eq!(APPROVAL_REQUIRED_DENIED_TOOLS, approval.as_slice());
+    }
+
+    #[test]
+    fn unified_deny_sets_include_reconciled_tools() {
+        for tool in [
+            "dead_code_eliminator",
+            "entitlements_manager",
+            "env_capture_logs",
+            "execution_plan",
+            "intel_breakdown_task",
+            "intel_plan_task",
+            "json_to_plist",
+            "mem_context_snapshot",
+            "project_capabilities",
+            "project_info_plist",
+            "read_terminal",
+            "system_notification_tool",
+            "use_mcp",
+            "github_repo",
+            "zoom",
+        ] {
+            assert!(
+                tool_denied_by_profile("read-only", tool),
+                "{tool} must be denied for read-only"
+            );
+        }
+        for tool in [
+            "git_conflict_resolver",
+            "manage_memory",
+            "project_restore",
+            "project_snapshot",
+            "safe_undo",
+            "github_repo",
+        ] {
+            assert!(
+                tool_denied_by_profile("approval-required", tool),
+                "{tool} must be denied for approval-required"
+            );
+        }
+        assert!(
+            !tool_denied_by_profile("approval-required", "zoom"),
+            "zoom stays allowed for approval-required"
+        );
     }
 
     #[test]
@@ -346,7 +410,6 @@ mod tests {
             "list_apps",
             "list_windows",
             "verify_state",
-            "zoom",
             "take_screenshot",
             "search_web",
             "read_url_content",
@@ -555,7 +618,7 @@ mod tests {
     fn materialized_allowed_tools_restricts_unlisted_profiled_threads() {
         let read_only = materialized_allowed_tools("read-only", None)
             .expect("read-only materializes a list");
-        assert_eq!(read_only.len(), 185);
+        assert_eq!(read_only.len(), 183);
         assert!(read_only.contains(&"read_file".to_string()));
         assert!(read_only.contains(&"test_coverage_report".to_string()));
         assert!(read_only.contains(&"device_list".to_string()));
@@ -565,7 +628,7 @@ mod tests {
         assert!(!read_only.contains(&"use_mcp".to_string()));
         let approval = materialized_allowed_tools("approval-required", None)
             .expect("approval-required materializes a list");
-        assert_eq!(approval.len(), 248);
+        assert_eq!(approval.len(), 247);
         assert!(approval.contains(&"read_file".to_string()));
         assert!(approval.contains(&"write_file".to_string()));
         assert!(approval.contains(&"read_terminal".to_string()));
@@ -609,14 +672,14 @@ mod tests {
                 .iter()
                 .filter(|tool| tool_denied_by_profile("read-only", tool))
                 .count(),
-            148
+            150
         );
         assert_eq!(
             TOOL_REGISTRY
                 .iter()
                 .filter(|tool| tool_denied_by_profile("approval-required", tool))
                 .count(),
-            85
+            86
         );
     }
 

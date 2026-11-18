@@ -4849,7 +4849,7 @@ mod catalog_shutdown_adapter_tests {
         let expected =
             crate::agent::profile_gate::materialized_allowed_tools("approval-required", None)
                 .expect("approval-required materializes a list");
-        assert_eq!(expected.len(), 248);
+        assert_eq!(expected.len(), 247);
         assert_eq!(v["toolset"], json!("system"));
         let stored = v["allowedTools"]
             .as_array()
