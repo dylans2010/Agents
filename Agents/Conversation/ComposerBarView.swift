@@ -50,6 +50,7 @@ struct ComposerBarView: View {
     @State private var showAgentModelPopover = false
     @State private var showUsageQuotaPopover = false
     @State private var isSending = false
+    @State private var failedSendDelivery: RemoteSendRequest.Delivery? = nil
 
     private var activeThread: RemoteThreadSummary? {
         appModel.selectedThread
@@ -111,6 +112,14 @@ struct ComposerBarView: View {
             // 1. Usage Warning Banner (`RemoteComposerNotice.usageWarning`)
             if let warning = appModel.activeComposerNotice?.usageWarning {
                 ComposerUsageWarningBanner(warning: warning, appModel: appModel)
+            }
+
+            if failedSendDelivery != nil {
+                ComposerSendErrorBanner(
+                    isSending: isSending,
+                    onRetry: retryFailedSend,
+                    onDismiss: { failedSendDelivery = nil }
+                )
             }
 
             // 2. Queued Follow-Up Messages Strip when a turn is running
@@ -208,11 +217,7 @@ struct ComposerBarView: View {
                 // Footer Control Bar
                 composerFooterControls
             }
-            .glassPanel(cornerRadius: AppTheme.cornerRadiusLarge)
-            .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge)
-                    .strokeBorder(composerBorderColor, lineWidth: isDragTargeted || isComposerFocused ? 1.5 : 1)
-            )
+            .glassEffect(composerGlassEffect, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge))
         }
         .frame(maxWidth: AppTheme.conversationColumnMaxWidth)
         .padding(.horizontal, 24)
@@ -248,11 +253,11 @@ struct ComposerBarView: View {
         return "Ask \(AgentBranding.displayName(for: activeSelection.provider))\(projSuffix)… (@ to mention files, / for skills)"
     }
 
-    private var composerBorderColor: Color {
-        if isDragTargeted { return AppTheme.accent }
-        if appModel.voiceDictation.isRecording { return AppTheme.danger.opacity(0.75) }
-        if isComposerFocused { return AppTheme.accent.opacity(0.55) }
-        return AppTheme.separator
+    private var composerGlassEffect: Glass {
+        if isDragTargeted { return .regular.tint(AppTheme.accent.opacity(0.12)) }
+        if appModel.voiceDictation.isRecording { return .regular.tint(AppTheme.danger.opacity(0.12)) }
+        if isComposerFocused { return .regular.tint(AppTheme.accent.opacity(0.08)) }
+        return .regular
     }
 
     // MARK: - Staged Attachments & `@file` Pills Strip
@@ -350,90 +355,88 @@ struct ComposerBarView: View {
 
     @ViewBuilder
     private var composerFooterControls: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-            // 1. Attach Button (`NSOpenPanel`)
-            Button {
-                presentAttachmentOpenPanel()
-            } label: {
-                Image(systemName: "paperclip")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(AppTheme.secondaryLabel)
-                    .frame(width: 26, height: 26)
-                    .background(AppTheme.subtleHoverFill.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
-            }
-            .buttonStyle(.plain)
-            .help("Attach images or mention workspace files")
-            .accessibilityLabel("Attach images or mention workspace files")
-
-            // 2. Voice Dictation Button + Live Level Meter
-            voiceDictationControl
-
-            // 3. Agent, Account & Model Popover Button
-            Button {
-                showAgentModelPopover.toggle()
-            } label: {
-                HStack(spacing: 6) {
-                    AgentLogoView(provider: activeSelection.provider, size: 14)
-
-                    Text(resolvedFooterModelLabel)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(AppTheme.primaryLabel)
-                        .lineLimit(1)
-
-                    if let acctName = activeSelection.accountName, !acctName.isEmpty {
-                        Text("· \(acctName)")
-                            .font(.system(size: 11))
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Button {
+                        presentAttachmentOpenPanel()
+                    } label: {
+                        Image(systemName: "paperclip")
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(AppTheme.secondaryLabel)
-                            .lineLimit(1)
+                            .frame(width: 26, height: 26)
+                            .background(AppTheme.subtleHoverFill.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
                     }
+                    .buttonStyle(.plain)
+                    .help("Attach images or mention workspace files")
+                    .accessibilityLabel("Attach images or mention workspace files")
 
-                    if let effort = activeSelection.effort, !effort.isEmpty {
-                        Text(effort.uppercased())
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .foregroundStyle(AppTheme.accent)
-                            .padding(.horizontal, 4.5)
-                            .padding(.vertical, 1)
-                            .background(AppTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 3.5))
+                    voiceDictationControl
+
+                    Button {
+                        showAgentModelPopover.toggle()
+                    } label: {
+                        HStack(spacing: 6) {
+                            AgentLogoView(provider: activeSelection.provider, size: 14)
+
+                            Text(resolvedFooterModelLabel)
+                                .font(.system(size: 11.5, weight: .medium))
+                                .foregroundStyle(AppTheme.primaryLabel)
+                                .lineLimit(1)
+
+                            if let acctName = activeSelection.accountName, !acctName.isEmpty {
+                                Text("· \(acctName)")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(AppTheme.secondaryLabel)
+                                    .lineLimit(1)
+                            }
+
+                            if let effort = activeSelection.effort, !effort.isEmpty {
+                                Text(effort.uppercased())
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(AppTheme.accent)
+                                    .padding(.horizontal, 4.5)
+                                    .padding(.vertical, 1)
+                                    .background(AppTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 3.5))
+                            }
+
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(AppTheme.tertiaryLabel)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4.5)
+                        .background(AppTheme.elevatedCardFill, in: Capsule())
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(AppTheme.separator.opacity(0.85), lineWidth: 1)
+                        )
                     }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showAgentModelPopover, arrowEdge: .top) {
+                        AgentModelPickerPopover(appModel: appModel)
+                    }
+                    .help("Select agent, account, model & reasoning effort")
 
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppTheme.tertiaryLabel)
+                    interactionModeMenu
+
+                    accessModeMenu
+
+                    toolsetMenu
+
+                    if !relevantUsageWindows.isEmpty {
+                        usageQuotaButton
+                    }
                 }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4.5)
-                .background(AppTheme.elevatedCardFill, in: Capsule())
-                .overlay(
-                    Capsule()
-                        .strokeBorder(AppTheme.separator.opacity(0.85), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $showAgentModelPopover, arrowEdge: .top) {
-                AgentModelPickerPopover(appModel: appModel)
-            }
-            .help("Select agent, account, model & reasoning effort")
-
-            // 4. Interaction Mode (`Build` vs `Plan`)
-            interactionModeMenu
-
-            // 5. Access Mode (`Approval` vs `Full Access`)
-            accessModeMenu
-
-            Spacer(minLength: 4)
-
-            // 6. Usage Quota Indicator Popover (if quota windows exist)
-            if !relevantUsageWindows.isEmpty {
-                usageQuotaButton
+                .padding(.horizontal, 10)
+                .padding(.bottom, 8)
+                .padding(.top, 4)
             }
 
-            // 7. Primary Send / Queue / Steer / Stop Button (`⌘.`)
             primaryActionButtons
-            }
-            .padding(.horizontal, 10)
-            .padding(.bottom, 8)
-            .padding(.top, 4)
+                .padding(.trailing, 10)
+                .padding(.bottom, 8)
+                .padding(.top, 4)
         }
     }
 
@@ -605,6 +608,38 @@ struct ComposerBarView: View {
         .help("Configure tool execution permission mode")
     }
 
+    @ViewBuilder
+    private var toolsetMenu: some View {
+        Menu {
+            ForEach(AgentToolset.allCases, id: \.self) { toolset in
+                Button {
+                    appModel.agentToolset = toolset
+                } label: {
+                    Label(toolset.title, systemImage: toolset == .system ? "wrench.and.screwdriver" : "server.rack")
+                    if appModel.agentToolset == toolset { Image(systemName: "checkmark") }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: appModel.agentToolset == .system ? "wrench.and.screwdriver" : "server.rack")
+                    .font(.system(size: 11, weight: .medium))
+                Text(appModel.agentToolset.title)
+                    .font(.system(size: 11.5, weight: .medium))
+            }
+            .foregroundStyle(AppTheme.secondaryLabel)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4.5)
+            .background(AppTheme.elevatedCardFill, in: Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(AppTheme.separator.opacity(0.8), lineWidth: 1)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Agent tools for new conversations (Settings › General › Agent Tools)")
+    }
+
     // MARK: - Usage Quota Indicator & Popover
 
     @ViewBuilder
@@ -723,10 +758,10 @@ struct ComposerBarView: View {
         }
 
         let outgoingText = trimmed
-        let outgoingImages = stagedImages.map { RemoteImage(name: $0.name, data: $0.data) }
+        let preservedImages = stagedImages
+        let outgoingImages = preservedImages.map { RemoteImage(name: $0.name, data: $0.data) }
         let delivery: RemoteSendRequest.Delivery = alternateDelivery ? .alternate : .automatic
 
-        // Record in prompt history
         if !outgoingText.isEmpty && sentPromptHistory.last != outgoingText {
             sentPromptHistory.append(outgoingText)
             if sentPromptHistory.count > 60 {
@@ -740,16 +775,32 @@ struct ComposerBarView: View {
         stagedImages.removeAll()
         activeTrigger = nil
         completions = []
+        failedSendDelivery = nil
         isSending = true
+        pendingEdit = ComposerProgrammaticEdit(.focus)
 
         Task {
-            _ = await appModel.sendMessage(
+            let outcome = await appModel.sendMessage(
                 text: outgoingText,
                 images: outgoingImages,
                 delivery: delivery
             )
             isSending = false
+            if outcome == nil {
+                draftText = outgoingText
+                stagedImages = preservedImages
+                failedSendDelivery = delivery
+            } else {
+                failedSendDelivery = nil
+            }
         }
+    }
+
+    private func retryFailedSend() {
+        guard let delivery = failedSendDelivery else { return }
+        guard !isSending else { return }
+        failedSendDelivery = nil
+        submitMessage(alternateDelivery: delivery == .alternate)
     }
 
     private func navigateHistory(direction: Int) -> Bool {
@@ -1267,6 +1318,49 @@ private struct ComposerCompletionsCard: View {
             }
         }
         .glassPanel()
+    }
+}
+
+private struct ComposerSendErrorBanner: View {
+    let isSending: Bool
+    let onRetry: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(AppTheme.danger)
+
+            Text("Couldn't send this message. Your draft was kept.")
+                .font(.system(size: 12))
+                .foregroundStyle(AppTheme.primaryLabel)
+                .lineLimit(2)
+
+            Spacer()
+
+            Button("Retry", action: onRetry)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(isSending)
+
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(AppTheme.secondaryLabel)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss send error")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(AppTheme.danger.opacity(0.10), in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                .strokeBorder(AppTheme.danger.opacity(0.4), lineWidth: 1)
+        )
     }
 }
 

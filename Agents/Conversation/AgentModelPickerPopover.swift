@@ -2,6 +2,20 @@ import AppKit
 import CoincideRemoteKit
 import SwiftUI
 
+enum ComposerPickerKeyboardRegion {
+    case providers
+    case models
+}
+
+struct ComposerListNavigator {
+    static func movedIndex(from current: Int?, count: Int, delta: Int) -> Int? {
+        guard count > 0 else { return nil }
+        let start = current ?? (delta > 0 ? -1 : 0)
+        let raw = start + delta
+        return ((raw % count) + count) % count
+    }
+}
+
 struct AgentModelPickerPopover: View {
     @Bindable var appModel: AppModel
     @Environment(\.openSettings) private var openSettings
@@ -11,6 +25,8 @@ struct AgentModelPickerPopover: View {
     @State private var modelFilter: String = ""
     @State private var fetchedCatalogModels: [String: [CatalogModelEntry]] = [:]
     @State private var isRefreshingCatalog = false
+    @State private var highlightedModelID: String? = nil
+    @State private var keyboardRegion: ComposerPickerKeyboardRegion = .models
 
     private struct UnifiedAccountOption: Identifiable, Hashable {
         let id: String
@@ -60,7 +76,7 @@ struct AgentModelPickerPopover: View {
         for id in preferredOrder {
             if let existing = byID.removeValue(forKey: id) {
                 result.append(existing)
-            } else if id == "antigravity" || id == "claude" || id == "codex" || id == "cursor" || id == "grok" || id == "opencode" {
+            } else if id == "antigravity" || id == "claude" || id == "codex" || id == "cursor" || id == "grok" || id == "opencode" || id == "lithos" {
                 result.append(
                     DesktopProviderInfo(
                         id: id,
@@ -197,16 +213,23 @@ struct AgentModelPickerPopover: View {
                     .padding(.horizontal, 8)
                     .padding(.top, 4)
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        ForEach(allProvidersOrdered) { provider in
-                            providerSidebarRow(provider)
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            ForEach(allProvidersOrdered) { provider in
+                                providerSidebarRow(provider)
+                                    .id(provider.id)
+                            }
                         }
+                    }
+                    .frame(maxHeight: 340)
+                    .onChange(of: focusedProviderID) { _, newID in
+                        proxy.scrollTo(newID, anchor: .center)
                     }
                 }
             }
             .padding(10)
-            .frame(minWidth: 180, idealWidth: 195, maxWidth: 220)
+            .frame(minWidth: 180, maxWidth: 220)
             .background(Color.primary.opacity(0.025))
 
             Divider()
@@ -241,17 +264,53 @@ struct AgentModelPickerPopover: View {
                             speedPickerSection(provider: provider, model: model)
                         }
                     }
+
+                    Divider()
+                    Text("↑↓ Navigate · ←→ Switch agent · Return Select · Esc Close")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(AppTheme.tertiaryLabel)
                 }
                 .padding(14)
-                .frame(minWidth: 320, idealWidth: 345, maxWidth: 380)
+                .frame(minWidth: 320, maxWidth: 380)
             }
         }
-        .frame(minHeight: 380, idealHeight: 430, maxHeight: 520)
         .onAppear {
             focusedProviderID = activeSelection.provider
         }
         .task(id: focusedProviderID) {
             await loadCatalogIfNeeded()
+        }
+        .onChange(of: focusedProviderID) { _, _ in
+            highlightedModelID = nil
+        }
+        .onChange(of: modelFilter) { _, _ in
+            highlightedModelID = nil
+        }
+        .onKeyPress(.downArrow) {
+            moveKeyboardSelection(delta: 1)
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            moveKeyboardSelection(delta: -1)
+            return .handled
+        }
+        .onKeyPress(.leftArrow) {
+            keyboardRegion = .providers
+            moveProviderFocus(delta: -1)
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            keyboardRegion = .providers
+            moveProviderFocus(delta: 1)
+            return .handled
+        }
+        .onKeyPress(.return) {
+            activateKeyboardSelection()
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            dismiss()
+            return .handled
         }
     }
 
@@ -262,12 +321,12 @@ struct AgentModelPickerPopover: View {
         let normID = AgentBranding.normalizedID(provider.id)
         let isFocused = AgentBranding.normalizedID(selectedProviderInfo?.id) == normID
         let isThreadActive = AgentBranding.normalizedID(activeSelection.provider) == normID
-        let isReady = provider.state == "ready"
-            || (normID == "antigravity" && !(provider.keyAccounts.filter(\.hasKey).isEmpty && (provider.antigravityStatus?.accounts.filter(\.hasKey).isEmpty ?? true)))
+        let isReady = isProviderReady(provider)
 
         Button {
             focusedProviderID = provider.id
-            if isReady || provider.isInstalled {
+            keyboardRegion = .providers
+            if isProviderSelectable(provider) {
                 applyThreadSelection(provider: provider.id, modelID: nil, accountID: nil)
             }
         } label: {
@@ -314,6 +373,9 @@ struct AgentModelPickerPopover: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            if hovering { keyboardRegion = .providers }
+        }
     }
 
     // MARK: - Right Detail Sections
@@ -455,6 +517,9 @@ struct AgentModelPickerPopover: View {
                     TextField("Search models…", text: $modelFilter)
                         .textFieldStyle(.plain)
                         .font(.system(size: 11.5))
+                        .onSubmit {
+                            activateHighlightedModel()
+                        }
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4.5)
@@ -471,68 +536,85 @@ struct AgentModelPickerPopover: View {
                     .foregroundStyle(AppTheme.secondaryLabel)
                     .padding(.vertical, 8)
             } else {
-                ScrollView(.vertical, showsIndicators: true) {
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(modelList) { model in
-                            let isSelected = AgentBranding.normalizedID(activeSelection.provider) == AgentBranding.normalizedID(provider.id)
-                                && activeSelection.modelID == model.id
-                            HStack(spacing: 6) {
-                                Button {
-                                    applyThreadSelection(provider: provider.id, modelID: model.id, accountID: nil)
-                                } label: {
-                                    HStack(spacing: 7) {
-                                        Image(systemName: isSelected ? "checkmark" : "cpu")
-                                            .font(.system(size: 11, weight: isSelected ? .bold : .regular))
-                                            .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.tertiaryLabel)
-                                            .frame(width: 14)
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: true) {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(modelList) { model in
+                                let isSelected = AgentBranding.normalizedID(activeSelection.provider) == AgentBranding.normalizedID(provider.id)
+                                    && activeSelection.modelID == model.id
+                                let isHighlighted = resolvedHighlightedModelID == model.id
+                                HStack(spacing: 6) {
+                                    Button {
+                                        highlightedModelID = model.id
+                                        keyboardRegion = .models
+                                        applyThreadSelection(provider: provider.id, modelID: model.id, accountID: nil)
+                                    } label: {
+                                        HStack(spacing: 7) {
+                                            Image(systemName: isSelected ? "checkmark" : "cpu")
+                                                .font(.system(size: 11, weight: isSelected ? .bold : .regular))
+                                                .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.tertiaryLabel)
+                                                .frame(width: 14)
 
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text(model.name)
-                                                .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                                                .foregroundStyle(AppTheme.primaryLabel)
-                                                .lineLimit(1)
-                                            if model.name != model.id {
-                                                Text(model.id)
-                                                    .font(.system(size: 11, design: .monospaced))
-                                                    .foregroundStyle(AppTheme.tertiaryLabel)
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(model.name)
+                                                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                                                    .foregroundStyle(AppTheme.primaryLabel)
                                                     .lineLimit(1)
+                                                if model.name != model.id {
+                                                    Text(model.id)
+                                                        .font(.system(size: 11, design: .monospaced))
+                                                        .foregroundStyle(AppTheme.tertiaryLabel)
+                                                        .lineLimit(1)
+                                                }
+                                            }
+
+                                            Spacer()
+
+                                            if model.supportsImages {
+                                                Image(systemName: "photo")
+                                                    .font(.system(size: 11))
+                                                    .foregroundStyle(AppTheme.tertiaryLabel)
+                                                    .help("Supports image inputs")
                                             }
                                         }
-
-                                        Spacer()
-
-                                        if model.supportsImages {
-                                            Image(systemName: "photo")
-                                                .font(.system(size: 11))
-                                                .foregroundStyle(AppTheme.tertiaryLabel)
-                                                .help("Supports image inputs")
-                                        }
+                                        .contentShape(Rectangle())
                                     }
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
+                                    .buttonStyle(.plain)
 
-                                Button {
-                                    toggleFavorite(provider: provider.id, model: model)
-                                } label: {
-                                    Image(systemName: model.isFavorite ? "star.fill" : "star")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(model.isFavorite ? AppTheme.favoriteStar : AppTheme.quaternaryLabel)
+                                    Button {
+                                        toggleFavorite(provider: provider.id, model: model)
+                                    } label: {
+                                        Image(systemName: model.isFavorite ? "star.fill" : "star")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(model.isFavorite ? AppTheme.favoriteStar : AppTheme.quaternaryLabel)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help(model.isFavorite ? "Remove favorite" : "Pin favorite model")
+                                    .accessibilityLabel(model.isFavorite ? "Remove \(model.name) from favorites" : "Pin \(model.name) as favorite")
                                 }
-                                .buttonStyle(.plain)
-                                .help(model.isFavorite ? "Remove favorite" : "Pin favorite model")
-                                .accessibilityLabel(model.isFavorite ? "Remove \(model.name) from favorites" : "Pin \(model.name) as favorite")
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(
+                                    isSelected ? AppTheme.accent.opacity(0.11) : (isHighlighted ? AppTheme.selectedContentBackground.opacity(0.22) : Color.clear),
+                                    in: RoundedRectangle(cornerRadius: 5)
+                                )
+                                .id(model.id)
+                                .onHover { hovering in
+                                    if hovering {
+                                        keyboardRegion = .models
+                                        highlightedModelID = model.id
+                                    }
+                                }
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(
-                                isSelected ? AppTheme.accent.opacity(0.11) : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 5)
-                            )
+                        }
+                    }
+                    .frame(maxHeight: 165)
+                    .onChange(of: resolvedHighlightedModelID) { _, target in
+                        if let target {
+                            proxy.scrollTo(target, anchor: .center)
                         }
                     }
                 }
-                .frame(maxHeight: 165)
             }
         }
     }
@@ -611,6 +693,70 @@ struct AgentModelPickerPopover: View {
                 }
             }
         }
+    }
+
+    private var resolvedHighlightedModelID: String? {
+        guard let provider = selectedProviderInfo else { return nil }
+        let list = models(for: provider)
+        if let id = highlightedModelID, list.contains(where: { $0.id == id }) { return id }
+        if list.contains(where: { $0.id == activeSelection.modelID }) { return activeSelection.modelID }
+        return list.first?.id
+    }
+
+    private func isProviderReady(_ provider: DesktopProviderInfo) -> Bool {
+        let normID = AgentBranding.normalizedID(provider.id)
+        return provider.state == "ready"
+            || (normID == "antigravity" && !(provider.keyAccounts.filter(\.hasKey).isEmpty && (provider.antigravityStatus?.accounts.filter(\.hasKey).isEmpty ?? true)))
+    }
+
+    private func isProviderSelectable(_ provider: DesktopProviderInfo) -> Bool {
+        isProviderReady(provider) || provider.isInstalled
+    }
+
+    private func moveKeyboardSelection(delta: Int) {
+        if keyboardRegion == .providers {
+            moveProviderFocus(delta: delta)
+        } else {
+            moveModelHighlight(delta: delta)
+        }
+    }
+
+    private func moveProviderFocus(delta: Int) {
+        let providers = allProvidersOrdered
+        guard !providers.isEmpty else { return }
+        let current = providers.firstIndex { AgentBranding.normalizedID($0.id) == AgentBranding.normalizedID(focusedProviderID) }
+        guard let next = ComposerListNavigator.movedIndex(from: current, count: providers.count, delta: delta) else { return }
+        focusedProviderID = providers[next].id
+    }
+
+    private func moveModelHighlight(delta: Int) {
+        guard let provider = selectedProviderInfo else { return }
+        let list = models(for: provider)
+        guard !list.isEmpty else { return }
+        let current = list.firstIndex { $0.id == resolvedHighlightedModelID }
+        guard let next = ComposerListNavigator.movedIndex(from: current, count: list.count, delta: delta) else { return }
+        highlightedModelID = list[next].id
+    }
+
+    private func activateKeyboardSelection() {
+        if keyboardRegion == .providers {
+            activateFocusedProvider()
+        } else {
+            activateHighlightedModel()
+        }
+    }
+
+    private func activateFocusedProvider() {
+        guard let provider = selectedProviderInfo, isProviderSelectable(provider) else { return }
+        applyThreadSelection(provider: provider.id, modelID: nil, accountID: nil)
+    }
+
+    private func activateHighlightedModel() {
+        guard let provider = selectedProviderInfo else { return }
+        let list = models(for: provider)
+        guard let targetID = resolvedHighlightedModelID,
+              let model = list.first(where: { $0.id == targetID }) else { return }
+        applyThreadSelection(provider: provider.id, modelID: model.id, accountID: nil)
     }
 
     // MARK: - Runtime Mutations

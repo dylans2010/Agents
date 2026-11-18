@@ -206,6 +206,7 @@ public enum AgentBranding {
         case "codex": "Codex"
         case "cursor": "Cursor"
         case "grok": "Grok Build"
+        case "lithos": "Lithos"
         case "opencode": "OpenCode"
         case let other where other.hasPrefix("acp-"):
             String(other.dropFirst(4)).replacingOccurrences(of: "-", with: " ").capitalized
@@ -224,6 +225,7 @@ public enum AgentBranding {
         case "codex": "AgentCodex"
         case "cursor": "AgentCursor"
         case "grok": "AgentGrok"
+        case "lithos": "AgentLithos"
         case "opencode": "AgentOpenCode"
         default: nil
         }

@@ -27,6 +27,11 @@ struct AgentsRuntimeTests {
         #expect(AgentBranding.keepsOriginalColors(for: "claude") == true)
         #expect(AgentBranding.assetName(for: "codex") == "AgentCodex")
         #expect(AgentBranding.keepsOriginalColors(for: "codex") == false)
+        #expect(AgentBranding.displayName(for: "lithos") == "Lithos")
+        #expect(AgentBranding.displayName(for: "LITHOS") == "Lithos")
+        #expect(AgentBranding.normalizedID(" LITHOS ") == "lithos")
+        #expect(AgentBranding.assetName(for: "lithos") == "AgentLithos")
+        #expect(AgentBranding.keepsOriginalColors(for: "lithos") == false)
         #expect(AgentBranding.assetName(for: "acp-custom") == nil)
     }
 

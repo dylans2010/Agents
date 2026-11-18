@@ -6,8 +6,6 @@ struct WelcomeWorkspaceView: View {
     @Bindable var appModel: AppModel
     @Environment(\.openSettings) private var openSettings
 
-    @State private var isSwitchingProvider = false
-
     private struct PromptSuggestion: Identifiable {
         let id: String
         let title: String
@@ -76,29 +74,6 @@ struct WelcomeWorkspaceView: View {
             return true
         }
         return false
-    }
-
-    private var activeProviderID: String {
-        AgentBranding.normalizedID(appModel.selectedThread?.selection.provider)
-    }
-
-    private var otherProviders: [DesktopProviderInfo] {
-        let existing = appModel.providers.filter { AgentBranding.normalizedID($0.id) != "antigravity" }
-        if !existing.isEmpty {
-            return existing
-        }
-        return appModel.workspace.providers
-            .filter { AgentBranding.normalizedID($0.id) != "antigravity" }
-            .map { rp in
-                DesktopProviderInfo(
-                    id: rp.id,
-                    displayName: rp.name,
-                    isEnabled: true,
-                    isApproved: rp.isReady,
-                    isInstalled: rp.state != "notInstalled",
-                    state: rp.state
-                )
-            }
     }
 
     var body: some View {
@@ -224,24 +199,6 @@ struct WelcomeWorkspaceView: View {
                 // Google Antigravity Status Card
                 antigravityStatusCard
 
-                // Other Detected Providers Strip
-                if !otherProviders.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("AVAILABLE AGENTS")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(AppTheme.tertiaryLabel)
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(otherProviders) { provider in
-                                    providerChip(provider)
-                                }
-                            }
-                        }
-                    }
-                    .frame(maxWidth: 680, alignment: .leading)
-                }
-
                 // Starter Bots Row
                 starterBotsSection
 
@@ -308,7 +265,6 @@ struct WelcomeWorkspaceView: View {
 
     @ViewBuilder
     private var antigravityStatusCard: some View {
-        let isSelected = activeProviderID == "antigravity"
         let accounts = antigravityConfiguredAccounts
 
         HStack(alignment: .center, spacing: 14) {
@@ -370,38 +326,17 @@ struct WelcomeWorkspaceView: View {
             Spacer(minLength: 8)
 
             if isAntigravityConfigured {
-                HStack(spacing: 8) {
-                    if isSelected {
-                        Label("Selected", systemImage: "checkmark.circle.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(AppTheme.success)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(AppTheme.success.opacity(0.12), in: Capsule())
-                    } else {
-                        Button {
-                            selectProvider("antigravity", accountID: accounts.first?.id)
-                        } label: {
-                            Text("Select Antigravity")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.regular)
-                        .disabled(isSwitchingProvider)
-                    }
-
-                    Button {
-                        openAntigravitySettings()
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(AppTheme.secondaryLabel)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                    .help("Open Antigravity Settings")
-                    .accessibilityLabel("Open Antigravity settings")
+                Button {
+                    openAntigravitySettings()
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(AppTheme.secondaryLabel)
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+                .help("Open Antigravity Settings")
+                .accessibilityLabel("Open Antigravity settings")
             } else {
                 Button {
                     openAntigravitySettings()
@@ -418,55 +353,8 @@ struct WelcomeWorkspaceView: View {
         .background(AppTheme.elevatedCardFill, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge))
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge)
-                .strokeBorder(
-                    isSelected
-                        ? AgentBranding.color(for: "antigravity").opacity(0.6)
-                        : AppTheme.separator.opacity(0.85),
-                    lineWidth: isSelected ? 1.5 : 1
-                )
+                .strokeBorder(AppTheme.separator.opacity(0.85), lineWidth: 1)
         )
-    }
-
-    // MARK: - Provider Chip
-
-    @ViewBuilder
-    private func providerChip(_ provider: DesktopProviderInfo) -> some View {
-        let isSelected = activeProviderID == AgentBranding.normalizedID(provider.id)
-        let isReady = provider.state == "ready" || (provider.isInstalled && provider.isApproved)
-
-        Button {
-            if isReady || provider.isInstalled {
-                selectProvider(provider.id, accountID: nil)
-            } else {
-                appModel.selectedSettingsTab = .providers
-                openSettings()
-            }
-        } label: {
-            HStack(spacing: 7) {
-                AgentLogoView(provider: provider.id, size: 15)
-                Text(provider.displayName)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-                    .foregroundStyle(AppTheme.primaryLabel)
-                Circle()
-                    .fill(isReady ? AppTheme.success : (provider.isInstalled ? AppTheme.warning : AppTheme.quaternaryLabel))
-                    .frame(width: 6, height: 6)
-            }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 6.5)
-            .background(
-                isSelected ? AgentBranding.color(for: provider.id).opacity(0.14) : AppTheme.elevatedCardFill,
-                in: Capsule()
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(
-                        isSelected ? AgentBranding.color(for: provider.id).opacity(0.65) : AppTheme.separator,
-                        lineWidth: 1
-                    )
-            )
-        }
-        .buttonStyle(.plain)
-        .help(isReady ? "Switch active agent to \(provider.displayName)" : "Configure \(provider.displayName) in Settings")
     }
 
     // MARK: - Starter Bots Section
@@ -555,30 +443,5 @@ struct WelcomeWorkspaceView: View {
     private func openAntigravitySettings() {
         appModel.selectedSettingsTab = .antigravity
         openSettings()
-    }
-
-    private func selectProvider(_ providerID: String, accountID: String?) {
-        isSwitchingProvider = true
-        Task {
-            let targetThreadID: UUID?
-            if let existing = appModel.selectedThreadUUID {
-                targetThreadID = existing
-            } else {
-                targetThreadID = await appModel.createNewThread()
-            }
-            if let tid = targetThreadID {
-                if let accountID, !accountID.isEmpty {
-                    try? await appModel.runtime?.selectThreadAccount(threadID: tid.uuidString, accountID: accountID)
-                }
-                await appModel.updateThreadSettings(
-                    RemoteThreadSettings(
-                        threadID: tid,
-                        provider: providerID,
-                        accountID: accountID
-                    )
-                )
-            }
-            isSwitchingProvider = false
-        }
     }
 }
