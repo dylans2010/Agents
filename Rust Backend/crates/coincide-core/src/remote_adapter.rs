@@ -1668,7 +1668,7 @@ impl Adapter {
                 let empty_id =
                     Uuid::parse_str(&empty.id).map_err(|_| RemoteError::bad_request())?;
                 let (resolved, document) = self.document(empty_id)?;
-                if system_prompt.is_some() {
+                if system_prompt.is_some() || toolset.as_deref() == Some("system") {
                     let provider = document["selection"]["provider"]
                         .as_str()
                         .unwrap_or("codex");
@@ -1694,15 +1694,31 @@ impl Adapter {
         } else {
             json!(project.id)
         };
-        let mut params = json!({"projectId": project_id});
-        if let Some(prompt) = system_prompt {
-            params["systemPrompt"] = json!(prompt);
+        let created = self.call("threads.create", json!({"projectId": project_id}))?;
+        let created_id = upper(created["id"].as_str().unwrap_or_default());
+        if system_prompt.is_some() || toolset.is_some() {
+            let id = Uuid::parse_str(&created_id).map_err(|_| RemoteError::bad_request())?;
+            let (resolved, document) = self.document(id)?;
+            if system_prompt.is_some() || toolset.as_deref() == Some("system") {
+                let provider = document["selection"]["provider"]
+                    .as_str()
+                    .unwrap_or("codex");
+                crate::agent::ensure_system_toolset_supported(provider)
+                    .map_err(|error| RemoteError::failed(error.to_string()))?;
+            }
+            let mut patch = serde_json::Map::new();
+            if let Some(prompt) = system_prompt {
+                patch.insert("systemPrompt".into(), json!(prompt));
+            }
+            if let Some(toolset) = toolset.as_deref() {
+                patch.insert("toolset".into(), json!(toolset));
+            }
+            self.call(
+                "threads.patch",
+                json!({"threadId": resolved, "patch": patch}),
+            )?;
         }
-        if let Some(toolset) = toolset.as_deref() {
-            params["toolset"] = json!(toolset);
-        }
-        let created = self.call("threads.create", params)?;
-        Ok(upper(created["id"].as_str().unwrap_or_default()))
+        Ok(created_id)
     }
 
     /// Reuse an untouched bot conversation, or create one without navigating
@@ -2531,5 +2547,59 @@ mod tests {
         forged["items"].as_array_mut().unwrap().push(duplicate);
         shared.lock().unwrap().store.save(&forged).unwrap();
         assert!(adapter.media(thread_id, item_id, 0, true).is_err());
+    }
+
+    #[test]
+    fn promptless_system_toolset_rejected_when_reusing_an_opencode_thread() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        let mut empty = engine.store.new_thread(NO_PROJECT).unwrap();
+        empty["selection"] = json!({"provider": "opencode", "modelID": "default"});
+        engine.store.save(&empty).unwrap();
+        let empty_id = Uuid::parse_str(empty["id"].as_str().unwrap()).unwrap();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        assert!(adapter
+            .new_thread(None, &runs, None, Some("system".to_owned()))
+            .is_err());
+        let (_, document) = adapter.document(empty_id).unwrap();
+        assert!(document["toolset"].is_null());
+        assert!(document["systemPrompt"].is_null());
+        let reused = adapter
+            .new_thread(None, &runs, None, Some("provider".to_owned()))
+            .unwrap();
+        assert_eq!(reused, upper(empty["id"].as_str().unwrap()));
+        let (_, document) = adapter.document(empty_id).unwrap();
+        assert_eq!(document["toolset"], "provider");
+    }
+
+    #[test]
+    fn promptless_system_toolset_rejected_when_creating_with_opencode_defaults() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut engine = crate::api::Engine::fixture(
+            crate::store::Store::open(&directory.path().join("state.sqlite")).unwrap(),
+        );
+        engine
+            .store
+            .save_document(
+                "settings.json",
+                &json!({"defaultSelection": {"provider": "opencode", "modelID": "default"}, "defaultAccessMode": "approval"}),
+            )
+            .unwrap();
+        let shared = std::sync::Arc::new(std::sync::Mutex::new(engine));
+        let adapter = Adapter::new(shared.clone(), "fixture");
+        let runs = Runs::default();
+        assert!(adapter
+            .new_thread(None, &runs, None, Some("system".to_owned()))
+            .is_err());
+        let created = adapter.new_thread(None, &runs, None, None).unwrap();
+        let (_, document) =
+            adapter.document(Uuid::parse_str(&created).unwrap()).unwrap();
+        assert!(document["toolset"].is_null());
+        assert!(document["systemPrompt"].is_null());
+        assert_eq!(document["selection"]["provider"], "opencode");
     }
 }

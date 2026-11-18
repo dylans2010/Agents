@@ -179,6 +179,34 @@ fn unsupported_defaults_reject_before_any_row_revision_or_document_write() {
 }
 
 #[test]
+fn promptless_system_toolset_rejected_for_opencode_and_lithos() {
+    let (_dir, mut engine) = fixture();
+    for provider in ["opencode", "lithos"] {
+        let before = rows(&mut engine);
+        let revision = engine.revision;
+        assert!(
+            engine
+                .execute(
+                    "threads.create",
+                    &json!({"selection": {"provider": provider, "modelID": "default"}, "toolset": "system"}),
+                )
+                .is_err()
+        );
+        assert_eq!(rows(&mut engine), before);
+        assert_eq!(engine.revision, revision);
+    }
+    let thread = engine
+        .execute(
+            "threads.create",
+            &json!({"selection": {"provider": "opencode", "modelID": "default"}, "toolset": "provider"}),
+        )
+        .unwrap();
+    assert_eq!(thread["toolset"], "provider");
+    assert_eq!(thread["selection"]["provider"], "opencode");
+    assert!(thread["systemPrompt"].is_null());
+}
+
+#[test]
 fn default_aliases_remain_exact_and_duplicate_project_identity_fails_atomically() {
     let (_dir, mut engine) = fixture();
     let project = Uuid::new_v4().to_string();

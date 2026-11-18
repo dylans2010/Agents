@@ -284,13 +284,15 @@ impl Engine {
             .map(|value| value.as_str().context("Toolset must be text"))
             .transpose()?;
         crate::agent::validate_system_prompt_and_toolset(system_prompt, toolset)?;
+        if toolset == Some("system") {
+            let provider = thread["selection"]["provider"].as_str().unwrap_or("codex");
+            crate::agent::ensure_system_toolset_supported(provider)?;
+        }
         if let Some(toolset) = toolset {
             thread["toolset"] = json!(toolset);
         }
         if let Some(prompt) = system_prompt {
             thread["systemPrompt"] = json!(prompt);
-            let provider = thread["selection"]["provider"].as_str().unwrap_or("codex");
-            crate::agent::ensure_system_toolset_supported(provider)?;
         }
         if let Some(cwd) = cwd {
             thread["worktreePath"] = json!(cwd);

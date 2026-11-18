@@ -416,6 +416,7 @@ pub(super) fn run(
     };
     if let Some(config) = claude_mcp_config {
         arguments.extend(["--mcp-config".into(), config.display().to_string()]);
+        arguments.push("--strict-mcp-config".into());
     }
     if let Some(model) = &launch.model {
         arguments.extend(["--model".into(), model.clone()]);
@@ -863,5 +864,95 @@ write({result_frame})
         .unwrap();
         assert_eq!(reply["updatedInput"]["answers"], json!({"Which?":"A, B"}));
         assert_eq!(reply["updatedInput"]["future"], 42);
+    }
+
+    #[cfg(unix)]
+    fn run_fake_claude_with_mount(
+        expect_strict: bool,
+        mcp: Option<crate::mcp::McpMount>,
+    ) {
+        use std::{fs, os::unix::fs::PermissionsExt};
+        let dir = tempfile::tempdir().unwrap();
+        let executable = dir.path().join("fake-claude");
+        let assertion = if expect_strict {
+            "assert '--strict-mcp-config' in sys.argv\nassert '--mcp-config' in sys.argv"
+        } else {
+            "assert '--strict-mcp-config' not in sys.argv\nassert '--mcp-config' not in sys.argv"
+        };
+        let mut script = String::from("import json,sys\n");
+        script.push_str(assertion);
+        script.push_str(
+            r#"
+def read(): return json.loads(sys.stdin.readline())
+def write(x): print(json.dumps(x),flush=True)
+r=read(); assert r['request']['subtype']=='initialize'
+write({'type':'control_response','response':{'subtype':'success','request_id':r['request_id']}})
+r=read(); assert r['message']['content']=='initial message'
+session=sys.argv[sys.argv.index('--session-id')+1]
+write({'type':'system','subtype':'init','session_id':session})
+write({'type':'result','subtype':'success','is_error':False,'session_id':session,'result':'done'})
+sys.stdin.readline()
+"#,
+        );
+        fs::write(&executable, script).unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+        struct RestoreEnv(Option<std::ffi::OsString>);
+        impl Drop for RestoreEnv {
+            fn drop(&mut self) {
+                match &self.0 {
+                    Some(value) => std::env::set_var(crate::mcp::SERVER_ENV_OVERRIDE, value),
+                    None => std::env::remove_var(crate::mcp::SERVER_ENV_OVERRIDE),
+                }
+            }
+        }
+        let _restore = RestoreEnv(std::env::var_os(crate::mcp::SERVER_ENV_OVERRIDE));
+        if mcp.is_some() {
+            let binary = dir.path().join("coincide-mcp-server");
+            fs::write(&binary, "#!/bin/sh\nexit 0\n").unwrap();
+            fs::set_permissions(&binary, fs::Permissions::from_mode(0o700)).unwrap();
+            std::env::set_var(crate::mcp::SERVER_ENV_OVERRIDE, &binary);
+        }
+        let session = Session::start_with_images(
+            Provider::Claude,
+            Launch {
+                executable,
+                cwd: dir.path().into(),
+                session: None,
+                prompt: "initial message".into(),
+                model: None,
+                variant: None,
+                full_access: false,
+                mcp,
+            },
+            vec![],
+        );
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            assert!(Instant::now() < deadline);
+            match session.events.recv_timeout(Duration::from_secs(1)) {
+                Ok(Event::Finished) => break,
+                Ok(Event::Failed(error)) => panic!("{error}"),
+                _ => {}
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn strict_mcp_config_present_with_system_tools_mount() {
+        let dir = tempfile::tempdir().unwrap();
+        run_fake_claude_with_mount(
+            true,
+            Some(crate::mcp::McpMount {
+                thread_id: "thread-1".to_owned(),
+                data_dir: dir.path().to_path_buf(),
+            }),
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn strict_mcp_config_absent_without_system_tools_mount() {
+        run_fake_claude_with_mount(false, None);
     }
 }

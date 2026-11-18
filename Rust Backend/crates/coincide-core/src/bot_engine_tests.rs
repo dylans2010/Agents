@@ -761,3 +761,26 @@ fn bot_provider_fixture_child() {
     );
     assert!(!root.join("side-effect").exists() && !root.join("backtick-effect").exists());
 }
+
+#[test]
+fn promptless_system_toolset_rejected_for_opencode_and_lithos() {
+    let dir = tempfile::tempdir().unwrap();
+    let engine = Engine::fixture(Store::open(&dir.path().join("state.sqlite")).unwrap());
+    for provider in ["opencode", "lithos"] {
+        let thread = json!({"toolset": "system", "selection": {"provider": provider, "modelID": "fixture-model"}});
+        assert!(engine.system_instructions(&thread).is_err());
+        let prompted = json!({"toolset": "system", "systemPrompt": "Do the thing", "selection": {"provider": provider, "modelID": "fixture-model"}});
+        assert!(engine.system_instructions(&prompted).is_err());
+    }
+    let supported = json!({"toolset": "system", "selection": {"provider": "claude", "modelID": "fixture-model"}});
+    assert_eq!(engine.system_instructions(&supported).unwrap(), None);
+    let prompted = json!({"toolset": "system", "systemPrompt": "Do the thing", "selection": {"provider": "claude", "modelID": "fixture-model"}});
+    assert_eq!(
+        engine.system_instructions(&prompted).unwrap(),
+        Some("Do the thing".to_owned())
+    );
+    let provider_tools = json!({"toolset": "provider", "selection": {"provider": "opencode", "modelID": "fixture-model"}});
+    assert_eq!(engine.system_instructions(&provider_tools).unwrap(), None);
+    let unlabelled = json!({"selection": {"provider": "opencode", "modelID": "fixture-model"}});
+    assert_eq!(engine.system_instructions(&unlabelled).unwrap(), None);
+}

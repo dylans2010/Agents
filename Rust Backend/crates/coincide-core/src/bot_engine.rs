@@ -165,6 +165,8 @@ impl Engine {
         match toolset {
             "provider" => Ok(None),
             "system" => {
+                let provider = thread["selection"]["provider"].as_str().unwrap_or("");
+                crate::agent::ensure_system_toolset_supported(provider)?;
                 let prompt = thread["systemPrompt"]
                     .as_str()
                     .filter(|prompt| !prompt.trim().is_empty());
@@ -176,8 +178,6 @@ impl Engine {
                         && thread["botID"].is_null(),
                     "A bot conversation cannot also carry a system prompt"
                 );
-                let provider = thread["selection"]["provider"].as_str().unwrap_or("");
-                crate::agent::ensure_system_toolset_supported(provider)?;
                 Ok(Some(prompt.to_owned()))
             }
             other => bail!("Unsupported toolset \"{other}\""),
