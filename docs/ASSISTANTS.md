@@ -363,7 +363,7 @@ The sets differ between files: they were written per category, and a
 tool classified as mutating in one file may be absent from another
 file's list. That is the honest limit of the guarantee. What the
 history shows is that the tests do catch real violations: C-fix
-(`63054c30`) removed six mutating tools from read-only presets
+(`63054c30`) removed nine mutating tools from read-only presets
 (`docs_generate`, `readme_generate`, `markdown_toc_generate` from
 the documentation presets; `strings_localization`, `localize_app`,
 `string_catalog_migrator` from Localization Assistant;
@@ -402,7 +402,7 @@ with a compare-and-swap baseline:
   stored record; `updatedAt` is set to now. A new record gets
   `createdAt = updatedAt = now` (unless the client already set a
   positive `createdAt`).
-- The document is capped at 16 MiB and 10,000 records
+- The document is capped at 16,000,000 bytes (~15.3 MiB) and 10,000 records
   (`organization.rs`: `DOCUMENT_LIMIT`, `RECORD_LIMIT`); the
   document must be version 1 and every record must validate, with
   duplicate IDs rejected.
