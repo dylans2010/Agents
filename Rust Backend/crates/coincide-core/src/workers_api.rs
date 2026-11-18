@@ -146,11 +146,21 @@ impl Engine {
                 child_params["toolset"] = json!("system");
                 child_params["allowedTools"] = json!(allowed_tools);
             } else {
-                if !parent["toolset"].is_null() {
-                    child_params["toolset"] = parent["toolset"].clone();
-                }
-                if !parent["allowedTools"].is_null() {
-                    child_params["allowedTools"] = parent["allowedTools"].clone();
+                let parent_toolset = parent["toolset"].as_str();
+                let child_provider = child_params["selection"]["provider"]
+                    .as_str()
+                    .unwrap_or("codex");
+                let fallback_valid = parent_toolset != Some("provider")
+                    && (parent_toolset != Some("system")
+                        || crate::agent::ensure_system_toolset_supported(child_provider)
+                            .is_ok());
+                if fallback_valid {
+                    if !parent["toolset"].is_null() {
+                        child_params["toolset"] = parent["toolset"].clone();
+                    }
+                    if !parent["allowedTools"].is_null() {
+                        child_params["allowedTools"] = parent["allowedTools"].clone();
+                    }
                 }
             }
         } else {
@@ -679,6 +689,14 @@ mod tests {
         engine: &mut Engine,
         allowed_tools: Option<Value>,
     ) -> String {
+        seed_assistant_with_provider_and_tools(engine, "claude", allowed_tools)
+    }
+
+    fn seed_assistant_with_provider_and_tools(
+        engine: &mut Engine,
+        provider: &str,
+        allowed_tools: Option<Value>,
+    ) -> String {
         let id = "00000000-0000-4000-8000-000000000001";
         let listed = engine.execute("assistants.list", &json!({})).unwrap();
         let mut assistant = json!({
@@ -690,7 +708,7 @@ mod tests {
             "systemPrompt": "Review the diff for security issues.",
             "intendedTasks": ["Review pull requests"],
             "expectedOutputFormat": "A list of findings",
-            "provider": "claude",
+            "provider": provider,
             "model": "sonnet",
             "permissionProfile": "read-only",
             "inputRequirements": ["A diff"],
@@ -821,6 +839,81 @@ mod tests {
         );
         assert_eq!(child_doc["toolset"], "system");
         assert_eq!(child_doc["allowedTools"], json!(["read_file"]));
+        assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_with_assistant_without_allowed_tools_skips_provider_toolset_parent() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant_with_allowed_tools(&mut engine, None);
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["toolset"] = json!("provider");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(
+            child_doc["systemPrompt"],
+            "Review the diff for security issues."
+        );
+        assert!(child_doc["toolset"].is_null());
+        assert!(child_doc["allowedTools"].is_null());
+        assert_eq!(child_doc["assistantId"], assistant_id);
+    }
+
+    #[test]
+    fn spawn_with_opencode_assistant_without_allowed_tools_skips_system_toolset_parent() {
+        let mut engine = test_engine();
+        let assistant_id = seed_assistant_with_provider_and_tools(
+            &mut engine,
+            "opencode",
+            None,
+        );
+        let parent = make_thread(&mut engine);
+        let mut parent_doc = engine.store.thread(&parent).unwrap();
+        parent_doc["worktreePath"] = json!(std::env::temp_dir().to_string_lossy());
+        parent_doc["selection"] = json!({"provider": "codex", "modelID": "default"});
+        parent_doc["systemPrompt"] = json!("Parent prompt.");
+        parent_doc["toolset"] = json!("system");
+        parent_doc["allowedTools"] = json!(["read_file"]);
+        engine.store.save(&parent_doc).unwrap();
+        let request = json!({
+            "parentThreadId": parent,
+            "name": "alpha",
+            "task": "Do the thing.",
+            "targetFiles": [],
+            "assistantId": assistant_id,
+        });
+        let _ = engine.workers_spawn(&request);
+        let children = engine.store.summaries("", true).unwrap();
+        let child = children
+            .iter()
+            .find(|summary| summary.title == "Worker: alpha")
+            .expect("worker thread remains after its turn fails to start");
+        let child_doc = engine.store.thread(&child.id).unwrap();
+        assert_eq!(child_doc["selection"]["provider"], "opencode");
+        assert_eq!(
+            child_doc["systemPrompt"],
+            "Review the diff for security issues."
+        );
+        assert!(child_doc["toolset"].is_null());
+        assert!(child_doc["allowedTools"].is_null());
         assert_eq!(child_doc["assistantId"], assistant_id);
     }
 
