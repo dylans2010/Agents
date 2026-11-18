@@ -202,4 +202,78 @@ struct SubagentPromptTests {
         let legacy = "{\"name\":\"alpha\",\"task\":\"Do it.\",\"targetFiles\":[]}"
         #expect(try decoder.decode(WorkerSpawnRequest.self, from: Data(legacy.utf8)).systemPrompt == nil)
     }
+
+    @Test("Subagent prompt acceptance follows the parent toolset and the assistant profile")
+    func canAcceptSystemPromptTable() {
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: nil, assistant: nil) == true)
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: "system", assistant: nil) == true)
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: "provider", assistant: nil) == false)
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: "provider", assistant: Self.assistant(allowedTools: nil, profile: .workspaceModify)) == false)
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: "provider", assistant: Self.assistant(allowedTools: nil, profile: .terminal)) == false)
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: "provider", assistant: Self.assistant(allowedTools: nil, profile: .readOnly)) == true)
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: "provider", assistant: Self.assistant(allowedTools: nil, profile: .approvalRequired)) == true)
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: "provider", assistant: Self.assistant(allowedTools: ["read_file"], profile: .terminal)) == true)
+        #expect(WorkerPromptComposer.canAcceptSystemPrompt(parentToolset: "provider", assistant: Self.assistant(allowedTools: [], profile: .terminal)) == false)
+    }
+
+    private static func assistant(allowedTools: [String]?, profile: RemoteAssistant.PermissionProfile) -> RemoteAssistant {
+        RemoteAssistant(
+            id: UUID(), name: "Reviewer", category: .codeReviewSecurity,
+            systemPrompt: "Review the diff.", allowedTools: allowedTools, permissionProfile: profile)
+    }
+
+    @Test("Re-storing a prompt keeps its original insertion position for eviction")
+    func cacheRestoringKeepsInsertionPosition() {
+        let cache = SystemPromptCache(maxEntries: 2)
+        let first = Self.cacheKey(threadID: UUID(uuidString: "00000000-0000-4000-8000-000000000002")!)
+        let second = Self.cacheKey(threadID: UUID(uuidString: "00000000-0000-4000-8000-000000000003")!)
+        let third = Self.cacheKey(threadID: UUID(uuidString: "00000000-0000-4000-8000-000000000004")!)
+        cache.store(Self.storedPrompt(text: "First."), for: first)
+        cache.store(Self.storedPrompt(text: "Second."), for: second)
+        cache.store(Self.storedPrompt(text: "First updated."), for: first)
+        #expect(cache.count == 2)
+        #expect(cache.prompt(for: first)?.text == "First updated.")
+        cache.store(Self.storedPrompt(text: "Third."), for: third)
+        #expect(cache.count == 2)
+        #expect(cache.prompt(for: first) == nil)
+        #expect(cache.prompt(for: second)?.text == "Second.")
+        #expect(cache.prompt(for: third)?.text == "Third.")
+    }
+
+    @Test("Invalidating a thread drops every cached prompt for that thread")
+    func cacheInvalidateDropsEveryKeyForThread() {
+        let cache = SystemPromptCache()
+        let threadID = UUID(uuidString: "00000000-0000-4000-8000-000000000002")!
+        let first = Self.cacheKey(threadID: threadID)
+        let second = SystemPromptCacheKey(
+            threadID: threadID,
+            assistantID: "00000000-0000-4000-8000-000000000001",
+            assistantName: "Reviewer",
+            assistantRoleText: "Review the diff for security issues.",
+            assistantExtraAssetFileNames: [],
+            provider: "claude",
+            model: "opus",
+            toolset: "system",
+            allowedTools: ["read_file"],
+            indexVersion: 3
+        )
+        let other = Self.cacheKey(threadID: UUID(uuidString: "00000000-0000-4000-8000-000000000005")!)
+        cache.store(Self.storedPrompt(text: "First."), for: first)
+        cache.store(Self.storedPrompt(text: "Second."), for: second)
+        cache.store(Self.storedPrompt(text: "Other."), for: other)
+        #expect(cache.count == 3)
+        cache.invalidate(threadID: threadID)
+        #expect(cache.count == 1)
+        #expect(cache.prompt(for: first) == nil)
+        #expect(cache.prompt(for: second) == nil)
+        #expect(cache.prompt(for: other)?.text == "Other.")
+    }
+
+    @Test("Prompt cache floors its capacity at one entry and defaults to 128")
+    func cacheCapacityFloorAndDefault() {
+        #expect(SystemPromptCache(maxEntries: 0).maxEntries == 1)
+        #expect(SystemPromptCache(maxEntries: -5).maxEntries == 1)
+        #expect(SystemPromptCache().maxEntries == 128)
+        #expect(SystemPromptCache(maxEntries: 3).maxEntries == 3)
+    }
 }

@@ -43,6 +43,11 @@ struct AssistantTaskManagerTests {
         var extraListValues: [JSONValue] = []
         var extraDueValues: [JSONValue] = []
         var listTasksError: Error?
+        var dueError: Error?
+        var listAssistantsError: Error?
+        var fetchWorkspaceError: Error?
+        var saveOmitsTask = false
+        var runNowOmitsTask = false
         var runNowCalls: [(taskId: String, parentThreadId: String)] = []
         var markMissedCalls: [(taskId: String, reason: String)] = []
         var recoverCalls = 0
@@ -64,6 +69,11 @@ struct AssistantTaskManagerTests {
         func setExtraListValues(_ value: [JSONValue]) { extraListValues = value }
         func setExtraDueValues(_ value: [JSONValue]) { extraDueValues = value }
         func setListTasksError(_ value: Error?) { listTasksError = value }
+        func setDueError(_ value: Error?) { dueError = value }
+        func setListAssistantsError(_ value: Error?) { listAssistantsError = value }
+        func setFetchWorkspaceError(_ value: Error?) { fetchWorkspaceError = value }
+        func setSaveOmitsTask(_ value: Bool) { saveOmitsTask = value }
+        func setRunNowOmitsTask(_ value: Bool) { runNowOmitsTask = value }
 
         static func makeWorker(
             id: String, parentThreadId: String, threadId: String = UUID().uuidString,
@@ -144,6 +154,9 @@ struct AssistantTaskManagerTests {
                 tasks.append(incoming)
             }
             rotateBaseline()
+            if saveOmitsTask {
+                return .object(["baseline": .string(baseline), "origin": .string("local"), "version": .int(1)])
+            }
             return taskResult(incoming)
         }
 
@@ -184,6 +197,10 @@ struct AssistantTaskManagerTests {
             var result = taskResult(tasks[index])
             if case .object(var object) = result {
                 object["worker"] = .object(["id": .string("worker-1")])
+                result = .object(object)
+            }
+            if runNowOmitsTask, case .object(var object) = result {
+                object.removeValue(forKey: "task")
                 result = .object(object)
             }
             return result
@@ -284,6 +301,9 @@ struct AssistantTaskManagerTests {
         }
 
         func tasksDue() async throws -> JSONValue {
+            if let dueError {
+                throw dueError
+            }
             let due = tasks.filter { task in
                 guard task.isActive else {
                     return false
@@ -353,11 +373,17 @@ struct AssistantTaskManagerTests {
         }
 
         func listAssistants() async throws -> RemoteAssistants {
+            if let listAssistantsError {
+                throw listAssistantsError
+            }
             listAssistantsCalls += 1
             return RemoteAssistants(assistants: assistants, baseline: "", origin: "local")
         }
 
         func fetchWorkspace(includeArchived: Bool) async throws -> RemoteWorkspace {
+            if let fetchWorkspaceError {
+                throw fetchWorkspaceError
+            }
             fetchWorkspaceCalls += 1
             return workspace
         }
@@ -1192,5 +1218,266 @@ struct AssistantTaskManagerTests {
         let decoded = try AssistantTaskRecord(json: encoded)
         #expect(decoded == withFuture)
         #expect(decoded.extra["futureField"]?["keep"]?.boolValue == true)
+    }
+
+    @Test("Poll reports a cycle error when the due list cannot be fetched")
+    func pollReportsCycleErrorWhenDueListFails() async {
+        let fake = FakeTaskRuntime()
+        await fake.setDueError(FakeTaskError(message: "Due failed"))
+        let manager = AssistantTaskManager(runtime: fake)
+        let outcome = await manager.pollNow()
+        #expect(outcome.cycleError == "Due failed")
+        #expect(outcome.ran.isEmpty)
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+    }
+
+    @Test("Poll reports a cycle error when the task list cannot be fetched")
+    func pollReportsCycleErrorWhenTaskListFails() async {
+        let fake = FakeTaskRuntime()
+        await fake.setListTasksError(FakeTaskError(message: "List failed"))
+        let manager = AssistantTaskManager(runtime: fake)
+        let outcome = await manager.pollNow()
+        #expect(outcome.cycleError == "List failed")
+        #expect(outcome.ran.isEmpty)
+    }
+
+    @Test("Poll reports a cycle error when assistants cannot be listed")
+    func pollReportsCycleErrorWhenAssistantsFail() async {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        await fake.setTasks([Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 0)])
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setListAssistantsError(FakeTaskError(message: "Assistants failed"))
+        let outcome = await manager.pollNow()
+        #expect(outcome.cycleError == "Assistants failed")
+        #expect(outcome.ran.isEmpty)
+    }
+
+    @Test("Poll reports a cycle error when the workspace cannot be fetched")
+    func pollReportsCycleErrorWhenWorkspaceFails() async {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        await fake.setTasks([Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 0)])
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setFetchWorkspaceError(FakeTaskError(message: "Workspace failed"))
+        let outcome = await manager.pollNow()
+        #expect(outcome.cycleError == "Workspace failed")
+        #expect(outcome.ran.isEmpty)
+    }
+
+    @Test("Poll records a failure when a skipped run cannot be marked missed")
+    func pollRecordsFailureWhenMissedMarkingFails() async {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let task = Self.makeTask(
+            assistantID: assistantID, workspaceID: workspaceID,
+            nextRunAt: 1_790_000_000 + 86_400, approvalRequired: true)
+        await fake.setTasks([task])
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setExtraDueValues([.object([
+            "taskId": .string(task.id.uuidString),
+            "taskName": .string(task.name),
+            "occurrence": .int(1_790_000_000),
+            "nextRunAt": .int(1_790_000_000),
+            "runCount": .int(0),
+        ])])
+        let outcome = await manager.pollNow()
+        #expect(outcome.cycleError == nil)
+        #expect(outcome.failed.count == 1)
+        #expect(outcome.failed.first?.task.id == task.id)
+        #expect(outcome.failed.first?.message == "Could not record the missed run: Task has no missed run to record")
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.ran.isEmpty)
+    }
+
+    @Test("Save rejects a result that omits the saved task")
+    func saveRejectsResultWithoutTask() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID)
+        let manager = AssistantTaskManager(runtime: fake)
+        let listed = try await manager.listTasks()
+        await fake.setSaveOmitsTask(true)
+        do {
+            _ = try await manager.saveTask(task, baseline: listed.baseline)
+            Issue.record("Expected saveTask to reject a result without a task")
+        } catch let error as AssistantTaskError {
+            #expect(error == .invalidResult("Save did not return the saved task."))
+        }
+    }
+
+    @Test("Run-now rejects a result that omits the updated task")
+    func runNowRejectsResultWithoutTask() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setTasks([task])
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setRunNowOmitsTask(true)
+        do {
+            _ = try await manager.runNow(task)
+            Issue.record("Expected runNow to reject a result without a task")
+        } catch let error as AssistantTaskError {
+            #expect(error == .invalidResult("Run-now did not return the updated task."))
+        }
+        #expect(await fake.runNowCalls.count == 1)
+        #expect(await fake.deleteParentThreadCalls.isEmpty)
+    }
+
+    @Test("Reconcile reports failures when recording an outcome throws")
+    func reconcileReportsRecordOutcomeFailures() async {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let task = Self.makeTaskWithWorker(assistantID: assistantID, workspaceID: workspaceID)
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(id: "worker-1", parentThreadId: UUID().uuidString, status: "completed", result: "done"))
+        let manager = AssistantTaskManager(runtime: fake)
+        await fake.setRecordOutcomeError(FakeTaskError(message: "Outcome failed"))
+        let outcome = await manager.reconcileTaskOutcomes([task])
+        #expect(outcome.outcomes.isEmpty)
+        #expect(outcome.reconcileFailures.count == 1)
+        #expect(outcome.reconcileFailures.first?.taskID == task.id)
+        #expect(outcome.reconcileFailures.first?.message == "Could not record the outcome of worker worker-1: Outcome failed")
+    }
+
+    @Test("Reconcile with no active workers records nothing")
+    func reconcileWithNoActiveWorkersRecordsNothing() async {
+        let manager = AssistantTaskManager(runtime: FakeTaskRuntime())
+        let outcome = await manager.reconcileTaskOutcomes([Self.makeTask(assistantID: UUID(), workspaceID: UUID())])
+        #expect(outcome.outcomes.isEmpty)
+        #expect(outcome.reconcileFailures.isEmpty)
+        #expect(outcome.ran.isEmpty)
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(outcome.cycleError == nil)
+    }
+
+    @Test("Skip reasons follow the documented precedence")
+    func skipReasonPrecedence() {
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let assistant = Self.makeAssistant(id: assistantID)
+        let workspace = Self.makeWorkspace(projectID: workspaceID)
+        let emptyWorkspace = RemoteWorkspace()
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, enabled: false, paused: true), assistants: [], workspace: emptyWorkspace) == .disabled)
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, paused: true), assistants: [], workspace: emptyWorkspace) == .paused)
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, trigger: "gitCommit"), assistants: [], workspace: emptyWorkspace) == .triggerUnavailable("gitCommit"))
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, trigger: "webhook"), assistants: [], workspace: emptyWorkspace) == .triggerUnavailable("webhook"))
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, maxRuns: 2, runCount: 2, approvalRequired: true), assistants: [assistant], workspace: workspace) == .maxRunsReached(2))
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, approvalRequired: true), assistants: [], workspace: workspace) == .approvalRequired)
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID), assistants: [], workspace: workspace) == .assistantMissing)
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID), assistants: [Self.makeAssistant(id: assistantID, permissionProfile: .approvalRequired)], workspace: workspace) == .assistantRequiresApproval)
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID), assistants: [assistant], workspace: emptyWorkspace) == .workspaceMissing)
+        #expect(AssistantTaskManager.skipReason(for: Self.makeTask(assistantID: assistantID, workspaceID: workspaceID), assistants: [assistant], workspace: workspace) == nil)
+        let task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID)
+        #expect(AssistantTaskSkipReason.triggerUnavailable("webhook").message(task: task) == "Trigger 'webhook' is not available: only timer triggers can run automatically.")
+        #expect(AssistantTaskSkipReason.maxRunsReached(2).message(task: task) == "Automated task 'Nightly review' has reached its maximum of 2 runs")
+        #expect(AssistantTaskSkipReason.assistantMissing.message(task: task) == "Assistant '\(assistantID.uuidString)' no longer exists; automated runs are skipped until the task points at an existing assistant.")
+    }
+
+    @Test("Unavailable trigger reasons name the missing capability")
+    func unavailableTriggerReasons() {
+        #expect(AssistantTaskManager.unavailableTriggerReason("timer") == nil)
+        #expect(AssistantTaskManager.unavailableTriggerReason("gitCommit") == "Git commit triggers are not available: Coincide has no git watcher, hooks, webhooks, or GitHub polling")
+        #expect(AssistantTaskManager.unavailableTriggerReason("branchChange") == "Branch change triggers are not available: Coincide has no git watcher or branch-change events")
+        #expect(AssistantTaskManager.unavailableTriggerReason("pullRequest") == "Pull request triggers are not available: Coincide has no GitHub polling or webhooks")
+        #expect(AssistantTaskManager.unavailableTriggerReason("issue") == "Issue triggers are not available: Coincide has no Issues API polling or webhooks")
+        #expect(AssistantTaskManager.unavailableTriggerReason("workspaceChange") == "Workspace change triggers are not available: Coincide has no workspace file watcher")
+        #expect(AssistantTaskManager.unavailableTriggerReason("fileChange") == "File change triggers are not available: Coincide has no file watcher")
+        #expect(AssistantTaskManager.unavailableTriggerReason("webhook") == nil)
+    }
+
+    @Test("Minimal task records decode with documented defaults and keep unknown schedule keys")
+    func minimalTaskRecordDecodeDefaults() throws {
+        let json: JSONValue = .object([
+            "id": .string(UUID().uuidString),
+            "assistantId": .string(UUID().uuidString),
+            "workspaceId": .string(UUID().uuidString),
+            "schedule": .object(["kind": .string("daily"), "cronExpression": .string("0 9 * * *")]),
+        ])
+        let record = try AssistantTaskRecord(json: json)
+        #expect(record.name == "")
+        #expect(record.trigger == "timer")
+        #expect(record.enabled == true)
+        #expect(record.paused == false)
+        #expect(record.limits.maxRuns == nil)
+        #expect(record.limits.maxConcurrent == 1)
+        #expect(record.notifications.onSuccess == false)
+        #expect(record.notifications.onFailure == true)
+        #expect(record.notifications.onMissed == true)
+        #expect(record.failurePolicy.behavior == "retryWithBackoff")
+        #expect(record.failurePolicy.maxRetries == 3)
+        #expect(record.failurePolicy.backoffSeconds == 300)
+        #expect(record.approval.required == false)
+        #expect(record.approval.actions.isEmpty)
+        #expect(record.runCount == 0)
+        #expect(record.missedCount == 0)
+        #expect(record.isActive == true)
+        #expect(record.schedule.kind == "daily")
+        #expect(record.schedule.extra["cronExpression"]?.stringValue == "0 9 * * *")
+        let reencoded = try record.encoded()
+        #expect(reencoded["schedule"]?["cronExpression"]?.stringValue == "0 9 * * *")
+        #expect(reencoded["schedule"]?["kind"]?.stringValue == "daily")
+    }
+
+    @Test("Missed runs sort newest first and default their reason")
+    func missedRunsSortNewestFirst() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let older = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, lastOutcome: "missed", lastMessage: "Old reason", lastMissedAt: 1000)
+        let newer = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, lastOutcome: "missed", lastMessage: nil, lastMissedAt: 2000)
+        let never = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, lastOutcome: "missed", lastMessage: nil, lastMissedAt: nil)
+        let completed = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, lastOutcome: "completed", lastMissedAt: 3000)
+        await fake.setTasks([older, newer, never, completed])
+        let manager = AssistantTaskManager(runtime: fake)
+        let missed = try await manager.missedRuns()
+        #expect(missed.count == 3)
+        #expect(missed[0].task.id == newer.id)
+        #expect(missed[0].reason == "Run missed.")
+        #expect(missed[0].missedAt == Date(timeIntervalSince1970: 2000))
+        #expect(missed[0].missedCount == 0)
+        #expect(missed[1].task.id == older.id)
+        #expect(missed[1].reason == "Old reason")
+        #expect(missed[2].task.id == never.id)
+        #expect(missed[2].missedAt == nil)
+    }
+
+    @Test("Run-now rejects a task whose assistant no longer exists")
+    func runNowRejectsMissingAssistant() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID)
+        let manager = AssistantTaskManager(runtime: fake)
+        do {
+            _ = try await manager.runNow(task)
+            Issue.record("Expected runNow to reject a task whose assistant is gone")
+        } catch let error as AssistantTaskError {
+            guard case .runRejected(let reason) = error else {
+                Issue.record("Expected runRejected, got \(error)")
+                return
+            }
+            #expect(reason.contains("no longer exists"))
+        }
+        #expect(await fake.newThreadProjectIDs.isEmpty)
+        #expect(await fake.runNowCalls.isEmpty)
+    }
+
+    @Test("Task error descriptions are exact")
+    func taskErrorDescriptions() {
+        let id = UUID()
+        #expect(AssistantTaskError.staleBaseline.errorDescription == "Automated task document changed; reload before saving")
+        #expect(AssistantTaskError.taskNotFound(id: id).errorDescription == "Automated task \(id.uuidString) no longer exists.")
+        #expect(AssistantTaskError.invalidResult("bad result").errorDescription == "bad result")
+        #expect(AssistantTaskError.runRejected("nope").errorDescription == "nope")
+        #expect(AssistantTaskError.underlying("deep").errorDescription == "deep")
     }
 }

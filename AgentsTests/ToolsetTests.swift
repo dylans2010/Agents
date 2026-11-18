@@ -3817,4 +3817,271 @@ struct ToolsetTests {
         #expect(SystemToolRegistry.approvalRequiredDeniedToolNames == Set(manifest.approvalRequiredDenied))
     }
 
+    @Test("Every registered tool has a complete schema with unique parameter names")
+    func registrySchemaIsStructurallySound() {
+        let allowedTypes: Set<String> = ["string", "integer", "boolean", "number", "array"]
+        #expect(!SystemToolRegistry.systemTools.isEmpty)
+        for tool in SystemToolRegistry.systemTools {
+            #expect(!tool.name.isEmpty)
+            #expect(!tool.description.isEmpty)
+            #expect(!tool.action.isEmpty)
+            #expect(!tool.parameters.isEmpty)
+            let names = tool.parameters.map(\.name)
+            #expect(Set(names).count == names.count)
+            for parameter in tool.parameters {
+                #expect(!parameter.name.isEmpty)
+                #expect(!parameter.type.isEmpty)
+                #expect(allowedTypes.contains(parameter.type))
+                #expect(!parameter.description.isEmpty)
+            }
+        }
+    }
+
+    @Test("Unknown tool names are reported in order with duplicates preserved")
+    func unknownToolNamesFiltersKnownTools() {
+        #expect(SystemToolRegistry.unknownToolNames(in: nil).isEmpty)
+        #expect(SystemToolRegistry.unknownToolNames(in: []).isEmpty)
+        #expect(SystemToolRegistry.unknownToolNames(in: ["read_file", "write_file"]).isEmpty)
+        #expect(SystemToolRegistry.unknownToolNames(in: ["read_file", "nope", "also_nope"]) == ["nope", "also_nope"])
+        #expect(SystemToolRegistry.unknownToolNames(in: ["nope", "read_file", "nope"]) == ["nope", "nope"])
+    }
+
+    @Test("Tool error descriptions and toolset metadata are exact")
+    func systemToolErrorDescriptionsAndToolsetTitles() {
+        #expect(SystemToolError.unknownTool("x").errorDescription == "Unknown system tool \"x\".")
+        #expect(SystemToolError.toolNotActive(tool: "read_file", toolset: .system).errorDescription == "System tool \"read_file\" is not active under the System Tools toolset.")
+        #expect(SystemToolError.toolNotActive(tool: "read_file", toolset: .provider).errorDescription == "System tool \"read_file\" is not active under the Provider Tools toolset.")
+        #expect(SystemToolError.missingArgument(tool: "read_file", argument: "path").errorDescription == "System tool \"read_file\" is missing required argument \"path\".")
+        #expect(SystemToolError.executionFailed(tool: "x", message: "boom").errorDescription == "System tool \"x\" failed: boom")
+        #expect(SystemToolError.operationTimeout(tool: "x").errorDescription == "System tool \"x\" did not finish in time.")
+        #expect(AgentToolset.allCases == [.system, .provider])
+        #expect(AgentToolset.system.rawValue == "system")
+        #expect(AgentToolset.provider.rawValue == "provider")
+        #expect(AgentToolset.system.title == "System Tools")
+        #expect(AgentToolset.provider.title == "Provider Tools")
+        #expect(!AgentToolset.system.detail.isEmpty)
+        #expect(!AgentToolset.provider.detail.isEmpty)
+    }
+
+    @Test("use_mcp lists the server, routes tools, and fails honestly on bad routing")
+    func useMcpDiscoveryAndRoutingErrors() async throws {
+        let client = try await Self.makeClient()
+        defer { Task { await client.close() } }
+        let list = try await Self.run("use_mcp", arguments: ["serverName": .string("list")], client: client)
+        let servers = list.arrayValue ?? []
+        #expect(servers.count == 1)
+        #expect(servers.first?["serverName"]?.stringValue == "coincide")
+        #expect(servers.first?["tools"]?.intValue == 337)
+        let allTools = try await Self.run(
+            "use_mcp",
+            arguments: ["serverName": .string("coincide"), "toolName": .string("list_tools")],
+            client: client)
+        let names = allTools.arrayValue?.compactMap(\.stringValue) ?? []
+        #expect(names.count == 337)
+        #expect(names.contains("read_file"))
+        let filtered = try await SystemToolRegistry.execute(
+            "use_mcp",
+            arguments: ["serverName": .string("coincide"), "toolName": .string("list_tools")],
+            toolset: .system, runtime: client, allowedTools: ["read_file"])
+        #expect(filtered.arrayValue?.compactMap(\.stringValue) == ["read_file"])
+        do {
+            _ = try await Self.run("use_mcp", arguments: ["serverName": .string("nope")], client: client)
+            Issue.record("Expected unknown server to throw")
+        } catch let error as SystemToolError {
+            #expect(error == .executionFailed(tool: "use_mcp", message: "No MCP server named nope is configured; this app serves only the coincide system-tools server."))
+        }
+        do {
+            _ = try await Self.run("use_mcp", arguments: ["serverName": .string("coincide")], client: client)
+            Issue.record("Expected missing toolName to throw")
+        } catch let error as SystemToolError {
+            #expect(error == .missingArgument(tool: "use_mcp", argument: "toolName"))
+        }
+        do {
+            _ = try await Self.run("use_mcp", arguments: ["serverName": .string("coincide"), "toolName": .string("use_mcp")], client: client)
+            Issue.record("Expected self-call to throw")
+        } catch let error as SystemToolError {
+            #expect(error == .executionFailed(tool: "use_mcp", message: "use_mcp cannot call itself."))
+        }
+        do {
+            _ = try await Self.run("use_mcp", arguments: ["serverName": .string("coincide"), "toolName": .string("no_such_inner")], client: client)
+            Issue.record("Expected unknown inner tool to throw")
+        } catch let error as SystemToolError {
+            #expect(error == .unknownTool("no_such_inner"))
+        }
+        for badArguments in ["[1, 2]", "not json"] {
+            do {
+                _ = try await Self.run(
+                    "use_mcp",
+                    arguments: ["serverName": .string("coincide"), "toolName": .string("read_file"), "arguments": .string(badArguments)],
+                    client: client)
+                Issue.record("Expected non-object arguments to throw")
+            } catch let error as SystemToolError {
+                #expect(error == .executionFailed(tool: "use_mcp", message: "arguments must be a JSON object string."))
+            }
+        }
+        await client.close()
+    }
+
+    @Test("Core workspace tools execute a full file round trip")
+    func coreWorkspaceToolsExecuteRoundTrip() async throws {
+        let client = try await Self.makeClient()
+        defer { Task { await client.close() } }
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let written = try await Self.run(
+            "write_file",
+            arguments: ["cwd": .string(tempRoot.path), "path": .string("hello.txt"), "content": .string("hello world\nsecond line\n")],
+            client: client)
+        #expect(written["path"]?.stringValue == "hello.txt")
+        _ = try await Self.run(
+            "write_file",
+            arguments: ["cwd": .string(tempRoot.path), "path": .string("nested/deep.txt"), "content": .string("deep content\n")],
+            client: client)
+        let listed = try await Self.run("list_files", arguments: ["cwd": .string(tempRoot.path)], client: client)
+        #expect(listed.arrayValue?.contains { $0["name"]?.stringValue == "hello.txt" } == true)
+        let limited = try await Self.run("list_files", arguments: ["cwd": .string(tempRoot.path), "limit": .int(1)], client: client)
+        #expect(limited.arrayValue?.count == 1)
+        let flat = try await Self.run("read_directory", arguments: ["cwd": .string(tempRoot.path), "path": .string("")], client: client)
+        #expect(flat.arrayValue?.contains { $0["name"]?.stringValue == "nested" && $0["isDirectory"]?.boolValue == true } == true)
+        let recursive = try await Self.run("read_directory", arguments: ["cwd": .string(tempRoot.path), "path": .string(""), "recursive": .bool(true)], client: client)
+        #expect(recursive.arrayValue?.contains { $0["path"]?.stringValue == "nested/deep.txt" } == true)
+        let created = try await Self.run("create_directory", arguments: ["cwd": .string(tempRoot.path), "path": .string("newdir")], client: client)
+        #expect(created["created"]?.boolValue == true)
+        let moved = try await Self.run("move_file", arguments: ["cwd": .string(tempRoot.path), "path": .string("hello.txt"), "destination": .string("moved.txt")], client: client)
+        #expect(moved["moved"]?.boolValue == true)
+        #expect(moved["destination"]?.stringValue == "moved.txt")
+        let readMoved = try await Self.run("read_file", arguments: ["cwd": .string(tempRoot.path), "path": .string("moved.txt")], client: client)
+        #expect(readMoved["content"]?.stringValue == "hello world\nsecond line\n")
+        let copied = try await Self.run("copy_file", arguments: ["cwd": .string(tempRoot.path), "path": .string("moved.txt"), "destination": .string("copied.txt")], client: client)
+        #expect(copied["copied"]?.boolValue == true)
+        let edited = try await Self.run(
+            "edit_file",
+            arguments: ["cwd": .string(tempRoot.path), "path": .string("moved.txt"), "oldText": .string("hello world"), "newText": .string("hello agents")],
+            client: client)
+        #expect(edited["edited"]?.boolValue == true)
+        #expect(edited["replacements"]?.intValue == 1)
+        let multiEdited = try await Self.run(
+            "multi_edit_file",
+            arguments: ["cwd": .string(tempRoot.path), "path": .string("copied.txt"), "edits": .array([
+                .object(["oldText": .string("hello world"), "newText": .string("hello multi")]),
+                .object(["oldText": .string("second line"), "newText": .string("second edited")]),
+            ])],
+            client: client)
+        #expect(multiEdited["edited"]?.boolValue == true)
+        #expect(multiEdited["replacements"]?.intValue == 2)
+        let hits = try await Self.run("search_regex", arguments: ["cwd": .string(tempRoot.path), "pattern": .string("hello (agents|multi)")], client: client)
+        let hitPaths = Set(hits.arrayValue?.compactMap { $0["path"]?.stringValue } ?? [])
+        #expect(hitPaths == ["moved.txt", "copied.txt"])
+        let deletedFile = try await Self.run("delete_file", arguments: ["cwd": .string(tempRoot.path), "path": .string("copied.txt")], client: client)
+        #expect(deletedFile["deleted"]?.boolValue == true)
+        let deletedDirectory = try await Self.run("delete_directory", arguments: ["cwd": .string(tempRoot.path), "path": .string("nested"), "recursive": .bool(true)], client: client)
+        #expect(deletedDirectory["deleted"]?.boolValue == true)
+        #expect(deletedDirectory["recursive"]?.boolValue == true)
+        let afterDelete = try await Self.run("read_directory", arguments: ["cwd": .string(tempRoot.path), "path": .string(""), "recursive": .bool(true)], client: client)
+        #expect(afterDelete.arrayValue?.contains { $0["path"]?.stringValue == "nested/deep.txt" } == false)
+        await client.close()
+    }
+
+    @Test("Workspace tool execution fails honestly instead of inventing results")
+    func workspaceToolExecutionFailsHonestly() async throws {
+        let client = try await Self.makeClient()
+        defer { Task { await client.close() } }
+        let tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cwd = tempRoot.path
+        do {
+            _ = try await Self.run("read_file", arguments: ["cwd": .string(cwd), "path": .string("missing.txt")], client: client)
+            Issue.record("Expected read_file on a missing file to throw")
+        } catch { }
+        do {
+            _ = try await Self.run("delete_file", arguments: ["cwd": .string(cwd), "path": .string("missing.txt")], client: client)
+            Issue.record("Expected delete_file on a missing file to throw")
+        } catch { }
+        _ = try await Self.run("write_file", arguments: ["cwd": .string(cwd), "path": .string("hello.txt"), "content": .string("hello world\n")], client: client)
+        do {
+            _ = try await Self.run("edit_file", arguments: ["cwd": .string(cwd), "path": .string("hello.txt"), "oldText": .string("no such anchor"), "newText": .string("x")], client: client)
+            Issue.record("Expected edit_file with a missing anchor to throw")
+        } catch { }
+        do {
+            _ = try await Self.run("search_regex", arguments: ["cwd": .string(cwd), "pattern": .string("([unclosed")], client: client)
+            Issue.record("Expected search_regex with an invalid pattern to throw")
+        } catch { }
+        await client.close()
+    }
+
+    @Test("multi_edit_file refuses empty or incomplete edits")
+    func multiEditValidationRefusals() async throws {
+        let client = try await Self.makeClient()
+        defer { Task { await client.close() } }
+        let cases: [([String: JSONValue], String)] = [
+            (["cwd": .string("/tmp"), "path": .string("f.txt"), "edits": .array([])], "edits"),
+            (["cwd": .string("/tmp"), "path": .string("f.txt"), "edits": .array([.object(["oldText": .string(""), "newText": .string("x")])])], "oldText"),
+            (["cwd": .string("/tmp"), "path": .string("f.txt"), "edits": .array([.object(["oldText": .string("a")])])], "newText"),
+        ]
+        for (arguments, argument) in cases {
+            do {
+                _ = try await Self.run("multi_edit_file", arguments: arguments, client: client)
+                Issue.record("Expected multi_edit_file to refuse missing \(argument)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: "multi_edit_file", argument: argument))
+            }
+        }
+        await client.close()
+    }
+
+    @Test("Git tools refuse a missing thread id")
+    func gitToolsRefuseMissingThreadId() async throws {
+        let client = try await Self.makeClient()
+        defer { Task { await client.close() } }
+        for tool in ["git_status", "git_diff", "git_log", "git_show", "git_diff_range", "git_diff_branch"] {
+            do {
+                _ = try await Self.run(tool, arguments: [:], client: client)
+                Issue.record("Expected \(tool) to refuse a missing threadId")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: tool, argument: "threadId"))
+            }
+        }
+        await client.close()
+    }
+
+    @Test("run_build reports a timeout result instead of hanging")
+    func runBuildTimeoutReturnsTimedOutResult() async throws {
+        let client = try await Self.makeClient()
+        defer { Task { await client.close() } }
+        let threadID = try await client.newThread()
+        let result = try await SystemToolRegistry.execute(
+            "run_build",
+            arguments: [
+                "threadId": .string(threadID.uuidString),
+                "command": .string("sleep 30"),
+                "timeoutSeconds": .int(1),
+            ],
+            toolset: .system, runtime: client)
+        #expect(result["timedOut"]?.boolValue == true)
+        #expect(result["exitCode"]?.intValue == nil)
+        #expect(result["terminalId"]?.stringValue != nil)
+        await client.close()
+    }
+
+    @Test("start_subagent refuses missing parents, workers, and worker fields")
+    func startSubagentRefusesMissingArguments() async throws {
+        let client = try await Self.makeClient()
+        defer { Task { await client.close() } }
+        let cases: [([String: JSONValue], String)] = [
+            ([:], "parentThreadId"),
+            (["parentThreadId": .string("parent")], "workers"),
+            (["parentThreadId": .string("parent"), "workers": .array([])], "workers"),
+            (["parentThreadId": .string("parent"), "workers": .array([.object(["task": .string("Do it."), "targetFiles": .array([])])])], "name"),
+            (["parentThreadId": .string("parent"), "workers": .array([.object(["name": .string("alpha"), "targetFiles": .array([])])])], "task"),
+        ]
+        for (arguments, argument) in cases {
+            do {
+                _ = try await Self.run("start_subagent", arguments: arguments, client: client)
+                Issue.record("Expected start_subagent to refuse missing \(argument)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: "start_subagent", argument: argument))
+            }
+        }
+        await client.close()
+    }
 }

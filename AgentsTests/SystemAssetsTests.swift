@@ -532,4 +532,235 @@ struct SystemAssetsTests {
         #expect(prompt.includedDocumentIDs == ["AlphaNotes"])
         #expect(prompt.omittedDocumentIDs == ["BetaNotes"])
     }
+
+    @Test("An existing but empty directory reports no documents found")
+    func emptyDirectoryReportsNoDocumentsFound() throws {
+        let temp = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: temp) }
+        let manager = SystemAssetManager(directory: temp)
+        #expect(!manager.isReady)
+        guard case .noDocumentsFound = manager.loadError else {
+            Issue.record("Expected noDocumentsFound, got \(String(describing: manager.loadError))")
+            return
+        }
+        let prompt = manager.systemPrompt(for: "Hello", provider: nil, model: nil)
+        #expect(prompt.isBaselineFallback)
+        #expect(!prompt.text.isEmpty)
+        #expect(prompt.loadError != nil)
+    }
+
+    @Test("Non-markdown and hidden files are ignored by discovery")
+    func nonMarkdownAndHiddenFilesIgnored() throws {
+        let temp = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: temp) }
+        try "# Visible\n\nVisible body with token visiblebody.\n".write(to: temp.appendingPathComponent("Visible.md"), atomically: true, encoding: .utf8)
+        try "# Hidden\n\nHidden body with token hiddenbody.\n".write(to: temp.appendingPathComponent(".Hidden.md"), atomically: true, encoding: .utf8)
+        try "Plain text, not markdown.\n".write(to: temp.appendingPathComponent("Notes.txt"), atomically: true, encoding: .utf8)
+        try "{\"key\": \"value\"}\n".write(to: temp.appendingPathComponent("Data.json"), atomically: true, encoding: .utf8)
+        let manager = SystemAssetManager(directory: temp)
+        #expect(manager.isReady)
+        #expect(manager.documentCount == 1)
+        #expect(manager.document(fileName: "Visible.md") != nil)
+        #expect(manager.document(fileName: ".Hidden.md") == nil)
+        #expect(manager.document(fileName: "Notes.txt") == nil)
+        #expect(manager.search("hiddenbody").isEmpty)
+    }
+
+    @Test("An exact title match scores 90 and outranks keyword matches")
+    func exactTitleMatchScoresNinety() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        let results = manager.search("alpha guide", limit: 10)
+        let first = try #require(results.first)
+        #expect(first.fileName == "AlphaNotes.md")
+        #expect(first.sectionHeading == "Alpha Guide")
+        #expect(first.score == 90)
+        #expect(first.reason == "exactTitle")
+        #expect(results.dropFirst().allSatisfy { $0.score < 90 })
+    }
+
+    @Test("Dependency resolution ignores unknown files and terminates on cycles")
+    func dependencyResolutionIgnoresUnknownAndCycles() throws {
+        let temp = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: temp) }
+        try "<!-- system-index-depends: B.md -->\n# A\n\nA body.\n".write(to: temp.appendingPathComponent("A.md"), atomically: true, encoding: .utf8)
+        try "<!-- system-index-depends: A.md -->\n# B\n\nB body.\n".write(to: temp.appendingPathComponent("B.md"), atomically: true, encoding: .utf8)
+        try "<!-- system-index-depends: C.md -->\n# C\n\nC body.\n".write(to: temp.appendingPathComponent("C.md"), atomically: true, encoding: .utf8)
+        try "# D\n\nD body.\n".write(to: temp.appendingPathComponent("D.md"), atomically: true, encoding: .utf8)
+        let manager = SystemAssetManager(directory: temp)
+        let index = try #require(manager.index)
+        #expect(index.resolveDependencies(of: ["A.md"]) == ["B.md"])
+        #expect(index.resolveDependencies(of: ["B.md"]) == ["A.md"])
+        #expect(index.resolveDependencies(of: ["C.md"]).isEmpty)
+        #expect(index.resolveDependencies(of: ["Missing.md"]).isEmpty)
+        #expect(index.resolveDependencies(of: ["A.md", "B.md"]).isEmpty)
+        #expect(index.resolveDependencies(of: []).isEmpty)
+    }
+
+    @Test("Unknown lookups return empty instead of failing")
+    func unknownLookupsReturnEmpty() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        let index = try #require(manager.index)
+        #expect(index.document(id: "Nope") == nil)
+        #expect(index.document(relativePath: "Nope.md") == nil)
+        #expect(index.chunk(id: "nope") == nil)
+        #expect(index.chunks(forDocumentID: "Nope").isEmpty)
+        #expect(index.keywords(forDocumentID: "Nope").isEmpty)
+        #expect(index.section(documentID: "AlphaNotes", heading: "No Such Heading") == nil)
+        #expect(index.postings(for: "").isEmpty)
+        #expect(index.documents(category: "").isEmpty)
+        #expect(index.documents(tag: "").isEmpty)
+        #expect(index.relatedDocumentIDs(ofFileName: "Nope.md").isEmpty)
+    }
+
+    @Test("Duplicate file names resolve to the first path in sorted order")
+    func duplicateFileNamesResolveToFirstSortedPath() throws {
+        let temp = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: temp) }
+        for directory in ["Guides", "Other"] {
+            try FileManager.default.createDirectory(at: temp.appendingPathComponent(directory), withIntermediateDirectories: true)
+        }
+        try "# Guides Notes\n\nGuides notes body.\n".write(to: temp.appendingPathComponent("Guides/Notes.md"), atomically: true, encoding: .utf8)
+        try "# Other Notes\n\nOther notes body.\n".write(to: temp.appendingPathComponent("Other/Notes.md"), atomically: true, encoding: .utf8)
+        let manager = SystemAssetManager(directory: temp)
+        let index = try #require(manager.index)
+        #expect(manager.documentCount == 2)
+        #expect(manager.document(fileName: "Notes.md")?.relativePath == "Guides/Notes.md")
+        #expect(index.document(id: "Guides/Notes")?.title == "Guides Notes")
+        #expect(index.document(id: "Other/Notes")?.title == "Other Notes")
+        #expect(index.document(relativePath: "Other/Notes.md")?.title == "Other Notes")
+    }
+
+    @Test("Search is diacritic-insensitive")
+    func diacriticInsensitiveSearch() throws {
+        let temp = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: temp) }
+        try "# Cafe Guide\n\nThe cafe serves coffee.\n".write(to: temp.appendingPathComponent("Cafe.md"), atomically: true, encoding: .utf8)
+        let manager = SystemAssetManager(directory: temp)
+        #expect(manager.search("café").first?.fileName == "Cafe.md")
+        #expect(manager.search("CAFÉ").first?.fileName == "Cafe.md")
+        #expect(SystemAssetIndex.normalized("café") == "cafe")
+    }
+
+    @Test("Document parsing handles non-UTF8, empty headings, and pre-heading bodies")
+    func documentParseEdgeCases() throws {
+        #expect(throws: SystemAssetError.documentMalformed(fileName: "Bad.md", reason: "Document is not valid UTF-8.")) {
+            try SystemAssetDocument.parse(fileName: "Bad.md", relativePath: "Bad.md", data: Data([0xFF, 0xFE, 0x41]))
+        }
+        let subOnly = try SystemAssetDocument.parse(fileName: "Sub.md", relativePath: "Sub.md", data: Data("## Only Sub\n\nBody.\n".utf8))
+        #expect(subOnly.title == "Sub")
+        #expect(subOnly.sections.count == 1)
+        #expect(subOnly.sections[0].heading == "Only Sub")
+        #expect(subOnly.sections[0].level == 2)
+        let emptyFirstHeading = try SystemAssetDocument.parse(fileName: "Real.md", relativePath: "Real.md", data: Data("#   \n\n# Real Title\n\nBody.\n".utf8))
+        #expect(emptyFirstHeading.title == "Real Title")
+        #expect(emptyFirstHeading.sections.count == 2)
+        #expect(emptyFirstHeading.sections[0].heading == "")
+        #expect(emptyFirstHeading.sections[0].body == "#")
+        #expect(emptyFirstHeading.sections[1].heading == "Real Title")
+        let leadingBody = try SystemAssetDocument.parse(fileName: "Lead.md", relativePath: "Lead.md", data: Data("Intro text.\n\n# Title\n\nBody.\n".utf8))
+        #expect(leadingBody.sections.count == 2)
+        #expect(leadingBody.sections[0].heading == "")
+        #expect(leadingBody.sections[0].body == "Intro text.")
+        #expect(leadingBody.sections[1].heading == "Title")
+        let deepHashes = try SystemAssetDocument.parse(fileName: "Deep.md", relativePath: "Deep.md", data: Data("####### Deep\n\nBody.\n".utf8))
+        #expect(deepHashes.title == "Deep")
+        #expect(deepHashes.sections.count == 1)
+        #expect(deepHashes.sections[0].heading == "Deep")
+        let noSpace = try SystemAssetDocument.parse(fileName: "NoSpace.md", relativePath: "NoSpace.md", data: Data("#NoSpace\n\nBody.\n".utf8))
+        #expect(noSpace.title == "NoSpace")
+        #expect(noSpace.sections.count == 1)
+        #expect(noSpace.sections[0].heading == "NoSpace")
+    }
+
+    @Test("Marker parsing trims values, dedupes tags, and drops non-markdown dependencies")
+    func documentMarkerParsingEdgeCases() throws {
+        let nested = try SystemAssetDocument.parse(
+            fileName: "Plain.md", relativePath: "Guides/Plain.md",
+            data: Data("<!-- system-index-category: -->\n# Plain\n\nBody.\n".utf8))
+        #expect(nested.category == "Guides")
+        let spaced = try SystemAssetDocument.parse(
+            fileName: "Spaced.md", relativePath: "Spaced.md",
+            data: Data("<!-- system-index-category:   Workflow   -->\n# Spaced\n\nBody.\n".utf8))
+        #expect(spaced.category == "Workflow")
+        let tagged = try SystemAssetDocument.parse(
+            fileName: "Tagged.md", relativePath: "Tagged.md",
+            data: Data("<!-- system-index-tags: alpha, beta -->\n<!-- system-index-tags: beta, gamma -->\n# Tagged\n\nBody.\n".utf8))
+        #expect(tagged.tags == ["alpha", "beta", "gamma"])
+        let depends = try SystemAssetDocument.parse(
+            fileName: "Depends.md", relativePath: "Depends.md",
+            data: Data("<!-- system-index-depends: Beta.md, notes.txt, Beta.md, Gamma.md -->\n# Depends\n\nBody.\n".utf8))
+        #expect(depends.dependencies == ["Beta.md", "Gamma.md"])
+    }
+
+    @Test("Retrieve joins the provider and model into the search query")
+    func retrieveJoinsProviderAndModelIntoQuery() throws {
+        let fixture = try Self.makeRetrievalFixture()
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let manager = SystemAssetManager(directory: fixture)
+        #expect(manager.retrieve(request: nil, provider: "beta", model: nil).contains { $0.fileName == "BetaNotes.md" })
+        #expect(manager.retrieve(request: nil, provider: nil, model: "gamma").contains { $0.fileName == "Gamma Notes.md" })
+        #expect(manager.retrieve(request: "alpha", provider: "beta", model: nil).contains { $0.fileName == "AlphaNotes.md" })
+        #expect(manager.retrieve(request: "alpha", provider: "beta", model: nil).contains { $0.fileName == "BetaNotes.md" })
+        #expect(manager.retrieve(request: nil, provider: "   ", model: nil).isEmpty)
+        #expect(manager.retrieve(request: nil, provider: nil, model: "   ").isEmpty)
+    }
+
+    @Test("Prompt assembly appends the first section of each included dependency")
+    func promptIncludesDependencyFirstSections() throws {
+        let temp = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: temp) }
+        try "<!-- system-index-depends: BetaNotes.md -->\n# Alpha Guide\n\n## Getting Started\nAlpha tokens live here.\n".write(to: temp.appendingPathComponent("AlphaNotes.md"), atomically: true, encoding: .utf8)
+        try "# Beta Guide\n\n## Getting Started\nBeta tokens live here.\n".write(to: temp.appendingPathComponent("BetaNotes.md"), atomically: true, encoding: .utf8)
+        let manager = SystemAssetManager(directory: temp)
+        let index = try #require(manager.index)
+        let prompt = SystemPromptBuilder().build(index: index, request: "alpha", provider: nil, model: nil)
+        #expect(prompt.includedDocumentIDs.contains("AlphaNotes"))
+        #expect(prompt.includedDocumentIDs.contains("BetaNotes"))
+        #expect(prompt.text.contains("Beta Guide"))
+        #expect(prompt.text.contains("Alpha tokens live here."))
+    }
+
+    @Test("Prompt assembly includes an identical section only once")
+    func promptDeduplicatesIdenticalSections() throws {
+        let temp = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: temp) }
+        for name in ["A.md", "B.md"] {
+            try "# Shared\n\nSame body.\n".write(to: temp.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        let manager = SystemAssetManager(directory: temp)
+        let index = try #require(manager.index)
+        let prompt = SystemPromptBuilder().build(index: index, request: "shared", provider: nil, model: nil)
+        #expect(prompt.includedDocumentIDs == ["A"])
+        #expect(prompt.text.components(separatedBy: "Same body.").count - 1 == 1)
+    }
+
+    @Test("An assistant with an empty prompt contributes nothing and gets no id")
+    func assistantWithEmptyPromptContributesNothing() throws {
+        let manager = Self.manager()
+        let index = try #require(manager.index)
+        let empty = AssistantPromptDescriptor(id: "ghost", name: "Ghost", systemPrompt: "   ", extraAssetFileNames: [])
+        let ghostPrompt = SystemPromptBuilder().build(index: index, request: "Fix the bug", provider: nil, model: nil, assistant: empty)
+        #expect(ghostPrompt.assistantID == nil)
+        #expect(ghostPrompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        #expect(!ghostPrompt.text.contains("instructions:"))
+        let nameless = AssistantPromptDescriptor(id: "nameless", name: "", systemPrompt: "Do it.", extraAssetFileNames: [])
+        let namelessPrompt = SystemPromptBuilder().build(index: index, request: nil, provider: nil, model: nil, assistant: nameless)
+        #expect(namelessPrompt.assistantID == "nameless")
+        #expect(namelessPrompt.text.contains("Do it."))
+        #expect(!namelessPrompt.text.contains("instructions:"))
+    }
+
+    @Test("Minimal baseline prompt passes its error through")
+    func minimalBaselinePromptPassesThroughError() {
+        let malformed = SystemAssetError.documentMalformed(fileName: "X.md", reason: "R")
+        let prompt = SystemPromptBuilder.minimalBaselinePrompt(error: malformed)
+        #expect(prompt.isBaselineFallback)
+        #expect(prompt.text == SystemPromptBuilder.conciseBaseline)
+        #expect(prompt.loadError == malformed)
+        #expect(SystemPromptBuilder.minimalBaselinePrompt(error: nil).loadError == .retrievalUnavailable(reason: "System assets unavailable; using minimal safe baseline."))
+    }
 }

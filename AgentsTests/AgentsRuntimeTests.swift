@@ -551,4 +551,231 @@ struct AgentsRuntimeTests {
         #expect(reset.entries.isEmpty)
         #expect(reset.watermark == 3)
     }
+
+    @Test("Assistant model config maps provider and model into the right case")
+    func assistantModelConfigMapping() {
+        #expect(AssistantModelConfig(provider: "claude", model: "sonnet") == .specific(provider: "claude", model: "sonnet"))
+        #expect(AssistantModelConfig(provider: "claude", model: nil) == .providerOnly("claude"))
+        #expect(AssistantModelConfig(provider: nil, model: "sonnet") == .modelOnly("sonnet"))
+        #expect(AssistantModelConfig(provider: nil, model: nil) == .appDefault)
+        #expect(AssistantModelConfig.specific(provider: "claude", model: "sonnet").provider == "claude")
+        #expect(AssistantModelConfig.specific(provider: "claude", model: "sonnet").model == "sonnet")
+        #expect(AssistantModelConfig.providerOnly("claude").provider == "claude")
+        #expect(AssistantModelConfig.providerOnly("claude").model == nil)
+        #expect(AssistantModelConfig.modelOnly("sonnet").provider == nil)
+        #expect(AssistantModelConfig.modelOnly("sonnet").model == "sonnet")
+        #expect(AssistantModelConfig.appDefault.provider == nil)
+        #expect(AssistantModelConfig.appDefault.model == nil)
+        #expect(AssistantModelConfig.currentAppModel.provider == nil)
+        #expect(AssistantModelConfig.currentAppModel.model == nil)
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: "claude", model: "sonnet") == .specific(provider: "claude", model: "sonnet"))
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: nil, model: nil) == .appDefault)
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: "claude", model: nil) == .providerOnly("claude"))
+        #expect(AssistantModelConfig.specific(provider: "claude", model: "sonnet").resolvingCurrent(provider: "other", model: "other") == .specific(provider: "claude", model: "sonnet"))
+        #expect(AssistantModelConfig.appDefault.selectionOverride == nil)
+        #expect(AssistantModelConfig.currentAppModel.selectionOverride == nil)
+        #expect(AssistantModelConfig.specific(provider: "claude", model: "sonnet").selectionOverride == RemoteSelectionOverride(provider: "claude", modelID: "sonnet"))
+        #expect(AssistantModelConfig.providerOnly("claude").selectionOverride == RemoteSelectionOverride(provider: "claude"))
+        #expect(AssistantModelConfig.modelOnly("sonnet").selectionOverride == RemoteSelectionOverride(modelID: "sonnet"))
+    }
+
+    private static func summary(toolset: String?, assistantId: String? = nil) -> RemoteThreadSummary {
+        RemoteThreadSummary(
+            id: UUID(),
+            projectID: UUID(),
+            title: "Test",
+            selection: RemoteSelection(provider: "codex", modelID: "default", modelName: "Default"),
+            toolset: toolset,
+            assistantId: assistantId
+        )
+    }
+
+    @Test("AppModel system prompt carries the assistant role and falls back without one")
+    @MainActor
+    func appModelSystemPromptCarriesAssistantRole() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-prompt-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+        let descriptor = AssistantPromptDescriptor(id: "assistant-review", name: "Reviewer", systemPrompt: "Be terse.", extraAssetFileNames: [])
+        let withRequest = model.systemPrompt(for: "Fix the bug", provider: nil, model: nil, assistant: descriptor)
+        #expect(withRequest.assistantID == "assistant-review")
+        #expect(withRequest.text.contains("Be terse."))
+        #expect(withRequest.text.contains("instructions:"))
+        #expect(withRequest.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        let withoutRequest = model.systemPrompt(for: nil, provider: nil, model: nil, assistant: descriptor)
+        #expect(withoutRequest.assistantID == "assistant-review")
+        #expect(withoutRequest.text.contains("Be terse."))
+        let noAssistant = model.systemPrompt(for: "Fix the bug", provider: nil, model: nil)
+        #expect(noAssistant.assistantID == nil)
+        #expect(noAssistant.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        let empty = model.systemPrompt(for: nil, provider: nil, model: nil)
+        #expect(empty.assistantID == nil)
+        #expect(empty.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        await model.shutdown()
+    }
+
+    @Test("A thread naming an unknown assistant falls back to the uncached prompt")
+    @MainActor
+    func appModelOrphanAssistantThreadFallsBack() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-orphan-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+        let projID = await model.addProject(at: projectDir.path, name: "OrphanProject")
+        #expect(projID != nil)
+        let threadID = await model.createNewThread(in: projID, assistantId: UUID().uuidString)
+        let thread = try #require(model.workspace.threads.first(where: { $0.id == threadID }))
+        #expect(thread.assistantId != nil)
+        let prompt = model.systemPrompt(for: thread)
+        #expect(prompt.assistantID == nil)
+        #expect(prompt.text.hasPrefix(SystemPromptBuilder.conciseBaseline))
+        await model.shutdown()
+    }
+
+    @Test("AppModel toolset resolves from the thread, defaulting to provider")
+    func appModelToolsetResolvesFromThread() {
+        let model = AppModel()
+        #expect(model.toolset(for: nil) == .provider)
+        #expect(model.toolset(for: Self.summary(toolset: "system")) == .system)
+        #expect(model.toolset(for: Self.summary(toolset: "provider")) == .provider)
+        #expect(model.toolset(for: Self.summary(toolset: "bogus")) == .provider)
+        #expect(model.toolset(for: Self.summary(toolset: nil)) == .provider)
+    }
+
+    @Test("An unbootstrapped AppModel refuses work without a runtime")
+    @MainActor
+    func appModelWithoutRuntimeRefusesWork() async {
+        let model = AppModel()
+        #expect(model.runtime == nil)
+        #expect(await model.sendMessage(text: "Hello") == nil)
+        #expect(model.toastMessage != nil)
+        #expect(await model.createNewThread() == nil)
+        await model.stopActiveTurn()
+        #expect(await model.addProject(at: "/tmp/does-not-exist") == nil)
+        #expect(await model.saveAssistant(RemoteAssistantDraft(name: "Ghost", category: .codeReviewSecurity, systemPrompt: "Hi.", allowedTools: ["read_file"])) == nil)
+    }
+
+    @Test("AppModel deletes, forks, and archives threads")
+    @MainActor
+    func appModelThreadDeleteForkArchive() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-threads-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+        let projID = await model.addProject(at: projectDir.path, name: "ThreadProject")
+        #expect(projID != nil)
+        let firstID = await model.createNewThread(in: projID)
+        let secondID = await model.createNewThread(in: projID)
+        let first = try #require(firstID)
+        let second = try #require(secondID)
+        #expect(model.workspace.threads.contains(where: { $0.id == first }))
+        #expect(model.workspace.threads.contains(where: { $0.id == second }))
+        model.selectThread(second)
+        await model.deleteThreadPermanently(first.uuidString)
+        #expect(!model.workspace.threads.contains(where: { $0.id == first }))
+        #expect(model.workspace.threads.contains(where: { $0.id == second }))
+        #expect(model.selectedThreadUUID == second)
+        let forked = await model.forkThread(second)
+        let forkedID = try #require(forked)
+        #expect(forkedID != second)
+        #expect(model.selectedThreadUUID == forkedID)
+        #expect(model.workspace.threads.contains(where: { $0.id == forkedID }))
+        await model.performThreadAction(.archive(true), on: forkedID)
+        #expect(!model.workspace.threads.contains(where: { $0.id == forkedID }))
+        #expect(!model.filteredThreads.contains(where: { $0.id == forkedID }))
+        await model.performThreadAction(.archive(false), on: forkedID)
+        #expect(model.workspace.threads.contains(where: { $0.id == forkedID }))
+        #expect(model.filteredThreads.contains(where: { $0.id == forkedID }))
+        await model.performThreadAction(.delete, on: forkedID)
+        #expect(!model.workspace.threads.contains(where: { $0.id == forkedID }))
+        await model.shutdown()
+    }
+
+    @Test("AppModel thread selection cycles with wraparound")
+    @MainActor
+    func appModelThreadSelectionCycles() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-select-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+        let projID = await model.addProject(at: projectDir.path, name: "SelectProject")
+        #expect(projID != nil)
+        let first = try #require(await model.createNewThread(in: projID))
+        let second = try #require(await model.createNewThread(in: projID))
+        let third = try #require(await model.createNewThread(in: projID))
+        #expect(model.filteredThreads.contains(where: { $0.id == first }))
+        #expect(model.filteredThreads.contains(where: { $0.id == second }))
+        #expect(model.filteredThreads.contains(where: { $0.id == third }))
+        let start = try #require(model.selectedThreadUUID)
+        let count = model.filteredThreads.count
+        for _ in 0..<count { model.selectNextThread() }
+        #expect(model.selectedThreadUUID == start)
+        for _ in 0..<count { model.selectPreviousThread() }
+        #expect(model.selectedThreadUUID == start)
+        let unknown = UUID()
+        model.selectThread(unknown)
+        #expect(model.selectedThreadUUID == unknown)
+        await model.shutdown()
+    }
+
+    @Test("AppModel saveAssistant rejects unknown tools")
+    @MainActor
+    func appModelSaveAssistantRejectsUnknownTools() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-tools-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+        let saved = await model.saveAssistant(RemoteAssistantDraft(
+            name: "Ghost", category: .codeReviewSecurity, systemPrompt: "Hi.",
+            allowedTools: ["not_a_real_tool"]))
+        #expect(saved == nil)
+        #expect(model.lastError?.contains("Unknown assistant tools: not_a_real_tool") == true)
+        await model.shutdown()
+    }
+
+    @Test("AppModel refuses to remove a project with conversations, then removes it empty")
+    @MainActor
+    func appModelRemoveProject() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-remove-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+        let projID = try #require(await model.addProject(at: projectDir.path, name: "RemoveProject"))
+        #expect(model.workspace.projects.contains(where: { $0.id == projID }))
+        let threadID = try #require(await model.createNewThread(in: projID))
+        #expect(model.workspace.threads.contains(where: { $0.id == threadID }))
+        await model.removeProject(projID)
+        #expect(model.workspace.projects.contains(where: { $0.id == projID }))
+        #expect(model.lastError?.contains("Move or remove the project's conversations first") == true)
+        for thread in model.workspace.threads.filter({ $0.projectID == projID }) {
+            await model.deleteThreadPermanently(thread.id.uuidString)
+        }
+        #expect(!model.workspace.threads.contains(where: { $0.projectID == projID }))
+        await model.removeProject(projID)
+        #expect(!model.workspace.projects.contains(where: { $0.id == projID }))
+        await model.shutdown()
+    }
 }

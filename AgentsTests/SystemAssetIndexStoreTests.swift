@@ -426,4 +426,279 @@ struct SystemAssetIndexStoreTests {
         #expect(manager.retrieve(request: nil, provider: nil, model: nil).isEmpty)
         #expect(manager.retrieve(request: "   ", provider: nil, model: nil).isEmpty)
     }
+
+    @Test("Refresh before any load reports the index is not ready")
+    func refreshBeforeLoadReportsNotReady() {
+        let source = Self.makeTemporaryDirectory()
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        let indexStore = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: store)
+        #expect(indexStore.snapshot() == nil)
+        #expect(indexStore.loadError() == nil)
+        #expect(indexStore.health().isReady == false)
+        let result = indexStore.refresh()
+        #expect(result.succeeded == false)
+        #expect(result.error == "System asset index is not ready.")
+        #expect(result.totalDocuments == 0)
+        #expect(result.indexVersion == 0)
+        #expect(result.persisted == false)
+    }
+
+    @Test("Refresh after the source is emptied fails and keeps the last snapshot")
+    func refreshAfterSourceEmptiedFails() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        let manager = Self.makeManager(source: source, store: store)
+        #expect(manager.documentCount == 2)
+        try FileManager.default.removeItem(at: source.appendingPathComponent("Alpha.md"))
+        try FileManager.default.removeItem(at: source.appendingPathComponent("Beta.md"))
+        let result = manager.refresh()
+        #expect(result.succeeded == false)
+        #expect(result.error == "System Assets unavailable.")
+        #expect(result.totalDocuments == 2)
+        #expect(manager.documentCount == 2)
+        #expect(manager.indexHealth.lastRefreshError == "System Assets unavailable.")
+    }
+
+    @Test("A vanished source still serves its persisted index with a refresh error")
+    func vanishedSourceServesStaleIndexWithError() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let storeDir = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, storeDir]) }
+        let first = Self.makeManager(source: source, store: storeDir)
+        #expect(first.isReady)
+        #expect(first.documentCount == 2)
+        try FileManager.default.removeItem(at: source.appendingPathComponent("Alpha.md"))
+        try FileManager.default.removeItem(at: source.appendingPathComponent("Beta.md"))
+        let second = Self.makeManager(source: source, store: storeDir)
+        #expect(second.isReady)
+        #expect(second.documentCount == 2)
+        #expect(second.indexHealth.lastRefreshError == "System Assets unavailable.")
+        let result = second.refresh()
+        #expect(result.succeeded == false)
+        #expect(result.totalDocuments == 2)
+    }
+
+    @Test("Load reports progress phases for a fresh build and for a persisted reuse")
+    func loadReportsProgressPhases() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta", "Gamma"])
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        let firstStore = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: store)
+        var firstPhases: [SystemAssetIndexProgress.Phase] = []
+        let firstIndex = try firstStore.loadOrRebuild(progress: { firstPhases.append($0.phase) })
+        #expect(firstIndex.documentCount == 3)
+        #expect(firstPhases == [.loading, .scanning, .indexing, .persisting, .done])
+        let firstHealth = firstStore.health()
+        #expect(firstHealth.isReady)
+        #expect(firstHealth.indexVersion == 1)
+        #expect(firstHealth.totalDocuments == 3)
+        #expect(firstHealth.lastRefreshChangedCount == 3)
+        #expect(firstHealth.lastRefreshAt != nil)
+        #expect(firstHealth.lastRefreshError == nil)
+        let secondStore = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: store)
+        var secondPhases: [SystemAssetIndexProgress.Phase] = []
+        let secondIndex = try secondStore.loadOrRebuild(progress: { secondPhases.append($0.phase) })
+        #expect(secondIndex.documentCount == 3)
+        #expect(secondPhases == [.loading, .validating, .scanning, .indexing, .done])
+        #expect(secondStore.health().indexVersion == 1)
+    }
+
+    @Test("A checksum mismatch moves the persisted index aside and rebuilds")
+    func checksumMismatchMovesCorruptAsideAndRebuilds() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let storeDir = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, storeDir]) }
+        let first = Self.makeManager(source: source, store: storeDir)
+        #expect(first.isReady)
+        let store = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: storeDir)
+        var payload = try SystemAssetIndexStore.decodePayload(Data(contentsOf: store.storeFileURL))
+        let alphaIndex = try #require(payload.documents.firstIndex { $0.fileName == "Alpha.md" })
+        payload.documents[alphaIndex].title = "Tampered Title"
+        try SystemAssetIndexStore.encodePayload(payload).write(to: store.storeFileURL, options: [.atomic])
+        let second = Self.makeManager(source: source, store: storeDir)
+        #expect(second.isReady)
+        #expect(second.documentCount == 2)
+        #expect(second.document(fileName: "Alpha.md")?.title == "Alpha")
+        let corruptURL = storeDir.appendingPathComponent(store.storeFileURL.lastPathComponent + ".corrupt")
+        #expect(FileManager.default.fileExists(atPath: corruptURL.path))
+        let rebuilt = try SystemAssetIndexStore.decodePayload(Data(contentsOf: store.storeFileURL))
+        #expect(SystemAssetIndexStore.checksum(of: rebuilt) == rebuilt.checksum)
+    }
+
+    @Test("A persisted index for another source directory is moved aside and rebuilt")
+    func sourceDirectoryMismatchMovesCorruptAsideAndRebuilds() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let storeDir = Self.makeTemporaryDirectory()
+        let copy = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, storeDir, copy]) }
+        let first = Self.makeManager(source: source, store: storeDir)
+        #expect(first.isReady)
+        for name in ["Alpha.md", "Beta.md"] {
+            try FileManager.default.copyItem(at: source.appendingPathComponent(name), to: copy.appendingPathComponent(name))
+        }
+        let sourceStore = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: storeDir)
+        let copyStore = SystemAssetIndexStore(sourceDirectory: copy, storeDirectory: storeDir)
+        try FileManager.default.copyItem(at: sourceStore.storeFileURL, to: copyStore.storeFileURL)
+        let second = Self.makeManager(source: copy, store: storeDir)
+        #expect(second.isReady)
+        #expect(second.documentCount == 2)
+        #expect(second.indexHealth.indexVersion == 1)
+        let corruptURL = storeDir.appendingPathComponent(copyStore.storeFileURL.lastPathComponent + ".corrupt")
+        #expect(FileManager.default.fileExists(atPath: corruptURL.path))
+        let rebuilt = try SystemAssetIndexStore.decodePayload(Data(contentsOf: copyStore.storeFileURL))
+        #expect(rebuilt.sourceDirectory == SystemAssetIndexStore.canonicalPath(of: copy))
+    }
+
+    @Test("An orphan fingerprint is dropped on load and the repair bumps the version")
+    func orphanFingerprintRepairedOnLoad() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let storeDir = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, storeDir]) }
+        let first = Self.makeManager(source: source, store: storeDir)
+        #expect(first.isReady)
+        let firstVersion = first.indexHealth.indexVersion
+        let store = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: storeDir)
+        var payload = try SystemAssetIndexStore.decodePayload(Data(contentsOf: store.storeFileURL))
+        payload.fingerprints["Ghost.md"] = SystemAssetFingerprint(
+            relativePath: "Ghost.md", size: 10, modificationTime: 0,
+            contentHash: String(repeating: "0", count: 64)
+        )
+        payload.checksum = SystemAssetIndexStore.checksum(of: payload)
+        try SystemAssetIndexStore.encodePayload(payload).write(to: store.storeFileURL, options: [.atomic])
+        let second = Self.makeManager(source: source, store: storeDir)
+        #expect(second.isReady)
+        #expect(second.documentCount == 2)
+        #expect(second.indexHealth.indexVersion == firstVersion + 1)
+        #expect(second.search("doc0").first?.fileName == "Alpha.md")
+    }
+
+    @Test("A tampered stored document is re-parsed from disk on load")
+    func tamperedStoredDocumentReparsedFromDisk() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let storeDir = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, storeDir]) }
+        let first = Self.makeManager(source: source, store: storeDir)
+        #expect(first.isReady)
+        let firstVersion = first.indexHealth.indexVersion
+        let diskText = try String(contentsOf: source.appendingPathComponent("Alpha.md"), encoding: .utf8)
+        let store = SystemAssetIndexStore(sourceDirectory: source, storeDirectory: storeDir)
+        var payload = try SystemAssetIndexStore.decodePayload(Data(contentsOf: store.storeFileURL))
+        let alphaIndex = try #require(payload.documents.firstIndex { $0.fileName == "Alpha.md" })
+        payload.documents[alphaIndex].rawText += "\nTampered body.\n"
+        payload.checksum = SystemAssetIndexStore.checksum(of: payload)
+        try SystemAssetIndexStore.encodePayload(payload).write(to: store.storeFileURL, options: [.atomic])
+        let second = Self.makeManager(source: source, store: storeDir)
+        #expect(second.isReady)
+        #expect(second.document(fileName: "Alpha.md")?.rawText == diskText)
+        #expect(second.document(fileName: "Alpha.md")?.rawText.contains("Tampered body.") == false)
+        #expect(second.indexHealth.indexVersion == firstVersion + 1)
+    }
+
+    @Test("Renaming with changed content is an add plus a remove, not a rename")
+    func renameWithChangedContentIsAddPlusRemove() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        let manager = Self.makeManager(source: source, store: store)
+        try FileManager.default.moveItem(at: source.appendingPathComponent("Alpha.md"), to: source.appendingPathComponent("Renamed.md"))
+        try "# Renamed\n\nRewritten renamed body with token renameddoc.\n".write(to: source.appendingPathComponent("Renamed.md"), atomically: true, encoding: .utf8)
+        let result = manager.refresh()
+        #expect(result.succeeded)
+        #expect(result.addedDocumentIDs == ["Renamed"])
+        #expect(result.removedDocumentIDs == ["Alpha"])
+        #expect(result.renamedDocumentIDs.isEmpty)
+        #expect(result.changedDocumentIDs.isEmpty)
+        #expect(manager.documentCount == 2)
+        #expect(manager.document(fileName: "Renamed.md")?.rawText.contains("renameddoc") == true)
+    }
+
+    @Test("Touching a file bumps the index version without reporting changed documents")
+    func fingerprintTouchBumpsIndexVersion() throws {
+        let source = try Self.makeSource(names: ["Alpha", "Beta"])
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        let manager = Self.makeManager(source: source, store: store)
+        let beforeVersion = manager.indexHealth.indexVersion
+        let path = source.appendingPathComponent("Alpha.md").path
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(3600)], ofItemAtPath: path)
+        let result = manager.refresh()
+        #expect(result.succeeded)
+        #expect(result.addedDocumentIDs.isEmpty)
+        #expect(result.removedDocumentIDs.isEmpty)
+        #expect(result.changedDocumentIDs.isEmpty)
+        #expect(result.renamedDocumentIDs.isEmpty)
+        #expect(result.persisted)
+        #expect(manager.indexHealth.indexVersion == beforeVersion + 1)
+        let again = manager.refresh()
+        #expect(again.succeeded)
+        #expect(again.changedDocumentIDs.isEmpty)
+        #expect(manager.indexHealth.indexVersion == beforeVersion + 1)
+    }
+
+    @Test("Load on a missing source directory throws and records the load error")
+    func loadOnMissingDirectoryThrows() {
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let storeDir = Self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: storeDir) }
+        let store = SystemAssetIndexStore(sourceDirectory: missing, storeDirectory: storeDir)
+        #expect(throws: SystemAssetError.self) {
+            try store.loadOrRebuild()
+        }
+        #expect(store.loadError() != nil)
+        #expect(store.health().isReady == false)
+        #expect(store.snapshot() == nil)
+    }
+
+    @Test("Store file names are stable per directory and distinct across directories")
+    func storeFileNameIsStableAndDistinct() {
+        let first = Self.makeTemporaryDirectory()
+        let second = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([first, second]) }
+        let firstName = SystemAssetIndexStore.storeFileName(sourceDirectory: first)
+        #expect(firstName == SystemAssetIndexStore.storeFileName(sourceDirectory: first))
+        #expect(firstName.contains("system-assets-index-v1-"))
+        #expect(firstName != SystemAssetIndexStore.storeFileName(sourceDirectory: second))
+        #expect(SystemAssetIndexStore(sourceDirectory: first).storeFileURL.lastPathComponent == firstName)
+    }
+
+    @Test("Canonical paths resolve symlinks to the real directory")
+    func canonicalPathResolvesSymlinks() throws {
+        let parent = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([parent]) }
+        let real = parent.appendingPathComponent("real")
+        try FileManager.default.createDirectory(at: real, withIntermediateDirectories: true)
+        try "# Linked\n\nLinked body with token linkeddoc.\n".write(to: real.appendingPathComponent("Linked.md"), atomically: true, encoding: .utf8)
+        let link = parent.appendingPathComponent("link")
+        try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: real.path)
+        let store = SystemAssetIndexStore(sourceDirectory: link)
+        #expect(store.sourceDirectory.path == SystemAssetIndexStore.canonicalPath(of: real))
+        #expect(store.sourceDirectory.path == SystemAssetIndexStore.canonicalPath(of: link))
+    }
+
+    @Test("A 150-document library indexes, searches, and refreshes incrementally")
+    func largeLibraryIndexesAndRefreshesIncrementally() throws {
+        let source = Self.makeTemporaryDirectory()
+        let store = Self.makeTemporaryDirectory()
+        defer { Self.cleanup([source, store]) }
+        for index in 0..<150 {
+            let name = "Doc\(index)"
+            let content = "# \(name)\n\nBody text for \(name) with token doc\(index).\n"
+            try content.write(to: source.appendingPathComponent(name + ".md"), atomically: true, encoding: .utf8)
+        }
+        let manager = Self.makeManager(source: source, store: store)
+        #expect(manager.isReady)
+        #expect(manager.documentCount == 150)
+        #expect(manager.search("doc149").first?.fileName == "Doc149.md")
+        #expect(manager.search("doc0").first?.fileName == "Doc0.md")
+        try "# Doc0\n\nRewritten doc0 body with token rewrittenzero.\n".write(to: source.appendingPathComponent("Doc0.md"), atomically: true, encoding: .utf8)
+        let result = manager.refresh()
+        #expect(result.succeeded)
+        #expect(result.changedDocumentIDs == ["Doc0"])
+        #expect(result.addedDocumentIDs.isEmpty)
+        #expect(result.removedDocumentIDs.isEmpty)
+        #expect(manager.search("rewrittenzero").first?.fileName == "Doc0.md")
+        #expect(manager.search("doc0").isEmpty)
+    }
 }
