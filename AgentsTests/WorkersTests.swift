@@ -320,6 +320,58 @@ struct WorkersTests {
         await client.close()
     }
 
+    @Test("Bulk selection separates running workers from finished ones")
+    func bulkSelectionSeparatesRunningFromTerminal() {
+        let records = [
+            Self.makeRecord(id: "w-running", status: "running"),
+            Self.makeRecord(id: "w-done", status: "completed"),
+            Self.makeRecord(id: "w-failed", status: "failed"),
+            Self.makeRecord(id: "w-cancelled", status: "cancelled"),
+            Self.makeRecord(id: "w-unknown", status: "unknown"),
+        ]
+        let running = WorkerRecord.runningWorkers(from: records)
+        #expect(running.count == 1)
+        #expect(running.map(\.id) == ["w-running"])
+        let terminal = WorkerRecord.terminalWorkers(from: records)
+        #expect(terminal.count == 3)
+        #expect(terminal.map(\.id) == ["w-done", "w-failed", "w-cancelled"])
+        #expect(!terminal.contains(where: \.isRunning))
+        #expect(!running.contains(where: \.isTerminal))
+        #expect(Set(running.map(\.id)).isDisjoint(with: Set(terminal.map(\.id))))
+    }
+
+    @Test("Clear finished never selects a running worker")
+    func clearFinishedNeverSelectsRunning() {
+        let records = [
+            Self.makeRecord(id: "w1", status: "running"),
+            Self.makeRecord(id: "w2", status: "running"),
+            Self.makeRecord(id: "w3", status: "completed"),
+        ]
+        let terminal = WorkerRecord.terminalWorkers(from: records)
+        #expect(terminal.map(\.id) == ["w3"])
+        #expect(WorkerRecord.terminalWorkers(from: []).isEmpty)
+        #expect(WorkerRecord.runningWorkers(from: []).isEmpty)
+    }
+
+    @Test("Bulk failure message names every failed worker and stays silent on success")
+    func bulkFailureMessage() {
+        #expect(WorkerRecord.bulkFailureMessage(action: "cancel", attempted: 3, failures: []) == nil)
+        let single = WorkerRecord.bulkFailureMessage(action: "cancel", attempted: 2, failures: ["alpha: boom"])
+        #expect(single == "Failed to cancel 1 of 2 workers: alpha: boom")
+        let multiple = WorkerRecord.bulkFailureMessage(action: "delete", attempted: 3, failures: ["alpha: boom", "beta: gone"])
+        #expect(multiple == "Failed to delete 2 of 3 workers: alpha: boom; beta: gone")
+    }
+
+    private static func makeRecord(id: String, status: String) -> WorkerRecord {
+        WorkerRecord(
+            id: id, name: id, parentThreadId: "p1", threadId: "t1",
+            task: "Do the thing.", provider: "codex", targetFiles: [],
+            status: status, cancelRequested: false, transcriptStart: 0,
+            transcriptItems: 0, elapsedSeconds: 0, createdAt: 100, startedAt: 100,
+            completedAt: nil, error: nil, result: nil, progress: nil
+        )
+    }
+
     @Test("Worker record and plan survive a Codable round trip")
     func workerRecordRoundTrips() throws {
         let encoder = RemoteProtocol.makeEncoder()

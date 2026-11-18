@@ -59,30 +59,36 @@ struct WorkersInspectorView: View {
     @State private var planObjective: String = ""
     @State private var planMode: String = "build"
     @State private var cancellingIDs: Set<String> = []
+    @State private var isCancellingAll: Bool = false
+    @State private var showCancelAllConfirmation: Bool = false
     @State private var pendingDeleteWorker: WorkerRecord?
     @State private var deletingIDs: Set<String> = []
+    @State private var isClearingFinished: Bool = false
+    @State private var showClearFinishedConfirmation: Bool = false
     @State private var retryingIDs: Set<String> = []
 
-    private var filteredWorkers: [WorkerRecord] {
-        let scoped: [WorkerRecord]
+    private var scopedWorkers: [WorkerRecord] {
         switch scopeFilter {
         case .allWorkers:
-            scoped = workers
+            return workers
         case .currentThread:
             guard let tid = appModel.selectedThreadUUID else { return [] }
-            scoped = workers.filter { $0.parentThreadId.lowercased() == tid.uuidString.lowercased() }
+            return workers.filter { $0.parentThreadId.lowercased() == tid.uuidString.lowercased() }
         }
+    }
+
+    private var filteredWorkers: [WorkerRecord] {
         switch statusFilter {
         case .all:
-            return scoped
+            return scopedWorkers
         case .running:
-            return scoped.filter(\.isRunning)
+            return scopedWorkers.filter(\.isRunning)
         case .completed:
-            return scoped.filter { $0.status == "completed" }
+            return scopedWorkers.filter { $0.status == "completed" }
         case .failed:
-            return scoped.filter { $0.status == "failed" }
+            return scopedWorkers.filter { $0.status == "failed" }
         case .cancelled:
-            return scoped.filter { $0.status == "cancelled" }
+            return scopedWorkers.filter { $0.status == "cancelled" }
         }
     }
 
@@ -91,7 +97,15 @@ struct WorkersInspectorView: View {
     }
 
     private var runningCount: Int {
-        filteredWorkers.filter(\.isRunning).count
+        WorkerRecord.runningWorkers(from: scopedWorkers).count
+    }
+
+    private var terminalCount: Int {
+        WorkerRecord.terminalWorkers(from: scopedWorkers).count
+    }
+
+    private var scopeLabel: String {
+        scopeFilter == .currentThread ? "in the current thread" : "across all workers"
     }
 
     private var runningCapLabel: String {
@@ -199,6 +213,28 @@ struct WorkersInspectorView: View {
         } message: { worker in
             Text("This deletes the record for “\(worker.name)”. The worker thread itself is not deleted.")
         }
+        .confirmationDialog(
+            "Cancel All Running Workers?",
+            isPresented: $showCancelAllConfirmation
+        ) {
+            Button(runningCount == 1 ? "Cancel 1 Worker" : "Cancel \(runningCount) Workers", role: .destructive) {
+                Task { await cancelAllRunningWorkers() }
+            }
+            Button("Keep Running", role: .cancel) {}
+        } message: {
+            Text("This asks \(runningCount) running \(runningCount == 1 ? "worker" : "workers") \(scopeLabel) to stop. Cancellation is a stop request, not a kill: each provider winds down on its own schedule and the records stay cancelled.")
+        }
+        .confirmationDialog(
+            "Clear Finished Workers?",
+            isPresented: $showClearFinishedConfirmation
+        ) {
+            Button(terminalCount == 1 ? "Delete 1 Record" : "Delete \(terminalCount) Records", role: .destructive) {
+                Task { await clearFinishedWorkers() }
+            }
+            Button("Keep Records", role: .cancel) {}
+        } message: {
+            Text("This deletes \(terminalCount) finished \(terminalCount == 1 ? "worker record" : "worker records") \(scopeLabel). Running workers are never deleted. The worker threads themselves are not deleted.")
+        }
     }
 
     private var workersToolbar: some View {
@@ -270,6 +306,31 @@ struct WorkersInspectorView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                Spacer()
+            }
+            HStack(spacing: 8) {
+                Button {
+                    showCancelAllConfirmation = true
+                } label: {
+                    Label("Cancel All", systemImage: "stop.circle")
+                        .font(.system(size: 11.5, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(runningCount == 0 || isCancellingAll)
+                .help("Cancel every running worker \(scopeLabel)")
+                .accessibilityLabel("Cancel all running workers")
+                Button(role: .destructive) {
+                    showClearFinishedConfirmation = true
+                } label: {
+                    Label("Clear Finished", systemImage: "trash")
+                        .font(.system(size: 11.5, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(terminalCount == 0 || isClearingFinished)
+                .help("Delete every finished worker record \(scopeLabel)")
+                .accessibilityLabel("Clear finished workers")
                 Spacer()
             }
         }
@@ -674,6 +735,61 @@ struct WorkersInspectorView: View {
             errorText = nil
         } catch {
             errorText = error.localizedDescription
+        }
+    }
+
+    private func cancelAllRunningWorkers() async {
+        guard let client = appModel.runtime else { return }
+        let targets = WorkerRecord.runningWorkers(from: scopedWorkers)
+        guard !targets.isEmpty else { return }
+        isCancellingAll = true
+        defer { isCancellingAll = false }
+        var failures: [String] = []
+        for worker in targets {
+            cancellingIDs.insert(worker.id)
+            do {
+                let updated = try await client.cancelWorker(workerId: worker.id)
+                if let index = workers.firstIndex(where: { $0.id == updated.id }) {
+                    workers[index] = updated
+                }
+            } catch {
+                failures.append("\(worker.name): \(error.localizedDescription)")
+            }
+            cancellingIDs.remove(worker.id)
+        }
+        let reloaded = await loadWorkers(silent: true)
+        if let message = WorkerRecord.bulkFailureMessage(action: "cancel", attempted: targets.count, failures: failures) {
+            errorText = message
+        } else if reloaded {
+            errorText = nil
+        }
+    }
+
+    private func clearFinishedWorkers() async {
+        guard let client = appModel.runtime else { return }
+        let targets = WorkerRecord.terminalWorkers(from: scopedWorkers)
+        guard !targets.isEmpty else { return }
+        isClearingFinished = true
+        defer { isClearingFinished = false }
+        var failures: [String] = []
+        for worker in targets {
+            deletingIDs.insert(worker.id)
+            do {
+                _ = try await client.deleteWorker(workerId: worker.id)
+                workers.removeAll { $0.id == worker.id }
+                if selectedWorkerID == worker.id {
+                    selectedWorkerID = nil
+                }
+            } catch {
+                failures.append("\(worker.name): \(error.localizedDescription)")
+            }
+            deletingIDs.remove(worker.id)
+        }
+        let reloaded = await loadWorkers(silent: true)
+        if let message = WorkerRecord.bulkFailureMessage(action: "delete", attempted: targets.count, failures: failures) {
+            errorText = message
+        } else if reloaded {
+            errorText = nil
         }
     }
 

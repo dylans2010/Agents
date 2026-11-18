@@ -1318,6 +1318,19 @@ public nonisolated struct WorkerRecord: Codable, Hashable, Sendable, Identifiabl
     public var isRunning: Bool {
         status == "running"
     }
+
+    public static func runningWorkers(from workers: [WorkerRecord]) -> [WorkerRecord] {
+        workers.filter(\.isRunning)
+    }
+
+    public static func terminalWorkers(from workers: [WorkerRecord]) -> [WorkerRecord] {
+        workers.filter(\.isTerminal)
+    }
+
+    public static func bulkFailureMessage(action: String, attempted: Int, failures: [String]) -> String? {
+        guard !failures.isEmpty else { return nil }
+        return "Failed to \(action) \(failures.count) of \(attempted) workers: \(failures.joined(separator: "; "))"
+    }
 }
 
 public nonisolated struct WorkerPlanStep: Codable, Hashable, Sendable {
