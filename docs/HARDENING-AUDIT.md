@@ -1189,7 +1189,7 @@ backfilled by Slice 133.
 1,148 desktop tests never run here) stands, now with the corrected
 count.
 
-## Slice 134 — MCP server panic isolation
+## Slice 134 — MCP server panic isolation (`33cc12f1`)
 
 **Audited:** the `coincide-mcp-server` dispatch path — `main.rs` `run()`
 loop, `protocol.rs` `handle()`, `call_tool()`, and `tools.rs` `call()` —
@@ -1253,9 +1253,12 @@ through `handle()` → `dispatch_guarded()` → `dispatch()` →
 `call_tool()` → `tools::call()`; the panic trigger traced by hand from
 `tools/call` to `g6_xcstrings_set` `tools.rs:11870`; no panic payload
 reaches any error string (the only new error string is the fixed
-literal); zero new `//` comments; no secrets. The local pre-push
-commit SHA and tree are in the slice's push report; the remote SHA is
-owed backfill by a later slice, following the Slice 130 precedent.
+literal); zero new `//` comments; no secrets. Remote
+`33cc12f1cd1161590f84bcb777e3107e742954b2` (tree
+`27f2434210f68be99845738b6dd536d313935e40`, parent
+`9a0a81c1d64deb4dd3a899343428ef24b2d2cd19`), backfilled by Slice 136,
+following the Slice 130 precedent. The local pre-push commit SHA and
+tree are in the slice's push report.
 
 **Mac-gate checks owed:** `cargo test -p coincide-mcp-server` on Dylan's
 Mac — the new test was written, not executed, here.
@@ -1344,7 +1347,7 @@ limitation of the audited component, or a question owed to Dylan.
   count short-form `#[test]` attributes, fully-qualified
   `#[::core::prelude::v1::test]` attributes, and `#[gpui_kit::test]`
   attributes, and sum them. At HEAD the
-  expected total is **3,002** (2,221 + 736 + 45). Method and per-crate table:
+  expected total is **3,003** (2,222 + 736 + 45). Method and per-crate table:
   `docs/MAC-GATE.md:139-173`. Known wrinkle documented there: one `//`
   comment line in `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`
   mentions the glob import and must not be counted as an attribute; and
@@ -1461,6 +1464,27 @@ limitation of the audited component, or a question owed to Dylan.
   docs 28, program diff 224 files +54,116/−3,595, 90 commits; secrets
   sweep 0 real; comments sweep 0 new code comments (6 `//` lines all
   explained); all 8 open items still accurately documented.
+  **Slice 135 re-verification (no commit):** Slice 135 re-verified Slice
+  134 read-only and passed it with minors — the one MINOR is a docs
+  staleness, fixed in Slice 136: the Rust test total in
+  `docs/MAC-GATE.md` still said 3,002, but Slice 134's new test made it
+  3,003. The Slice 134 verdict itself stands: sync tree-identical
+  (remote `33cc12f1` / tree `27f24342`); the gap is real (zero
+  `catch_unwind` in the crate at the parent; the trigger is
+  `g6_xcstrings_set` at `tools.rs:11870` with `{"strings": 42}`); the fix
+  is `dispatch_guarded` in `protocol.rs:96-101`, returning `-32603` with
+  the fixed message `"request handler panicked"`, covering all 8
+  dispatched methods, with the `run()` loop continuing after a caught
+  panic; the test
+  `panicking_tool_call_returns_internal_error_and_the_server_survives`
+  in `tests/mcp_server.rs:570-598` drives the real server binary over
+  stdio and was written, not executed — `cargo test -p
+  coincide-mcp-server` on Dylan's Mac is the gate. Counts re-measured
+  at HEAD as 3,003 real / 1,148 desktop (2,222 real short-form + 736
+  fully-qualified + 45 `gpui_kit`; desktop 368 raw short-form;
+  `coincide-mcp-server` 19). The Slice 134 diff touches only the four
+  intended files (+147/−14); totals recounted at 30 defects / 28 tests;
+  program diff 224 files +54,272/−3,595.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)
