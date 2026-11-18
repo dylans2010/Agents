@@ -685,7 +685,7 @@ limitation of the audited component, or a question owed to Dylan.
   side, 0 mismatches), and confirmed the pinned test expectations match.
   Six findings: (1) MINOR — worker-report inaccuracy: the "zero old
   wording remains anywhere" claim overstated, since this record's Slice
-  101 section quotes both old wordings as a historical record (`:412`) —
+  101 section quotes both old wordings as a historical record (`:417`) —
   legitimate, left as-is; (2) MINOR — the `list_workers` description
   misdescribed bound behavior, fixed in Slice 107; (3) MINOR —
   inconsistent treatment of the pinned plan descriptions, fixed in Slice
