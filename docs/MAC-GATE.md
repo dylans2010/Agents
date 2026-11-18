@@ -262,7 +262,7 @@ The mount plumbing is `mcp::mount_for` / `session_servers_for` /
 `Agents/Core/SystemTools/SystemToolRegistry.swift` (Swift mirror) and
 `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (the 337
 `DEFINITIONS` entries the server actually serves). Both sides were
-measured at 337 with 64 distinct actions at time of writing, and tests
+measured at 337 with 68 distinct actions at time of writing, and tests
 assert 337 on both sides (`AgentsTests/ToolsetTests.swift`,
 `tools.rs` cross-check test).
 
