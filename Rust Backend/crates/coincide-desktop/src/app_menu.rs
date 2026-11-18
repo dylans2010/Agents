@@ -85,64 +85,29 @@ pub enum MenuRequest {
     App(AppAction),
 }
 /// Help & Community, as Swift's Help menu lists `CommunityLink.offered(on: .mac)`:
-/// help and reports, then the developer's accounts, then contact and legal.
-pub const HELP_LINKS: [&[(&str, &str, Option<Command>)]; 3] = [
-    &[
-        (
-            "Get Help on Discord",
-            "https://discord.com/channels/1566352780862427258/1566353949336797275",
-            None,
-        ),
-        (
-            "Report an Issue…",
-            "https://github.com/apoorvdarshan/coincide/issues/new?template=bug_report.yml",
-            Some(Command::ReportIssue),
-        ),
-        (
-            "Request a Feature…",
-            "https://github.com/apoorvdarshan/coincide/issues/new?template=feature_request.yml",
-            Some(Command::RequestFeature),
-        ),
-        ("Join the Discord", "https://discord.gg/DETrbhDVqw", None),
-        (
-            "Star on GitHub",
-            "https://github.com/apoorvdarshan/coincide",
-            None,
-        ),
-        (
-            "Upvote Coincide on Product Hunt",
-            "https://www.producthunt.com/products/coincide",
-            None,
-        ),
-        (
-            "Support Coincide on Ko-fi",
-            "https://ko-fi.com/apoorvdarshan",
-            None,
-        ),
-    ],
-    &[
-        ("X: @apoorvdarshan", "https://x.com/apoorvdarshan", None),
-        (
-            "Instagram: @apoorvcodes",
-            "https://instagram.com/apoorvcodes",
-            None,
-        ),
-        (
-            "LinkedIn",
-            "https://www.linkedin.com/showcase/coincide-dev",
-            None,
-        ),
-    ],
-    &[
-        (
-            "Contact: apoorv@fud-ai.app",
-            "mailto:apoorv@fud-ai.app",
-            None,
-        ),
-        ("Privacy Policy", "https://coincide.dev/privacy", None),
-        ("Terms of Service", "https://coincide.dev/terms", None),
-    ],
-];
+/// reports, then the source code and the Product Hunt page.
+pub const HELP_LINKS: [&[(&str, &str, Option<Command>)]; 1] = [&[
+    (
+        "Report an Issue…",
+        "https://github.com/dylans2010/Agents/issues/new?template=bug_report.yml",
+        Some(Command::ReportIssue),
+    ),
+    (
+        "Request a Feature…",
+        "https://github.com/dylans2010/Agents/issues/new?template=feature_request.yml",
+        Some(Command::RequestFeature),
+    ),
+    (
+        "Star on GitHub",
+        "https://github.com/dylans2010/Agents",
+        None,
+    ),
+    (
+        "Upvote Coincide on Product Hunt",
+        "https://www.producthunt.com/products/coincide",
+        None,
+    ),
+]];
 /// Everything the menu bar shows, so it is rebuilt only when this changes.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MenuSnapshot {
@@ -780,9 +745,9 @@ mod tests {
         assert!(thread[0].is_disabled());
         assert_eq!(titles(thread)[11..13], ["Unpin Thread", "Unarchive Thread"]);
         let help = titles(items(&menu, "Help"));
-        assert_eq!(help[0], "Get Help on Discord");
-        assert_eq!(help.last().unwrap(), "Terms of Service");
-        assert_eq!(help.iter().filter(|title| *title == "-").count(), 2);
+        assert_eq!(help[0], "Report an Issue…");
+        assert_eq!(help.last().unwrap(), "Upvote Coincide on Product Hunt");
+        assert_eq!(help.iter().filter(|title| *title == "-").count(), 0);
     }
     #[::core::prelude::v1::test]
     fn menu_requests_coalesce_and_drain_once() {

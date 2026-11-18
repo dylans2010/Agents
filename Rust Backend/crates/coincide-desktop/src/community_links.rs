@@ -1,36 +1,30 @@
-//! Help & Community, Follow, and Contact & Legal, from Swift's CommunityLink.
+//! Help & Community, from Swift's CommunityLink.
 //! Settings › About lists them and Settings search finds them. Report an Issue
-//! and Request a Feature first ask whether to use GitHub or Discord, and a bug
+//! and Request a Feature open the repository's GitHub issue form, and a bug
 //! report's form starts with only this computer's versions filled in.
 use gpui_kit::assets::IconName;
 
-const REPOSITORY: &str = "https://github.com/apoorvdarshan/coincide";
+const REPOSITORY: &str = "https://github.com/dylans2010/Agents";
 /// Longest value a link puts in a form field; the version fields are one line.
 const MAX_FIELD: usize = 120;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Group {
     Community,
-    Follow,
-    Contact,
 }
 impl Group {
-    pub(super) const ALL: [Self; 3] = [Self::Community, Self::Follow, Self::Contact];
+    pub(super) const ALL: [Self; 1] = [Self::Community];
     pub(super) fn title(self) -> &'static str {
         match self {
             Self::Community => "Help & Community",
-            Self::Follow => "Follow",
-            Self::Contact => "Contact & Legal",
         }
     }
 }
 
-/// The two links that open a GitHub form or a Discord channel.
+/// The two links that open a GitHub form.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Report {
     template: &'static str,
-    pub(super) discord: &'static str,
-    pub(super) message: &'static str,
     /// Only the bug form takes this computer's versions.
     versions: bool,
 }
@@ -85,48 +79,34 @@ const fn link(
 }
 
 pub(super) const LINKS: &[Link] = &[
-    link(
-        "help",
-        "Get Help",
-        "Ask in the help channel on Discord",
-        IconName::CircleQuestionMark,
-        0x30b0c7,
-        Group::Community,
-        "https://discord.com/channels/1566352780862427258/1566353949336797275",
-        &["help", "support", "question", "discord", "community", "ask"],
-    ),
     Link {
         report: Some(Report {
             template: "bug_report.yml",
-            discord: "https://discord.com/channels/1566352780862427258/1566353951299862598",
-            message: "Fill in the bug report form on GitHub, or use /bug in the bug reports channel on Discord. Channel links work once you’ve joined the server. Reports sent on Discord become public GitHub issues and need no GitHub account.",
             versions: true,
         }),
         ..link(
             "bug",
             "Report an Issue",
-            "On GitHub or Discord",
+            "On GitHub",
             IconName::Bug,
             0xff3b30,
             Group::Community,
             "",
             &[
                 "Bug", "Feedback", "issue", "report", "problem", "crash", "broken", "github",
-                "discord", "support",
+                "support",
             ],
         )
     },
     Link {
         report: Some(Report {
             template: "feature_request.yml",
-            discord: "https://discord.com/channels/1566352780862427258/1566353955494039602",
-            message: "Fill in the feature request form on GitHub, or use /feature in the feature requests channel on Discord. Channel links work once you’ve joined the server. Requests sent on Discord become public GitHub issues and need no GitHub account.",
             versions: false,
         }),
         ..link(
             "feature",
             "Request a Feature",
-            "On GitHub or Discord",
+            "On GitHub",
             IconName::Lightbulb,
             0xff9500,
             Group::Community,
@@ -139,20 +119,9 @@ pub(super) const LINKS: &[Link] = &[
                 "suggestion",
                 "enhancement",
                 "github",
-                "discord",
             ],
         )
     },
-    link(
-        "discord",
-        "Join the Discord",
-        "discord.gg/DETrbhDVqw",
-        IconName::MessagesSquare,
-        0x5856d6,
-        Group::Community,
-        "https://discord.gg/DETrbhDVqw",
-        &["discord", "community", "chat", "server", "join", "invite"],
-    ),
     link(
         "github",
         "Star on GitHub",
@@ -188,78 +157,6 @@ pub(super) const LINKS: &[Link] = &[
             "launch",
             "review",
         ],
-    ),
-    link(
-        "support",
-        "Support on Ko-fi",
-        "Buy Apoorv a coffee",
-        IconName::Heart,
-        0xff2d55,
-        Group::Community,
-        "https://ko-fi.com/apoorvdarshan",
-        &[
-            "support", "donate", "donation", "tip", "coffee", "ko-fi", "kofi", "sponsor",
-        ],
-    ),
-    link(
-        "x",
-        "X",
-        "@apoorvdarshan",
-        IconName::AtSign,
-        0x1c1c1e,
-        Group::Follow,
-        "https://x.com/apoorvdarshan",
-        &["x", "twitter", "follow", "social", "@apoorvdarshan"],
-    ),
-    link(
-        "instagram",
-        "Instagram",
-        "@apoorvcodes",
-        IconName::Camera,
-        0xff2d55,
-        Group::Follow,
-        "https://instagram.com/apoorvcodes",
-        &["instagram", "follow", "social", "@apoorvcodes"],
-    ),
-    link(
-        "linkedin",
-        "LinkedIn",
-        "linkedin.com/showcase/coincide-dev",
-        IconName::Users,
-        0x007aff,
-        Group::Follow,
-        "https://www.linkedin.com/showcase/coincide-dev",
-        &["linkedin", "follow", "social", "company"],
-    ),
-    link(
-        "contact",
-        "Contact",
-        "apoorv@fud-ai.app",
-        IconName::Mail,
-        0x32ade6,
-        Group::Contact,
-        "mailto:apoorv@fud-ai.app",
-        &["contact", "email", "mail", "support", "apoorv@fud-ai.app"],
-    ),
-    link(
-        "privacy",
-        "Privacy Policy",
-        "coincide.dev/privacy",
-        IconName::Hand,
-        0x007aff,
-        Group::Contact,
-        "https://coincide.dev/privacy",
-        &["privacy", "policy", "data", "legal"],
-    ),
-    link(
-        "terms",
-        "Terms of Service",
-        "coincide.dev/terms",
-        IconName::FileText,
-        0x8e8e93,
-        Group::Contact,
-        "https://coincide.dev/terms",
-        &["terms", "service", "legal", "conditions"],
     ),
 ];
 
@@ -375,11 +272,11 @@ mod tests {
                 Some(" 0.1.0 (Rust desktop, macos aarch64)\n"),
                 Some("macOS 26.1 (25B78)")
             ),
-            "https://github.com/apoorvdarshan/coincide/issues/new?template=bug_report.yml&coincide-version=0.1.0%20%28Rust%20desktop%2C%20macos%20aarch64%29&macos-version=macOS%2026.1%20%2825B78%29"
+            "https://github.com/dylans2010/Agents/issues/new?template=bug_report.yml&coincide-version=0.1.0%20%28Rust%20desktop%2C%20macos%20aarch64%29&macos-version=macOS%2026.1%20%2825B78%29"
         );
         assert_eq!(
             report_url("bug_report.yml", Some("  "), None),
-            "https://github.com/apoorvdarshan/coincide/issues/new?template=bug_report.yml"
+            "https://github.com/dylans2010/Agents/issues/new?template=bug_report.yml"
         );
         assert_eq!(query_escape("a+b c"), "a%2Bb%20c");
         let long = "x".repeat(300);
@@ -388,7 +285,7 @@ mod tests {
     }
 
     #[::core::prelude::v1::test]
-    fn only_reports_ask_github_or_discord_and_groups_follow_swift() {
+    fn only_reports_open_github_and_groups_follow_swift() {
         let reports = LINKS
             .iter()
             .filter(|link| link.report.is_some())
@@ -396,14 +293,14 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(reports, ["Report an Issue", "Request a Feature"]);
         let feature = LINKS.iter().find(|link| link.id == "feature").unwrap();
+        assert_eq!(feature.report.unwrap().template, "feature_request.yml");
         assert_eq!(
             feature.url(),
-            "https://github.com/apoorvdarshan/coincide/issues/new?template=feature_request.yml"
+            "https://github.com/dylans2010/Agents/issues/new?template=feature_request.yml"
         );
-        assert!(feature.report.unwrap().message.contains("/feature"));
         assert_eq!(
             Group::ALL.map(|group| LINKS.iter().filter(|link| link.group == group).count()),
-            [7, 3, 3]
+            [4]
         );
         assert!(
             LINKS

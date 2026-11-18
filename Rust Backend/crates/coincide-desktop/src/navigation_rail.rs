@@ -266,8 +266,8 @@ fn community_links(height: f32) -> Vec<CommunityLink> {
             icon: IconName::Star,
             label: "Star on GitHub",
             detail: "Coincide is open source under the MIT License",
-            url: "https://github.com/apoorvdarshan/coincide",
-            priority: 1,
+            url: "https://github.com/dylans2010/Agents",
+            priority: 0,
         },
         CommunityLink {
             id: "navigation-product-hunt",
@@ -275,23 +275,7 @@ fn community_links(height: f32) -> Vec<CommunityLink> {
             label: "Upvote on Product Hunt",
             detail: "producthunt.com/products/coincide",
             url: "https://www.producthunt.com/products/coincide",
-            priority: 2,
-        },
-        CommunityLink {
-            id: "navigation-discord",
-            icon: IconName::MessagesSquare,
-            label: "Join the Discord",
-            detail: "discord.gg/DETrbhDVqw",
-            url: "https://discord.gg/DETrbhDVqw",
-            priority: 0,
-        },
-        CommunityLink {
-            id: "navigation-support",
-            icon: IconName::Heart,
-            label: "Support on Ko-fi",
-            detail: "Buy Apoorv a coffee",
-            url: "https://ko-fi.com/apoorvdarshan",
-            priority: 3,
+            priority: 1,
         },
     ]
     .into_iter()
@@ -311,24 +295,18 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         assert!(labels(440.).is_empty());
-        assert_eq!(labels(488.), ["navigation-discord"]);
-        assert_eq!(labels(532.), ["navigation-github", "navigation-discord"]);
+        assert_eq!(labels(488.), ["navigation-github"]);
+        assert_eq!(
+            labels(532.),
+            ["navigation-github", "navigation-product-hunt"]
+        );
         assert_eq!(
             labels(576.),
-            [
-                "navigation-github",
-                "navigation-product-hunt",
-                "navigation-discord"
-            ]
+            ["navigation-github", "navigation-product-hunt"]
         );
         assert_eq!(
             labels(620.),
-            [
-                "navigation-github",
-                "navigation-product-hunt",
-                "navigation-discord",
-                "navigation-support"
-            ]
+            ["navigation-github", "navigation-product-hunt"]
         );
     }
 }

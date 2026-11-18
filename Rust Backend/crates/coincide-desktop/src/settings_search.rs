@@ -451,10 +451,10 @@ pub(super) fn entries() -> Vec<Entry> {
         Entry::new(
             "About Coincide",
             Pane(S::About, None),
-            &["Version", "License", "GitHub", "T3 Code", "X", "Instagram"],
+            &["Version", "License", "GitHub", "T3 Code"],
         ),
     ];
-    // Help & Community, Follow, and Contact & Legal, in About.
+    // Help & Community, in About.
     entries.extend(community_links::LINKS.iter().map(|link| Entry {
         title: link.title.into(),
         destination: Pane(S::About, None),

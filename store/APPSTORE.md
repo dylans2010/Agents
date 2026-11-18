@@ -47,7 +47,7 @@ WHAT YOU CAN DO
 • The Mac app's themes and its 19 languages, on iPhone and iPad.
 
 WHAT YOU NEED
-Coincide on your Mac, free from coincide.dev. In its Settings › General › Remote, turn on Allow Coincide Remote and choose Pair iPhone or iPad, then scan the code with this app. After that, your phone reconnects on the same network or through Tailscale. Your agents run on your Mac with your own accounts.
+Coincide on your Mac, free from the Agents repository. In its Settings › General › Remote, turn on Allow Coincide Remote and choose Pair iPhone or iPad, then scan the code with this app. After that, your phone reconnects on the same network or through Tailscale. Your agents run on your Mac with your own accounts.
 
 No Mac at hand? Tap Explore the Demo on the first screen to look around with sample projects and threads.
 
@@ -59,7 +59,7 @@ Everything goes between your devices, and to your agents' providers only when yo
 
 Coincide is an independent project, not affiliated with Anthropic, OpenAI, Cursor, xAI or Google. Agent names and logos are trademarks of their owners and are shown only to identify them.
 
-Website: https://coincide.dev
+Website: https://github.com/dylans2010/Agents
 Source code: https://github.com/dylans2010/Agents
 ```
 
@@ -70,12 +70,12 @@ https://github.com/dylans2010/Agents
 
 ## Support URL
 ```
-https://coincide.dev/faq
+https://github.com/dylans2010/Agents
 ```
 
 ## Marketing URL
 ```
-https://coincide.dev
+https://github.com/dylans2010/Agents
 ```
 
 ## Category
@@ -123,14 +123,14 @@ version with the catalog's Ready to Submit subscriptions and in-app purchases.
 
 ## Reviewer Notes
 ```
-Coincide is the iPhone and iPad companion to Coincide, a free, open-source Mac app for running AI coding agents (https://coincide.dev, source code: https://github.com/dylans2010/Agents). With a Mac, you pair once by scanning a code from Coincide's Settings › General › Remote; the phone then connects directly to that Mac over the local network or Tailscale. There is no account, server or sign-in.
+Coincide is the iPhone and iPad companion to Coincide, a free, open-source Mac app for running AI coding agents (source code: https://github.com/dylans2010/Agents). With a Mac, you pair once by scanning a code from Coincide's Settings › General › Remote; the phone then connects directly to that Mac over the local network or Tailscale. There is no account, server or sign-in.
 
 To review without a Mac: on the first screen, tap "Explore the Demo". It opens a sample Mac with projects, threads, bots, diffs, scheduled tasks, usage and settings, under a banner that says it's a demo. Nothing in the demo connects to a Mac or the network. "Exit Demo" (in the banner, or Settings › Macs) goes back to the pairing screen.
 
 Coincide Pro (StoreKit through RevenueCat):
 - Browsing is free: every project, thread, message, diff, setting and usage chart.
 - Every action that would run on the Mac (sending a prompt, approving a command, starting a thread, git and pull request actions, scheduled tasks, bots, Mac settings) opens the Coincide Pro paywall instead. In the demo, tap the message field in any thread, or New Bot on the Bots tab.
-- The paywall is also on the first screen ("Coincide Pro Plans") and in Settings › Coincide Pro, with Restore Purchases, the Terms of Use and the Privacy Policy.
+- The paywall is also on the first screen ("Coincide Pro Plans") and in Settings › Coincide Pro, with Restore Purchases and Manage Subscription.
 - Plans: Coincide Pro Monthly, Coincide Pro Yearly (7-day free trial) and Coincide Pro Lifetime (a one-time purchase).
 - Tips: Settings › Support Coincide lists four consumable tips (Small Commit, Clean Diff, Green CI, Ship It). They unlock nothing.
 
