@@ -4,6 +4,7 @@ public enum BuiltInPresets {
             RepositoryIntelligencePresets.all,
             BuildingFixingPresets.all,
             CodeMaintenancePresets.all,
+            CodeReviewSecurityPresets.all,
         ]
     }
 
