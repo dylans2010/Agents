@@ -253,6 +253,23 @@ public actor AssistantChangeLedger {
         value["commits"]?.arrayValue?.first?["sha"]?.stringValue
     }
 
+    public static func numstat(fromRangeFiles value: JSONValue?) -> JSONValue {
+        .array(
+            value?.arrayValue?.compactMap { item in
+                guard let path = item["path"]?.stringValue, !path.isEmpty else { return nil }
+                var fields: [String: JSONValue] = [
+                    "path": .string(path),
+                    "additions": .int(item["additions"]?.intValue ?? 0),
+                    "deletions": .int(item["deletions"]?.intValue ?? 0),
+                ]
+                if let oldPath = item["oldPath"]?.stringValue, !oldPath.isEmpty {
+                    fields["oldPath"] = .string(oldPath)
+                }
+                return .object(fields)
+            } ?? []
+        )
+    }
+
     public static func buildDiff(
         patch: String,
         numstat: JSONValue,
@@ -364,7 +381,7 @@ public actor AssistantChangeLedger {
             let rangePatch = range["diff"]?.stringValue ?? ""
             let rangeDiff = Self.buildDiff(
                 patch: rangePatch,
-                numstat: .array([]),
+                numstat: Self.numstat(fromRangeFiles: range["files"]),
                 untracked: [],
                 title: "Assistant changes"
             )
@@ -374,15 +391,27 @@ public actor AssistantChangeLedger {
                 committedPaths.append(file.path)
             }
             for item in range["files"]?.arrayValue ?? [] {
-                guard let path = item["path"]?.stringValue, merged[path] == nil else { continue }
-                merged[path] = RemoteDiff.File(
-                    path: path,
-                    oldPath: item["oldPath"]?.stringValue,
-                    status: item["status"]?.stringValue ?? "modified",
-                    additions: item["additions"]?.intValue ?? 0,
-                    deletions: item["deletions"]?.intValue ?? 0
-                )
-                committedPaths.append(path)
+                guard let path = item["path"]?.stringValue, !path.isEmpty else { continue }
+                let status = item["status"]?.stringValue ?? "modified"
+                let oldPath = item["oldPath"]?.stringValue
+                if var existing = merged[path] {
+                    existing.status = status
+                    if let oldPath = oldPath, !oldPath.isEmpty {
+                        existing.oldPath = oldPath
+                    }
+                    merged[path] = existing
+                } else {
+                    merged[path] = RemoteDiff.File(
+                        path: path,
+                        oldPath: oldPath,
+                        status: status,
+                        additions: item["additions"]?.intValue ?? 0,
+                        deletions: item["deletions"]?.intValue ?? 0
+                    )
+                }
+                if !committedPaths.contains(path) {
+                    committedPaths.append(path)
+                }
             }
         }
         let root: String
@@ -421,6 +450,12 @@ public actor AssistantChangeLedger {
         }
         let files = merged.values.sorted { $0.path < $1.path }
         if files.isEmpty {
+            if truncated {
+                return .unavailable(reason: "The change listing was truncated, so an empty result cannot be trusted.")
+            }
+            if snapshot.entries.contains(where: { $0.status == "??" }) {
+                return .unavailable(reason: "Untracked files were present before the run and the post-run diff came back empty, so an empty result cannot be trusted.")
+            }
             return .empty
         }
         let preExisting = files

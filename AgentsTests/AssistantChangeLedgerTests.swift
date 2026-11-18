@@ -129,6 +129,40 @@ struct AssistantChangeLedgerTests {
         await client.close()
     }
 
+    @Test("A second beginRun on the same unfinished run throws runAlreadyActive")
+    func secondBeginRunThrowsRunAlreadyActive() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        let ledger = AssistantChangeLedger(runtime: client)
+        _ = try await ledger.beginRun(
+            runId: thread,
+            assistantId: UUID().uuidString,
+            permissionProfile: .workspaceModify
+        )
+        do {
+            _ = try await ledger.beginRun(
+                runId: thread,
+                assistantId: UUID().uuidString,
+                permissionProfile: .workspaceModify
+            )
+            Issue.record("Expected a second beginRun on an unfinished run to throw")
+        } catch let error as AssistantChangeLedgerError {
+            if case .runAlreadyActive = error {
+                #expect(true)
+            } else {
+                Issue.record("Expected runAlreadyActive, got \(error)")
+            }
+        }
+        let entry = await ledger.finishRun(runId: thread)
+        #expect(entry != nil)
+        #expect(entry?.outcome?.kind == .empty)
+        await client.close()
+    }
+
     @Test("Post-run diff attaches real file entries with per-file patches")
     func diffAttachedWithRealFileEntries() async throws {
         let (client, tempRoot) = try Self.makeClient()
@@ -185,6 +219,52 @@ struct AssistantChangeLedgerTests {
         await client.close()
     }
 
+    @Test("Pre-existing untracked files make an empty post-run diff unavailable, not empty")
+    func preExistingUntrackedFilesMakeEmptyDiffUnavailable() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        try "scratch\n".write(to: repo.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        let ledger = AssistantChangeLedger(runtime: client)
+        let snapshot = try await ledger.beginRun(
+            runId: thread,
+            assistantId: UUID().uuidString,
+            permissionProfile: .workspaceModify
+        )
+        #expect(snapshot?.entries.contains(where: { $0.status == "??" && $0.path == "notes.txt" }) == true)
+        try FileManager.default.removeItem(at: repo.appendingPathComponent("notes.txt"))
+        let entry = await ledger.finishRun(runId: thread)
+        #expect(entry?.outcome?.kind == .unavailable)
+        #expect(!(entry?.outcome?.unavailableReason ?? "").isEmpty)
+        await client.close()
+    }
+
+    @Test("More than 5,000 untracked files are reported unavailable, never empty")
+    func overLimitUntrackedFilesAreNotReportedEmpty() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        for index in 0..<5_001 {
+            try Data().write(to: repo.appendingPathComponent("bulk-\(index).txt"))
+        }
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        let ledger = AssistantChangeLedger(runtime: client)
+        _ = try await ledger.beginRun(
+            runId: thread,
+            assistantId: UUID().uuidString,
+            permissionProfile: .workspaceModify
+        )
+        let entry = await ledger.finishRun(runId: thread)
+        #expect(entry?.outcome?.kind == .unavailable)
+        #expect(!(entry?.outcome?.unavailableReason ?? "").isEmpty)
+        await client.close()
+    }
+
     @Test("A read-only run creates no snapshot and is reported as read-only")
     func readOnlyRunCreatesNoSnapshot() async throws {
         let (client, tempRoot) = try Self.makeClient()
@@ -201,11 +281,12 @@ struct AssistantChangeLedgerTests {
         )
         #expect(snapshot == nil)
         #expect(await ledger.snapshot(runId: thread) == nil)
+        #expect(await ledger.entry(runId: thread)?.snapshot == nil)
         try "one\ntwo\nthree\n".write(to: repo.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
         let entry = await ledger.finishRun(runId: thread)
         #expect(entry?.outcome?.kind == .readOnly)
+        #expect(entry?.snapshot == nil)
         #expect(await ledger.hasModifications(runId: thread) == false)
-        #expect(try String(contentsOf: repo.appendingPathComponent("a.txt"), encoding: .utf8) == "one\ntwo\nthree\n")
         await client.close()
     }
 
@@ -286,6 +367,38 @@ struct AssistantChangeLedgerTests {
         await client.close()
     }
 
+    @Test("A binary file committed during the run surfaces with the engine's counts")
+    func committedBinaryFileSurfacesWithEngineCounts() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        let ledger = AssistantChangeLedger(runtime: client)
+        _ = try await ledger.beginRun(
+            runId: thread,
+            assistantId: UUID().uuidString,
+            permissionProfile: .workspaceModify
+        )
+        try Data([0x00, 0x01, 0x02, 0x03, 0x62, 0x69, 0x6e, 0x61, 0x72, 0x79]).write(to: repo.appendingPathComponent("bin.dat"))
+        let identity = ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false"]
+        try Self.runGit(repo, ["add", "--", "bin.dat"])
+        try Self.runGit(repo, identity + ["commit", "-qm", "add binary"])
+        let entry = await ledger.finishRun(runId: thread)
+        #expect(entry?.outcome?.kind == .changed)
+        let changeSet = entry?.outcome?.changeSet
+        #expect(changeSet?.committedDuringRun == true)
+        #expect(changeSet?.committedPaths.contains("bin.dat") == true)
+        let binary = changeSet?.files.first { $0.path == "bin.dat" }
+        #expect(binary != nil)
+        #expect(binary?.isBinary == true)
+        #expect(binary?.status == "added")
+        #expect(binary?.additions == 0)
+        #expect(binary?.deletions == 0)
+        await client.close()
+    }
+
     @Test("Pre-existing dirt stays listed and flagged, never hidden or attributed to the run")
     func preExistingDirtIsFlaggedNotHidden() async throws {
         let (client, tempRoot) = try Self.makeClient()
@@ -363,6 +476,30 @@ struct AssistantChangeLedgerTests {
         let untracked = diff.files.first { $0.path == "notes.txt" }
         #expect(untracked?.status == "untracked")
         #expect(untracked?.patch.isEmpty == true)
+    }
+
+    @Test("Diff building overlays engine numstat counts onto a binary patch entry")
+    func buildDiffOverlaysEngineCountsOntoBinaryPatchEntry() {
+        let patch = [
+            "diff --git a/bin.dat b/bin.dat",
+            "index 5d27a55..64e424d 100644",
+            "Binary files a/bin.dat and b/bin.dat differ",
+        ].joined(separator: "\n")
+        let diff = AssistantChangeLedger.buildDiff(
+            patch: patch,
+            numstat: .array([
+                .object(["path": .string("bin.dat"), "additions": .int(3), "deletions": .int(2)]),
+            ]),
+            untracked: [],
+            title: "Assistant changes"
+        )
+        #expect(diff.files.count == 1)
+        let binary = diff.files.first
+        #expect(binary?.path == "bin.dat")
+        #expect(binary?.isBinary == true)
+        #expect(binary?.additions == 3)
+        #expect(binary?.deletions == 2)
+        #expect(binary?.patch.isEmpty == true)
     }
 
     @Test("Status parsing keeps rename sources and drops malformed entries")
