@@ -637,7 +637,7 @@ appeared nowhere in `AgentsTests`. The Rust
 `tool_table_matches_swift_registry` test parses the Swift registry
 dynamically and compares every param description, so the identical
 change on both sides keeps it consistent. Registry counts unchanged at
-333 tools per side.
+332 tools per side.
 
 **Verification:** sweep re-run after the edit (129/129 params, 0
 lacking pinning language, 0 cross-side mismatches); zero occurrences
@@ -730,8 +730,8 @@ empty → load). Written-not-executed, as for every slice in this
 record.
 
 **Verification:** re-read of both changed hunks; zero new `//`
-comments in added lines; registry counts unchanged at 333 tools per
-side (Swift `SystemToolDefinition(` 333; Rust `ToolDef {` 334 raw
+comments in added lines; registry counts unchanged at 332 tools per
+side (Swift `SystemToolDefinition(` 332; Rust `ToolDef {` 333 raw
 incl. the struct declaration at `tools.rs:14`); `git diff --stat`
 shows only the two provider files plus this record and the
 `SYSTEM-TOOLSET.md` hardening entry. Rust `#[test]` total in `Rust
@@ -869,8 +869,8 @@ corrected to `:6-8`. Description-only, so the totals move only by the 4
 defects above, following the Slice 105/109 precedent.
 
 **Verification:** re-read of all four changed hunks; zero new `//`
-comments in added lines; registry counts unchanged at 333 tools per side
-(Swift `SystemToolDefinition(` 333; Rust `ToolDef {` 334 raw incl. the
+comments in added lines; registry counts unchanged at 332 tools per side
+(Swift `SystemToolDefinition(` 332; Rust `ToolDef {` 333 raw incl. the
 struct declaration at `tools.rs:14`); `git diff --stat` shows only the
 three Swift files plus this record and the `SYSTEM-TOOLSET.md` hardening
 entry. Audit baseline: local `main` `ede38793`, remote `main`
