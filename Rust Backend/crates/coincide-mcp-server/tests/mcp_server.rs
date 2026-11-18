@@ -814,3 +814,140 @@ fn resources_read_rejects_an_asset_over_the_size_limit() {
     );
     session.close();
 }
+
+fn spawn_with_thread(
+    workspace: &std::path::Path,
+    assets: Option<&std::path::Path>,
+    thread_id: &str,
+    socket: &std::path::Path,
+) -> Session {
+    let exe = env!("CARGO_BIN_EXE_coincide-mcp-server");
+    let mut command = Command::new(exe);
+    command
+        .arg("--cwd")
+        .arg(workspace)
+        .arg("--thread-id")
+        .arg(thread_id)
+        .arg("--socket")
+        .arg(socket);
+    if let Some(dir) = assets {
+        command.arg("--assets-dir").arg(dir);
+    }
+    let mut child = command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn coincide-mcp-server");
+    let stdin = child.stdin.take().expect("server stdin");
+    let stdout = child.stdout.take().expect("server stdout");
+    Session {
+        child,
+        stdin,
+        reader: BufReader::new(stdout),
+    }
+}
+
+#[test]
+fn trust_boundary_any_local_stdio_client_reads_full_asset_text() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let assets = asset_fixtures();
+    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    initialize(&mut session);
+    let read = session.request(
+        "resources/read",
+        json!({"uri": "agents-asset://Safeguards.md"}),
+    );
+    assert!(read.get("error").is_none(), "resources/read failed: {read}");
+    let text = read["result"]["contents"][0]["text"].as_str().unwrap();
+    assert_eq!(text, "# Safeguards\n");
+    session.close();
+}
+
+#[test]
+fn trust_boundary_listing_exposes_names_only() {
+    let workspace = temp_dir("agents-mcp-workspace");
+    let assets = asset_fixtures();
+    let mut session = Session::spawn(workspace.path(), Some(assets.path()));
+    initialize(&mut session);
+    let list = session.request("resources/list", json!({}));
+    let resources = list["result"]["resources"].as_array().unwrap();
+    assert_eq!(resources.len(), 3);
+    for resource in resources {
+        let mut keys: Vec<&str> = resource
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort();
+        assert_eq!(keys, ["mimeType", "name", "uri"]);
+        assert!(resource.get("text").is_none());
+    }
+    let prompts = session.request("prompts/list", json!({}));
+    let entries = prompts["result"]["prompts"].as_array().unwrap();
+    assert_eq!(entries.len(), 1);
+    let mut keys: Vec<&str> = entries[0]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort();
+    assert_eq!(keys, ["arguments", "description", "name"]);
+    assert!(entries[0].get("messages").is_none());
+    assert!(entries[0].get("text").is_none());
+    session.close();
+}
+
+#[test]
+fn trust_boundary_prompts_get_returns_full_stored_prompt_to_any_stdio_client() {
+    use std::os::unix::net::UnixListener;
+    let workspace = temp_dir("agents-mcp-workspace");
+    let socket_path = workspace.path().join("control.sock");
+    let listener = UnixListener::bind(&socket_path).unwrap();
+    let stored = "You are the test agent. Follow the test safeguards.";
+    let reply = serde_json::to_string(&json!({
+        "result": {"systemPrompt": stored},
+    }))
+    .unwrap();
+    let served = std::thread::spawn(move || {
+        listener.set_nonblocking(true).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).unwrap();
+                    let mut request = String::new();
+                    let mut reader = BufReader::new(stream.try_clone().unwrap());
+                    reader.read_line(&mut request).unwrap();
+                    assert!(request.contains("threads.read"));
+                    stream.write_all(reply.as_bytes()).unwrap();
+                    stream.write_all(b"\n").unwrap();
+                    stream.flush().unwrap();
+                    return;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if std::time::Instant::now() > deadline {
+                        panic!("control socket was never contacted");
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(error) => panic!("control accept failed: {error}"),
+            }
+        }
+    });
+    let mut session = spawn_with_thread(workspace.path(), None, "thread-1", &socket_path);
+    initialize(&mut session);
+    let get = session.request(
+        "prompts/get",
+        json!({"name": "agents-system-prompt"}),
+    );
+    assert!(get.get("error").is_none(), "prompts/get failed: {get}");
+    let text = get["result"]["messages"][0]["content"]["text"]
+        .as_str()
+        .unwrap();
+    assert_eq!(text, stored);
+    session.close();
+    served.join().unwrap();
+}
