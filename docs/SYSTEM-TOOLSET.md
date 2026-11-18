@@ -903,7 +903,10 @@ shared-store hazard — replicating the Swift registry's polling loops
 actions, the `__AGENTS_TOOL_DONE__:$?` sentinel for build/test). Worker
 spawn/plan/list/breakdown calls always run under the session thread id: a
 model-supplied `parentThreadId` is overwritten with it, and standalone servers
-without a session id keep the supplied value. A tool call
+without a session id keep the supplied value. The Swift
+`SystemToolRegistry.execute` mirror pins the same way when a caller supplies
+`sessionThreadId`: model-supplied `threadId` and `parentThreadId` are
+overwritten with it, and calls without one keep the supplied values. A tool call
 with no engine reachable returns a real error, never a fake success.
 
 The server is spawned with `--cwd <thread workspace>`, `--thread-id <id>`,

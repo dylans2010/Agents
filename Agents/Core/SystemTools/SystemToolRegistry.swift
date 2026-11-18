@@ -3827,8 +3827,15 @@ public nonisolated enum SystemToolRegistry {
         _ name: String,
         arguments: [String: JSONValue],
         toolset: AgentToolset,
-        runtime: AgentsRuntimeClient
+        runtime: AgentsRuntimeClient,
+        sessionThreadId: String? = nil
     ) async throws -> JSONValue {
+        var pinnedArguments = arguments
+        if let sessionThreadId, !sessionThreadId.isEmpty {
+            pinnedArguments["threadId"] = .string(sessionThreadId)
+            pinnedArguments["parentThreadId"] = .string(sessionThreadId)
+        }
+        let arguments = pinnedArguments
         guard let definition = definition(named: name, for: toolset) else {
             if systemTools.contains(where: { $0.name == name }) {
                 throw SystemToolError.toolNotActive(tool: name, toolset: toolset)
@@ -4412,7 +4419,7 @@ public nonisolated enum SystemToolRegistry {
                   case .object(let toolArguments) = parsed else {
                 throw SystemToolError.executionFailed(tool: name, message: "arguments must be a JSON object string.")
             }
-            return try await execute(toolName, arguments: toolArguments, toolset: toolset, runtime: runtime)
+            return try await execute(toolName, arguments: toolArguments, toolset: toolset, runtime: runtime, sessionThreadId: sessionThreadId)
         case "take_screenshot":
             let threadId = try requiredString(arguments, "threadId", tool: name)
             let includeScreenshot = optionalBool(arguments, "include_screenshot") ?? true

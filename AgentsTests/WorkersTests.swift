@@ -206,6 +206,120 @@ struct WorkersTests {
         await client.close()
     }
 
+    @Test("Session thread wins over a model-supplied parent thread")
+    func sessionThreadWinsOverModelParent() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let session = try await client.newThread()
+        let other = try await client.newThread()
+        let missing = UUID().uuidString
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "intel_plan_task",
+                arguments: ["parentThreadId": .string(missing), "task": .string("Fix the leak. Add a regression test.")],
+                toolset: .system, runtime: client
+            )
+            Issue.record("Expected intel_plan_task failure for a missing parent thread")
+        } catch {
+        }
+        let pinned = try await SystemToolRegistry.execute(
+            "intel_plan_task",
+            arguments: ["parentThreadId": .string(missing), "task": .string("Fix the leak. Add a regression test.")],
+            toolset: .system, runtime: client, sessionThreadId: session.uuidString
+        )
+        guard let planId = pinned["planId"]?.stringValue else {
+            Issue.record("Expected a planId, got \(pinned)")
+            await client.close()
+            return
+        }
+        let owned = try await client.breakdownTask(planId: planId, parentThreadId: session.uuidString)
+        #expect(owned.parentThreadId == session.uuidString)
+        do {
+            _ = try await client.breakdownTask(planId: planId, parentThreadId: other.uuidString)
+            Issue.record("Expected breakdown failure for a plan owned by another thread")
+        } catch {
+        }
+        await client.close()
+    }
+
+    @Test("Session thread wins for breakdown and same-thread use is unchanged")
+    func sessionThreadWinsForBreakdown() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let session = try await client.newThread()
+        let other = try await client.newThread()
+        let plan = try await client.planTask(parentThreadId: session.uuidString, task: "Fix the leak. Add a regression test. Update the docs.")
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "intel_breakdown_task",
+                arguments: ["planId": .string(plan.planId), "parentThreadId": .string(other.uuidString)],
+                toolset: .system, runtime: client
+            )
+            Issue.record("Expected breakdown failure for a plan owned by another thread")
+        } catch {
+        }
+        _ = try await SystemToolRegistry.execute(
+            "intel_breakdown_task",
+            arguments: ["planId": .string(plan.planId), "parentThreadId": .string(other.uuidString)],
+            toolset: .system, runtime: client, sessionThreadId: session.uuidString
+        )
+        _ = try await SystemToolRegistry.execute(
+            "intel_breakdown_task",
+            arguments: ["planId": .string(plan.planId), "parentThreadId": .string(session.uuidString)],
+            toolset: .system, runtime: client
+        )
+        await client.close()
+    }
+
+    @Test("Session thread wins through the use_mcp recursion")
+    func sessionThreadWinsThroughUseMcp() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let session = try await client.newThread()
+        let other = try await client.newThread()
+        let plan = try await client.planTask(parentThreadId: session.uuidString, task: "Fix the leak. Add a regression test. Update the docs.")
+        _ = try await SystemToolRegistry.execute(
+            "use_mcp",
+            arguments: [
+                "serverName": .string("coincide"),
+                "toolName": .string("intel_breakdown_task"),
+                "arguments": .string("{\"planId\": \"\(plan.planId)\", \"parentThreadId\": \"\(other.uuidString)\"}"),
+            ],
+            toolset: .system, runtime: client, sessionThreadId: session.uuidString
+        )
+        await client.close()
+    }
+
+    @Test("Session thread wins over a model-supplied threadId")
+    func sessionThreadWinsOverModelThreadId() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let session = try await client.newThread()
+        let missing = UUID().uuidString
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "plan-AskUser",
+                arguments: ["threadId": .string(missing)],
+                toolset: .system, runtime: client
+            )
+            Issue.record("Expected plan-AskUser failure for a missing thread")
+        } catch {
+        }
+        let pinned = try await SystemToolRegistry.execute(
+            "plan-AskUser",
+            arguments: ["threadId": .string(missing)],
+            toolset: .system, runtime: client, sessionThreadId: session.uuidString
+        )
+        #expect(pinned["threadId"]?.stringValue == session.uuidString)
+        let same = try await SystemToolRegistry.execute(
+            "plan-AskUser",
+            arguments: ["threadId": .string(session.uuidString)],
+            toolset: .system, runtime: client
+        )
+        #expect(same["threadId"]?.stringValue == session.uuidString)
+        await client.close()
+    }
+
     @Test("Worker record and plan survive a Codable round trip")
     func workerRecordRoundTrips() throws {
         let encoder = RemoteProtocol.makeEncoder()
