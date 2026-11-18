@@ -2987,7 +2987,7 @@ struct ToolsetTests {
             client: client
         )
         #expect(read["path"]?.stringValue == "docs/readme.txt")
-        #expect(read["content"]?.stringValue == "alpha\nbeta")
+        #expect(read["content"]?.stringValue == "alpha\nbeta\n")
         await client.close()
     }
 

@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–148
+# Hardening Audit — Slices 71–150
 
 ## Summary
 
@@ -80,7 +80,16 @@ are description-only and not counted as defects, following the Slice
 105/109 precedent. Slice 148, appended after that, added success-path
 `execute()` tests for the highest-value registry tools Slice 143 found
 untested — 0 defects fixed and 15 regression tests added, bringing the
-totals to **35 defects fixed and 52 regression tests**. The remaining
+totals to **35 defects fixed and 52 regression tests**. Slice 150,
+appended after that, fixed Slice 149's MAJOR finding from its
+re-verification of Slice 148 — the `read_file` success-path test
+expected content without the trailing newline the Swift `execute()`
+path actually returns verbatim — plus the two MINOR doc corrections
+it raised, and backfilled the Slice 148 remote SHA — 1 further
+defect fixed and 0 regression tests added, bringing the totals to
+**36 defects fixed and 52 regression tests**. The two MINORs are
+description-only and not counted as defects, following the Slice
+105/109 precedent. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -1609,7 +1618,7 @@ API and backfilled by Slice 148
 **Mac-gate checks owed:** the 4 new tests above, plus the Xcode
 build as usual; no new Mac-gate surface beyond the tests.
 
-## Slice 148 — Success-path `execute()` tests for the highest-value untested registry tools (0 defects, 15 tests)
+## Slice 148 — Success-path `execute()` tests for the highest-value untested registry tools (remote `1c1905f7`, 0 defects, 15 tests)
 
 **Audited:** Slice 143's coverage numbers, re-measured first with a
 fresh script plus hand-check (`/tmp/slice148_coverage.py` — per-tool
@@ -1638,9 +1647,22 @@ or asserts on an error path as if it were success.
   `execute()`, asserts the returned path and the on-disk bytes.
 - `read_file` — `readFileReadsRealContent`
   (`ToolsetTests.swift:2979`): reads `docs/readme.txt` written by the
-  test; asserts path and content `alpha\nbeta` (the Rust read joins
-  lines, so the trailing newline is not returned — verified against
-  `workspace::read_file`, `workspace.rs:738`).
+  test; asserts path and content `alpha\nbeta\n` — the Swift
+  `execute()` path returns the file bytes verbatim: the arm
+  (`SystemToolRegistry.swift:3846-3850`) hands
+  `runtime.readWorkspaceFile`'s `WorkspaceFileDocument.content`
+  straight through, and the Rust side returns
+  `read_workspace_text`'s `String::from_utf8(bytes)` verbatim as
+  `"content"` (`workspace_tools.rs:580-606`, via
+  `workspace_ops.rs:444-445` and `AgentsFFIBridge.swift:1191-1200`),
+  with the decoder preferring `"content"`
+  (`DesktopModels.swift:1484-1487`). The line-joining
+  `workspace::read_file` (`workspace.rs:738`) serves only the engine
+  `files.read` API (`api.rs:810`) and is never on the Swift path — it
+  is reached from `workspace_tools::read_file` only when
+  `lineOffset`/`lineLimit` are passed, which the arm never sends.
+  (Corrected in Slice 150: this section originally asserted
+  `alpha\nbeta`, citing the line-joining read.)
 - `search_files` — `searchFilesFindsRealToken`
   (`ToolsetTests.swift:2994`): one hit, path
   `Sources/Store.swift`, line 2, line text contains the token.
@@ -1691,13 +1713,49 @@ or asserts on an error path as if it were success.
   and a null `screenshot`.
 
 **Coverage after (re-measured with the same script + hand-check):**
-direct 246 → 261, arm-reached 174 → 190 (52.4% → 57.2%),
-validation-only 72 → 71 (`read_file` moves out), arm-shared-only 29
+direct 246 → 261, arm-reached 168 → 184 (50.6% → 55.4%),
+validation-only 78 → 77 (`read_file` moves out), arm-shared-only 29
 unchanged, truly uncovered 57 → 42. By group: memory 10/10
 arm-reached (`save_to_memory` was the lone uncovered); computer-use
 truly uncovered 1 → 0 (`take_screenshot` was the lone one; 15
 remain arm-shared-only behind the shared 20-tool arm); git 15 → 8
-truly uncovered; terminal arm 3 → 6; workspace 143 → 147.
+truly uncovered; terminal arm 1 → 4 (action-`terminal.*` group, 62
+tools: `project_signing` plus the three new terminal tools);
+workspace 143 → 147. (Restated in Slice 150 under the strict
+success-context rule — see the correction note below; this section
+originally printed the Slice 143 method's 174 → 190 / 72 → 71 and
+terminal arm 3 → 6.)
+
+**Correction of the record (Slice 150):** the arm-reached and
+validation-only figures in this section were measured with the Slice
+143 method, whose success test is only "not inside a `do` block ending
+in `Issue.record("Expected…")`" — it misses call sites inside
+`#expect(throws:)` closures and counts those as success. Six tools
+were wrongly counted arm-reached in both periods:
+`fetch_documentation`, `github_repo`, `reverse_analyze`,
+`search_web`, `svg_to_png`, `use_app` — every call site of each is
+inside a `#expect(throws:)` closure expecting an argument or
+validation error, so none ever executes successfully. (Slice 149's
+report names the six `computer_use.*` validation-only tools instead;
+that identification is wrong — `click`, `get_window_state`,
+`invoke_menu`, `launch_app`, and `scroll` are validation-only under
+both methods, and only `use_app` of that set is in the gap.) Under the
+strict success-context rule — a call site counts toward arm-reached
+only if it is not inside a `#expect(throws:)` closure, not inside a
+`do` block whose body after the call contains
+`Issue.record("Expected…")`, and not called with `toolset: .provider`;
+arm-shared-only still means sharing an `execute()` switch arm with a
+directly-called tool — the figures are arm-reached 168 → 184 (50.6% →
+55.4%), validation-only 78 → 77, direct / arm-shared-only / truly
+uncovered unchanged at 246 → 261 / 29 / 57 → 42. The same blind spot
+is behind the terminal figure: under the Slice 143 method the
+action-`terminal.*` arm was 3 → 6 (`project_signing` plus
+`svg_to_png` and `reverse_analyze`, both called only inside
+`#expect(throws:)` in `sliceEighteenInvalidArgumentsRefused`, plus
+the three new terminal tools); under the strict rule it is 1 → 4.
+The 174/190 and 72/71 figures quoted in the "Audited" paragraph above
+are the Slice 143 method's output and are superseded by the strict
+figures here.
 
 **Left uncovered (1 of the 16 targets):** `start_subagent` — spawn
 starts a live provider turn via `send_turn`
@@ -1741,8 +1799,8 @@ notifications); web 2 — `external_resource_gateway`,
 environment, as for every slice in this record). Each new test
 hand-traced: valid arguments, real `execute()` path, assertion on
 the real result; test names, tool names, and expected values checked
-against the arm code and the Rust shapes behind it (read joins
-lines, `terminal.read` snapshot `lines`, git log/status/diff JSON,
+against the arm code and the Rust shapes behind it (read returns
+bytes verbatim, `terminal.read` snapshot `lines`, git log/status/diff JSON,
 `git.actions.run` push result, `git.branches.list` /
 `git.branches.checkout` JSON, `get_desktop_state` result). Brace
 balance re-checked on all four changed test files (deltas zero vs.
@@ -1751,7 +1809,10 @@ HEAD, from parens inside string literals); zero new `//` comments;
 no secrets; no registry definition, param, or description changed.
 Full diff read — only the seven intended files, only the intended
 hunks. The local pre-push commit SHA and tree are in the slice's
-push report; the remote SHA is owed backfill by a later slice.
+push report; the remote SHA is `1c1905f7d2deea0ad76ad723b0b8e21e0e351cc3`
+(tree `1f49c82b7586953dbf88984b77de59fea94ae6e5`, parent
+`81cf2e4c84f4678c528393b7fc465fd2b23dd157`, verified against the GitHub
+API), backfilled by Slice 150.
 
 **Mac-gate checks owed:** the 15 new tests above, plus the Xcode
 build as usual. Two honest limits ride with them:
@@ -1759,6 +1820,109 @@ build as usual. Two honest limits ride with them:
 capture) is still unverified in tests — it needs Screen Recording
 permission for the test host, which a test cannot grant itself; and
 `start_subagent` still needs a live provider turn.
+
+## Slice 150 — Slice 149 re-verification fixes: wrong `read_file` expectation + two MINOR doc corrections (1 defect, 0 tests)
+
+**Re-verified:** Slice 149's re-verification of Slice 148 (verdict NOT
+CLEAN — see the note in [How to re-verify](#how-to-re-verify)). Its
+MAJOR finding re-traced end-to-end here, the other 14 Slice 148 tests
+re-checked against their arms, and both MINORs re-derived with fresh
+scripts (Slice 148's script on the pre-change tree and at HEAD, Slice
+149's strict script at both revs, plus a derivation script combining
+the strict classification with the Slice 143 arm-shared rule).
+
+**Fixed (1):** the wrong `read_file` test expectation —
+`readFileReadsRealContent` (`ToolsetTests.swift:2980`) expected
+`"alpha\nbeta"` for a file written as `"alpha\nbeta\n"`. The Swift
+`execute()` path returns the file bytes verbatim: arm
+`SystemToolRegistry.swift:3846-3850` → `runtime.readWorkspaceFile` →
+`desktopCall(action: "workspace.read_file")`
+(`AgentsFFIBridge.swift:1191-1200`) → FFI `workspace_read_file`
+(`workspace_ops.rs:444-445`) →
+`coincide_core::workspace_tools::read_file`
+(`workspace_tools.rs:580-606`), whose `read_workspace_text`
+(`workspace_tools.rs:233-254`) returns
+`String::from_utf8(bytes)` verbatim and sets `"content"` to that
+verbatim string; `WorkspaceFileDocument`'s decoder prefers
+`"content"` (`DesktopModels.swift:1484-1487`). The arm sends no
+`lineOffset`/`lineLimit`, so the line-joining `workspace::read_file`
+(`workspace.rs:738`, engine `files.read` only, `api.rs:810`) is never
+on this path. The fixture keeps its trailing newline and the
+expectation is now `"alpha\nbeta\n"` — the verbatim-bytes behavior is
+the real contract worth asserting. One expectation line changed;
+counted as the slice's 1 defect because the wrong expectation would
+fail on the Mac gate.
+
+**Description-only corrections (2, not counted as defects, following
+the Slice 105/109 precedent):**
+
+- **Terminal arm 3 → 6 does not reproduce under the strict rule.**
+  Slice 148's method counted `svg_to_png` and `reverse_analyze` as
+  arm-reached because their only call sites are `#expect(throws:)`
+  closures in `sliceEighteenInvalidArgumentsRefused`, which its
+  do-block-only heuristic misses. Restated with the grouping explicit:
+  action-`terminal.*` group (62 tools), arm-reached 1 → 4
+  (`project_signing` plus `create_terminal`, `write_terminal`,
+  `read_terminal`); the +3 delta is unchanged.
+- **Arm-reached / validation-only figures restated.** Slice 143/148's
+  method over-counted arm-reached by 6 in both periods (see the
+  correction note in the Slice 148 section above). Restated:
+  arm-reached 168 → 184 (50.6% → 55.4%), validation-only 78 → 77;
+  direct 246 → 261, arm-shared-only 29, truly uncovered 57 → 42
+  unchanged. The 42-set equals the docs' listed 42 exactly.
+
+**Classification rule (strict success-context rule, for future
+re-measurement):** a call site counts toward arm-reached only if it
+is not inside a `#expect(throws:)` closure, not inside a `do` block
+whose body after the call contains `Issue.record("Expected…")`, and not
+called with `toolset: .provider`. A tool is arm-reached iff it has at
+least one success-context call site; validation-only iff it is called
+but has none; arm-shared-only iff it is not called but shares an
+`execute()` switch arm with a directly-called tool (the Slice 143
+rule, unchanged).
+
+**Per-test re-check (the other 14 Slice 148 tests — no further wrong
+expectation found):** `write_file` writes bytes verbatim
+(`write_regular_utf8`, `workspace_tools.rs:655`); `search_files`
+line numbers are 1-based ripgrep lines, decoded `line`→`lineNumber`,
+`text`→`lineText`; `create_terminal` returns the id string and the
+viewport rows/cols come from the live terminal; `write_terminal`
+returns `{"terminalId"}` and `terminal.read`'s `snapshot()`
+(`terminal.rs:747`) returns `{"lines": [...]}`; `list_files` runs
+`git ls-files --cached --others` and the bare-string entry decoder
+takes the path verbatim; `git_status` returns
+`{"branch","entries":[{"status","path"}]}` with porcelain `" M"`
+containing `M`; `git_diff` returns `{"diff","staged":false}` with
+the unstaged `+three` hunk; `git_log` is newest-first with
+`{"subject","authorName"}`; `git_push` returns
+`result.push.outcome` `"pushed"` (camelCase serde) with upstream
+`origin/<branch>`; `git_pull` returns `{"pulled": true}` when HEAD
+advances; `git_branch_list` returns camelCase
+`branches[{name,isCurrent}]` + `currentBranch`;
+`git_branch_checkout` returns `{"branch": "spare"}`;
+`save_to_memory` matches the pre-existing `mem_store` round trip
+(`overwritten` false on first store); `take_screenshot` with
+`include_screenshot` false returns `screenshot` null and
+`coordinateSpace` `"screen_points"`.
+
+**Verification:** static only (no Swift toolchain in this
+environment, as for every slice in this record). The read_file chain
+re-traced end-to-end; both coverage scripts re-run at the pre-change
+tree (`77475429`) and HEAD, with a third derivation script
+cross-checking the strict classification against the Slice 143
+arm-shared rule; the 42-set compared set-equal with the docs' listed
+42; Swift `@Test` 143 (124 + 19) and Rust 3,012 re-measured; program
+diff 224 files +55,570/−3,596 re-measured against the program base
+`04b235e3`. Brace balance re-checked on all three changed files
+(deltas zero vs. the parent); zero new `//` comments; no secrets; no
+registry definition, param, or description changed. Full diff read —
+only the three intended files, only the intended hunks. The local
+pre-push commit SHA and tree are in the slice's push report; the
+remote SHA is owed backfill by a later slice.
+
+**Mac-gate checks owed:** the corrected `read_file` test, plus the
+Xcode build as usual; no new Mac-gate surface beyond the test
+correction.
 
 ## Documented, not fixed
 
@@ -2053,6 +2217,37 @@ limitation of the audited component, or a question owed to Dylan.
   re-measured at 3,012 Rust (2,231 real short-form + 736
   fully-qualified + 45 `gpui_kit`; core 1,832, `coincide-mcp-server`
   20) and 128 Swift `@Test`; program diff 224 files +55,019/−3,596.
+  **Slice 149 re-verification (no commit):** Slice 149 re-verified Slice
+  148 read-only and passed it **NOT CLEAN** — one MAJOR finding and two
+  MINORs, all fixed in Slice 150. Spot-checked as written: 14 of the 15
+  tests are arm-shape YES (only `read_file` is wrong — see Finding 1);
+  the coverage deltas are exact (direct +15, arm-reached +16 under the
+  strict rule, validation-only −1, arm-shared-only 0, truly uncovered
+  −15; the 42-set equals the docs' listed 42); the totals chain 30/28 →
+  33/33 → 35/37 → 35/52 verified; the Slice 146 backfill verified
+  (remote `81cf2e4c` in the Slice 146 header); Swift `@Test` 143 (124 in
+  `AgentsTests` + 19 bare `@Test func` in `CoincideRemoteTests`), Rust
+  3,012 (2,231 real short-form + 736 fully-qualified + 45 `gpui_kit`);
+  program diff 224 files +55,570/−3,596 against the program base
+  `04b235e3`. Finding 1 (MAJOR): `readFileReadsRealContent`
+  (`ToolsetTests.swift:2980`) expected `"alpha\nbeta"` for a file
+  written as `"alpha\nbeta\n"`, but the Swift `execute()` path returns
+  the file bytes verbatim — the line-joining `workspace::read_file`
+  serves only the engine `files.read` API and is never on this path;
+  fixed in Slice 150 by correcting the expectation to `"alpha\nbeta\n"`.
+  Finding 2 (MINOR): the Slice 148 section's "terminal arm 3 → 6" does
+  not reproduce under the strict rule — the Slice 143 method counted
+  `svg_to_png` and `reverse_analyze` as arm-reached from their
+  `#expect(throws:)` call sites; restated in Slice 150 as action-
+  `terminal.*` arm 1 → 4. Finding 3 (MINOR): the arm-reached /
+  validation-only absolute figures (174/72 pre, 190/71 post) are not
+  independently reproducible — the strict rule gives 168/78 pre and
+  184/77 post; the 6-tool gap is the `#expect(throws:)`-only tools
+  `fetch_documentation`, `github_repo`, `reverse_analyze`,
+  `search_web`, `svg_to_png`, `use_app` (Slice 149's report names the
+  six `computer_use.*` tools instead; that identification is wrong —
+  only `use_app` of that set is in the gap); restated in Slice 150
+  with the classification rule documented.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)

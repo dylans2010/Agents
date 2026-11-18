@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–148)
+### Hardening wave (Slices 69–150)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–148 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–150 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -1069,15 +1069,28 @@ no entries in this file either and are not backfilled here. Full record:
   `save_to_memory`), each invoking `execute()` with valid arguments
   and asserting on the real result; `git_push` / `git_pull` run
   against a local bare repo as `origin`, no network. Coverage
-  re-measured with the Slice 143 method (script + hand-check):
-  arm-reached 174 → 190 of 332 (52.4% → 57.2%), truly uncovered
-  57 → 42. `start_subagent` is left uncovered on purpose — spawn
-  starts a live provider turn, with no hermetic path. Also fixed the
-  pre-existing `useMcpListsAndExecutes` assertion, which read
-  `read["text"]` where the `read_file` arm returns `content`. 0
-  defects fixed, 15 tests added — bringing the totals to 35 defects
-  / 52 tests. Statically verified only; Xcode build + `swift test`
-  on Dylan's Mac is the gate. Full record:
+  re-measured (Slice 143 method as written; figures restated under
+  the strict success-context rule by Slice 150 — see
+  `docs/HARDENING-AUDIT.md`): arm-reached 168 → 184 of 332
+  (50.6% → 55.4%), truly uncovered 57 → 42. `start_subagent` is left
+  uncovered on purpose — spawn starts a live provider turn, with no
+  hermetic path. Also fixed the pre-existing
+  `useMcpListsAndExecutes` assertion, which read `read["text"]` where
+  the `read_file` arm returns `content`. 0 defects fixed, 15 tests
+  added — bringing the totals to 35 defects / 52 tests. Statically
+  verified only; Xcode build + `swift test` on Dylan's Mac is the
+  gate. Full record: `docs/HARDENING-AUDIT.md`.
+
+- **Slice 150** — Fixed Slice 149's MAJOR: the Slice 148 `read_file`
+  test expected `alpha\nbeta` but the Swift `execute()` path returns
+  the file bytes verbatim (`alpha\nbeta\n`); corrected the expectation
+  and the two doc sentences that claimed the Rust read joins lines.
+  Also corrected the Slice 148 coverage figures to the strict
+  success-context rule (arm-reached 168 → 184 of 332, 50.6% → 55.4%;
+  action-`terminal.*` arm 1 → 4) and backfilled the Slice 148 remote
+  SHA (`1c1905f7`). 1 defect fixed, 0 tests added — bringing the
+  totals to 36 defects / 52 tests. Statically verified only; Xcode
+  build + `swift test` on Dylan's Mac is the gate. Full record:
   `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
