@@ -129,7 +129,7 @@ public struct GeneralSettingsPane: View {
         } header: {
             Text("Agent Tools")
         } footer: {
-            Text("Applies to new conversations. Existing conversations keep the toolset they were created with. System Tools delivers the Agents system prompt to Codex and Claude. OpenCode and Lithos report an error instead of silently dropping it. Cursor, Grok Build, Antigravity, and registered ACP agents get no injected prompt; they run only if their CLI fetches the MCP prompt, which this app cannot verify.")
+            Text("Applies to new conversations. Existing conversations keep the toolset they were created with. System Tools delivers the Agents system prompt to Codex and Claude. For Codex the prompt is the whole mechanism: the MCP server is not mounted for Codex sessions. OpenCode and Lithos report an error instead of silently dropping it, and switching an existing System Tools conversation to either of them is refused at the switch. In Provider Tools mode, Assistant permission profiles are not enforced. Cursor, Grok Build, Antigravity, and registered ACP agents get no injected prompt; they run only if their CLI fetches the MCP prompt, which this app cannot verify.")
         }
     }
 

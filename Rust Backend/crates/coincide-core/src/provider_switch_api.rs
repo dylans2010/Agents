@@ -251,6 +251,9 @@ impl Engine {
                 thread[key] = validation[key].clone();
             }
         }
+        if current["selection"]["provider"].as_str() != Some(provider) {
+            crate::agent::ensure_toolset_supports_provider(current["toolset"].as_str(), provider)?;
+        }
         self.save_composer_choice(
             &current,
             &mut thread,

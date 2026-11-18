@@ -372,11 +372,13 @@ impl Adapter {
         if stored.as_deref() == Some(effective.as_slice()) {
             return Ok(());
         }
+        if stored.is_none() && document["toolset"].as_str() != Some("system") {
+            return Err(RemoteError::failed(
+                "This assistant's permission profile can only be enforced with System Tools, and this conversation has no toolset stored, so the message was not sent and nothing was changed. Start a new conversation with System Tools selected in Settings › General › Agent Tools and launch the assistant there.",
+            ));
+        }
         let mut patch = serde_json::Map::new();
         patch.insert("allowedTools".into(), json!(effective));
-        if stored.is_none() {
-            patch.insert("toolset".into(), json!("system"));
-        }
         let id = document["id"].as_str().unwrap_or_default();
         self.call("threads.patch", json!({"threadId": id, "patch": patch}))?;
         Ok(())
@@ -3213,7 +3215,7 @@ mod tests {
         adapter
             .call(
                 "threads.patch",
-                json!({"threadId": resolved, "patch": {"assistantId": assistant}}),
+                json!({"threadId": resolved, "patch": {"assistantId": assistant, "toolset": "system"}}),
             )
             .unwrap();
         adapter
@@ -3231,6 +3233,33 @@ mod tests {
             .filter_map(|name| name.as_str().map(str::to_owned))
             .collect::<Vec<_>>();
         assert_eq!(stored, expected);
+    }
+
+    #[test]
+    fn enforce_profile_tools_refuses_unlisted_thread_without_toolset() {
+        let (_directory, adapter) = fixture_adapter();
+        let runs = Runs::default();
+        let assistant = seed_assistant(&adapter, "approval-required", None);
+        let created = adapter
+            .new_thread(None, &runs, None, None, None, None, None)
+            .unwrap();
+        let (resolved, _) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        adapter
+            .call(
+                "threads.patch",
+                json!({"threadId": resolved, "patch": {"assistantId": assistant}}),
+            )
+            .unwrap();
+        assert!(adapter
+            .enforce_profile_tools(Uuid::parse_str(&created).unwrap())
+            .is_err());
+        let (_, document) = adapter
+            .document(Uuid::parse_str(&created).unwrap())
+            .unwrap();
+        assert!(document["toolset"].is_null());
+        assert!(document["allowedTools"].is_null());
     }
 
     #[test]

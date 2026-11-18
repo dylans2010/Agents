@@ -16,9 +16,9 @@ public nonisolated enum AgentToolset: String, Codable, CaseIterable, Sendable {
     public var detail: String {
         switch self {
         case .system:
-            "Sessions run with the Agents system prompt and the system tool registry."
+            "Sessions run with the Agents system prompt and, where the provider supports it, the system tool registry."
         case .provider:
-            "Sessions run with the provider's own tools and no system prompt."
+            "Sessions run with the provider's own tools and no system prompt. Assistant permission profiles are not enforced in this mode."
         }
     }
 

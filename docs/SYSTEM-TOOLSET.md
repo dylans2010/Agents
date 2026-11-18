@@ -53,6 +53,14 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
   before toolsets existed have no stored value and behave as Provider Tools.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
+- No send or switch silently changes a thread's toolset. When an assistant's
+  permission profile needs a ceiling and the thread has no stored toolset,
+  the send is refused with an error instead of flipping the thread to
+  System Tools; when the thread is stored as System Tools the ceiling list
+  is materialized onto it; when it is stored as Provider Tools the profile
+  is not enforced at all (see "What is NOT enforced yet"). Switching a
+  thread's provider is validated at the switch (see the end of this
+  document).
 
 ## The 333-tool registry
 
@@ -1674,12 +1682,24 @@ What is NOT enforced yet, and is not claimed:
   for MCP providers, the MCP tool descriptions and the stored prompt served
   by `prompts/get`) instructs the model to use the system tools, but a model
   that ignores the instruction still runs its native tools.
+- Assistant permission profiles are not enforced for threads stored as
+  Provider Tools. Both send-time enforcers (`api.rs`:
+  `enforce_profile_tools_for_send`, `remote_adapter.rs`:
+  `enforce_profile_tools`) return early for such threads, and no MCP
+  server is mounted in Provider Tools mode, so the assistant's
+  `allowedTools` and permission profile are never consulted and the
+  provider's own tools run unrestricted. Assistant launches always create
+  System Tools threads, so the bypass only reaches threads that were
+  created or patched as Provider Tools with an assistant attached. This
+  bound follows from the bullet above: with no allowlist parameter in the
+  provider launch calls, there is no channel through which a profile
+  could be enforced for provider-native tools.
 
 ## Providers
 
 | Provider | System Tools mechanism | SystemAssets mechanism | Channel / limitation |
 | --- | --- | --- | --- |
-| Codex | System prompt only; Codex's own tools execute | Prompt carries the composed assets (injected as `developerInstructions`) | Verified channel: `thread/start` / `thread/resume` `developerInstructions`. No MCP: the adapter has no verified in-handshake or config channel, and named Codex profiles explicitly forbid `config.toml` overrides. Users may add the server manually to their Codex config: `[mcp_servers.coincide]` with `command = "<path to coincide-mcp-server>"`, `args = ["--cwd", "<workspace>"]`. |
+| Codex | System prompt only; Codex's own tools execute | Prompt carries the composed assets (injected as `developerInstructions`) | Verified channel: `thread/start` / `thread/resume` `developerInstructions`. No MCP, by architecture: `mcp.rs` excludes `codex` from `is_mcp_capable_provider` and `mount_for` returns `None` for it, and `agent.rs` `write_thread_request` sends no MCP parameter to `thread/start`. The app-server protocol as used here has no per-thread MCP parameter; the only upstream channel is the user's global `~/.codex/config.toml`, which the adapter does not write (named Codex profiles explicitly forbid `config.toml` overrides). Users may add the server manually to their Codex config: `[mcp_servers.coincide]` with `command = "<path to coincide-mcp-server>"`, `args = ["--cwd", "<workspace>"]`. |
 | Claude | System prompt + MCP server mounted via `--mcp-config` | Prompt injected via `--append-system-prompt`; assets also available as MCP resources/prompts | Verified channels. The server IS mounted with `--strict-mcp-config` when the mount exists (`provider_claude.rs`, `--strict-mcp-config` pushed alongside `--mcp-config`; tests `strict_mcp_config_present_with_system_tools_mount` / `strict_mcp_config_absent_without_system_tools_mount`), so the user's own MCP servers from `.mcp.json` do NOT load for a System Tools session. An earlier revision of this document said the opposite; the code is the authority. The per-thread config file is `<data_dir>/mcp/claude-<thread_id>.json` (0600). |
 | Cursor | MCP server mounted via `mcpServers` on `session/new` | MCP resources (`agents-asset://`) + `prompts/get` | Verified channel. Cursor profile MCP servers come from the per-thread profile file, not the wire, so the mount does not clobber them. No instruction channel: the stored prompt is served by `prompts/get`, never injected. |
 | Grok Build | MCP server mounted via `mcpServers` on `session/new` | MCP resources + `prompts/get` | Verified channel (same ACP `session/new` path as Cursor). No instruction channel. |
@@ -1712,4 +1732,10 @@ silent drop:
   at validation.
 
 Switching a thread's provider after creation (via thread settings) is
-checked at the next send, not at the switch.
+validated at the switch, not only at the next send: a thread stored as
+System Tools cannot switch to OpenCode or Lithos (`agent.rs`:
+`ensure_toolset_supports_provider`, called from `agent.select` and
+`select_default_provider`); the switch is refused, the stored toolset and
+provider are left untouched, and the error names the explicit action.
+Threads stored as Provider Tools, or with no stored toolset, switch
+freely.

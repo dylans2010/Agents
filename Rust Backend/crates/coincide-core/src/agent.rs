@@ -802,6 +802,18 @@ pub(crate) fn ensure_system_toolset_supported(provider: &str) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn ensure_toolset_supports_provider(toolset: Option<&str>, provider: &str) -> Result<()> {
+    if toolset != Some("system") {
+        return Ok(());
+    }
+    if ensure_system_toolset_supported(provider).is_ok() {
+        return Ok(());
+    }
+    bail!(
+        "This conversation uses System Tools, which \"{provider}\" does not support, so the provider was not changed. Start a new Provider Tools conversation for \"{provider}\", or choose Codex, Claude, Cursor, Grok, Antigravity, or a registered ACP agent instead."
+    );
+}
+
 pub(crate) struct OwnedChild(Child, #[cfg(windows)] Option<windows_job::Job>);
 impl OwnedChild {
     pub(crate) fn spawn(command: &mut Command) -> Result<Self> {
@@ -1905,6 +1917,20 @@ pub(crate) fn set_provider_session_for_account(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn toolset_switch_validation_keys_on_stored_system_toolset() {
+        assert!(ensure_toolset_supports_provider(Some("system"), "codex").is_ok());
+        assert!(ensure_toolset_supports_provider(Some("system"), "claude").is_ok());
+        assert!(ensure_toolset_supports_provider(Some("system"), "cursor").is_ok());
+        assert!(ensure_toolset_supports_provider(Some("system"), "grok").is_ok());
+        assert!(ensure_toolset_supports_provider(Some("system"), "antigravity").is_ok());
+        assert!(ensure_toolset_supports_provider(Some("system"), "opencode").is_err());
+        assert!(ensure_toolset_supports_provider(Some("system"), "lithos").is_err());
+        assert!(ensure_toolset_supports_provider(Some("provider"), "opencode").is_ok());
+        assert!(ensure_toolset_supports_provider(Some("provider"), "lithos").is_ok());
+        assert!(ensure_toolset_supports_provider(None, "opencode").is_ok());
+        assert!(ensure_toolset_supports_provider(None, "lithos").is_ok());
+    }
     #[test]
     fn allowed_tools_validation_rejects_bad_entries() {
         let tools = |names: &[&str]| {

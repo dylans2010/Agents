@@ -1622,6 +1622,9 @@ impl Engine {
                 if selection["provider"] == "antigravity" {
                     self.antigravity_selection(&selection)?;
                 }
+                if v["selection"]["provider"] != selection["provider"] {
+                    crate::agent::ensure_toolset_supports_provider(v["toolset"].as_str(), selection["provider"].as_str().unwrap_or(""))?;
+                }
                 if v["selection"]["provider"] != selection["provider"]
                     || v["selection"]["accountID"] != selection["accountID"] { self.park_named_departure(&v)?; }
                 policy_thread["selection"] = selection.clone();
@@ -1876,8 +1879,8 @@ impl Engine {
         if stored.as_deref() == Some(effective.as_slice()) {
             return Ok(());
         }
-        if stored.is_none() {
-            v["toolset"] = json!("system");
+        if stored.is_none() && v["toolset"].as_str() != Some("system") {
+            bail!("This assistant's permission profile can only be enforced with System Tools, and this conversation has no toolset stored, so the message was not sent and nothing was changed. Start a new conversation with System Tools selected in Settings › General › Agent Tools and launch the assistant there.");
         }
         v["allowedTools"] = json!(effective);
         Ok(())
@@ -4512,6 +4515,66 @@ mod tests {
         assert_eq!(engine.store.thread(id.as_str().unwrap()).unwrap(), before);
     }
     #[test]
+    fn provider_switch_refuses_system_toolset_thread_to_unsupported_provider() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::new(Store::open(&dir.path().join("data.sqlite")).unwrap());
+        let created = engine.execute("threads.create", &json!({})).unwrap();
+        let id = created["id"].clone();
+        engine
+            .execute(
+                "threads.patch",
+                &json!({"threadId": id, "patch": {"toolset": "system"}}),
+            )
+            .unwrap();
+        let before = engine.store.thread(id.as_str().unwrap()).unwrap();
+        for provider in ["opencode", "lithos"] {
+            assert!(
+                engine
+                    .execute(
+                        "agent.select",
+                        &json!({"threadId": id, "provider": provider, "model": "fixture-model"}),
+                    )
+                    .is_err()
+            );
+            assert_eq!(engine.store.thread(id.as_str().unwrap()).unwrap(), before);
+        }
+        let selected = engine
+            .execute(
+                "agent.select",
+                &json!({"threadId": id, "provider": "claude", "model": "fixture-model"}),
+            )
+            .unwrap();
+        assert_eq!(selected["selection"]["provider"], "claude");
+        assert_eq!(
+            engine.store.thread(id.as_str().unwrap()).unwrap()["toolset"],
+            json!("system")
+        );
+    }
+    #[test]
+    fn provider_switch_allows_provider_toolset_thread_to_unsupported_provider() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::new(Store::open(&dir.path().join("data.sqlite")).unwrap());
+        let created = engine.execute("threads.create", &json!({})).unwrap();
+        let id = created["id"].clone();
+        engine
+            .execute(
+                "threads.patch",
+                &json!({"threadId": id, "patch": {"toolset": "provider"}}),
+            )
+            .unwrap();
+        let selected = engine
+            .execute(
+                "agent.select",
+                &json!({"threadId": id, "provider": "opencode", "model": "fixture-model"}),
+            )
+            .unwrap();
+        assert_eq!(selected["selection"]["provider"], "opencode");
+        assert_eq!(
+            engine.store.thread(id.as_str().unwrap()).unwrap()["toolset"],
+            json!("provider")
+        );
+    }
+    #[test]
     fn queue_pause_and_remove_take_priority_over_idle_dispatch() {
         let dir = tempfile::tempdir().unwrap();
         let mut engine = Engine::new(Store::open(&dir.path().join("queue.sqlite")).unwrap());
@@ -4845,6 +4908,7 @@ mod catalog_shutdown_adapter_tests {
         let assistant = seed_send_assistant(&mut engine, "approval-required", None);
         let mut v = engine.store.new_thread("").unwrap();
         v["assistantId"] = json!(assistant);
+        v["toolset"] = json!("system");
         engine.enforce_profile_tools_for_send(&mut v).unwrap();
         let expected =
             crate::agent::profile_gate::materialized_allowed_tools("approval-required", None)
@@ -4858,6 +4922,19 @@ mod catalog_shutdown_adapter_tests {
             .filter_map(|name| name.as_str().map(str::to_owned))
             .collect::<Vec<_>>();
         assert_eq!(stored, expected);
+    }
+
+    #[test]
+    fn send_enforce_refuses_unlisted_thread_without_toolset() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine = Engine::fixture(Store::open(&dir.path().join("data.sqlite")).unwrap());
+        let assistant = seed_send_assistant(&mut engine, "approval-required", None);
+        let mut v = engine.store.new_thread("").unwrap();
+        v["assistantId"] = json!(assistant);
+        assert!(v["toolset"].is_null());
+        assert!(engine.enforce_profile_tools_for_send(&mut v).is_err());
+        assert!(v["toolset"].is_null());
+        assert!(v["allowedTools"].is_null());
     }
 
     #[test]
