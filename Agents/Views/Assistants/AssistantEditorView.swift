@@ -12,8 +12,8 @@ public struct AssistantEditorView: View {
     @State private var isSaving: Bool = false
     @State private var isRestoring: Bool = false
     @State private var showRestoreConfirmation: Bool = false
-    @State private var sampleTask: String = ""
-    @State private var testRunNote: String? = nil
+    @State var sampleTask: String = ""
+    @State var testRunNote: String? = nil
     @State private var showTestPreview: Bool = false
     @State private var newIntendedTask: String = ""
     @State private var newInputRequirement: String = ""
@@ -54,7 +54,7 @@ public struct AssistantEditorView: View {
             && !sampleTask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var liveTestUnavailableReason: String? {
+    var liveTestUnavailableReason: String? {
         if savedAssistant == nil {
             return "Save the assistant first. A live test run launches the saved assistant, so there is nothing to run until it exists."
         }
@@ -768,7 +768,7 @@ public struct AssistantEditorView: View {
         }
     }
 
-    private func runTest() async {
+    func runTest() async {
         guard let assistant = savedAssistant, let onTestRun else { return }
         let task = sampleTask.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !task.isEmpty else { return }

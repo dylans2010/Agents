@@ -178,9 +178,12 @@ struct AssistantEditorViewModelTests {
         #expect(!viewModel.isValid)
     }
 
-    @Test("The provider list is exactly the providers the engine accepts by name")
-    func providerOptionsAreRealProviders() {
-        #expect(AssistantEditorViewModel.providerIDs == AssistantEditorViewModel.providerOptions.map(\.id))
+    @Test("Provider options match the pinned snapshot of the engine's supported provider names")
+    func providerOptionsMatchPinnedSupportedNamesSnapshot() {
+        #expect(
+            AssistantEditorViewModel.providerIDs == ["codex", "claude", "grok", "opencode", "lithos", "cursor", "antigravity"],
+            "Provider list drifted from the pinned snapshot of the engine's supported provider names. There is no Swift-side shared source for supported_names, so update providerOptions here and re-check the engine's supported_names."
+        )
         #expect(Set(AssistantEditorViewModel.providerIDs).count == AssistantEditorViewModel.providerIDs.count, "Duplicate provider id in providerOptions")
         #expect(Set(AssistantEditorViewModel.providerOptions.map(\.name)).count == AssistantEditorViewModel.providerOptions.count, "Duplicate provider display name in providerOptions")
         for option in AssistantEditorViewModel.providerOptions {
@@ -190,7 +193,7 @@ struct AssistantEditorViewModelTests {
         }
         #expect(
             Set(AssistantEditorViewModel.providerIDs) == ["codex", "claude", "grok", "opencode", "lithos", "cursor", "antigravity"],
-            "Provider list drifted from the engine's supported provider names. There is no Swift-side shared source for supported_names, so update providerOptions here and re-check the engine's supported_names."
+            "Provider list drifted from the pinned snapshot of the engine's supported provider names. There is no Swift-side shared source for supported_names, so update providerOptions here and re-check the engine's supported_names."
         )
     }
 
@@ -221,6 +224,60 @@ struct AssistantEditorViewModelTests {
             systemPrompt: "Check."
         )
         await handler(assistant, "Hello")
+    }
+
+    private final actor TestRunRecorder {
+        private(set) var runs: [(assistantID: UUID, task: String)] = []
+
+        func record(assistantID: UUID, task: String) {
+            runs.append((assistantID: assistantID, task: task))
+        }
+    }
+
+    @Test("An empty sample task explains that a task is needed before a live test run")
+    func emptySampleTaskExplainsLiveTestNeedsTask() {
+        let saved = RemoteAssistant(
+            id: UUID(),
+            name: "Saved Helper",
+            category: .codeMaintenance,
+            systemPrompt: "Do the job."
+        )
+        var view = AssistantEditorView(
+            viewModel: AssistantEditorViewModel(),
+            onSave: { _ in nil },
+            onCancel: {},
+            onTestRun: { _, _ in },
+            savedAssistant: saved
+        )
+        #expect(view.liveTestUnavailableReason == "Enter a sample task to run the live test.")
+        view.sampleTask = "   "
+        #expect(view.liveTestUnavailableReason == "Enter a sample task to run the live test.")
+        view.sampleTask = "Summarize the changes."
+        #expect(view.liveTestUnavailableReason == nil)
+    }
+
+    @Test("Requesting a live test run notes that the last saved version runs and a new thread appears when the runtime starts it")
+    func runTestNotesLastSavedVersionAndNewThread() async {
+        let saved = RemoteAssistant(
+            id: UUID(),
+            name: "Saved Helper",
+            category: .codeMaintenance,
+            systemPrompt: "Do the job."
+        )
+        let recorder = TestRunRecorder()
+        var view = AssistantEditorView(
+            viewModel: AssistantEditorViewModel(),
+            onSave: { _ in nil },
+            onCancel: {},
+            onTestRun: { assistant, task in await recorder.record(assistantID: assistant.id, task: task) },
+            savedAssistant: saved
+        )
+        view.sampleTask = "Summarize the changes."
+        await view.runTest()
+        let runs = await recorder.runs
+        #expect(runs.map(\.assistantID) == [saved.id])
+        #expect(runs.map(\.task) == ["Summarize the changes."])
+        #expect(view.testRunNote == "Test run requested using the last saved version of this assistant. A new thread appears when the runtime starts it.")
     }
 
     @Test("A new assistant defaults to an icon that is selectable in the icon grid")
