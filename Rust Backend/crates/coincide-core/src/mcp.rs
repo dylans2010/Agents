@@ -83,25 +83,22 @@ pub fn session_entry(binary: &Path, args: &[String]) -> Value {
     })
 }
 
-pub fn session_servers_for(mount: Option<&McpMount>, cwd: &Path) -> Value {
+pub fn session_servers_for(mount: Option<&McpMount>, cwd: &Path) -> Result<Value> {
     match mount {
         Some(mount) => session_servers(mount, cwd),
-        None => json!([]),
+        None => Ok(json!([])),
     }
 }
 
-pub fn session_servers(mount: &McpMount, cwd: &Path) -> Value {
-    match server_command_and_args(cwd, &mount.thread_id, &mount.data_dir) {
-        Some((binary, args)) => json!([session_entry(&binary, &args)]),
-        None => json!([]),
-    }
+pub fn session_servers(mount: &McpMount, cwd: &Path) -> Result<Value> {
+    let (binary, args) = server_command_and_args(cwd, &mount.thread_id, &mount.data_dir)
+        .context("System Tools are enabled but the MCP server binary is missing; the session cannot start without it")?;
+    Ok(json!([session_entry(&binary, &args)]))
 }
 
 pub fn claude_config_path(mount: &McpMount, cwd: &Path) -> Result<Option<PathBuf>> {
-    let Some((binary, args)) = server_command_and_args(cwd, &mount.thread_id, &mount.data_dir)
-    else {
-        return Ok(None);
-    };
+    let (binary, args) = server_command_and_args(cwd, &mount.thread_id, &mount.data_dir)
+        .context("System Tools are enabled but the MCP server binary is missing; the session cannot start without it")?;
     ensure!(
         !mount.thread_id.is_empty()
             && !mount
@@ -139,6 +136,12 @@ mod tests {
         assert!(mount_for("lithos", &json!("system"), "t1", &dir).is_none());
         assert!(mount_for("cursor", &json!("provider"), "t1", &dir).is_none());
         assert!(mount_for("cursor", &Value::Null, "t1", &dir).is_none());
+    }
+
+    #[test]
+    fn session_servers_without_a_mount_is_empty() {
+        let dir = PathBuf::from("/tmp");
+        assert_eq!(session_servers_for(None, &dir).unwrap(), json!([]));
     }
 
     #[test]

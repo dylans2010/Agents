@@ -215,10 +215,9 @@ pub(crate) fn search_path() -> Option<std::ffi::OsString> {
 pub fn resolve_executable(command: &str) -> Option<PathBuf> {
     let path = PathBuf::from(command);
     if path.is_absolute() {
-        Some(path)
-    } else {
-        locate(search_path().as_deref(), command)
+        return crate::mcp::is_executable_file(&path).then_some(path);
     }
+    locate(search_path().as_deref(), command)
 }
 fn entry(row: &Value, target: Option<&str>, path: Option<&OsStr>) -> Option<Agent> {
     let id = text(&row["id"], 96)?;
@@ -506,6 +505,26 @@ mod tests {
         );
         assert!(agents.len() > 30);
     }
+    #[test]
+    fn absolute_executable_paths_must_exist_and_be_executable() {
+        let root = tempfile::tempdir().unwrap();
+        let binary = root.path().join("agent");
+        std::fs::write(&binary, b"fixture").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert!(resolve_executable(binary.to_str().unwrap()).is_none());
+            std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        assert_eq!(
+            resolve_executable(binary.to_str().unwrap()).as_deref(),
+            Some(binary.as_path())
+        );
+        assert!(
+            resolve_executable(root.path().join("missing").to_str().unwrap()).is_none()
+        );
+    }
+
     #[test]
     fn rejects_unsafe_metadata_and_never_interprets_shell() {
         let data = br#"{"agents":[{"id":"../bad","name":"Bad","distribution":{"npx":{"package":"bad"}}},{"id":"bad-env","name":"Bad env","distribution":{"npx":{"package":"bad","env":{"PATH":"/tmp"}}}},{"id":"valid","name":"Valid","distribution":{"npx":{"package":"x","args":["$(touch secret)"]}}}]}"#;

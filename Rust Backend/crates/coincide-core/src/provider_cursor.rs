@@ -45,27 +45,44 @@ fn listed_model(result: &Value, model: &str) -> bool {
             })
         })
 }
-fn error_report(text: &str) -> Option<&str> {
+fn error_report(text: &str) -> Option<String> {
     if !text.starts_with("\n\n") {
         return None;
     }
     let body = text.trim();
     let first = body.lines().next()?;
-    let account = matches!(
+    if matches!(
         first,
         "Please sign in to continue"
             | "Upgrade your plan to continue"
             | "Add a payment method to continue"
             | "Check your settings to continue"
             | "Something went wrong communicating with the server. Please try again."
-    );
-    let diagnostic = first.strip_prefix("Error: ").is_some_and(|message| {
-        message.starts_with('[')
-            || message
-                .split_once("Error: ")
-                .is_some_and(|(name, _)| name.chars().all(|c| c.is_ascii_alphabetic()))
-    });
-    (account || diagnostic).then_some(body)
+    ) {
+        return Some(first.to_owned());
+    }
+    let message = first.strip_prefix("Error: ")?;
+    if let Some(tag) = message
+        .strip_prefix('[')
+        .and_then(|rest| rest.split(']').next())
+        .filter(|tag| {
+            !tag.is_empty()
+                && tag.len() <= 64
+                && tag
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        })
+    {
+        return Some(format!("Error: [{tag}]"));
+    }
+    let (name, _) = message.split_once("Error: ")?;
+    if !name.is_empty()
+        && name.len() <= 64
+        && name.chars().all(|c| c.is_ascii_alphabetic())
+    {
+        return Some(format!("Error: {name}"));
+    }
+    None
 }
 
 pub(super) fn run(
@@ -241,7 +258,7 @@ pub(super) fn run(
                 if update["sessionUpdate"] == "agent_message_chunk"
                     && let Some(report) = update["content"]["text"].as_str().and_then(error_report)
                 {
-                    held_error = Some(report.into());
+                    held_error = Some(report);
                     continue;
                 }
                 if !accepted && acp::prompt_activity(update) {
@@ -287,7 +304,7 @@ pub(super) fn run(
                         || result["agentCapabilities"]["promptCapabilities"]["image"] != false,
                     "Cursor reports no image support; no prompt was sent"
                 );
-                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)});
+                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)?});
                 let method = if let Some(id) = &launch.session {
                     ensure!(
                         result["agentCapabilities"]["loadSession"] != false,
@@ -368,11 +385,39 @@ pub(super) fn run(
                         reason,
                         "end_turn" | "max_tokens" | "max_turn_requests" | "refusal"
                     ),
-                    "Cursor turn did not complete ({reason})"
+                    "Cursor turn did not complete"
                 );
                 completed = true;
             }
             _ => unreachable!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_report_keeps_only_the_matched_classification() {
+        assert_eq!(
+            error_report("\n\nPlease sign in to continue\nsecond line carries provider text"),
+            Some("Please sign in to continue".to_owned())
+        );
+        assert_eq!(
+            error_report("\n\nError: [rate_limit] quota detail the provider wrote"),
+            Some("Error: [rate_limit]".to_owned())
+        );
+        assert_eq!(
+            error_report("\n\nError: AuthError: something the provider wrote"),
+            Some("Error: AuthError".to_owned())
+        );
+        assert_eq!(error_report("\n\nError: [leaked secret here]"), None);
+        assert_eq!(
+            error_report("\n\nError: [unterminated"),
+            Some("Error: [unterminated]".to_owned())
+        );
+        assert_eq!(error_report("\n\nOrdinary assistant text"), None);
+        assert_eq!(error_report("Please sign in to continue"), None);
     }
 }

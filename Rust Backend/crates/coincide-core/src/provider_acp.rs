@@ -637,7 +637,7 @@ fn run_flavored(
                     auth_method =
                         grok::authentication_method(result, grok::configured_authentication());
                 }
-                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)});
+                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)?});
                 if is_fx {
                     params["_meta"] = json!({"fx":{"profileMcpServers":true}});
                 }
@@ -790,10 +790,7 @@ fn run_flavored(
                     "ACP prompt response has no stop reason; asynchronous ACP v2 is not supported by this adapter"
                 );
                 if is_grok {
-                    grok::validate_stop_reason(
-                        result["stopReason"].as_str().unwrap_or(""),
-                        result["agentResult"].as_str(),
-                    )?;
+                    grok::validate_stop_reason(result["stopReason"].as_str().unwrap_or(""))?;
                 }
                 completed = true;
             }

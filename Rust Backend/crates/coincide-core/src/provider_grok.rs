@@ -79,11 +79,10 @@ pub(super) fn completion(frame: &Value, session_id: &str, prompt_id: &str) -> Re
     {
         return Ok(false);
     }
-    let (id, reason, detail) = match method(frame["method"].as_str().unwrap_or("")) {
+    let (id, reason) = match method(frame["method"].as_str().unwrap_or("")) {
         Some("session/prompt_complete") => (
             params["promptId"].as_str(),
             params["stopReason"].as_str(),
-            params["agentResult"].as_str(),
         ),
         Some("session_notification" | "session/update")
             if params["update"]["sessionUpdate"] == "turn_completed" =>
@@ -100,7 +99,6 @@ pub(super) fn completion(frame: &Value, session_id: &str, prompt_id: &str) -> Re
                 update["stop_reason"]
                     .as_str()
                     .or_else(|| update["stopReason"].as_str()),
-                update["agent_result"].as_str(),
             )
         }
         _ => return Ok(false),
@@ -108,17 +106,17 @@ pub(super) fn completion(frame: &Value, session_id: &str, prompt_id: &str) -> Re
     if id.is_some_and(|id| id != prompt_id) {
         return Ok(false);
     }
-    validate_stop_reason(reason.unwrap_or("end_turn"), detail)?;
+    validate_stop_reason(reason.unwrap_or("end_turn"))?;
     Ok(true)
 }
 
-pub(super) fn validate_stop_reason(reason: &str, detail: Option<&str>) -> Result<()> {
+pub(super) fn validate_stop_reason(reason: &str) -> Result<()> {
     match reason {
         "rate_limit" => bail!("Grok usage limit reached. Try again later."),
-        "error" => bail!("Grok turn failed: {}", detail.unwrap_or("provider error")),
+        "error" => bail!("Grok turn failed"),
         "cancelled" => bail!("Grok interrupted the turn before completion"),
         "end_turn" | "max_tokens" | "max_turn_requests" | "refusal" => Ok(()),
-        _ => bail!("Grok returned an unknown stop reason: {reason}"),
+        _ => bail!("Grok returned an unknown stop reason"),
     }
 }
 
@@ -316,6 +314,26 @@ mod tests {
         }
         assert!(!completion(&json!({"method":"x.ai/session_notification","params":{"sessionId":"session","update":{"sessionUpdate":"turn_completed"}}}), "session", "active").unwrap());
         assert!(completion(&json!({"method":"x.ai/session/prompt_complete","params":{"sessionId":"session","promptId":"active","stopReason":"cancelled"}}), "session", "active").is_err());
+    }
+
+    #[test]
+    fn stop_reason_failures_never_carry_provider_text() {
+        assert!(validate_stop_reason("end_turn").is_ok());
+        assert!(validate_stop_reason("max_tokens").is_ok());
+        assert_eq!(
+            validate_stop_reason("error").unwrap_err().to_string(),
+            "Grok turn failed"
+        );
+        assert_eq!(
+            validate_stop_reason("secret-stop-reason")
+                .unwrap_err()
+                .to_string(),
+            "Grok returned an unknown stop reason"
+        );
+        assert_eq!(
+            validate_stop_reason("rate_limit").unwrap_err().to_string(),
+            "Grok usage limit reached. Try again later."
+        );
     }
 
     #[test]

@@ -379,7 +379,7 @@ fn run_owned(
                 stage = 2;
             }
             2 => {
-                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)});
+                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)?});
                 let method = if let Some(id) = &launch.session {
                     params["sessionId"] = json!(id);
                     if initialized["agentCapabilities"]["sessionCapabilities"]
