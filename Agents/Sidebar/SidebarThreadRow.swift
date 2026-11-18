@@ -161,7 +161,7 @@ public struct SidebarThreadRow: View {
                         .font(.system(size: 8.5, weight: .semibold))
                     if scheduleCount > 1 {
                         Text("\(scheduleCount)")
-                            .font(.system(size: 9.5, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                     }
                 }
                 .foregroundStyle(AppTheme.tertiaryLabel)
@@ -173,7 +173,7 @@ public struct SidebarThreadRow: View {
                     Image(systemName: "moon.zzz.fill")
                         .font(.system(size: 8.5))
                     Text(Self.shortSnoozeLabel(until: until))
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .lineLimit(1)
                 }
                 .foregroundStyle(AppTheme.tertiaryLabel)
@@ -201,7 +201,7 @@ public struct SidebarThreadRow: View {
 
             if attentionCount > 0 {
                 Text("\(attentionCount)")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(AppTheme.onAccent)
                     .padding(.horizontal, 5.5)
                     .padding(.vertical, 1.5)
@@ -223,7 +223,7 @@ public struct SidebarThreadRow: View {
             }
 
             Text(Self.compactRelativeAge(from: thread.updatedAt))
-                .font(.system(size: 10.5, weight: .regular))
+                .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(AppTheme.tertiaryLabel)
                 .monospacedDigit()
         }

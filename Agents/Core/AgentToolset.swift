@@ -38,23 +38,10 @@ public nonisolated enum AgentToolset: String, Codable, CaseIterable, Sendable {
         defaults.set(toolset.rawValue, forKey: userDefaultsKey)
     }
 
-    public static func systemPromptSupported(provider: String) -> Bool {
-        switch provider {
-        case "codex", "claude":
-            return true
-        default:
-            return false
-        }
-    }
-
     public static func effective(stored toolset: String?) -> AgentToolset {
         guard let toolset else {
             return .provider
         }
         return AgentToolset(rawValue: toolset) ?? .provider
-    }
-
-    public static func systemPromptUnsupportedMessage(provider: String) -> String {
-        "System Tools are not supported for provider \"\(provider)\": a per-thread system prompt can only be delivered to Codex and Claude. Switch this thread to Provider Tools, or switch its provider to Codex or Claude."
     }
 }

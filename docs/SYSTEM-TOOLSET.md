@@ -1166,7 +1166,7 @@ every provider except `codex`, `opencode`, `lithos`). The toolset gate
 for System Tools; MCP-capable providers may store the prompt (delivered via
 `prompts/get`, never injected as instructions). If the server binary is
 missing at launch, the session fails loudly instead of starting without
-System Tools: `mcp.rs:101-105` (`session_servers`) returns an error, so the
+System Tools: `mcp.rs:93-97` (`session_servers`) returns an error, so the
 session cannot start without it.
 
 ## Enforcement boundary (read this before claiming more)

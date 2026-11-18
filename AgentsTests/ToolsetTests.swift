@@ -447,23 +447,6 @@ struct ToolsetTests {
         #expect(old.systemPrompt == nil)
     }
 
-    @Test("Only Codex and Claude accept a per-thread system prompt")
-    func systemPromptSupportMatrix() {
-        #expect(AgentToolset.systemPromptSupported(provider: "codex"))
-        #expect(AgentToolset.systemPromptSupported(provider: "claude"))
-        #expect(!AgentToolset.systemPromptSupported(provider: "opencode"))
-        #expect(!AgentToolset.systemPromptSupported(provider: "lithos"))
-        #expect(!AgentToolset.systemPromptSupported(provider: "grok"))
-        #expect(!AgentToolset.systemPromptSupported(provider: "cursor"))
-        #expect(!AgentToolset.systemPromptSupported(provider: "antigravity"))
-        #expect(!AgentToolset.systemPromptSupported(provider: "acp-foo"))
-        #expect(!AgentToolset.systemPromptSupported(provider: ""))
-        let message = AgentToolset.systemPromptUnsupportedMessage(provider: "opencode")
-        #expect(message.contains("opencode"))
-        #expect(message.contains("Codex"))
-        #expect(message.contains("Claude"))
-    }
-
     @Test("Computer Use tools register with the real engine action")
     func computerUseToolsRegister() {
         let expected: [String] = [
