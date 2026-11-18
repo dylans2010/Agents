@@ -1,6 +1,7 @@
 //! C-ABI staticlib FFI bridge exposing `coincide-core` to the native macOS
 //! SwiftUI + AppKit application.
 mod adapter_bridge;
+mod computer_use_ffi;
 mod discovery;
 mod providers;
 mod workspace_ops;
@@ -37,6 +38,7 @@ pub struct CoincideMacOSRuntime {
     pub(crate) data_dir: PathBuf,
     pub(crate) app_version: String,
     pub(crate) engine: SharedEngine,
+    pub(crate) computer_use: computer_use_ffi::ComputerUseMount,
     pub(crate) _native_editors: NativeUiEditors,
     pub(crate) control: Mutex<Option<control::Server>>,
     pub(crate) adapter: Adapter,
@@ -145,7 +147,8 @@ fn open_runtime_inner(
     let version = cstr_optional(app_version)?.unwrap_or_else(|| env!("CARGO_PKG_VERSION").into());
 
     let store = Store::open(&data_dir.join("coincide.sqlite"))?;
-    let engine = Engine::new(store);
+    let mut engine = Engine::new(store);
+    engine.ui_available = true;
     let native_editors = engine.native_ui_editors();
     let engine = Arc::new(Mutex::new(engine));
 
@@ -153,11 +156,13 @@ fn open_runtime_inner(
     let adapter = Adapter::new(engine.clone(), version.clone());
     let mut remote = RemoteServer::new(data_dir.clone(), engine.clone(), version.clone());
     remote.start_if_enabled();
+    let computer_use = computer_use_ffi::ComputerUseMount::start(&engine);
 
     Ok(Box::new(CoincideMacOSRuntime {
         data_dir,
         app_version: version,
         engine,
+        computer_use,
         _native_editors: native_editors,
         control: Mutex::new(Some(control_server)),
         adapter,
@@ -263,6 +268,8 @@ fn poll_status_inner(runtime: &CoincideMacOSRuntime) -> Value {
 
 fn close_runtime_inner(runtime: Box<CoincideMacOSRuntime>) {
     runtime.closing.store(true, Ordering::Release);
+
+    runtime.computer_use.shutdown();
 
     // 1. Stop RemoteServer cleanly off the Engine lock.
     if let Ok(mut remote) = runtime.remote.lock() {

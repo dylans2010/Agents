@@ -49,6 +49,39 @@ impl Screenshots {
             let _ = fs::remove_dir_all(root.join(thread.to_string()));
         }
     }
+    pub fn list(&self, thread: Uuid) -> Vec<Value> {
+        let Some(root) = &self.root else {
+            return Vec::new();
+        };
+        let folder = root.join(thread.to_string());
+        let Ok(entries) = fs::read_dir(&folder) else {
+            return Vec::new();
+        };
+        let mut shots: Vec<(String, PathBuf, u64)> = entries
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                let name = path.file_name()?.to_str()?.to_owned();
+                if !name.starts_with("screenshot-") || !name.ends_with(".png") {
+                    return None;
+                }
+                let modified = fs::metadata(&path)
+                    .ok()
+                    .and_then(|metadata| metadata.modified().ok())
+                    .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_millis() as u64)
+                    .unwrap_or(0);
+                Some((name, path, modified))
+            })
+            .collect();
+        shots.sort();
+        shots.reverse();
+        shots
+            .into_iter()
+            .map(|(name, path, modified)| {
+                json!({"path": path.to_string_lossy(), "name": name, "modifiedMs": modified})
+            })
+            .collect()
+    }
     pub fn remove_all(&mut self) {
         if let Some(root) = self.root.take() {
             let _ = fs::remove_dir_all(root);
@@ -206,6 +239,23 @@ mod tests {
             !root.exists(),
             "the session folder goes when Computer Use does"
         );
+    }
+    #[test]
+    fn listing_returns_newest_first_and_unknown_threads_list_empty() {
+        let mut screenshots = Screenshots::default();
+        let thread = Uuid::new_v4();
+        assert!(screenshots.list(thread).is_empty());
+        let mut first = json!({"observation":"o","screenshot":{"encoding":"png_base64","data":png(),"width":1,"height":1}});
+        screenshots.deliver(thread, &mut first);
+        let mut second = json!({"observation":"o","screenshot":{"encoding":"png_base64","data":png(),"width":1,"height":1}});
+        screenshots.deliver(thread, &mut second);
+        let listed = screenshots.list(thread);
+        assert_eq!(listed.len(), 2);
+        assert_ne!(listed[0]["path"], listed[1]["path"]);
+        assert!(listed[0]["path"].as_str().unwrap().ends_with(".png"));
+        assert!(listed[0]["name"].as_str().unwrap() > listed[1]["name"].as_str().unwrap());
+        assert!(listed[0]["modifiedMs"].as_u64().is_some());
+        assert!(screenshots.list(Uuid::new_v4()).is_empty());
     }
     #[test]
     fn undecodable_data_is_reported_instead_of_returned() {

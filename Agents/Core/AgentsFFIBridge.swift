@@ -688,6 +688,64 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         )
     }
 
+    public func computerUseStatus() async throws -> ComputerUseStatus {
+        try await desktopCall(action: "computer_use.status", as: ComputerUseStatus.self)
+    }
+
+    public func computerUseSetEnabled(_ enabled: Bool) async throws -> ComputerUseStatus {
+        try await desktopCall(
+            action: "computer_use.set_enabled",
+            params: ["enabled": .bool(enabled)],
+            as: ComputerUseStatus.self
+        )
+    }
+
+    public func computerUseRequestPermission(kind: String? = nil) async throws -> ComputerUseStatus {
+        var params: [String: JSONValue] = [:]
+        if let kind {
+            params["kind"] = .string(kind)
+        }
+        return try await desktopCall(action: "computer_use.request_permission", params: params, as: ComputerUseStatus.self)
+    }
+
+    public func computerUseRefresh() async throws -> ComputerUseStatus {
+        try await desktopCall(action: "computer_use.refresh", as: ComputerUseStatus.self)
+    }
+
+    public func computerUseRequest(threadId: String, request: JSONValue) async throws -> JSONValue {
+        try await desktopCall(
+            action: "computer_use.request",
+            params: [
+                "threadId": .string(threadId),
+                "request": request,
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func computerUseResult(threadId: String, operationId: String) async throws -> JSONValue {
+        try await desktopCall(
+            action: "computer_use.result",
+            params: [
+                "threadId": .string(threadId),
+                "operationId": .string(operationId),
+            ],
+            as: JSONValue.self
+        )
+    }
+
+    public func computerUseScreenshots(threadId: String) async throws -> [ComputerUseScreenshot] {
+        struct ScreenshotsResponse: Decodable {
+            var screenshots: [ComputerUseScreenshot]
+        }
+        let response = try await desktopCall(
+            action: "computer_use.screenshots",
+            params: ["threadId": .string(threadId)],
+            as: ScreenshotsResponse.self
+        )
+        return response.screenshots
+    }
+
     // 1. Providers & Accounts
     private struct ProvidersListResponse: Decodable {
         var providers: [DesktopProviderInfo]

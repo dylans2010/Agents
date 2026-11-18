@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 41 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 61 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -291,10 +291,61 @@ What is enforced for real in this slice:
       actions; there is no mock data anywhere in the view.
   No Qwen tool is imported: `AvailableTools.md` describes Qwen's tools, not this repo's.
 
+- Computer Use (slice 5): the 20-tool typed catalog in
+  `coincide-core/src/computer_use.rs` is wired into the Swift app for real.
+  The engine owns the broker: `computer_use.request` admits one pending
+  request per thread (queue capacity 8, 10-second deadline, 30-second
+  result retention) and `computer_use.result` collects it; the FFI mounts
+  a `Pump` thread (`coincide-macos-ffi/src/computer_use_ffi.rs`) that
+  `#[path]`-includes the Rust desktop's `computer_use.rs` as its runtime
+  (one source of truth, no duplicate executor) and drains the engine queue
+  into the native macOS executor (`coincide-desktop/src/computer_use_macos.m`:
+  ScreenCaptureKit screenshots, Accessibility element control, CGEvent
+  input). The FFI runtime marks the engine `ui_available` at open, because
+  the FFI runtime exists only for the Swift desktop app; without that flag
+  every request failed with "Computer Use requires the desktop window".
+  - Wired tools (all 20, action `computer_use.request`, channel `engine`,
+    registered in both the Swift `SystemToolRegistry` and the MCP server,
+    which cross-check each other): observation `list_apps`, `list_windows`,
+    `get_window_state`, `get_desktop_state`, `verify_state`, `zoom`;
+    input `click`, `double_click`, `right_click`, `set_value`, `type_text`,
+    `press_key`, `hotkey`, `scroll`, `drag`, `move_cursor`, `click_point`;
+    app and window control `invoke_menu`, `launch_app`, `set_window_frame`.
+    Each executes through the real engine dispatch: submit
+    `computer_use.request` with `{"action":"call","name":<tool>,
+    "arguments":{...}}`, poll `computer_use.result` until ready (up to 15
+    seconds; the engine deadline is 10 seconds). Required arguments are
+    validated against the tool's own definition before any runtime call.
+    The catalog IDs are the real ones: there is no `take_screenshot` or
+    `use_app` tool. Screenshots are taken by `get_window_state` /
+    `get_desktop_state` with `include_screenshot`, and apps are launched by
+    `launch_app`.
+  - Screenshots are filed by the engine as 0600 PNG files, newest 32 per
+    thread, and listed by the new `computer_use.screenshots` engine method.
+    The Inspector › Computer Use tab lists them and shows the real files;
+    there are no placeholder images.
+  - Approvals: a master enable switch (Settings › Computer Use only;
+    `settings.patch` refuses the `computerUseEnabled` key), per-thread
+    grant epochs with revocation, and the macOS TCC prompts for
+    Accessibility and Screen Recording. There is no per-action approval
+    dialog: turning Computer Use on and granting a thread is the approval,
+    and every manual action in the app is approved by the button press
+    that starts it. No new entitlement was needed: screen capture and
+    Accessibility are TCC permissions, not entitlements. The Mac gate must
+    grant both permissions on Dylan's Mac; nothing here can grant them.
+  - UI: Settings › Computer Use (enable toggle, live state, per-permission
+    Grant Access buttons, honest limits) and Inspector › Computer Use
+    (thread-scoped status banner, run-a-tool form with the 20-tool picker
+    and JSON arguments editor, latest result, screenshots list/viewer, and
+    in-memory action history for the session).
+  - NOT wired: screen recording. `take_screenrecord` does not exist
+    anywhere in the engine and is not registered; it would need a whole
+    new ScreenCaptureKit recorder.
+
 ## What is still NOT implemented (honest list)
 
 The 300-ID catalog in `AvailableTools.md` is a specification, not a
-registry. After slice 4, 41 tools are real. These catalog tools are NOT
+registry. After slice 5, 61 tools are real. These catalog tools are NOT
 implemented, and why:
 
 - Memory (`save_to_memory`, `manage_memory`, `conversation_context_manager`):
@@ -313,10 +364,10 @@ implemented, and why:
   `worker_status`, `worker_result`, and `cancel_worker` have no catalog IDs;
   they are the lifecycle tools this slice added so the parent can observe
   and collect workers through tool calls.
-- Computer use (`use_app`, `take_screenshot`): the core broker and typed
-  tool catalog exist, but no native executor is wired into the Swift app's
-  FFI. `take_screenrecord` needs a whole new ScreenCaptureKit recorder.
-  Slice 7 owns this.
+- Computer use (`use_app`, `take_screenshot`, `take_screenrecord`): those
+  IDs do not exist in the engine catalog. The real 20 catalog tools are
+  wired — see the Enforcement boundary above. `take_screenrecord` needs a
+  whole new ScreenCaptureKit recorder and is unavailable.
 - Artboards ×8, `use_extension`, `reverse_analyze`, `use_composio`,
   `search_skills`, `report_to_user`: whole subsystems or external services
   that do not exist in this repo. Out of scope for the 10-hour program.

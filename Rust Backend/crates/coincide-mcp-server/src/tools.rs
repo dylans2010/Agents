@@ -747,6 +747,526 @@ pub static DEFINITIONS: &[ToolDef] = &[
             },
         ],
     },
+    ToolDef {
+        name: "list_apps",
+        description: "List running apps on this computer.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[P_THREAD_ID],
+    },
+    ToolDef {
+        name: "list_windows",
+        description: "List on-screen windows, optionally for one app.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "pid",
+                kind: "integer",
+                required: false,
+                description: "Process ID of the running app.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "get_window_state",
+        description: "Observe one window: its accessible elements as fresh element tokens, optionally with a screenshot saved as a private PNG file.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "pid",
+                kind: "integer",
+                required: true,
+                description: "Process ID of the running app.",
+            },
+            ToolParam {
+                name: "window_id",
+                kind: "integer",
+                required: true,
+                description: "Window ID from list_windows or get_desktop_state.",
+            },
+            ToolParam {
+                name: "max_elements",
+                kind: "integer",
+                required: false,
+                description: "Maximum accessible elements to return, at most 128.",
+            },
+            ToolParam {
+                name: "include_screenshot",
+                kind: "boolean",
+                required: false,
+                description: "Save a screenshot as a private PNG file and return its path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "get_desktop_state",
+        description: "List running apps and on-screen windows, optionally with a screenshot of the main display.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "include_screenshot",
+                kind: "boolean",
+                required: false,
+                description: "Save a screenshot as a private PNG file and return its path.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "verify_state",
+        description: "Fresh read of a window: elements whose title or value contains text. Issues no tokens.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "pid",
+                kind: "integer",
+                required: true,
+                description: "Process ID of the running app.",
+            },
+            ToolParam {
+                name: "window_id",
+                kind: "integer",
+                required: true,
+                description: "Window ID from list_windows or get_desktop_state.",
+            },
+            ToolParam {
+                name: "text",
+                kind: "string",
+                required: true,
+                description: "Text to find in element titles or values.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "zoom",
+        description: "Sharper image of a region of the observed window, in window points.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "observation",
+                kind: "string",
+                required: true,
+                description: "Observation ID from a fresh get_window_state screenshot.",
+            },
+            ToolParam {
+                name: "x",
+                kind: "number",
+                required: true,
+                description: "Region x in window points.",
+            },
+            ToolParam {
+                name: "y",
+                kind: "number",
+                required: true,
+                description: "Region y in window points.",
+            },
+            ToolParam {
+                name: "width",
+                kind: "number",
+                required: true,
+                description: "Region width in window points.",
+            },
+            ToolParam {
+                name: "height",
+                kind: "number",
+                required: true,
+                description: "Region height in window points.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "click",
+        description: "Press an accessible element by its fresh element token.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: true,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "double_click",
+        description: "Double-click an element token, or a point in a fresh screenshot observation.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: false,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+            ToolParam {
+                name: "observation",
+                kind: "string",
+                required: false,
+                description: "Observation ID from a fresh get_window_state screenshot.",
+            },
+            ToolParam {
+                name: "x",
+                kind: "number",
+                required: false,
+                description: "Point x in window points.",
+            },
+            ToolParam {
+                name: "y",
+                kind: "number",
+                required: false,
+                description: "Point y in window points.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "right_click",
+        description: "Right-click an element token, or a point in a fresh screenshot observation.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: false,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+            ToolParam {
+                name: "observation",
+                kind: "string",
+                required: false,
+                description: "Observation ID from a fresh get_window_state screenshot.",
+            },
+            ToolParam {
+                name: "x",
+                kind: "number",
+                required: false,
+                description: "Point x in window points.",
+            },
+            ToolParam {
+                name: "y",
+                kind: "number",
+                required: false,
+                description: "Point y in window points.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "set_value",
+        description: "Set the text of an accessible element by its fresh element token.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: true,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+            ToolParam {
+                name: "text",
+                kind: "string",
+                required: true,
+                description: "Text to set.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "type_text",
+        description: "Type text into the focused element of the foreground app.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: true,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+            ToolParam {
+                name: "text",
+                kind: "string",
+                required: true,
+                description: "Text to type.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "press_key",
+        description: "Press a key on the focused element of the foreground app.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: true,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+            ToolParam {
+                name: "key",
+                kind: "string",
+                required: true,
+                description: "Key to press: enter, escape, tab, backspace, left, right, up, or down.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "hotkey",
+        description: "Send a modifier chord to the focused element of the foreground app, for example cmd shift t.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: true,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+            ToolParam {
+                name: "keys",
+                kind: "array",
+                required: true,
+                description: "Modifiers then one key, for example cmd shift t.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "scroll",
+        description: "Scroll at an element token, or a point in a fresh screenshot observation.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "element_token",
+                kind: "string",
+                required: false,
+                description: "Element token from a fresh get_window_state observation.",
+            },
+            ToolParam {
+                name: "observation",
+                kind: "string",
+                required: false,
+                description: "Observation ID from a fresh get_window_state screenshot.",
+            },
+            ToolParam {
+                name: "x",
+                kind: "number",
+                required: false,
+                description: "Point x in window points.",
+            },
+            ToolParam {
+                name: "y",
+                kind: "number",
+                required: false,
+                description: "Point y in window points.",
+            },
+            ToolParam {
+                name: "direction",
+                kind: "string",
+                required: true,
+                description: "Scroll direction: up, down, left, or right.",
+            },
+            ToolParam {
+                name: "amount",
+                kind: "integer",
+                required: false,
+                description: "Scroll amount, 1 to 50. Defaults to 3.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "drag",
+        description: "Drag between two points of a fresh screenshot observation.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "observation",
+                kind: "string",
+                required: true,
+                description: "Observation ID from a fresh get_window_state screenshot.",
+            },
+            ToolParam {
+                name: "from_x",
+                kind: "number",
+                required: true,
+                description: "Start x in window points.",
+            },
+            ToolParam {
+                name: "from_y",
+                kind: "number",
+                required: true,
+                description: "Start y in window points.",
+            },
+            ToolParam {
+                name: "to_x",
+                kind: "number",
+                required: true,
+                description: "End x in window points.",
+            },
+            ToolParam {
+                name: "to_y",
+                kind: "number",
+                required: true,
+                description: "End y in window points.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "move_cursor",
+        description: "Move the cursor to a point in a fresh screenshot observation.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "observation",
+                kind: "string",
+                required: true,
+                description: "Observation ID from a fresh get_window_state screenshot.",
+            },
+            ToolParam {
+                name: "x",
+                kind: "number",
+                required: true,
+                description: "Point x in window points.",
+            },
+            ToolParam {
+                name: "y",
+                kind: "number",
+                required: true,
+                description: "Point y in window points.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "click_point",
+        description: "Click a point in a fresh screenshot observation of the foreground window.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "observation",
+                kind: "string",
+                required: true,
+                description: "Observation ID from a fresh get_window_state screenshot.",
+            },
+            ToolParam {
+                name: "x",
+                kind: "number",
+                required: true,
+                description: "Point x in window points.",
+            },
+            ToolParam {
+                name: "y",
+                kind: "number",
+                required: true,
+                description: "Point y in window points.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "invoke_menu",
+        description: "Run a menu bar path of a running app, for example File New Window.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "pid",
+                kind: "integer",
+                required: true,
+                description: "Process ID of the running app.",
+            },
+            ToolParam {
+                name: "path",
+                kind: "array",
+                required: true,
+                description: "Menu path, for example File New Window.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "launch_app",
+        description: "Launch an app by bundle ID.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "bundle_id",
+                kind: "string",
+                required: true,
+                description: "App bundle ID, for example com.apple.TextEdit.",
+            },
+        ],
+    },
+    ToolDef {
+        name: "set_window_frame",
+        description: "Move and resize a window, in screen points.",
+        action: "computer_use.request",
+        channel: "engine",
+        params: &[
+            P_THREAD_ID,
+            ToolParam {
+                name: "pid",
+                kind: "integer",
+                required: true,
+                description: "Process ID of the running app.",
+            },
+            ToolParam {
+                name: "window_id",
+                kind: "integer",
+                required: true,
+                description: "Window ID from list_windows or get_desktop_state.",
+            },
+            ToolParam {
+                name: "x",
+                kind: "number",
+                required: true,
+                description: "Frame x in screen points.",
+            },
+            ToolParam {
+                name: "y",
+                kind: "number",
+                required: true,
+                description: "Frame y in screen points.",
+            },
+            ToolParam {
+                name: "width",
+                kind: "number",
+                required: true,
+                description: "Frame width in screen points.",
+            },
+            ToolParam {
+                name: "height",
+                kind: "number",
+                required: true,
+                description: "Frame height in screen points.",
+            },
+        ],
+    },
 ];
 
 pub fn definition(name: &str) -> Option<&'static ToolDef> {
@@ -759,6 +1279,7 @@ pub fn input_schema(def: &ToolDef) -> Value {
     for param in def.params {
         let schema = match param.kind {
             "integer" => json!({"type": "integer"}),
+            "number" => json!({"type": "number"}),
             "boolean" => json!({"type": "boolean"}),
             "array" => json!({"type": "array"}),
             _ => json!({"type": "string"}),
@@ -948,6 +1469,67 @@ fn run_git_actions_operation(
     }
     let operation_id = start_git_operation(state, method, start_params)?;
     poll_git_actions_result(state, &operation_id, thread_id, timeout_seconds)
+}
+
+fn poll_computer_use_result(
+    state: &crate::ServerState,
+    operation_id: &str,
+    thread_id: &str,
+) -> Result<Value, CallError> {
+    for _ in 0..60 {
+        let polled = engine_request(
+            state,
+            "computer_use.result",
+            json!({"operationId": operation_id, "threadId": thread_id}),
+        )?;
+        if polled["ready"] == true {
+            if let Some(error) = polled["error"].as_str() {
+                return Err(failed(format!("Computer Use failed: {error}")));
+            }
+            return Ok(polled["result"].clone());
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    Err(failed("Computer Use operation did not finish in time."))
+}
+
+fn run_computer_use_operation(
+    state: &crate::ServerState,
+    name: &str,
+    args: &Value,
+) -> Result<Value, CallError> {
+    let def = definition(name)
+        .context("Unknown Computer Use tool")
+        .map_err(|error| failed(error.to_string()))?;
+    let thread_id = req_str(args, "threadId", name)?;
+    let mut arguments = serde_json::Map::new();
+    for param in def.params {
+        if param.name == "threadId" {
+            continue;
+        }
+        match args.get(param.name) {
+            Some(value) => {
+                arguments.insert(param.name.to_owned(), value.clone());
+            }
+            None if param.required => {
+                return Err(failed(format!(
+                    "Computer Use tool {name} is missing required argument {}",
+                    param.name
+                )));
+            }
+            None => {}
+        }
+    }
+    let started = engine_request(
+        state,
+        "computer_use.request",
+        json!({"threadId": thread_id, "request": {"action": "call", "name": name, "arguments": arguments}}),
+    )?;
+    let operation_id = started["operationId"]
+        .as_str()
+        .context("Computer Use request did not return an operationId")
+        .map_err(|error| failed(error.to_string()))?;
+    poll_computer_use_result(state, operation_id, &thread_id)
 }
 
 fn run_terminal_command(
@@ -1178,6 +1760,12 @@ pub fn call(
             engine_request(state, method, args)
         }
         "intel_breakdown_task" => engine_request(state, "workers.breakdown", args),
+        "list_apps" | "list_windows" | "get_window_state" | "get_desktop_state"
+        | "verify_state" | "zoom" | "click" | "double_click" | "right_click" | "set_value"
+        | "type_text" | "press_key" | "hotkey" | "scroll" | "drag" | "move_cursor"
+        | "click_point" | "invoke_menu" | "launch_app" | "set_window_frame" => {
+            run_computer_use_operation(state, name, &args)
+        }
         _ => Err(CallError::UnknownTool(name.to_owned())),
     }
 }
@@ -1296,7 +1884,7 @@ mod tests {
     #[test]
     fn tool_table_matches_swift_registry() {
         let swift = parse_swift_registry();
-        assert_eq!(swift.len(), 41, "Swift registry must hold 41 tools");
+        assert_eq!(swift.len(), 61, "Swift registry must hold 61 tools");
         assert_eq!(DEFINITIONS.len(), swift.len(), "MCP tool count must match Swift");
         for (def, expected) in DEFINITIONS.iter().zip(swift.iter()) {
             assert_eq!(def.name, expected.name, "tool name");

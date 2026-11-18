@@ -36,6 +36,7 @@ public struct SettingsRootView: View {
                 sidebarRow(for: .models, tint: .purple)
                 sidebarRow(for: .instructions, tint: .orange)
                 sidebarRow(for: .memory, tint: .teal)
+                sidebarRow(for: .computerUse, tint: .brown)
             }
 
             Section("Telemetry & System") {
@@ -109,6 +110,8 @@ public struct SettingsRootView: View {
             InstructionsSettingsPane(appModel: appModel)
         case .memory:
             MemorySettingsPane(appModel: appModel)
+        case .computerUse:
+            ComputerUseSettingsPane(appModel: appModel)
         case .usage:
             UsageSettingsPane(appModel: appModel)
         case .voice:

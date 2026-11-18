@@ -86,7 +86,7 @@ targets:
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         SWIFT_INCLUDE_PATHS: "$(PROJECT_DIR)/Rust Backend/crates/coincide-macos-ffi/include"
         LIBRARY_SEARCH_PATHS: "$(PROJECT_DIR)/Rust Backend/target/release"
-        OTHER_LDFLAGS: "-lcoincide_macos_ffi -framework Security -framework SystemConfiguration -framework CoreFoundation -framework IOKit -lproc -lc++ -liconv -lresolv"
+        OTHER_LDFLAGS: "-lcoincide_macos_ffi -framework Security -framework SystemConfiguration -framework CoreFoundation -framework IOKit -framework ApplicationServices -framework CoreGraphics -framework AppKit -framework Foundation -weak_framework ScreenCaptureKit -lproc -lc++ -liconv -lresolv"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
 
   AgentsTests:

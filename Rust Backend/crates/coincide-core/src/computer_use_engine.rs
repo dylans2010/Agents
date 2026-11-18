@@ -134,6 +134,14 @@ impl Engine {
         self.revision += 1;
         Ok(())
     }
+    pub(super) fn computer_use_screenshots_command(&mut self, params: &Value) -> Result<Value> {
+        let thread = Uuid::parse_str(required(params, "threadId")?)
+            .context("Invalid Computer Use thread ID")?;
+        self.store
+            .resolve_thread_id(thread)?
+            .context("Computer Use thread not found")?;
+        Ok(json!({"threadId": thread, "screenshots": self.computer_use.screenshots.list(thread)}))
+    }
     /// Trusted provider transport entry point. The context must come from the
     /// session/transport owner; it must never be derived from JSON parameters.
     /// Only this narrow tool bridge is accepted on the scoped provider channel.
@@ -572,6 +580,40 @@ mod tests {
         assert!(e.computer_use_saved_enabled().unwrap());
         e.computer_use_save_enabled(false).unwrap();
         assert!(!e.computer_use_saved_enabled().unwrap());
+    }
+    #[test]
+    fn screenshots_list_reports_filed_shots_for_a_real_thread_only() {
+        use base64::Engine as _;
+        let (_dir, mut e, a, _) = fixture();
+        let thread = Uuid::parse_str(&a).unwrap();
+        assert_eq!(
+            e.computer_use_screenshots_command(&json!({"threadId": a})).unwrap()["screenshots"],
+            json!([])
+        );
+        assert!(
+            e.computer_use_screenshots_command(
+                &json!({"threadId": Uuid::new_v4().to_string()})
+            )
+            .is_err()
+        );
+        let id = admit(&mut e, &a);
+        e.computer_use_drain();
+        let bytes = crate::appshots::encode_rgba(1, 1, vec![0; 4]).unwrap();
+        let data = base64::engine::general_purpose::STANDARD.encode(bytes);
+        assert!(e.computer_use_reply(
+            id,
+            thread,
+            Ok(json!({"screenshot": {"encoding": "png_base64", "data": data, "width": 1, "height": 1}}))
+        ));
+        let listed = e
+            .computer_use_screenshots_command(&json!({"threadId": a}))
+            .unwrap();
+        let shots = listed["screenshots"].as_array().unwrap();
+        assert_eq!(shots.len(), 1);
+        let path = shots[0]["path"].as_str().unwrap();
+        assert!(path.ends_with(".png"));
+        assert!(std::path::Path::new(path).exists());
+        assert_eq!(listed["threadId"], a);
     }
     #[test]
     fn replies_and_collection_require_exact_operation_and_thread() {

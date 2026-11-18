@@ -654,6 +654,9 @@ impl Engine {
         if computer_use_engine::METHODS.contains(&method) {
             return self.computer_use_command(method, p, None);
         }
+        if method == "computer_use.screenshots" {
+            return self.computer_use_screenshots_command(p);
+        }
         if github_threads_engine::METHODS.contains(&method) {
             return self.github_threads_command(method, p);
         }
@@ -949,6 +952,7 @@ impl Engine {
                 ]);
                 methods.extend_from_slice(project_management_api::METHODS);
                 methods.extend_from_slice(computer_use_engine::METHODS);
+                methods.push("computer_use.screenshots");
                 methods.extend_from_slice(workspace_api::METHODS);
                 methods.extend_from_slice(git_actions_api::METHODS);
                 methods.extend_from_slice(checkpoint_api::METHODS);

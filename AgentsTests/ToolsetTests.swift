@@ -66,7 +66,7 @@ struct ToolsetTests {
     @Test("System Tools registry holds only verified core actions")
     func systemRegistryHoldsVerifiedActions() {
         let tools = SystemToolRegistry.tools(for: .system)
-        #expect(tools.count == 41)
+        #expect(tools.count == 61)
         #expect(Set(tools.map(\.name)).count == tools.count)
         let actions = Set(tools.map(\.action))
         #expect(actions == [
@@ -81,6 +81,7 @@ struct ToolsetTests {
             "memory.clear", "memory.snapshot", "memory.context_store",
             "workers.spawn", "workers.list", "workers.status", "workers.result",
             "workers.cancel", "workers.plan", "workers.breakdown", "workers.execution_plan",
+            "computer_use.request",
         ])
         #expect(tools.allSatisfy { !$0.parameters.isEmpty })
         #expect(tools.allSatisfy { $0.parameters.contains { $0.required } })
@@ -301,6 +302,73 @@ struct ToolsetTests {
         #expect(message.contains("opencode"))
         #expect(message.contains("Codex"))
         #expect(message.contains("Claude"))
+    }
+
+    @Test("Computer Use tools register with the real engine action")
+    func computerUseToolsRegister() {
+        let expected: [String] = [
+            "list_apps", "list_windows", "get_window_state", "get_desktop_state",
+            "verify_state", "zoom", "click", "double_click", "right_click", "set_value",
+            "type_text", "press_key", "hotkey", "scroll", "drag", "move_cursor",
+            "click_point", "invoke_menu", "launch_app", "set_window_frame",
+        ]
+        for name in expected {
+            guard let definition = SystemToolRegistry.definition(named: name, for: .system) else {
+                Issue.record("Missing system tool \(name)")
+                continue
+            }
+            #expect(definition.action == "computer_use.request")
+            #expect(definition.channel == .engine)
+            #expect(definition.parameters.first { $0.name == "threadId" }?.required == true)
+            #expect(definition.parameters.first { $0.name == "threadId" }?.type == "string")
+            #expect(definition.parameters.contains { $0.required })
+        }
+        #expect(SystemToolRegistry.definition(named: "click", for: .system)?.parameters.map(\.name).contains("element_token") == true)
+        #expect(SystemToolRegistry.definition(named: "click", for: .system)?.parameters.first { $0.name == "element_token" }?.required == true)
+        #expect(SystemToolRegistry.definition(named: "get_window_state", for: .system)?.parameters.first { $0.name == "pid" }?.required == true)
+        #expect(SystemToolRegistry.definition(named: "get_window_state", for: .system)?.parameters.first { $0.name == "window_id" }?.required == true)
+        #expect(SystemToolRegistry.definition(named: "launch_app", for: .system)?.parameters.first { $0.name == "bundle_id" }?.required == true)
+        #expect(SystemToolRegistry.definition(named: "take_screenrecord", for: .system) == nil)
+        #expect(SystemToolRegistry.definition(named: "take_screenshot", for: .system) == nil)
+        #expect(SystemToolRegistry.definition(named: "use_app", for: .system) == nil)
+    }
+
+    @Test("Computer Use tools refuse missing arguments before any runtime call")
+    func computerUseMissingArgumentRefused() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let cases: [(String, [String: JSONValue], String)] = [
+            ("click", ["threadId": .string("t")], "element_token"),
+            ("get_window_state", ["threadId": .string("t"), "window_id": .int(1)], "pid"),
+            ("get_window_state", ["threadId": .string("t"), "pid": .int(1)], "window_id"),
+            ("launch_app", ["threadId": .string("t")], "bundle_id"),
+            ("scroll", ["threadId": .string("t")], "direction"),
+            ("invoke_menu", ["threadId": .string("t"), "pid": .int(1)], "path"),
+        ]
+        for (tool, arguments, missing) in cases {
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    tool, arguments: arguments, toolset: .system, runtime: client
+                )
+                Issue.record("Expected missingArgument error for \(tool)")
+            } catch let error as SystemToolError {
+                #expect(error == .missingArgument(tool: tool, argument: missing))
+            } catch {
+                Issue.record("Unexpected error for \(tool): \(error)")
+            }
+        }
+        do {
+            _ = try await SystemToolRegistry.execute(
+                "click", arguments: ["threadId": .string("t"), "element_token": .string("x")],
+                toolset: .provider, runtime: client
+            )
+            Issue.record("Expected toolNotActive error")
+        } catch let error as SystemToolError {
+            #expect(error == .toolNotActive(tool: "click", toolset: .provider))
+        } catch {
+            Issue.record("Unexpected error \(error)")
+        }
+        await client.close()
     }
 
     @Test("System prompt built for a thread fits the 64 KiB instruction cap")

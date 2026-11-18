@@ -484,6 +484,243 @@ public nonisolated enum SystemToolRegistry {
                 SystemToolParameter(name: "mode", type: "string", required: true, description: "Plan mode, for example build."),
             ]
         ),
+        SystemToolDefinition(
+            name: "list_apps",
+            description: "List running apps on this computer.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "list_windows",
+            description: "List on-screen windows, optionally for one app.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "pid", type: "integer", required: false, description: "Process ID of the running app."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "get_window_state",
+            description: "Observe one window: its accessible elements as fresh element tokens, optionally with a screenshot saved as a private PNG file.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "pid", type: "integer", required: true, description: "Process ID of the running app."),
+                SystemToolParameter(name: "window_id", type: "integer", required: true, description: "Window ID from list_windows or get_desktop_state."),
+                SystemToolParameter(name: "max_elements", type: "integer", required: false, description: "Maximum accessible elements to return, at most 128."),
+                SystemToolParameter(name: "include_screenshot", type: "boolean", required: false, description: "Save a screenshot as a private PNG file and return its path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "get_desktop_state",
+            description: "List running apps and on-screen windows, optionally with a screenshot of the main display.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "include_screenshot", type: "boolean", required: false, description: "Save a screenshot as a private PNG file and return its path."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "verify_state",
+            description: "Fresh read of a window: elements whose title or value contains text. Issues no tokens.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "pid", type: "integer", required: true, description: "Process ID of the running app."),
+                SystemToolParameter(name: "window_id", type: "integer", required: true, description: "Window ID from list_windows or get_desktop_state."),
+                SystemToolParameter(name: "text", type: "string", required: true, description: "Text to find in element titles or values."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "zoom",
+            description: "Sharper image of a region of the observed window, in window points.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "observation", type: "string", required: true, description: "Observation ID from a fresh get_window_state screenshot."),
+                SystemToolParameter(name: "x", type: "number", required: true, description: "Region x in window points."),
+                SystemToolParameter(name: "y", type: "number", required: true, description: "Region y in window points."),
+                SystemToolParameter(name: "width", type: "number", required: true, description: "Region width in window points."),
+                SystemToolParameter(name: "height", type: "number", required: true, description: "Region height in window points."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "click",
+            description: "Press an accessible element by its fresh element token.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "double_click",
+            description: "Double-click an element token, or a point in a fresh screenshot observation.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "element_token", type: "string", required: false, description: "Element token from a fresh get_window_state observation."),
+                SystemToolParameter(name: "observation", type: "string", required: false, description: "Observation ID from a fresh get_window_state screenshot."),
+                SystemToolParameter(name: "x", type: "number", required: false, description: "Point x in window points."),
+                SystemToolParameter(name: "y", type: "number", required: false, description: "Point y in window points."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "right_click",
+            description: "Right-click an element token, or a point in a fresh screenshot observation.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "element_token", type: "string", required: false, description: "Element token from a fresh get_window_state observation."),
+                SystemToolParameter(name: "observation", type: "string", required: false, description: "Observation ID from a fresh get_window_state screenshot."),
+                SystemToolParameter(name: "x", type: "number", required: false, description: "Point x in window points."),
+                SystemToolParameter(name: "y", type: "number", required: false, description: "Point y in window points."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "set_value",
+            description: "Set the text of an accessible element by its fresh element token.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
+                SystemToolParameter(name: "text", type: "string", required: true, description: "Text to set."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "type_text",
+            description: "Type text into the focused element of the foreground app.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
+                SystemToolParameter(name: "text", type: "string", required: true, description: "Text to type."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "press_key",
+            description: "Press a key on the focused element of the foreground app.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
+                SystemToolParameter(name: "key", type: "string", required: true, description: "Key to press: enter, escape, tab, backspace, left, right, up, or down."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "hotkey",
+            description: "Send a modifier chord to the focused element of the foreground app, for example cmd shift t.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "element_token", type: "string", required: true, description: "Element token from a fresh get_window_state observation."),
+                SystemToolParameter(name: "keys", type: "array", required: true, description: "Modifiers then one key, for example cmd shift t."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "scroll",
+            description: "Scroll at an element token, or a point in a fresh screenshot observation.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "element_token", type: "string", required: false, description: "Element token from a fresh get_window_state observation."),
+                SystemToolParameter(name: "observation", type: "string", required: false, description: "Observation ID from a fresh get_window_state screenshot."),
+                SystemToolParameter(name: "x", type: "number", required: false, description: "Point x in window points."),
+                SystemToolParameter(name: "y", type: "number", required: false, description: "Point y in window points."),
+                SystemToolParameter(name: "direction", type: "string", required: true, description: "Scroll direction: up, down, left, or right."),
+                SystemToolParameter(name: "amount", type: "integer", required: false, description: "Scroll amount, 1 to 50. Defaults to 3."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "drag",
+            description: "Drag between two points of a fresh screenshot observation.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "observation", type: "string", required: true, description: "Observation ID from a fresh get_window_state screenshot."),
+                SystemToolParameter(name: "from_x", type: "number", required: true, description: "Start x in window points."),
+                SystemToolParameter(name: "from_y", type: "number", required: true, description: "Start y in window points."),
+                SystemToolParameter(name: "to_x", type: "number", required: true, description: "End x in window points."),
+                SystemToolParameter(name: "to_y", type: "number", required: true, description: "End y in window points."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "move_cursor",
+            description: "Move the cursor to a point in a fresh screenshot observation.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "observation", type: "string", required: true, description: "Observation ID from a fresh get_window_state screenshot."),
+                SystemToolParameter(name: "x", type: "number", required: true, description: "Point x in window points."),
+                SystemToolParameter(name: "y", type: "number", required: true, description: "Point y in window points."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "click_point",
+            description: "Click a point in a fresh screenshot observation of the foreground window.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "observation", type: "string", required: true, description: "Observation ID from a fresh get_window_state screenshot."),
+                SystemToolParameter(name: "x", type: "number", required: true, description: "Point x in window points."),
+                SystemToolParameter(name: "y", type: "number", required: true, description: "Point y in window points."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "invoke_menu",
+            description: "Run a menu bar path of a running app, for example File New Window.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "pid", type: "integer", required: true, description: "Process ID of the running app."),
+                SystemToolParameter(name: "path", type: "array", required: true, description: "Menu path, for example File New Window."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "launch_app",
+            description: "Launch an app by bundle ID.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "bundle_id", type: "string", required: true, description: "App bundle ID, for example com.apple.TextEdit."),
+            ]
+        ),
+        SystemToolDefinition(
+            name: "set_window_frame",
+            description: "Move and resize a window, in screen points.",
+            action: "computer_use.request",
+            channel: .engine,
+            parameters: [
+                SystemToolParameter(name: "threadId", type: "string", required: true, description: "Owning thread ID."),
+                SystemToolParameter(name: "pid", type: "integer", required: true, description: "Process ID of the running app."),
+                SystemToolParameter(name: "window_id", type: "integer", required: true, description: "Window ID from list_windows or get_desktop_state."),
+                SystemToolParameter(name: "x", type: "number", required: true, description: "Frame x in screen points."),
+                SystemToolParameter(name: "y", type: "number", required: true, description: "Frame y in screen points."),
+                SystemToolParameter(name: "width", type: "number", required: true, description: "Frame width in screen points."),
+                SystemToolParameter(name: "height", type: "number", required: true, description: "Frame height in screen points."),
+            ]
+        ),
     ]
 
     public static func tools(for toolset: AgentToolset) -> [SystemToolDefinition] {
@@ -769,6 +1006,13 @@ public nonisolated enum SystemToolRegistry {
             let objective = try requiredString(arguments, "objective", tool: name)
             let mode = try requiredString(arguments, "mode", tool: name)
             return try await runtime.executionPlan(parentThreadId: parentThreadId, objective: objective, mode: mode)
+        case "list_apps", "list_windows", "get_window_state", "get_desktop_state",
+             "verify_state", "zoom", "click", "double_click", "right_click", "set_value",
+             "type_text", "press_key", "hotkey", "scroll", "drag", "move_cursor",
+             "click_point", "invoke_menu", "launch_app", "set_window_frame":
+            let threadId = try requiredString(arguments, "threadId", tool: name)
+            let toolArguments = try Self.computerUseArguments(arguments, definition: definition, tool: name)
+            return try await runComputerUseTool(tool: name, threadId: threadId, arguments: toolArguments, runtime: runtime)
         default:
             throw SystemToolError.unknownTool(name)
         }
@@ -813,6 +1057,86 @@ public nonisolated enum SystemToolRegistry {
             ])
         }
         return .object(object)
+    }
+
+    private static func computerUseArguments(
+        _ arguments: [String: JSONValue],
+        definition: SystemToolDefinition,
+        tool: String
+    ) throws -> [String: JSONValue] {
+        var toolArguments: [String: JSONValue] = [:]
+        for parameter in definition.parameters {
+            if parameter.name == "threadId" {
+                continue
+            }
+            guard let value = arguments[parameter.name] else {
+                if parameter.required {
+                    throw SystemToolError.missingArgument(tool: tool, argument: parameter.name)
+                }
+                continue
+            }
+            let present: Bool
+            switch parameter.type {
+            case "string":
+                present = value.stringValue.map { !$0.isEmpty } ?? false
+            case "integer":
+                present = value.intValue != nil
+            case "number":
+                present = value.doubleValue != nil
+            case "boolean":
+                present = value.boolValue != nil
+            case "array":
+                present = value.arrayValue != nil
+            default:
+                present = true
+            }
+            guard present || !parameter.required else {
+                throw SystemToolError.missingArgument(tool: tool, argument: parameter.name)
+            }
+            if present {
+                toolArguments[parameter.name] = value
+            }
+        }
+        return toolArguments
+    }
+
+    private static func runComputerUseTool(
+        tool: String,
+        threadId: String,
+        arguments: [String: JSONValue],
+        runtime: AgentsRuntimeClient
+    ) async throws -> JSONValue {
+        let started = try await runtime.engineRPC(
+            method: "computer_use.request",
+            params: [
+                "threadId": .string(threadId),
+                "request": .object([
+                    "action": .string("call"),
+                    "name": .string(tool),
+                    "arguments": .object(arguments),
+                ]),
+            ]
+        )
+        guard let operationId = started["operationId"]?.stringValue else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Computer Use request did not return an operationId.")
+        }
+        for _ in 0..<60 {
+            let polled = try await runtime.engineRPC(
+                method: "computer_use.result",
+                params: [
+                    "threadId": .string(threadId),
+                    "operationId": .string(operationId),
+                ]
+            )
+            if polled["ready"]?.boolValue == true {
+                if let error = polled["error"]?.stringValue {
+                    throw SystemToolError.executionFailed(tool: tool, message: "Computer Use failed: \(error)")
+                }
+                return polled["result"] ?? .null
+            }
+            try await Task.sleep(for: .milliseconds(250))
+        }
+        throw SystemToolError.operationTimeout(tool: tool)
     }
 
     private static func runGitOperation(

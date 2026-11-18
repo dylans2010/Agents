@@ -98,6 +98,7 @@ public final class AppModel {
     public var usageLimits: [RemoteUsage] = []
 
     public let voiceDictation = VoiceDictationController()
+    public let computerUse = ComputerUseController()
     public let systemAssets = SystemAssetManager.shared
     public var externalEditors: ExternalEditorService { ExternalEditorService.shared }
 
@@ -139,6 +140,7 @@ public final class AppModel {
         ) ?? .system
         self.agentToolset = AgentToolset.load(from: defaults)
         self.selectedThreadID = defaults.string(forKey: Self.selectedThreadDefaultsKey)
+        self.computerUse.runtimeProvider = { [weak self] in self?.runtime }
     }
 
     // MARK: - Computed Workspace Helpers
@@ -827,7 +829,7 @@ public final class AppModel {
             await refreshGitState()
         case .schedules:
             await refreshScheduledTasks()
-        case .pullRequests, .files, .workers:
+        case .pullRequests, .files, .workers, .computerUse:
             break
         }
     }

@@ -1925,6 +1925,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
     case files
     case schedules
     case workers
+    case computerUse
 
     public var id: String { rawValue }
 
@@ -1936,6 +1937,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
         case .files: "Files"
         case .schedules: "Schedules"
         case .workers: "Workers"
+        case .computerUse: "Computer Use"
         }
     }
 
@@ -1947,6 +1949,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
         case .files: "folder"
         case .schedules: "calendar.badge.clock"
         case .workers: "person.2"
+        case .computerUse: "cursorarrow"
         }
     }
 }
@@ -1961,6 +1964,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
     case usage
     case voice
     case remote
+    case computerUse
     case about
 
     public var id: String { rawValue }
@@ -1976,6 +1980,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
         case .usage: "Usage"
         case .voice: "Voice"
         case .remote: "Remote"
+        case .computerUse: "Computer Use"
         case .about: "About"
         }
     }
@@ -1991,6 +1996,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
         case .usage: "chart.bar.xaxis"
         case .voice: "waveform.and.mic"
         case .remote: "iphone.radiowaves.left.and.right"
+        case .computerUse: "cursorarrow"
         case .about: "info.circle"
         }
     }

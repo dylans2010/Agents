@@ -9,6 +9,7 @@ Reconstruction of Coincide as the native macOS app Agents: SwiftUI + AppKit UI o
 - Native macOS app in `Agents/` with `AgentsTests/`; the Windows app (`windows/`), website (`website/`), Discord bot (`discord/`), and npm installer (`npm/`) are removed.
 - System Assets imported from `dylans2010/Qwen-Code` at pinned revision `ac20a141`, indexed and retrieved by `SystemAssetManager`.
 - System Toolset setting (System Tools by default, Provider Tools as the alternative) with a per-thread system prompt delivered to Codex and Claude only.
+- Computer Use wired into the Swift app for real: the 20-tool engine catalog (observe, click, type, launch, move/resize) executes through the real engine dispatch via the FFI pump and the native macOS executor, with a Settings › Computer Use pane (enable switch, Accessibility/Screen Recording permissions) and an Inspector › Computer Use tab (run-a-tool form, real screenshots, action history). Screen recording is not available: the engine has no recording tool.
 - CI path filters, sparse checkouts, and cargo working directories updated to the `Rust Backend/` layout; workflows for the deleted website, Discord bot, and Windows app removed.
 
 ## 0.1.0

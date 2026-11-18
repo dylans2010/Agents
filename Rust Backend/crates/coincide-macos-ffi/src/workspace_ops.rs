@@ -8,6 +8,7 @@ use base64::Engine as _;
 use chrono::{TimeZone, Utc};
 use coincide_core::{
     attachments,
+    computer_use::PermissionKind,
     native_file,
     project_scripts::{self, ScriptDraft, ScriptIcon},
     remote::{
@@ -98,6 +99,13 @@ pub fn dispatch_desktop_action(runtime: &CoincideMacOSRuntime, raw_json: &str) -
         "workers.plan" => workers_plan(runtime, &params),
         "workers.breakdown" => workers_breakdown(runtime, &params),
         "workers.execution_plan" => workers_execution_plan(runtime, &params),
+        "computer_use.status" => computer_use_status(runtime),
+        "computer_use.set_enabled" => computer_use_set_enabled(runtime, &params),
+        "computer_use.request_permission" => computer_use_request_permission(runtime, &params),
+        "computer_use.refresh" => computer_use_refresh(runtime),
+        "computer_use.request" => computer_use_request(runtime, &params),
+        "computer_use.result" => computer_use_result(runtime, &params),
+        "computer_use.screenshots" => computer_use_screenshots(runtime, &params),
         "instructions.list" => instructions_list(runtime, &params),
         "instructions.read" => instructions_read(runtime, &params),
         "instructions.save" => instructions_save(runtime, &params),
@@ -214,6 +222,67 @@ fn dispatch_engine_method(
         );
     }
     Ok(response.get("result").cloned().unwrap_or(Value::Null))
+}
+
+fn computer_use_status(runtime: &CoincideMacOSRuntime) -> Result<Value> {
+    Ok(runtime.computer_use.status(&runtime.engine))
+}
+
+fn computer_use_set_enabled(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let enabled = params
+        .get("enabled")
+        .and_then(Value::as_bool)
+        .context("computer_use.set_enabled requires an 'enabled' boolean")?;
+    runtime
+        .computer_use
+        .set_enabled(enabled)
+        .map_err(|error| anyhow::anyhow!("Computer Use could not be turned on or off: {error:?}"))?;
+    Ok(runtime.computer_use.status(&runtime.engine))
+}
+
+fn computer_use_request_permission(
+    runtime: &CoincideMacOSRuntime,
+    params: &Value,
+) -> Result<Value> {
+    let kind = match params.get("kind").and_then(Value::as_str) {
+        None => None,
+        Some("accessibility") => Some(PermissionKind::Accessibility),
+        Some("screen_capture") => Some(PermissionKind::ScreenCapture),
+        Some(other) => bail!("Unknown Computer Use permission kind '{other}'"),
+    };
+    runtime
+        .computer_use
+        .request_permission(kind)
+        .map_err(|error| anyhow::anyhow!("Computer Use permission request failed: {error:?}"))?;
+    Ok(runtime.computer_use.status(&runtime.engine))
+}
+
+fn computer_use_refresh(runtime: &CoincideMacOSRuntime) -> Result<Value> {
+    runtime
+        .computer_use
+        .request_permission(None)
+        .map_err(|error| anyhow::anyhow!("Computer Use permission refresh failed: {error:?}"))?;
+    Ok(runtime.computer_use.status(&runtime.engine))
+}
+
+fn computer_use_request(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let _thread = req_str(params, &["threadId", "thread_id"], "threadId")?;
+    ensure!(
+        params.get("request").is_some(),
+        "computer_use.request requires a 'request' object"
+    );
+    dispatch_engine_method(runtime, "computer_use.request", params.clone())
+}
+
+fn computer_use_result(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let _thread = req_str(params, &["threadId", "thread_id"], "threadId")?;
+    let _operation = req_str(params, &["operationId", "operation_id"], "operationId")?;
+    dispatch_engine_method(runtime, "computer_use.result", params.clone())
+}
+
+fn computer_use_screenshots(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let _thread = req_str(params, &["threadId", "thread_id"], "threadId")?;
+    dispatch_engine_method(runtime, "computer_use.screenshots", params.clone())
 }
 
 fn terminal_viewport(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
