@@ -685,6 +685,19 @@ where it lives.
 - **`lastUsedAt` and `isFavorite` are stored but never written.**
   Any UI that sorts by "recently used" or shows favorites would
   read empty data until a launch path starts writing them.
+- **Change-ledger `.empty` is unreachable while pre-existing
+  untracked files exist.** `AssistantChangeLedger.finishRun`
+  judges the post-run diff against the pre-run snapshot, not the
+  post-run state: if the snapshot contains any untracked (`??`)
+  file, an otherwise-empty diff reports `.unavailable`
+  ("Untracked files were present before the run and the post-run
+  diff came back empty, so an empty result cannot be trusted")
+  instead of `.empty` — even when the run itself changed nothing
+  and the untracked file is gone by the end of the run. This is
+  deliberate conservative design, not a bug: an empty diff cannot
+  prove the run changed nothing when untracked files were present
+  at the start. Treat `.unavailable` with that reason as "no
+  change observed", not as a failure.
 - **The assistant record is not validated against the registry in
   Rust.** `Assistant::validate` checks shape, limits, provider,
   and the opencode/lithos rule, but an unknown tool name in
