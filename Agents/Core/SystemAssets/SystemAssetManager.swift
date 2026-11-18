@@ -5,34 +5,73 @@ public nonisolated final class SystemAssetManager: Sendable {
 
     public static let shared = SystemAssetManager()
 
-    public let index: SystemAssetIndex?
-    public let loadError: SystemAssetError?
+    private let store: SystemAssetIndexStore?
+    private let resolutionError: SystemAssetError?
 
     public init() {
         do {
             let directory = try SystemAssetIndex.bundledAssetsURL()
-            self.index = try SystemAssetIndex.load(directory: directory)
-            self.loadError = nil
+            let created = SystemAssetIndexStore(sourceDirectory: directory)
+            self.store = created
+            self.resolutionError = nil
+            try? created.loadOrRebuild()
         } catch let error as SystemAssetError {
-            self.index = nil
-            self.loadError = error
+            self.store = nil
+            self.resolutionError = error
         } catch {
-            self.index = nil
-            self.loadError = .retrievalUnavailable(reason: error.localizedDescription)
+            self.store = nil
+            self.resolutionError = .retrievalUnavailable(reason: error.localizedDescription)
         }
     }
 
     public init(directory: URL) {
-        do {
-            self.index = try SystemAssetIndex.load(directory: directory)
-            self.loadError = nil
-        } catch let error as SystemAssetError {
-            self.index = nil
-            self.loadError = error
-        } catch {
-            self.index = nil
-            self.loadError = .retrievalUnavailable(reason: error.localizedDescription)
+        self.init(directory: directory, storeDirectory: nil)
+    }
+
+    public init(directory: URL, storeDirectory: URL?) {
+        let created = SystemAssetIndexStore(sourceDirectory: directory, storeDirectory: storeDirectory)
+        self.store = created
+        self.resolutionError = nil
+        try? created.loadOrRebuild()
+    }
+
+    public var index: SystemAssetIndex? {
+        store?.snapshot()
+    }
+
+    public var loadError: SystemAssetError? {
+        resolutionError ?? store?.loadError()
+    }
+
+    public var indexHealth: SystemAssetIndexHealth {
+        store?.health() ?? SystemAssetIndexHealth(
+            isReady: false,
+            totalDocuments: 0,
+            schemaVersion: SystemAssetIndexStore.currentSchemaVersion,
+            indexVersion: 0,
+            lastRefreshAt: nil,
+            lastRefreshChangedCount: 0,
+            lastRefreshError: resolutionError?.localizedDescription,
+            persistenceAvailable: false
+        )
+    }
+
+    public func refresh(progress: ((SystemAssetIndexProgress) -> Void)? = nil) -> SystemAssetIndexRefreshResult {
+        guard let store else {
+            return SystemAssetIndexRefreshResult(
+                succeeded: false,
+                error: resolutionError?.localizedDescription ?? "System asset index is not ready.",
+                addedDocumentIDs: [],
+                removedDocumentIDs: [],
+                changedDocumentIDs: [],
+                renamedDocumentIDs: [],
+                totalDocuments: 0,
+                indexVersion: 0,
+                fullRebuild: false,
+                persisted: false
+            )
         }
+        return store.refresh(progress: progress)
     }
 
     public var isReady: Bool {

@@ -66,3 +66,18 @@ The same shared retrieval interface serves every supported model path — Antigr
 - Corrupted cache: rebuild from bundled resources, never treat the index as the only copy of the instructions.
 - Index not ready: retrieval reports unavailable; the runtime distinguishes "no results" from "index failure" and does not confuse the two.
 - Bundled resources missing at runtime (packaging defect): explicit, actionable diagnostic — the Xcode build must bundle every eligible `.md` file and preserve the directory structure.
+
+---
+
+## 7. Persisted Index
+
+The runtime index is persisted locally so startup reuses the last valid index instead of re-parsing the whole corpus:
+
+- Location: `Library/Application Support/Coincide/SystemAssets/`, one JSON file per source directory, named `system-assets-index-v1-<source-path-hash>.json`. The file lives in the application support area, never in the bundle and never beside the source Markdown.
+- Schema version 1 is recorded in the file. A stored file with any other schema version is discarded and rebuilt from the bundled Markdown, so future formats can migrate without manual cleanup.
+- The file carries the full parsed documents (sections, headings, raw text, content hashes), the retrieval chunks, the token postings, the per-document keywords, the dependency and dependent maps, and one fingerprint per source file (relative path, byte size, modification time in milliseconds, SHA-256 content hash). A SHA-256 checksum over the whole payload is stored alongside it.
+- Loading validates the schema version, the source directory identity, the checksum, every document hash against its stored text, and every chunk and posting reference. A record that fails validation is re-parsed from its source file; a file that fails decoding, checksum, or schema validation is moved aside and rebuilt in full.
+- Refresh is incremental: the source directory is scanned recursively, fingerprints are compared, and only added, changed, renamed, or removed documents are re-indexed. A rename is detected when a new path carries the content hash of a removed path, and its parsed record is carried over without re-parsing. A file whose size and modification time changed but whose hash did not is a fingerprint-only touch and is not re-parsed. A full rebuild happens only on a schema version change or on corruption that targeted repair cannot fix.
+- Writes are atomic and the in-memory index is swapped only after the new snapshot is ready, so retrieval never serves partially updated or stale content after an update. A refresh that fails partway keeps the last good snapshot in memory, records the failure in indexing health, and retries on the next launch.
+- Indexing health is operational status only: readiness, total document count, schema and index versions, last refresh time and change count, and the last refresh error. It never carries document content, prompts, paths, or detailed metadata, and no part of the index is surfaced in UI.
+- Index failure never disables unrelated functionality: chat, assistants, and tools keep working with the last good index or, when no index exists at all, with the baseline safeguards prompt.

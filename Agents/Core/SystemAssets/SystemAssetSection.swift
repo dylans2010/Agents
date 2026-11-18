@@ -1,6 +1,6 @@
 import Foundation
 
-public nonisolated struct SystemAssetSection: Sendable, Hashable {
+public nonisolated struct SystemAssetSection: Sendable, Hashable, Codable {
     public var documentID: String
     public var fileName: String
     public var heading: String

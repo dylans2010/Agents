@@ -1,22 +1,26 @@
 import CryptoKit
 import Foundation
 
-public nonisolated struct SystemAssetDocument: Sendable, Hashable {
+public nonisolated struct SystemAssetDocument: Sendable, Hashable, Codable {
     public var id: String
     public var fileName: String
     public var relativePath: String
     public var title: String
+    public var category: String
+    public var tags: [String]
     public var dependencies: [String]
     public var contentHash: String
     public var sections: [SystemAssetSection]
     public var rawText: String
     public var estimatedTokens: Int
 
-    public init(id: String, fileName: String, relativePath: String, title: String, dependencies: [String], contentHash: String, sections: [SystemAssetSection], rawText: String) {
+    public init(id: String, fileName: String, relativePath: String, title: String, category: String = "General", tags: [String] = [], dependencies: [String], contentHash: String, sections: [SystemAssetSection], rawText: String) {
         self.id = id
         self.fileName = fileName
         self.relativePath = relativePath
         self.title = title
+        self.category = category
+        self.tags = tags
         self.dependencies = dependencies
         self.contentHash = contentHash
         self.sections = sections
@@ -35,9 +39,11 @@ public nonisolated struct SystemAssetDocument: Sendable, Hashable {
         guard !rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw SystemAssetError.documentMalformed(fileName: fileName, reason: "Document is empty.")
         }
-        let id = (fileName as NSString).deletingPathExtension
+        let id = (relativePath as NSString).deletingPathExtension
         let lines = rawText.components(separatedBy: "\n")
         let title = parseTitle(lines: lines, fallback: id)
+        let category = parseCategory(lines: lines, relativePath: relativePath)
+        let tags = parseTags(lines: lines)
         let dependencies = parseDependencies(lines: lines)
         let sections = parseSections(lines: lines, documentID: id, fileName: fileName, title: title)
         return SystemAssetDocument(
@@ -45,6 +51,8 @@ public nonisolated struct SystemAssetDocument: Sendable, Hashable {
             fileName: fileName,
             relativePath: relativePath,
             title: title,
+            category: category,
+            tags: tags,
             dependencies: dependencies,
             contentHash: sha256Hex(of: data),
             sections: sections,
@@ -63,6 +71,53 @@ public nonisolated struct SystemAssetDocument: Sendable, Hashable {
             }
         }
         return fallback
+    }
+
+    private static func parseCategory(lines: [String], relativePath: String) -> String {
+        let marker = "<!-- system-index-category:"
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("#") {
+                break
+            }
+            guard let range = trimmed.range(of: marker) else {
+                continue
+            }
+            let value = String(trimmed[range.upperBound...])
+                .replacingOccurrences(of: "-->", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !value.isEmpty {
+                return value
+            }
+        }
+        let directory = (relativePath as NSString).deletingLastPathComponent
+        if !directory.isEmpty && directory != "." {
+            return (directory as NSString).lastPathComponent
+        }
+        return "General"
+    }
+
+    private static func parseTags(lines: [String]) -> [String] {
+        let marker = "<!-- system-index-tags:"
+        var found: [String] = []
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("#") {
+                break
+            }
+            guard let range = trimmed.range(of: marker) else {
+                continue
+            }
+            let remainder = String(trimmed[range.upperBound...])
+            let names = remainder.replacingOccurrences(of: "-->", with: "")
+            for part in names.components(separatedBy: ",") {
+                let name = part.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty && !found.contains(name) {
+                    found.append(name)
+                }
+            }
+        }
+        return found
     }
 
     private static func parseDependencies(lines: [String]) -> [String] {
@@ -129,7 +184,7 @@ public nonisolated struct SystemAssetDocument: Sendable, Hashable {
                 currentLevel = heading.level
                 currentBody = []
             } else {
-                if trimmed.hasPrefix("<!-- system-index-depends:") {
+                if trimmed.hasPrefix("<!-- system-index-") {
                     continue
                 }
                 currentBody.append(line)

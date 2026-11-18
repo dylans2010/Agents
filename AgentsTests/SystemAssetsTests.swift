@@ -29,20 +29,28 @@ struct SystemAssetsTests {
         SystemAssetManager(directory: assetsDirectory())
     }
 
-    @Test("All 33 pinned system assets load and match the directory listing")
+    @Test("All system assets load and match the directory listing")
     func allAssetsLoad() throws {
         let directory = Self.assetsDirectory()
         let manager = Self.manager()
         #expect(manager.isReady)
-        #expect(manager.documentCount == 33)
-        let onDisk = try FileManager.default.contentsOfDirectory(
+        let enumerator = try #require(FileManager.default.enumerator(
             at: directory,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )
-        .filter { $0.pathExtension.lowercased() == "md" }
-        .map(\.lastPathComponent)
-        #expect(Set(onDisk) == Set(manager.index?.fileNames ?? []))
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles],
+            errorHandler: { _, _ in true }
+        ))
+        var onDisk: [String] = []
+        for case let url as URL in enumerator {
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey]), values.isDirectory != true else {
+                continue
+            }
+            if url.pathExtension.lowercased() == "md" {
+                onDisk.append(String(url.path.dropFirst(directory.path.count + 1)))
+            }
+        }
+        #expect(manager.documentCount == onDisk.count)
+        #expect(Set(onDisk) == Set(manager.index?.documents.map(\.relativePath) ?? []))
         #expect(manager.document(fileName: "AgentSystemAsset.md") != nil)
         #expect(manager.document(fileName: "SystemIndex.md") != nil)
         #expect(manager.document(fileName: "AvailableTools.md") != nil)

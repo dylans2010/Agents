@@ -3,21 +3,49 @@ import Foundation
 public nonisolated struct SystemAssetIndex: Sendable {
     public var directory: URL
     public var documents: [SystemAssetDocument]
+    public var chunks: [SystemAssetChunk]
+    public var postings: [String: [SystemAssetPosting]]
+    public var keywordsByDocumentID: [String: [String]]
+    public var dependentsByFileName: [String: [String]]
 
     private var byID: [String: SystemAssetDocument]
     private var byFileName: [String: SystemAssetDocument]
+    private var byRelativePath: [String: SystemAssetDocument]
+    private var chunkByID: [String: SystemAssetChunk]
 
-    public init(directory: URL, documents: [SystemAssetDocument]) {
+    public init(directory: URL, documents: [SystemAssetDocument], chunks: [SystemAssetChunk]? = nil, postings: [String: [SystemAssetPosting]]? = nil, keywordsByDocumentID: [String: [String]]? = nil, dependentsByFileName: [String: [String]]? = nil) {
         self.directory = directory
         self.documents = documents.sorted { $0.fileName < $1.fileName }
         var idMap: [String: SystemAssetDocument] = [:]
         var nameMap: [String: SystemAssetDocument] = [:]
+        var pathMap: [String: SystemAssetDocument] = [:]
         for document in self.documents {
             idMap[document.id] = document
-            nameMap[document.fileName] = document
+            if nameMap[document.fileName] == nil {
+                nameMap[document.fileName] = document
+            }
+            pathMap[document.relativePath] = document
         }
         self.byID = idMap
         self.byFileName = nameMap
+        self.byRelativePath = pathMap
+        if let chunks, let postings, let keywordsByDocumentID, let dependentsByFileName {
+            self.chunks = chunks
+            self.postings = postings
+            self.keywordsByDocumentID = keywordsByDocumentID
+            self.dependentsByFileName = dependentsByFileName
+        } else {
+            let derived = SystemAssetIndexStructures.derive(documents: self.documents)
+            self.chunks = derived.chunks
+            self.postings = derived.postings
+            self.keywordsByDocumentID = derived.keywordsByDocumentID
+            self.dependentsByFileName = derived.dependentsByFileName
+        }
+        var chunkMap: [String: SystemAssetChunk] = [:]
+        for chunk in self.chunks {
+            chunkMap[chunk.id] = chunk
+        }
+        self.chunkByID = chunkMap
     }
 
     public var documentCount: Int {
@@ -37,26 +65,41 @@ public nonisolated struct SystemAssetIndex: Sendable {
         guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             throw SystemAssetError.assetsDirectoryMissing(searched: [directory])
         }
-        let contents = try FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )
-        let markdownURLs = contents
-            .filter { $0.pathExtension.lowercased() == "md" }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        let markdownURLs = markdownFiles(in: directory)
         guard !markdownURLs.isEmpty else {
             throw SystemAssetError.noDocumentsFound(directory: directory)
         }
         var parsed: [SystemAssetDocument] = []
         for url in markdownURLs {
             let fileName = url.lastPathComponent
+            let relativePath = SystemAssetFingerprint.relativePath(of: url, in: directory)
             guard let data = try? Data(contentsOf: url) else {
                 throw SystemAssetError.documentUnreadable(fileName: fileName)
             }
-            parsed.append(try SystemAssetDocument.parse(fileName: fileName, relativePath: fileName, data: data))
+            parsed.append(try SystemAssetDocument.parse(fileName: fileName, relativePath: relativePath, data: data))
         }
         return SystemAssetIndex(directory: directory, documents: parsed)
+    }
+
+    private static func markdownFiles(in directory: URL) -> [URL] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles],
+            errorHandler: { _, _ in true }
+        ) else {
+            return []
+        }
+        var found: [URL] = []
+        for case let url as URL in enumerator {
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey]), values.isDirectory != true else {
+                continue
+            }
+            if url.pathExtension.lowercased() == "md" {
+                found.append(url)
+            }
+        }
+        return found.sorted { SystemAssetFingerprint.relativePath(of: $0, in: directory) < SystemAssetFingerprint.relativePath(of: $1, in: directory) }
     }
 
     public static func bundledAssetsURL() throws -> URL {
@@ -112,6 +155,67 @@ public nonisolated struct SystemAssetIndex: Sendable {
 
     public func document(fileName: String) -> SystemAssetDocument? {
         byFileName[fileName]
+    }
+
+    public func document(relativePath: String) -> SystemAssetDocument? {
+        byRelativePath[relativePath]
+    }
+
+    public func chunk(id: String) -> SystemAssetChunk? {
+        chunkByID[id]
+    }
+
+    public func chunks(forDocumentID documentID: String) -> [SystemAssetChunk] {
+        chunks.filter { $0.documentID == documentID }
+    }
+
+    public func postings(for token: String) -> [SystemAssetPosting] {
+        let normalizedToken = Self.normalized(token)
+        guard !normalizedToken.isEmpty, !normalizedToken.contains(" ") else {
+            return []
+        }
+        return postings[normalizedToken] ?? []
+    }
+
+    public func keywords(forDocumentID documentID: String) -> [String] {
+        keywordsByDocumentID[documentID] ?? []
+    }
+
+    public func documents(category: String) -> [SystemAssetDocument] {
+        let wanted = Self.normalized(category)
+        guard !wanted.isEmpty else {
+            return []
+        }
+        return documents.filter { Self.normalized($0.category) == wanted }
+    }
+
+    public func documents(tag: String) -> [SystemAssetDocument] {
+        let wanted = Self.normalized(tag)
+        guard !wanted.isEmpty else {
+            return []
+        }
+        return documents.filter { document in
+            document.tags.contains { Self.normalized($0) == wanted }
+        }
+    }
+
+    public func relatedDocumentIDs(ofFileName fileName: String) -> [String] {
+        guard let document = byFileName[fileName] else {
+            return []
+        }
+        var ids = Set<String>()
+        for dependency in document.dependencies {
+            if let target = byFileName[dependency] {
+                ids.insert(target.id)
+            }
+        }
+        for dependent in dependentsByFileName[fileName] ?? [] {
+            if let target = byFileName[dependent] {
+                ids.insert(target.id)
+            }
+        }
+        ids.remove(document.id)
+        return ids.sorted()
     }
 
     public func section(documentID: String, heading: String) -> SystemAssetSection? {
