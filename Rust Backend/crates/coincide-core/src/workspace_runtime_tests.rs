@@ -188,6 +188,7 @@ fn invalid_inputs_root_rebinding_busy_and_capacity_fail_before_dispatch() {
                 model: None,
                 variant: None,
                 full_access: false,
+                mcp: None,
             }),
             provider: "codex".into(),
             transcript_start: 0,

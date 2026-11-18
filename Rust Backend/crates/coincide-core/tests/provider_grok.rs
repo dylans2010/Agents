@@ -36,6 +36,7 @@ fn fixture(
             model: model.map(str::to_owned),
             variant: None,
             full_access: false,
+            mcp: None,
         },
         images,
     );

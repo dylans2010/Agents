@@ -1,0 +1,19 @@
+[package]
+name = "coincide-mcp-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "coincide-mcp-server"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+coincide-core = { path = "../coincide-core" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

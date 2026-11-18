@@ -101,6 +101,7 @@ fn launch(
             model: None,
             variant: None,
             full_access: false,
+            mcp: None,
         },
         images,
     );
@@ -212,6 +213,7 @@ fn claude_oversize_images_fail_preflight_without_starting_process() {
             model: None,
             variant: None,
             full_access: false,
+            mcp: None,
         },
         vec![image],
     );

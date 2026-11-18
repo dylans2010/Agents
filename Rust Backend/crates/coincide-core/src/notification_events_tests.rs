@@ -26,6 +26,7 @@ fn run_for(engine: &mut Engine, id: &str, provider: &str) -> mpsc::Sender<Event>
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     });
     let (sender, receiver) = mpsc::channel();
     session.events = receiver;

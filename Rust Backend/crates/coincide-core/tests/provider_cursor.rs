@@ -209,6 +209,7 @@ fn cursor_fixture_child() {
             model: (!mode.starts_with("inherited-model")).then(|| "chosen-model".into()),
             variant: None,
             full_access: false,
+            mcp: None,
             prompt: "fixture prompt".into(),
         },
     );

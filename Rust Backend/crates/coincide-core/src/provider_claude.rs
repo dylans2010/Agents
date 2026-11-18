@@ -33,6 +33,7 @@ pub(crate) fn command_metadata(
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     };
     let args = [
         "--output-format",
@@ -412,6 +413,13 @@ pub(super) fn run(
     if let Some(instructions) = instructions {
         arguments.extend(["--append-system-prompt".into(), instructions]);
     }
+    let claude_mcp_config = match &launch.mcp {
+        Some(mount) => crate::mcp::claude_config_path(mount, &launch.cwd)?,
+        None => None,
+    };
+    if let Some(config) = claude_mcp_config {
+        arguments.extend(["--mcp-config".into(), config.display().to_string()]);
+    }
     if let Some(model) = &launch.model {
         arguments.extend(["--model".into(), model.clone()]);
     }
@@ -714,6 +722,7 @@ sys.stdin.readline()
                 model: None,
                 variant: None,
                 full_access: false,
+                mcp: None,
             },
             vec![],
         );

@@ -120,6 +120,7 @@ impl<'a> ProcessRpc<'a> {
             model: None,
             variant: None,
             full_access: false,
+            mcp: None,
         };
         Ok(Self {
             transport: crate::agent::CatalogTransport::spawn(

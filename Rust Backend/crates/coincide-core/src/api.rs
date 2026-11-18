@@ -2016,6 +2016,12 @@ impl Engine {
                         model,
                         variant,
                         full_access,
+                        mcp: crate::mcp::mount_for(
+                            &provider,
+                            &v["toolset"],
+                            &id,
+                            &data,
+                        ),
                     },
                     images,
                     if matches!(provider.as_str(), "codex" | "claude") {

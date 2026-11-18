@@ -41,6 +41,7 @@ sys.stdin.readline()
                 model: None,
                 variant: None,
                 full_access: false,
+                mcp: None,
             },
             Vec::new(),
             None,

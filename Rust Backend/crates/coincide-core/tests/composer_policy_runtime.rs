@@ -66,6 +66,7 @@ sys.stdin.readline()
             model: (selected != "default").then(|| selected.into()),
             variant: None,
             full_access: false,
+            mcp: None,
         },
         Vec::new(),
         None,

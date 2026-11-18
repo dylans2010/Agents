@@ -38,6 +38,7 @@ fn fixture_with_prompt(
             model: model.map(str::to_owned),
             variant: None,
             full_access: false,
+            mcp: None,
         },
     );
     (dir, session)

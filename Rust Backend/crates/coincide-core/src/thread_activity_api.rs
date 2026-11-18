@@ -104,6 +104,7 @@ mod tests {
             model: None,
             variant: None,
             full_access: false,
+            mcp: None,
         });
         let (sender, receiver) = std::sync::mpsc::channel();
         session.events = receiver;

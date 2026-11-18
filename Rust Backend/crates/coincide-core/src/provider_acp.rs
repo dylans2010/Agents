@@ -118,6 +118,7 @@ pub(super) fn model_catalog(
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     };
     let mut transport = CatalogTransport::spawn(&launch, arguments, &[], &[], None)?;
     let deadline = Instant::now() + Duration::from_secs(15);
@@ -639,7 +640,7 @@ fn run_flavored(
                     auth_method =
                         grok::authentication_method(result, grok::configured_authentication());
                 }
-                let mut params = json!({"cwd":launch.cwd,"mcpServers":[]});
+                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)});
                 if is_fx {
                     params["_meta"] = json!({"fx":{"profileMcpServers":true}});
                 }

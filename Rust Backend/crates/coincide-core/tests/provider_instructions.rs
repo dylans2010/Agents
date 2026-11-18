@@ -26,6 +26,7 @@ fn launch(root: &Path, session: Option<&str>) -> Launch {
         model: Some("fixture-model".into()),
         variant: None,
         full_access: false,
+        mcp: None,
     }
 }
 fn settle(session: &Session) -> Result<Vec<String>, String> {

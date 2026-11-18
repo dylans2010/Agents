@@ -1671,7 +1671,7 @@ impl Adapter {
                     let provider = document["selection"]["provider"]
                         .as_str()
                         .unwrap_or("codex");
-                    crate::agent::ensure_system_prompt_supported(provider)
+                    crate::agent::ensure_system_toolset_supported(provider)
                         .map_err(|error| RemoteError::failed(error.to_string()))?;
                 }
                 let mut patch = serde_json::Map::new();

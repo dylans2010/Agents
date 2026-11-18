@@ -290,7 +290,7 @@ impl Engine {
         if let Some(prompt) = system_prompt {
             thread["systemPrompt"] = json!(prompt);
             let provider = thread["selection"]["provider"].as_str().unwrap_or("codex");
-            crate::agent::ensure_system_prompt_supported(provider)?;
+            crate::agent::ensure_system_toolset_supported(provider)?;
         }
         if let Some(cwd) = cwd {
             thread["worktreePath"] = json!(cwd);

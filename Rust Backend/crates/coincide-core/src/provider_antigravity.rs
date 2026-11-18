@@ -379,7 +379,7 @@ fn run_owned(
                 stage = 2;
             }
             2 => {
-                let mut params = json!({"cwd":launch.cwd,"mcpServers":[]});
+                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)});
                 let method = if let Some(id) = &launch.session {
                     params["sessionId"] = json!(id);
                     if initialized["agentCapabilities"]["sessionCapabilities"]
@@ -586,6 +586,7 @@ mod api_key_tests {
                             model: Some("chosen".into()),
                             variant: None,
                             full_access: false,
+                            mcp: None,
                         },
                     );
                     let deadline = Instant::now() + Duration::from_secs(20);
@@ -697,6 +698,7 @@ sys.stdin.readline()
                         model: None,
                         variant: None,
                         full_access: false,
+                        mcp: None,
                     },
                 );
                 let mut response = String::new();

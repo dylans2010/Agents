@@ -39,6 +39,7 @@ sys.stdin.readline()
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     });
     let deadline = Instant::now() + Duration::from_secs(10);
     let mut output = String::new();
@@ -103,6 +104,7 @@ fn active_turn_fixture(body: &str) -> (tempfile::TempDir, Session) {
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     });
     (dir, session)
 }

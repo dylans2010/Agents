@@ -28,6 +28,7 @@ fn legacy_login_is_rejected_before_starting_a_process_or_touching_its_data() {
             model: None,
             variant: None,
             full_access: false,
+            mcp: None,
         },
     );
     let result = session.events.recv_timeout(Duration::from_secs(5)).unwrap();

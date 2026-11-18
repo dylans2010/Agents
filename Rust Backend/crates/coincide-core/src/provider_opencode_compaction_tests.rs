@@ -92,6 +92,7 @@ server.serve_forever()
                 model: None,
                 variant: None,
                 full_access: false,
+                mcp: None,
             },
             Vec::new(),
             None,

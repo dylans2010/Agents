@@ -283,6 +283,7 @@ pub(super) fn read_workspace(
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     };
     let (_control, commands) = mpsc::channel();
     let (events, _messages) = mpsc::channel();
@@ -320,6 +321,7 @@ pub(super) fn commands(
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     };
     let (_control, commands) = mpsc::channel();
     let (events, _messages) = mpsc::channel();

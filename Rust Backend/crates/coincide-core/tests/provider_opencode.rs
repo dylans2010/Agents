@@ -166,6 +166,7 @@ fn fixture(mode: &str, resume: bool, image: bool) -> (tempfile::TempDir, Session
             model: Some("vendor/model/variant".into()),
             variant: None,
             full_access: false,
+            mcp: None,
         },
         images,
     );

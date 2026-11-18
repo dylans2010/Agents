@@ -14,6 +14,9 @@ Install a Rust toolchain, Xcode, and `xcodegen` (`brew install xcodegen`).
 # Build the in-process Rust staticlib FFI bridge backed by coincide-core
 cargo build --release --manifest-path "Rust Backend/Cargo.toml" -p coincide-macos-ffi
 
+# Build the stdio MCP server that serves the System Tools to provider CLIs
+cargo build --release --manifest-path "Rust Backend/Cargo.toml" -p coincide-mcp-server
+
 # Generate Agents.xcodeproj and build the Release native macOS app
 xcodegen generate --spec project.yml
 xcodebuild -project Agents.xcodeproj -scheme Agents -configuration Release \
@@ -26,6 +29,7 @@ xcodebuild test -project Agents.xcodeproj -scheme Agents \
   CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 cargo test --manifest-path "Rust Backend/Cargo.toml" -p coincide-macos-ffi
 cargo test --manifest-path "Rust Backend/Cargo.toml" -p coincide-core --locked
+cargo test --manifest-path "Rust Backend/Cargo.toml" -p coincide-mcp-server
 ```
 
 ## Coincide Remote
@@ -41,6 +45,7 @@ The iOS companion app and its tests live in `CoincideRemote/`, `CoincideRemoteKi
 | `project.yml` | XcodeGen project specification for `Agents.app` and `AgentsTests` |
 | `Rust Backend/crates/coincide-core/` | Portable Rust application core, SQLite storage, terminal PTYs, Git/GitHub, and Google Antigravity + provider runtimes |
 | `Rust Backend/crates/coincide-macos-ffi/` | C-ABI static library bridge (`libcoincide_macos_ffi.a`) linking `coincide-core` into native Swift 6 |
+| `Rust Backend/crates/coincide-mcp-server/` | Standalone stdio MCP server (`coincide-mcp-server`) serving the 26 System Tools plus SystemAssets resources/prompts to provider CLIs |
 | `Rust Backend/crates/coincide-desktop/` | Earlier cross-platform GPUI desktop implementation |
 | `CoincideRemote/`, `CoincideRemoteKit/` | iOS companion and shared cross-platform `Codable` protocol package |
 | `docs/` | Historical acceptance records and feature documentation |
@@ -55,7 +60,7 @@ Assist's system prompt and tool guidance come from System Assets (`Agents/Resour
 
 ## System Toolset
 
-Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs nine verified core actions behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction only for **Codex and Claude**; other providers run without one. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
+Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs the 26 verified core actions behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction only for **Codex and Claude**; other providers receive the tools and assets through the bundled MCP server instead. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
 
 ## Contributing and security
 

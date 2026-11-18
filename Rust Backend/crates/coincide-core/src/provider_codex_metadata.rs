@@ -93,6 +93,7 @@ pub(crate) fn skills(
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     };
     let args = profile.map_or_else(|| vec!["app-server".into()], |profile| profile.arguments());
     let transport = CatalogTransport::spawn(&launch, &args, &[], &[], profile)?;
@@ -212,6 +213,7 @@ pub(crate) fn check(
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     };
     let args = profile.map_or_else(|| vec!["app-server".into()], |profile| profile.arguments());
     let transport = CatalogTransport::spawn(&launch, &args, &[], &[], profile)?;

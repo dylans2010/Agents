@@ -179,6 +179,7 @@ pub struct Launch {
     pub variant: Option<String>,
     /// OpenCode runs without approval prompts when the thread chose full access.
     pub full_access: bool,
+    pub mcp: Option<crate::mcp::McpMount>,
 }
 #[derive(Debug)]
 pub enum Event {
@@ -711,10 +712,10 @@ pub(crate) fn validate_system_prompt_and_toolset(
     }
     Ok(())
 }
-pub(crate) fn ensure_system_prompt_supported(provider: &str) -> Result<()> {
+pub(crate) fn ensure_system_toolset_supported(provider: &str) -> Result<()> {
     ensure!(
-        matches!(provider, "codex" | "claude"),
-        "System Tools are not supported for provider \"{provider}\": a per-thread system prompt can only be delivered to Codex and Claude. Switch this thread to Provider Tools, or switch its provider to Codex or Claude."
+        !matches!(provider, "opencode" | "lithos"),
+        "System Tools are not supported for provider \"{provider}\": OpenCode and Lithos have no channel for the system prompt or the MCP server. Switch this thread to Provider Tools, or switch its provider to Codex, Claude, Cursor, Grok, Antigravity, or a registered ACP agent."
     )
 }
 
@@ -1960,6 +1961,7 @@ mod tests {
                 model: None,
                 variant: None,
                 full_access: false,
+                mcp: None,
             },
             &[],
         );

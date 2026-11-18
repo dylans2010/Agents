@@ -284,7 +284,7 @@ pub(super) fn run(
                         || result["agentCapabilities"]["promptCapabilities"]["image"] != false,
                     "Cursor reports no image support; no prompt was sent"
                 );
-                let mut params = json!({"cwd":launch.cwd,"mcpServers":[]});
+                let mut params = json!({"cwd":launch.cwd,"mcpServers":crate::mcp::session_servers_for(launch.mcp.as_ref(), &launch.cwd)});
                 let method = if let Some(id) = &launch.session {
                     ensure!(
                         result["agentCapabilities"]["loadSession"] != false,

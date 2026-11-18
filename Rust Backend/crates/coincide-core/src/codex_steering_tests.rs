@@ -61,6 +61,7 @@ sys.stdin.readline()
         model: None,
         variant: None,
         full_access: false,
+        mcp: None,
     });
     loop {
         match session.events.recv_timeout(Duration::from_secs(5)).unwrap() {

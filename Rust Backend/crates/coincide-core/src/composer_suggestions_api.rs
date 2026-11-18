@@ -562,6 +562,7 @@ write({'id':r['id'],'result':{'data':[{'cwd':cwd,'skills':skills}]}})
             model: None,
             variant: None,
             full_access: false,
+            mcp: None,
         });
         let (sender, receiver) = mpsc::channel();
         session.events = receiver;

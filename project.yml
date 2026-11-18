@@ -46,6 +46,17 @@ targets:
             cd "${PROJECT_DIR}/Rust Backend"
             MACOSX_DEPLOYMENT_TARGET="26.0" cargo build --release -p coincide-macos-ffi
           fi
+          if [ ! -f "${PROJECT_DIR}/Rust Backend/target/release/coincide-mcp-server" ]; then
+            echo "Building coincide-mcp-server via cargo..."
+            cd "${PROJECT_DIR}/Rust Backend"
+            MACOSX_DEPLOYMENT_TARGET="26.0" cargo build --release -p coincide-mcp-server
+          fi
+    postBuildScripts:
+      - name: Bundle coincide-mcp-server
+        basedOnDependencyAnalysis: false
+        script: |
+          cp "${PROJECT_DIR}/Rust Backend/target/release/coincide-mcp-server" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/MacOS/coincide-mcp-server"
+          chmod +x "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/MacOS/coincide-mcp-server"
     sources:
       - path: Agents
         excludes:
