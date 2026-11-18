@@ -784,8 +784,8 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   `intel_generate_tests`, `report_to_user`, and `intel_explain_code`
   against a real temp workspace; validation refusals for `svg_to_png`,
   `search_web`, `reverse_analyze`, `intel_generate_tests`, and
-  `report_to_user`). The MCP integration test now asserts 332 with the
-  full name list, and the Rust cross-check test asserts 332. No build or
+  `report_to_user`). The MCP integration test now asserts 333 with the
+  full name list, and the Rust cross-check test asserts 333. No build or
   test run was performed in this environment; the tests are written, not
   executed.
 
