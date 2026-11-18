@@ -6,6 +6,7 @@ import Foundation
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     public let appModel = AppModel()
+    private let assistantNotifications = AssistantNotificationManager()
     private var statusBarController: StatusBarController?
     private var isShuttingDown = false
 
@@ -42,11 +43,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificat
         }
 
         appModel.onAgentTurnFinished = { [weak self] summary in
-            self?.postTurnFinishedNotification(for: summary)
+            self?.handleTurnFinished(summary)
         }
 
         appModel.onUserAttentionNeeded = { [weak self] approvals, questions in
-            self?.postAttentionNotification(approvals: approvals, questions: questions)
+            self?.handleAttentionNeeded(approvals: approvals, questions: questions)
         }
 
         let customDataDir = ProcessInfo.processInfo.environment["COINCIDE_DATA_DIR"]
@@ -156,6 +157,40 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificat
         }
     }
 
+    private func handleTurnFinished(_ thread: RemoteThreadSummary) {
+        guard thread.assistantId != nil else {
+            postTurnFinishedNotification(for: thread)
+            return
+        }
+        let outcome = appModel.status.turnResultsRecent.first { $0.threadID == thread.id.uuidString }?.outcome ?? ""
+        let name = assistantName(for: thread.assistantId)
+        if !assistantNotifications.notifyTurnFinished(thread: thread, outcome: outcome, assistantName: name) {
+            postTurnFinishedNotification(for: thread)
+        }
+        if let assistantID = thread.assistantId {
+            Task {
+                guard let client = self.appModel.runtime else { return }
+                guard let workers = try? await client.listWorkers(assistantId: assistantID) else { return }
+                guard let worker = workers.first(where: { $0.threadId == thread.id.uuidString }) else { return }
+                self.assistantNotifications.notifyWorkerTerminal(worker, assistantName: name)
+            }
+        }
+    }
+
+    private func handleAttentionNeeded(approvals: Int, questions: Int) {
+        let handled = assistantNotifications.notifyApprovalNeeded(threads: appModel.workspace.threads) { [weak self] id in
+            self?.assistantName(for: id)
+        }
+        if !handled {
+            postAttentionNotification(approvals: approvals, questions: questions)
+        }
+    }
+
+    private func assistantName(for assistantID: String?) -> String? {
+        guard let assistantID, let id = UUID(uuidString: assistantID) else { return nil }
+        return appModel.assistants.first { $0.id == id }?.name
+    }
+
     private func postTurnFinishedNotification(for thread: RemoteThreadSummary) {
         guard !NSApp.isActive, Bundle.main.bundleIdentifier != nil else { return }
         let content = UNMutableNotificationContent()
@@ -198,11 +233,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificat
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let threadID = response.notification.request.content.userInfo["threadID"] as? String
+        let userInfo = response.notification.request.content.userInfo
+        let threadID = userInfo["threadID"] as? String
+        let assistantID = userInfo["assistantID"] as? String
         Task { @MainActor in
             NSApp.activate(ignoringOtherApps: true)
             if let threadID {
                 self.appModel.selectThread(threadID)
+            } else if let assistantID,
+                      let thread = self.appModel.workspace.threads
+                        .filter({ $0.assistantId == assistantID })
+                        .max(by: { $0.updatedAt < $1.updatedAt }) {
+                self.appModel.selectThread(thread.id)
             }
         }
         completionHandler()

@@ -2058,6 +2058,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
     case voice
     case remote
     case computerUse
+    case assistants
     case about
 
     public var id: String { rawValue }
@@ -2074,6 +2075,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
         case .voice: "Voice"
         case .remote: "Remote"
         case .computerUse: "Computer Use"
+        case .assistants: "Assistants"
         case .about: "About"
         }
     }
@@ -2090,6 +2092,7 @@ public nonisolated enum SettingsTab: String, Codable, CaseIterable, Sendable, Ha
         case .voice: "waveform.and.mic"
         case .remote: "iphone.radiowaves.left.and.right"
         case .computerUse: "cursorarrow"
+        case .assistants: "person.2.badge.gearshape"
         case .about: "info.circle"
         }
     }
