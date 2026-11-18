@@ -51,6 +51,8 @@ targets:
         excludes:
           - Info.plist
           - Agents.entitlements
+    resources:
+      - path: Agents/Resources/SystemAssets
     dependencies:
       - package: CoincideRemoteKit
     settings:

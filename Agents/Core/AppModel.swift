@@ -94,6 +94,7 @@ public final class AppModel {
     public var usageLimits: [RemoteUsage] = []
 
     public let voiceDictation = VoiceDictationController()
+    public let systemAssets = SystemAssetManager.shared
     public var externalEditors: ExternalEditorService { ExternalEditorService.shared }
 
     @ObservationIgnored public private(set) var runtime: AgentsRuntimeClient?
@@ -425,6 +426,15 @@ public final class AppModel {
             presentError(error)
             return nil
         }
+    }
+
+    public func systemPrompt(for request: String?, provider: String?, model: String?) -> SystemPrompt {
+        systemAssets.systemPrompt(for: request, provider: provider, model: model)
+    }
+
+    public var systemPromptForSelectedThread: SystemPrompt {
+        let selection = selectedThread?.selection
+        return systemAssets.systemPrompt(for: nil, provider: selection?.provider, model: selection?.modelID)
     }
 
     public func promptAddProjectFolder() {
