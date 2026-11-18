@@ -305,3 +305,59 @@ fn ignored_notifications_still_detect_a_missing_conversation() {
             .is_some_and(|message| message.starts_with("Transcript read failed:"))
     );
 }
+
+#[test]
+fn panicked_provider_worker_fails_the_turn_instead_of_stranding_it() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut engine =
+        Engine::fixture(Store::open(&directory.path().join("state.sqlite")).unwrap());
+    let thread = engine.execute("threads.create", &json!({})).unwrap();
+    let id = text(&thread, "id");
+    let session = Session::fixture_worker(|_, _| {
+        panic!("synthetic provider worker panic");
+    });
+    engine.insert_running(
+        id.clone(),
+        Running {
+            configuration: None,
+            resume_safe: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+            usage_context: None,
+            session,
+            provider: "codex".into(),
+            transcript_start: 0,
+            pending: HashMap::new(),
+            schedule_claim: None,
+            queue_claim: None,
+            cancelled: false,
+            events: VecDeque::new(),
+            persistence_error: None,
+        },
+    );
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while engine.is_thread_running(&id) {
+        assert!(
+            Instant::now() < deadline,
+            "panicked worker left the turn running"
+        );
+        engine.poll();
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let status = engine.execute("app.status", &json!({})).unwrap();
+    assert_eq!(status["turnResults"]["serial"], 1);
+    assert_eq!(status["turnResults"]["recent"][0]["outcome"], "failed");
+    assert_eq!(status["turnResults"]["recent"][0]["threadId"], json!(id));
+    let saved = engine.store.thread(&id).unwrap();
+    assert!(saved["items"].as_array().unwrap().iter().any(|item| {
+        item["kind"] == "error"
+            && item["text"]
+                .as_str()
+                .is_some_and(|text| text.contains("ended unexpectedly"))
+    }));
+    engine.poll();
+    assert_eq!(
+        engine
+            .execute("app.status", &json!({}))
+            .unwrap()["turnResults"]["serial"],
+        1
+    );
+}

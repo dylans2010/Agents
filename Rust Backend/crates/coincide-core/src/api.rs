@@ -2944,6 +2944,18 @@ impl Engine {
                     run.events.push_back(event);
                 }
             }
+            if self.failed_thread_workers.contains(&id)
+                && let Some(run) = self.runs.get_mut(&id)
+                && !run
+                    .events
+                    .iter()
+                    .any(|event| matches!(event, Event::Finished | Event::Failed(_)))
+            {
+                run.events.push_back(Event::Failed(
+                    "Provider worker ended unexpectedly before the turn finished".into(),
+                ));
+                self.failed_thread_workers.remove(&id);
+            }
             if self.runs[&id].events.is_empty() {
                 continue;
             }
