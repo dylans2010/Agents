@@ -393,13 +393,13 @@ struct AssistantTaskManagerTests {
         id: UUID = UUID(), name: String = "Nightly review", assistantID: UUID, workspaceID: UUID,
         nextRunAt: Int64? = nil, enabled: Bool = true, paused: Bool = false,
         trigger: String = "timer", approvalRequired: Bool = false, maxRuns: Int? = nil,
-        runCount: Int = 0, lastOutcome: String? = nil, lastMessage: String? = nil,
+        maxConcurrent: Int = 1, runCount: Int = 0, lastOutcome: String? = nil, lastMessage: String? = nil,
         lastMissedAt: Int64? = nil, missedCount: Int = 0
     ) -> AssistantTaskRecord {
         AssistantTaskRecord(
             id: id, name: name, assistantID: assistantID, workspaceID: workspaceID,
             trigger: trigger, enabled: enabled, paused: paused,
-            limits: AssistantTaskExecutionLimits(maxRuns: maxRuns, maxConcurrent: 1),
+            limits: AssistantTaskExecutionLimits(maxRuns: maxRuns, maxConcurrent: maxConcurrent),
             approval: AssistantTaskApprovalRequirements(
                 required: approvalRequired, actions: approvalRequired ? ["write_file"] : []
             ),
@@ -580,6 +580,32 @@ struct AssistantTaskManagerTests {
                 return
             }
             #expect(reason.contains("requires approval"))
+        }
+        #expect(await fake.newThreadProjectIDs.isEmpty)
+        #expect(await fake.runNowCalls.isEmpty)
+    }
+
+    @Test("Run-now rejects a task at its concurrency limit without creating a thread")
+    func runNowRejectsTaskAtConcurrencyLimit() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        var task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, maxConcurrent: 1)
+        task.activeWorkerIds = ["worker-1"]
+        task.lastWorkerID = "worker-1"
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: UUID().uuidString, status: "running"
+        ))
+        do {
+            _ = try await manager.runNow(task)
+            Issue.record("runNow should have rejected the task at its concurrency limit")
+        } catch let error as AssistantTaskError {
+            guard case .runRejected(let reason) = error else {
+                Issue.record("Expected a runRejected error, got \(error)")
+                return
+            }
+            #expect(reason == "Automated task 'Nightly review' already has 1 running worker(s); its maximum is 1")
         }
         #expect(await fake.newThreadProjectIDs.isEmpty)
         #expect(await fake.runNowCalls.isEmpty)
@@ -1052,6 +1078,112 @@ struct AssistantTaskManagerTests {
         #expect(await fake.markMissedCalls[0].reason.contains("Run failed"))
         #expect(await fake.newThreadProjectIDs == [workspaceID])
         #expect(await fake.deleteParentThreadCalls == [await fake.parentThreadID])
+    }
+
+    @Test("Poll skips a due task at its concurrency limit without running it or marking it missed")
+    func pollSkipsTaskAtConcurrencyLimitCleanly() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        var task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000, maxConcurrent: 1)
+        task.activeWorkerIds = ["worker-1"]
+        task.lastWorkerID = "worker-1"
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: UUID().uuidString, status: "running"
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.isEmpty)
+        #expect(outcome.skipped.count == 1)
+        #expect(outcome.skipped[0].reason == .maxConcurrentReached(running: 1, max: 1))
+        #expect(outcome.failed.isEmpty)
+        #expect(outcome.outcomes.isEmpty)
+        #expect(await fake.runNowCalls.isEmpty)
+        #expect(await fake.newThreadProjectIDs.isEmpty)
+        #expect(await fake.markMissedCalls.isEmpty)
+        #expect(await fake.deleteParentThreadCalls.isEmpty)
+        let listed = try await manager.listTasks()
+        #expect(listed.tasks[0].missedCount == 0)
+        #expect(listed.tasks[0].lastOutcome == nil)
+        #expect(listed.tasks[0].runCount == 0)
+    }
+
+    @Test("Poll runs a due task whose active workers are all terminal")
+    func pollRunsTaskWhenActiveWorkersAreAllTerminal() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let parentThreadID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        var task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000, maxConcurrent: 1)
+        task.activeWorkerIds = ["worker-1"]
+        task.lastWorkerID = "worker-1"
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: parentThreadID.uuidString,
+            status: "completed", result: "Done."
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.count == 1)
+        #expect(outcome.ran[0].task.name == "Nightly review")
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].outcome == "completed")
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(await fake.runNowCalls.count == 1)
+        #expect(await fake.markMissedCalls.isEmpty)
+        #expect(await fake.deleteParentThreadCalls == [parentThreadID])
+    }
+
+    @Test("Poll counts only running workers toward the concurrency limit")
+    func pollCountsOnlyRunningWorkersTowardConcurrencyLimit() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let finishedParentID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        var task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000, maxConcurrent: 2)
+        task.activeWorkerIds = ["worker-1", "worker-2"]
+        task.lastWorkerID = "worker-1"
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: UUID().uuidString, status: "running"
+        ))
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-2", parentThreadId: finishedParentID.uuidString,
+            status: "completed", result: "Done."
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.count == 1)
+        #expect(outcome.outcomes.count == 1)
+        #expect(outcome.outcomes[0].outcome == "completed")
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(await fake.runNowCalls.count == 1)
+        #expect(await fake.markMissedCalls.isEmpty)
+        #expect(await fake.deleteParentThreadCalls == [finishedParentID])
+    }
+
+    @Test("Poll does not count an interrupted worker toward the concurrency limit")
+    func pollDoesNotCountInterruptedWorkerTowardConcurrencyLimit() async throws {
+        let fake = FakeTaskRuntime()
+        let assistantID = UUID()
+        let workspaceID = UUID()
+        let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
+        var task = Self.makeTask(assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000, maxConcurrent: 1)
+        task.activeWorkerIds = ["worker-1"]
+        task.lastWorkerID = "worker-1"
+        await fake.setTasks([task])
+        await fake.setWorker(Self.makeWorker(
+            id: "worker-1", parentThreadId: UUID().uuidString, status: "interrupted"
+        ))
+        let outcome = await manager.pollNow()
+        #expect(outcome.ran.count == 1)
+        #expect(outcome.skipped.isEmpty)
+        #expect(outcome.failed.isEmpty)
+        #expect(await fake.runNowCalls.count == 1)
+        #expect(await fake.markMissedCalls.isEmpty)
     }
 
     @Test("A failed run-now still reports the run error when thread cleanup fails")

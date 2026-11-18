@@ -548,6 +548,7 @@ public enum AssistantTaskSkipReason: Sendable, Equatable {
     case assistantRequiresApproval
     case triggerUnavailable(String)
     case maxRunsReached(Int)
+    case maxConcurrentReached(running: Int, max: Int)
 
     public func message(task: AssistantTaskRecord) -> String {
         switch self {
@@ -568,6 +569,8 @@ public enum AssistantTaskSkipReason: Sendable, Equatable {
                 ?? "Trigger '\(kind)' is not available: only timer triggers can run automatically."
         case .maxRunsReached(let max):
             "Automated task '\(task.name)' has reached its maximum of \(max) runs"
+        case .maxConcurrentReached(let running, let max):
+            "Automated task '\(task.name)' already has \(running) running worker(s); its maximum is \(max)"
         }
     }
 }
@@ -657,6 +660,35 @@ public actor AssistantTaskManager {
         return Self.skipReason(for: task, assistants: listed.assistants, workspace: fetched)
     }
 
+    private func maxConcurrentSkipReason(for task: AssistantTaskRecord) async -> AssistantTaskSkipReason? {
+        let running = await runningWorkerCount(for: task)
+        if running >= task.limits.maxConcurrent {
+            return .maxConcurrentReached(running: running, max: task.limits.maxConcurrent)
+        }
+        return nil
+    }
+
+    private func runningWorkerCount(for task: AssistantTaskRecord) async -> Int {
+        var candidates = task.activeWorkerIds
+        if let lastWorkerID = task.lastWorkerID, !candidates.contains(lastWorkerID) {
+            candidates.append(lastWorkerID)
+        }
+        var running = 0
+        for workerID in candidates {
+            guard let worker = try? await runtime.workerStatus(workerId: workerID) else {
+                continue
+            }
+            if Self.workerCountsTowardConcurrencyLimit(worker) {
+                running += 1
+            }
+        }
+        return running
+    }
+
+    private static func workerCountsTowardConcurrencyLimit(_ worker: WorkerRecord) -> Bool {
+        !worker.isTerminal && worker.status != "interrupted"
+    }
+
     public func listTasks() async throws -> AssistantTaskList {
         let result = try await runtime.tasksList()
         var tasks: [AssistantTaskRecord] = []
@@ -720,6 +752,9 @@ public actor AssistantTaskManager {
 
     public func runNow(_ task: AssistantTaskRecord) async throws -> AssistantTaskRunOutcome {
         if let reason = try await skipReason(for: task) {
+            throw AssistantTaskError.runRejected(reason.message(task: task))
+        }
+        if let reason = await maxConcurrentSkipReason(for: task) {
             throw AssistantTaskError.runRejected(reason.message(task: task))
         }
         return try await runNowUnchecked(task)
@@ -801,6 +836,10 @@ public actor AssistantTaskManager {
                     ))
                     continue
                 }
+                outcome.skipped.append(AssistantTaskSkippedRun(task: task, reason: reason))
+                continue
+            }
+            if let reason = await maxConcurrentSkipReason(for: task) {
                 outcome.skipped.append(AssistantTaskSkippedRun(task: task, reason: reason))
                 continue
             }
