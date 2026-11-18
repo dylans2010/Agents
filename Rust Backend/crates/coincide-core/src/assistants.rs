@@ -142,6 +142,12 @@ impl Assistant {
             crate::agent::Provider::from_name(provider)
                 .with_context(|| format!("Unknown assistant provider: {provider}"))?;
         }
+        if let (Some(provider), Some(tools)) = (&self.provider, &self.allowed_tools) {
+            ensure!(
+                tools.is_empty() || !matches!(provider.as_str(), "opencode" | "lithos"),
+                "Allowed tools are not supported for provider \"{provider}\": OpenCode and Lithos cannot use System Tools"
+            );
+        }
         if let Some(model) = &self.model {
             ensure!(
                 !model.trim().is_empty() && model.chars().count() <= MODEL_LIMIT,

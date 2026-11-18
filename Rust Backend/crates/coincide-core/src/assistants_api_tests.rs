@@ -235,6 +235,38 @@ fn validation_rejects_each_bad_record() {
 }
 
 #[test]
+fn validation_rejects_allowed_tools_for_opencode_and_lithos() {
+    for provider in ["opencode", "lithos"] {
+        let mut with_tools = record(ID);
+        with_tools["provider"] = json!(provider);
+        with_tools["allowedTools"] = json!(["read_file"]);
+        let error = validate_assistant(&with_tools).unwrap_err();
+        assert!(error.to_string().contains(&format!(
+            "Allowed tools are not supported for provider \"{provider}\": OpenCode and Lithos cannot use System Tools"
+        )));
+        let mut empty_tools = record(ID);
+        empty_tools["provider"] = json!(provider);
+        empty_tools["allowedTools"] = json!([]);
+        assert!(validate_assistant(&empty_tools).is_ok());
+        let mut null_tools = record(ID);
+        null_tools["provider"] = json!(provider);
+        null_tools["allowedTools"] = Value::Null;
+        assert!(validate_assistant(&null_tools).is_ok());
+        let mut absent_tools = record(ID);
+        absent_tools["provider"] = json!(provider);
+        absent_tools
+            .as_object_mut()
+            .unwrap()
+            .remove("allowedTools");
+        assert!(validate_assistant(&absent_tools).is_ok());
+    }
+    let mut claude_tools = record(ID);
+    claude_tools["provider"] = json!("claude");
+    claude_tools["allowedTools"] = json!(["read_file"]);
+    assert!(validate_assistant(&claude_tools).is_ok());
+}
+
+#[test]
 fn document_and_record_unknown_fields_survive_restart() {
     let (root, mut engine) = fixture();
     let listed = engine.execute("assistants.list", &json!({})).unwrap();
