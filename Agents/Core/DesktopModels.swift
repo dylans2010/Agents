@@ -2018,6 +2018,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
     case files
     case schedules
     case workers
+    case assistants
     case computerUse
 
     public var id: String { rawValue }
@@ -2030,6 +2031,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
         case .files: "Files"
         case .schedules: "Schedules"
         case .workers: "Workers"
+        case .assistants: "Assistants"
         case .computerUse: "Computer Use"
         }
     }
@@ -2042,6 +2044,7 @@ public nonisolated enum InspectorTab: String, Codable, CaseIterable, Sendable, H
         case .files: "folder"
         case .schedules: "calendar.badge.clock"
         case .workers: "person.2"
+        case .assistants: "sparkles"
         case .computerUse: "cursorarrow"
         }
     }

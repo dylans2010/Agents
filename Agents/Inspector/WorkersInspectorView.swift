@@ -211,7 +211,12 @@ struct WorkersInspectorView: View {
         }
         .onChange(of: selectedWorker?.status) { _, newStatus in
             guard newStatus == "completed", let worker = selectedWorker else { return }
-            Task { await loadResultPeek(for: worker) }
+            Task {
+                await loadResultPeek(for: worker)
+                if worker.assistantId != nil {
+                    await appModel.presentAssistantResult(for: worker)
+                }
+            }
         }
         .confirmationDialog(
             "Delete Worker Record?",

@@ -13,17 +13,24 @@ public struct AssistantLaunchView: View {
     public init(
         assistant: AssistantDefinition,
         appModel: AppModel,
+        prefillPaths: [String] = [],
         onLaunch: @escaping (UUID) -> Void = { _ in }
     ) {
         self.assistant = assistant
         self.appModel = appModel
         self.onLaunch = onLaunch
-        self._viewModel = StateObject(wrappedValue: AssistantLaunchViewModel(
+        let createdViewModel = AssistantLaunchViewModel(
             assistant: assistant,
             projectID: appModel.selectedProject?.id,
             branches: appModel.activeCheckout?.branches ?? [],
             launcher: AssistantLaunchViewModel.appModelLauncher(appModel: appModel)
-        ))
+        )
+        if !prefillPaths.isEmpty {
+            for field in createdViewModel.fields where field.kind == .files || field.kind == .directory {
+                createdViewModel.setPaths(prefillPaths, forField: field.id)
+            }
+        }
+        self._viewModel = StateObject(wrappedValue: createdViewModel)
     }
 
     private var modelDescription: String {

@@ -12,6 +12,7 @@ public final class AppModel {
     public var selectedThreadID: String? {
         didSet {
             UserDefaults.standard.set(selectedThreadID, forKey: Self.selectedThreadDefaultsKey)
+            UserDefaults.standard.set("", forKey: AssistantLibrarySidebarSelection.userDefaultsKey)
             if oldValue?.uppercased() != selectedThreadID?.uppercased() {
                 Task { await handleSelectedThreadChanged() }
             }
@@ -56,6 +57,14 @@ public final class AppModel {
         }
     }
     public var selectedSettingsTab: SettingsTab = .general
+
+    public var editingAssistantDefinition: AssistantDefinition?
+    public var showAssistantEditor: Bool = false
+    public var launchingAssistantDefinition: AssistantDefinition?
+    public var launchingAssistantPaths: [String] = []
+    public var showAssistantLaunch: Bool = false
+    public var assistantResultReport: AssistantReport?
+    public var showAssistantResult: Bool = false
 
     public var agentToolset: AgentToolset {
         didSet { AgentToolset.save(agentToolset) }
@@ -110,6 +119,9 @@ public final class AppModel {
     public var externalEditors: ExternalEditorService { ExternalEditorService.shared }
 
     @ObservationIgnored public private(set) var runtime: AgentsRuntimeClient?
+    @ObservationIgnored public private(set) var assistantExecutionManager: AssistantExecutionManager?
+    @ObservationIgnored public private(set) var assistantTaskManager: AssistantTaskManager?
+    @ObservationIgnored public private(set) var assistantChangeLedger: AssistantChangeLedger?
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var toastDismissTask: Task<Void, Never>?
     @ObservationIgnored private var toastUndoHandler: (@MainActor () -> Void)?
@@ -233,9 +245,11 @@ public final class AppModel {
                 await handleSelectedThreadChanged()
             }
 
+            await refreshAssistants()
+            await setupAssistantManagers()
+            await recoverAssistantTasks()
             Task {
                 await refreshScheduledTasks()
-                await refreshAssistants()
                 await refreshRemoteServer()
             }
 
@@ -337,6 +351,12 @@ public final class AppModel {
     public func shutdown() async {
         pollTask?.cancel()
         pollTask = nil
+        if let taskManager = assistantTaskManager {
+            await taskManager.stopPolling()
+        }
+        assistantTaskManager = nil
+        assistantExecutionManager = nil
+        assistantChangeLedger = nil
         toastDismissTask?.cancel()
         await voiceDictation.cancelRecording()
         if let client = runtime {
@@ -649,7 +669,13 @@ public final class AppModel {
             )
             await refreshWorkspace()
             selectThread(threadID)
+            if let ledger = assistantChangeLedger {
+                try? await ledger.beginRun(runId: threadID.uuidString, assistantId: assistant.id.uuidString, permissionProfile: assistant.permissionProfile)
+            }
             _ = await sendMessage(text: task, to: threadID)
+            if let ledger = assistantChangeLedger {
+                _ = await ledger.finishRun(runId: threadID.uuidString)
+            }
         } catch {
             presentError(error)
         }
@@ -923,7 +949,7 @@ public final class AppModel {
             await refreshGitState()
         case .schedules:
             await refreshScheduledTasks()
-        case .pullRequests, .files, .workers, .computerUse:
+        case .pullRequests, .files, .workers, .computerUse, .assistants:
             break
         }
     }
@@ -1014,9 +1040,97 @@ public final class AppModel {
     public func refreshAssistants() async {
         defer { assistantsLoaded = true }
         guard let client = runtime else { return }
+        let previousIDs = Set(assistants.map(\.id))
         if let assistants = try? await client.listAssistants() {
             self.assistants = assistants.assistants
         }
+        if assistantExecutionManager != nil, Set(assistants.map(\.id)) != previousIDs,
+           let manager = assistantExecutionManager, await manager.activeRunCount() == 0 {
+            assistantExecutionManager = AssistantExecutionManager(
+                runtime: client,
+                catalog: assistantCatalog,
+                currentProvider: selectedThread?.selection.provider,
+                currentModel: selectedThread?.selection.modelID
+            )
+        }
+    }
+
+    private func setupAssistantManagers() async {
+        guard let client = runtime else { return }
+        if assistantChangeLedger == nil {
+            assistantChangeLedger = AssistantChangeLedger(runtime: client)
+        }
+        if assistantTaskManager == nil {
+            assistantTaskManager = AssistantTaskManager(runtime: client)
+            await assistantTaskManager?.startPolling()
+        }
+        if assistantExecutionManager == nil {
+            assistantExecutionManager = AssistantExecutionManager(
+                runtime: client,
+                catalog: assistantCatalog,
+                currentProvider: selectedThread?.selection.provider,
+                currentModel: selectedThread?.selection.modelID
+            )
+        }
+    }
+
+    private func recoverAssistantTasks() async {
+        guard let manager = assistantTaskManager else { return }
+        _ = try? await manager.recover()
+    }
+
+    public func openAssistantEditor(for definition: AssistantDefinition?) {
+        editingAssistantDefinition = definition
+        showAssistantEditor = true
+    }
+
+    public func closeAssistantEditor() {
+        showAssistantEditor = false
+        editingAssistantDefinition = nil
+    }
+
+    public func openAssistantLaunch(for definition: AssistantDefinition, paths: [String] = []) {
+        launchingAssistantDefinition = definition
+        launchingAssistantPaths = paths
+        showAssistantLaunch = true
+    }
+
+    public func closeAssistantLaunch() {
+        showAssistantLaunch = false
+        launchingAssistantDefinition = nil
+        launchingAssistantPaths = []
+    }
+
+    public func dismissAssistantResult() {
+        showAssistantResult = false
+        assistantResultReport = nil
+    }
+
+    public func presentAssistantResult(for record: WorkerRecord) async {
+        guard let assistantID = record.assistantId else { return }
+        let definition: AssistantDefinition?
+        if let persistenceID = UUID(uuidString: assistantID) {
+            definition = assistantCatalog.definition(forPersistenceID: persistenceID)
+                ?? assistantCatalog.definition(forStableID: assistantID)
+        } else {
+            definition = assistantCatalog.definition(forStableID: assistantID)
+        }
+        guard let definition, let client = runtime else { return }
+        var transcriptItems: [RemoteItem]? = nil
+        var diff: RemoteDiff? = nil
+        if let workerThreadID = UUID(uuidString: record.threadId) {
+            if let transcript = try? await client.openThread(workerThreadID) {
+                transcriptItems = transcript.items
+            }
+            diff = try? await client.fetchDiff(thread: workerThreadID, scope: .uncommitted)
+        }
+        assistantResultReport = AssistantReportBuilder.build(AssistantReportBuilder.Input(
+            record: record,
+            definition: definition,
+            transcriptItems: transcriptItems,
+            diff: diff
+        ))
+        showAssistantResult = true
     }
 
     public static func unknownAllowedTools(in draft: RemoteAssistantDraft) -> [String] {

@@ -376,6 +376,10 @@ struct DiffInspectorView: View {
                         },
                         onCopyPatch: {
                             copyPatch(for: file)
+                        },
+                        assistants: appModel.assistantCatalog.allDefinitions,
+                        onLaunchAssistant: { definition in
+                            appModel.openAssistantLaunch(for: definition, paths: [file.path])
                         }
                     )
                 }
@@ -680,6 +684,8 @@ private struct DiffFileSummaryRow: View {
     let onRevealInFinder: () -> Void
     let onQuoteInComposer: () -> Void
     let onCopyPatch: () -> Void
+    let assistants: [AssistantDefinition]
+    let onLaunchAssistant: (AssistantDefinition) -> Void
 
     @State private var isHovered: Bool = false
 
@@ -819,6 +825,15 @@ private struct DiffFileSummaryRow: View {
                 }
                 Button("Reveal in Finder", systemImage: "folder", action: onRevealInFinder)
                 Divider()
+            }
+            if !assistants.isEmpty {
+                Menu("Launch Assistant…", systemImage: "sparkles") {
+                    ForEach(assistants) { definition in
+                        Button(definition.name) {
+                            onLaunchAssistant(definition)
+                        }
+                    }
+                }
             }
             Button("Quote File in Composer", systemImage: "at", action: onQuoteInComposer)
             if !file.patch.isEmpty {

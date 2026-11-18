@@ -4,6 +4,11 @@ import SwiftUI
 public struct MainWindowView: View {
     @Bindable public var appModel: AppModel
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @AppStorage(AssistantLibrarySidebarSelection.userDefaultsKey) private var librarySelectionRaw: String = ""
+
+    private var librarySelection: AssistantLibrarySidebarSelection? {
+        AssistantLibrarySidebarSelection(storedValue: librarySelectionRaw)
+    }
 
     public init(appModel: AppModel) {
         self.appModel = appModel
@@ -18,23 +23,15 @@ public struct MainWindowView: View {
                     max: 420
                 )
         } detail: {
-            VSplitView {
-                ConversationContainerView(appModel: appModel)
-                    .frame(minWidth: 520, minHeight: 320, maxHeight: .infinity)
-
-                if appModel.terminalVisible {
-                    TerminalContainerView(appModel: appModel)
-                        .frame(minHeight: 160, idealHeight: 250, maxHeight: 520)
+            detailContent
+                .inspector(isPresented: $appModel.inspectorVisible) {
+                    InspectorContainerView(appModel: appModel)
+                        .inspectorColumnWidth(
+                            min: AppTheme.inspectorMinWidth,
+                            ideal: AppTheme.inspectorIdealWidth,
+                            max: 560
+                        )
                 }
-            }
-            .inspector(isPresented: $appModel.inspectorVisible) {
-                InspectorContainerView(appModel: appModel)
-                    .inspectorColumnWidth(
-                        min: AppTheme.inspectorMinWidth,
-                        ideal: AppTheme.inspectorIdealWidth,
-                        max: 560
-                    )
-            }
         }
         .preferredColorScheme(appModel.appearancePreference.colorScheme)
         .overlay(alignment: .bottom) {
@@ -53,6 +50,36 @@ public struct MainWindowView: View {
         }
         .sheet(isPresented: $appModel.showSessionImport) {
             SessionImportContainerSheet(appModel: appModel)
+        }
+        .sheet(isPresented: $appModel.showAssistantEditor) {
+            AssistantEditorContainerSheet(appModel: appModel)
+        }
+        .sheet(isPresented: $appModel.showAssistantLaunch) {
+            AssistantLaunchContainerSheet(appModel: appModel)
+        }
+        .sheet(isPresented: $appModel.showAssistantResult) {
+            AssistantResultContainerSheet(appModel: appModel)
+        }
+    }
+
+    @ViewBuilder
+    private var detailContent: some View {
+        if let selection = librarySelection {
+            AssistantLibraryView(
+                appModel: appModel,
+                onEdit: { definition in appModel.openAssistantEditor(for: definition) },
+                initialSelection: selection
+            )
+        } else {
+            VSplitView {
+                ConversationContainerView(appModel: appModel)
+                    .frame(minWidth: 520, minHeight: 320, maxHeight: .infinity)
+
+                if appModel.terminalVisible {
+                    TerminalContainerView(appModel: appModel)
+                        .frame(minHeight: 160, idealHeight: 250, maxHeight: 520)
+                }
+            }
         }
     }
 }

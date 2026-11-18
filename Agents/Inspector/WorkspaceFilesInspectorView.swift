@@ -293,6 +293,10 @@ struct WorkspaceFilesInspectorView: View {
                                 },
                                 onDelete: {
                                     pendingDeleteEntry = entry
+                                },
+                                assistants: appModel.assistantCatalog.allDefinitions,
+                                onLaunchAssistant: { definition in
+                                    appModel.openAssistantLaunch(for: definition, paths: [entry.path])
                                 }
                             )
                         }
@@ -860,6 +864,8 @@ private struct WorkspaceFileRow: View {
     let onOpenExternal: (ExternalAppTarget?) -> Void
     let onRename: () -> Void
     let onDelete: () -> Void
+    let assistants: [AssistantDefinition]
+    let onLaunchAssistant: (AssistantDefinition) -> Void
 
     @State private var isHovered: Bool = false
 
@@ -926,6 +932,16 @@ private struct WorkspaceFileRow: View {
                 if let preferred = ExternalEditorService.shared.preferredEditor {
                     Button("Open in \(preferred.name)", systemImage: "arrow.up.forward.app") {
                         onOpenExternal(preferred)
+                    }
+                }
+                Divider()
+            }
+            if !assistants.isEmpty {
+                Menu("Launch Assistant…", systemImage: "sparkles") {
+                    ForEach(assistants) { definition in
+                        Button(definition.name) {
+                            onLaunchAssistant(definition)
+                        }
                     }
                 }
                 Divider()
