@@ -2962,4 +2962,120 @@ struct ToolsetTests {
         await client.close()
     }
 
+    @Test("write_file writes real content through execute()")
+    func writeFileWritesRealContent() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let written = try await Self.run(
+            "write_file",
+            arguments: ["cwd": .string(tempRoot.path), "path": .string("notes/hello.txt"), "content": .string("hello through the registry\n")],
+            client: client
+        )
+        #expect(written["path"]?.stringValue == "notes/hello.txt")
+        #expect(try Self.readText("notes/hello.txt", in: tempRoot) == "hello through the registry\n")
+        await client.close()
+    }
+
+    @Test("read_file reads real content through execute()")
+    func readFileReadsRealContent() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        try Self.writeText("alpha\nbeta\n", to: "docs/readme.txt", in: tempRoot)
+        let read = try await Self.run(
+            "read_file",
+            arguments: ["cwd": .string(tempRoot.path), "path": .string("docs/readme.txt")],
+            client: client
+        )
+        #expect(read["path"]?.stringValue == "docs/readme.txt")
+        #expect(read["content"]?.stringValue == "alpha\nbeta")
+        await client.close()
+    }
+
+    @Test("search_files finds a real token through execute()")
+    func searchFilesFindsRealToken() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        try Self.writeText("first line\nlet marker = \"Slice148SearchToken\"\nlast line\n", to: "Sources/Store.swift", in: tempRoot)
+        try Self.writeText("nothing to see here\n", to: "Sources/Other.swift", in: tempRoot)
+        let hits = try await Self.run(
+            "search_files",
+            arguments: ["cwd": .string(tempRoot.path), "query": .string("Slice148SearchToken")],
+            client: client
+        )
+        let rows = hits.arrayValue ?? []
+        #expect(rows.count == 1)
+        #expect(rows[0]["path"]?.stringValue == "Sources/Store.swift")
+        #expect(rows[0]["lineNumber"]?.intValue == 2)
+        #expect(rows[0]["lineText"]?.stringValue?.contains("Slice148SearchToken") == true)
+        await client.close()
+    }
+
+    @Test("create_terminal returns a live terminal id through execute()")
+    func createTerminalReturnsLiveId() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "Slice148Terminal")
+        let threadID = try await client.newThread(projectID: projectID)
+        let created = try await Self.run(
+            "create_terminal",
+            arguments: ["threadId": .string(threadID.uuidString)],
+            client: client
+        )
+        guard let terminalId = created.stringValue, !terminalId.isEmpty else {
+            Issue.record("Expected a non-empty terminal id, got \(created)")
+            await client.close()
+            return
+        }
+        let viewport = try await client.readTerminalViewport(id: terminalId, dark: true)
+        #expect(viewport.rows > 0)
+        #expect(viewport.cols > 0)
+        try await client.closeTerminal(id: terminalId)
+        await client.close()
+    }
+
+    @Test("write_terminal and read_terminal round-trip text through execute()")
+    func writeAndReadTerminalRoundTrip() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let projectID = try await client.createProject(path: projectDir.path, name: "Slice148Terminal")
+        let threadID = try await client.newThread(projectID: projectID)
+        let created = try await Self.run(
+            "create_terminal",
+            arguments: ["threadId": .string(threadID.uuidString)],
+            client: client
+        )
+        guard let terminalId = created.stringValue, !terminalId.isEmpty else {
+            Issue.record("Expected a non-empty terminal id, got \(created)")
+            await client.close()
+            return
+        }
+        let written = try await Self.run(
+            "write_terminal",
+            arguments: ["terminalId": .string(terminalId), "text": .string("echo hello-terminal-148\n")],
+            client: client
+        )
+        #expect(written["terminalId"]?.stringValue == terminalId)
+        var sawEcho = false
+        for _ in 0..<60 {
+            let snapshot = try await Self.run(
+                "read_terminal",
+                arguments: ["terminalId": .string(terminalId)],
+                client: client
+            )
+            let lines = snapshot["lines"]?.arrayValue?.compactMap(\.stringValue) ?? []
+            if lines.joined(separator: "\n").contains("hello-terminal-148") {
+                sawEcho = true
+                break
+            }
+            try await Task.sleep(for: .milliseconds(250))
+        }
+        #expect(sawEcho)
+        try await client.closeTerminal(id: terminalId)
+        await client.close()
+    }
+
 }

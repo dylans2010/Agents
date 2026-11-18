@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–146)
+### Hardening wave (Slices 69–148)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–146 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–148 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -1058,6 +1058,26 @@ no entries in this file either and are not backfilled here. Full record:
   fixes are description-only and not counted, per the Slice 105/109
   precedent). Statically verified only; `cargo test -p coincide-core`
   on Dylan's Mac is owed. Full record:
+  `docs/HARDENING-AUDIT.md`.
+
+- **Slice 148** — Success-path `execute()` tests for the
+  highest-value registry tools Slice 143 found untested: 15 tests
+  added (`write_file`, `read_file`, `list_files`, `search_files`,
+  `create_terminal`, `write_terminal` + `read_terminal`,
+  `git_status`, `git_diff`, `git_log`, `git_push`, `git_pull`,
+  `git_branch_list`, `git_branch_checkout`, `take_screenshot`,
+  `save_to_memory`), each invoking `execute()` with valid arguments
+  and asserting on the real result; `git_push` / `git_pull` run
+  against a local bare repo as `origin`, no network. Coverage
+  re-measured with the Slice 143 method (script + hand-check):
+  arm-reached 174 → 190 of 332 (52.4% → 57.2%), truly uncovered
+  57 → 42. `start_subagent` is left uncovered on purpose — spawn
+  starts a live provider turn, with no hermetic path. Also fixed the
+  pre-existing `useMcpListsAndExecutes` assertion, which read
+  `read["text"]` where the `read_file` arm returns `content`. 0
+  defects fixed, 15 tests added — bringing the totals to 35 defects
+  / 52 tests. Statically verified only; Xcode build + `swift test`
+  on Dylan's Mac is the gate. Full record:
   `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server

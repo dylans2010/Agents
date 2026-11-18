@@ -91,13 +91,13 @@ This is the exact test command from the `agents-app` job
 (`.github/workflows/ci.yml`). It runs the `AgentsTests` target
 (`project.yml`, scheme `Agents`, test config Debug).
 
-Expected count, measured by grep at time of writing: **109 `@Test`
+Expected count, measured by grep at time of writing: **124 `@Test`
 functions** in `AgentsTests` (`grep -rn "@Test(" AgentsTests`). Together
 with the 19 in `CoincideRemoteTests` (Step 4), the Swift Testing total
-is **128** `@Test` functions. The two `@Test(` hits in
+is **143** `@Test` functions. The two `@Test(` hits in
 `Agents/Core/SystemTools` are string literals inside a stub/scaffold
 generator (`SystemToolRegistry.swift`, the stub and placeholder
-generators), not real tests, and are excluded from the 128. The
+generators), not real tests, and are excluded from the 143. The
 registry test asserts the tool count directly
 (`AgentsTests/ToolsetTests.swift`, `#expect(tools.count == 332)`).
 
@@ -442,7 +442,7 @@ reason. A step that was not run is unchecked, not passed.
 
 - [ ] Step 1 — `xcodegen generate` clean
 - [ ] Step 2 — Agents app builds (Agents scheme)
-- [ ] Step 3 — Agents Swift tests pass (AgentsTests, 109 `@Test`)
+- [ ] Step 3 — Agents Swift tests pass (AgentsTests, 124 `@Test`)
 - [ ] Step 4 — Coincide Remote tests pass (CoincideRemoteTests, 19
   `@Test`; UI tests ran, not skipped)
 - [ ] Step 5 — Rust tests pass (3,012 test attributes excl. vendor:

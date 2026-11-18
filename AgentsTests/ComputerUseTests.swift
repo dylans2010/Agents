@@ -94,4 +94,24 @@ struct ComputerUseTests {
         #expect(history.first?.timedOut == false)
         await client.close()
     }
+
+    @Test("take_screenshot returns live desktop state through execute()")
+    func takeScreenshotReturnsDesktopState() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let threadID = try await client.newThread()
+        let turnedOn = try await client.computerUseSetEnabled(true)
+        #expect(turnedOn.enabled == true)
+        let state = try await SystemToolRegistry.execute(
+            "take_screenshot",
+            arguments: ["threadId": .string(threadID.uuidString), "include_screenshot": .bool(false)],
+            toolset: .system, runtime: client
+        )
+        #expect(state["coordinateSpace"]?.stringValue == "screen_points")
+        #expect(state["apps"]?.arrayValue != nil)
+        #expect(state["windows"]?.arrayValue != nil)
+        #expect(state["screenshot"] == .null)
+        _ = try await client.computerUseSetEnabled(false)
+        await client.close()
+    }
 }

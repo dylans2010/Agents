@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–146
+# Hardening Audit — Slices 71–148
 
 ## Summary
 
@@ -77,7 +77,10 @@ directory symlink bypass on both read paths — plus the two MINOR doc
 corrections it raised, and added 4 regression tests, bringing the
 totals to **35 defects fixed and 37 regression tests**. The two MINORs
 are description-only and not counted as defects, following the Slice
-105/109 precedent. The remaining
+105/109 precedent. Slice 148, appended after that, added success-path
+`execute()` tests for the highest-value registry tools Slice 143 found
+untested — 0 defects fixed and 15 regression tests added, bringing the
+totals to **35 defects fixed and 52 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -1498,7 +1501,7 @@ same staleness pattern as Slice 134, fixed then in Slice 136.
 **Mac-gate checks owed:** the 5 new tests above, plus the Xcode
 build as usual; no new Mac-gate surface beyond the tests.
 
-## Slice 146 — Slice 145 findings: literal `.git/config` read and intermediate-symlink bypass on both read paths (2 defects, 4 tests)
+## Slice 146 — Slice 145 findings: literal `.git/config` read and intermediate-symlink bypass on both read paths (remote `81cf2e4c`, 2 defects, 4 tests)
 
 **Correction of the record:** Slice 144's Fix 2 wording — "Fixed on
 both paths" and, in `docs/SYSTEM-TOOLSET.md`, "closing the
@@ -1597,10 +1600,165 @@ vs. the parent on both Rust files; zero new `//` comments in the Rust
 diff; no secrets; no registry definition, param, or description
 changed. Full diff read — only the five intended files, only the
 intended hunks. The local pre-push commit SHA and tree are in the
-slice's push report; the remote SHA is owed backfill by a later slice.
+slice's push report; the remote SHA was verified against the GitHub
+API and backfilled by Slice 148
+(`81cf2e4c84f4678c528393b7fc465fd2b23dd157`, tree
+`ecda0cbf386883c446f5d4d6693f22ee079f544a`, parent
+`4dc0a1440ee07f29b574db5490b8a8c9f95a4a3d`).
 
 **Mac-gate checks owed:** the 4 new tests above, plus the Xcode
 build as usual; no new Mac-gate surface beyond the tests.
+
+## Slice 148 — Success-path `execute()` tests for the highest-value untested registry tools (0 defects, 15 tests)
+
+**Audited:** Slice 143's coverage numbers, re-measured first with a
+fresh script plus hand-check (`/tmp/slice148_coverage.py` — per-tool
+`execute()` / `Self.run()` call sites in `AgentsTests`, success
+context = a call not inside a `do` block ending in
+`Issue.record("Expected…")`; multi-name arms mapped so a tool
+sharing an arm with a tested sibling counts as arm-shared-only, not
+uncovered). The script reproduces Slice 143 exactly on the
+pre-change tree: 246 direct / 174 arm-reached (52.4%) / 72
+validation-only / 29 arm-shared-only / 57 truly uncovered —
+including the group splits (git 15 truly uncovered, computer-use 16
+not directly covered, memory 1, workers 1). Each target arm was then
+hand-traced in `SystemToolRegistry.swift` `execute()` before its test
+was written, following the existing `file_create` round trip
+(`GitCompletionTests.swift:539,545`), `mem_store` round trip
+(`MemoryTests.swift:109,114,119`), `todo_scan`
+(`ToolsetTests.swift:1476`), and `project_snapshot`
+(`GitCompletionTests.swift:377,387`) patterns. No test fakes success
+or asserts on an error path as if it were success.
+
+**Tests added (15):** all written, not executed — Xcode build +
+`swift test` on Dylan's Mac is the gate.
+
+- `write_file` — `writeFileWritesRealContent`
+  (`ToolsetTests.swift:2965`): writes `notes/hello.txt` through
+  `execute()`, asserts the returned path and the on-disk bytes.
+- `read_file` — `readFileReadsRealContent`
+  (`ToolsetTests.swift:2979`): reads `docs/readme.txt` written by the
+  test; asserts path and content `alpha\nbeta` (the Rust read joins
+  lines, so the trailing newline is not returned — verified against
+  `workspace::read_file`, `workspace.rs:738`).
+- `search_files` — `searchFilesFindsRealToken`
+  (`ToolsetTests.swift:2994`): one hit, path
+  `Sources/Store.swift`, line 2, line text contains the token.
+- `create_terminal` — `createTerminalReturnsLiveId`
+  (`ToolsetTests.swift:3013`): non-empty terminal id, viewport rows
+  and cols above zero.
+- `write_terminal` + `read_terminal` —
+  `writeAndReadTerminalRoundTrip` (`ToolsetTests.swift:3038`): writes
+  `echo hello-terminal-148`, polls `read_terminal` up to 15 s, asserts
+  the text appears in the terminal lines; asserts the write result
+  echoes the terminal id.
+- `list_files` — `listFilesListsFixtureFiles`
+  (`GitCompletionTests.swift:632`): the fixture repo's `a.txt`,
+  `b.txt`, `c.txt` are all listed (the arm runs `git ls-files`, so
+  the test uses the git fixture, not a plain directory).
+- `git_status` — `gitStatusReportsBranchAndDirtyEntries`
+  (`GitCompletionTests.swift:650`): dirties `a.txt`, asserts a
+  non-empty branch and an entry for `a.txt` whose status contains
+  `M`.
+- `git_diff` — `gitDiffReturnsUnstagedDiff`
+  (`GitCompletionTests.swift:672`): staged false, diff contains
+  `a.txt` and `+three`.
+- `git_log` — `gitLogReturnsFixtureCommits`
+  (`GitCompletionTests.swift:692`): 3 commits, subjects
+  third/second/first, author `Fixture`.
+- `git_push` — `gitPushPublishesToLocalBareRemote`
+  (`GitCompletionTests.swift:712`): pushes to a local bare repo as
+  `origin` (no network); asserts outcome `pushed`, upstream
+  `origin/<branch>`, and the bare remote's ref equals the repo HEAD.
+- `git_pull` — `gitPullFetchesFromLocalBareRemote`
+  (`GitCompletionTests.swift:737`): pushes, commits a new file via a
+  second clone of the bare remote, pulls; asserts `pulled` true and
+  the new file lands in the fixture repo.
+- `git_branch_list` — `gitBranchListListsLocalBranches`
+  (`GitCompletionTests.swift:774`): `spare` listed, `currentBranch`
+  non-empty and equal to the `isCurrent` branch's name.
+- `git_branch_checkout` — `gitBranchCheckoutSwitchesBranches`
+  (`GitCompletionTests.swift:797`): result branch `spare`, confirmed
+  by a `git_status` call reading `spare`.
+- `save_to_memory` — `saveToMemoryStoresFact`
+  (`MemoryTests.swift:222`): `overwritten` false, `mem_retrieve`
+  reads `uses tabs` back.
+- `take_screenshot` — `takeScreenshotReturnsDesktopState`
+  (`ComputerUseTests.swift:98`): enables Computer Use first (turned
+  off again at the end, following the existing `enableRoundTrips`
+  pattern), calls with `include_screenshot` false, asserts
+  `coordinateSpace` `screen_points`, real `apps` / `windows` arrays,
+  and a null `screenshot`.
+
+**Coverage after (re-measured with the same script + hand-check):**
+direct 246 → 261, arm-reached 174 → 190 (52.4% → 57.2%),
+validation-only 72 → 71 (`read_file` moves out), arm-shared-only 29
+unchanged, truly uncovered 57 → 42. By group: memory 10/10
+arm-reached (`save_to_memory` was the lone uncovered); computer-use
+truly uncovered 1 → 0 (`take_screenshot` was the lone one; 15
+remain arm-shared-only behind the shared 20-tool arm); git 15 → 8
+truly uncovered; terminal arm 3 → 6; workspace 143 → 147.
+
+**Left uncovered (1 of the 16 targets):** `start_subagent` — spawn
+starts a live provider turn via `send_turn`
+(`workers_api.rs` `spawn_one_worker`); there is no hermetic path,
+and a test would launch a real agent process needing a provider CLI
+plus credentials plus network. Left uncovered deliberately and
+recorded here, not faked.
+
+**Also fixed (1 test assertion, not counted as a defect):** the
+pre-existing `useMcpListsAndExecutes` assertion read
+`read["text"]`, but the `read_file` arm returns
+`{"path", "content"}` — the assertion could never pass. Corrected to
+`read["content"]` (`GitCompletionTests.swift:628`). Test-only,
+following the Slice 105/109 precedent, not counted in the defect
+total.
+
+**Still uncovered after this slice (42):** workspace 19 —
+`code_multi_edit`, `code_replace`, `copy_file`, `create_directory`,
+`delete_directory`, `dir_create`, `dir_delete`, `dir_read`,
+`file_append`, `file_copy`, `file_delete`, `file_move`, `file_read`,
+`file_write`, `list_directory`, `read_directory`,
+`search_directory`, `search_text`, `view_file` (same-arm siblings
+of tools this slice tested — the cheapest next slice, same
+patterns); git 8 — `git_bisect`, `git_blame_inspector`,
+`git_branch_compare`, `git_diff_branch`, `git_diff_range`,
+`git_log_viewer`, `git_show`, `project_diff` (read-only git tools,
+same fixture pattern as this slice's git tests); terminal 10 —
+`disk_space_analyzer`, `icon_generator_tool`,
+`package_dependency_audit`, `package_manifest_validate`,
+`preflight_checks`, `process_monitor_tool`, `run_command`,
+`spm_dependency_tree`, `use_system`, `use_terminal` (arms that build
+a shell command and run it via `runTerminalCommand`, or script-driven
+tools on the terminal-create path — same terminal fixture as this
+slice); system 2 — `clipboard_manager_tool`,
+`system_notification_tool` (live OS surface: clipboard,
+notifications); web 2 — `external_resource_gateway`,
+`read_url_content` (live network fetch); workers 1 — `start_subagent`
+(live provider turn, see above).
+
+**Verification:** static only (no Swift toolchain in this
+environment, as for every slice in this record). Each new test
+hand-traced: valid arguments, real `execute()` path, assertion on
+the real result; test names, tool names, and expected values checked
+against the arm code and the Rust shapes behind it (read joins
+lines, `terminal.read` snapshot `lines`, git log/status/diff JSON,
+`git.actions.run` push result, `git.branches.list` /
+`git.branches.checkout` JSON, `get_desktop_state` result). Brace
+balance re-checked on all four changed test files (deltas zero vs.
+the parent; the ToolsetTests paren delta of −1 is pre-existing at
+HEAD, from parens inside string literals); zero new `//` comments;
+no secrets; no registry definition, param, or description changed.
+Full diff read — only the seven intended files, only the intended
+hunks. The local pre-push commit SHA and tree are in the slice's
+push report; the remote SHA is owed backfill by a later slice.
+
+**Mac-gate checks owed:** the 15 new tests above, plus the Xcode
+build as usual. Two honest limits ride with them:
+`take_screenshot` with `include_screenshot` true (the real PNG
+capture) is still unverified in tests — it needs Screen Recording
+permission for the test host, which a test cannot grant itself; and
+`start_subagent` still needs a live provider turn.
 
 ## Documented, not fixed
 
@@ -1879,6 +2037,22 @@ limitation of the audited component, or a question owed to Dylan.
   146. Finding 4 (MINOR): `docs/MAC-GATE.md` still said 3,003 Rust
   tests after Slice 144's 5 new tests (true total 3,008); refreshed
   in Slice 146 to 3,012 after its own 4 new tests.
+  **Slice 147 re-verification (no commit):** Slice 147 re-verified
+  Slice 146 read-only and passed it with zero findings — Fix 1
+  confirmed as written: the `.git`-component guard in
+  `relative_path` (`workspace.rs:290–294`), with only two callers
+  (`diff`, `:327`, which passes the path as a git pathspec, and
+  `read_file`, `:740`); Fix 2 confirmed as written: the shared
+  read-only helper `refuse_intermediate_symlinks`
+  (`workspace_tools.rs:218–231`), called from `read_workspace_text`
+  (`:235`) and `workspace::read_file` (`workspace.rs:742`), mirroring
+  the write path's intermediate check
+  (`workspace_parent_for_write`, refusal ensure at `:193–197`) but
+  read-only (a missing intermediate propagates `NotFound` instead of
+  creating a directory); the 4 tests confirmed present; counts
+  re-measured at 3,012 Rust (2,231 real short-form + 736
+  fully-qualified + 45 `gpui_kit`; core 1,832, `coincide-mcp-server`
+  20) and 128 Swift `@Test`; program diff 224 files +55,019/−3,596.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)

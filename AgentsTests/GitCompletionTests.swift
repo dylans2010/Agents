@@ -30,6 +30,21 @@ struct GitCompletionTests {
         }
     }
 
+    private static func gitOutput(_ args: [String]) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["git"] + args
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = Pipe()
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw GitFixtureError(message: "git \(args.joined(separator: " ")) failed with status \(process.terminationStatus)")
+        }
+        return String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
     private static func makeRepo() throws -> URL {
         let root = URL(fileURLWithPath: "/tmp/git-completion-repo-\(UUID().uuidString.prefix(8).lowercased())")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -610,7 +625,196 @@ struct GitCompletionTests {
             ],
             client: client
         )
-        #expect(read["text"]?.stringValue?.contains("one") == true)
+        #expect(read["content"]?.stringValue?.contains("one") == true)
+        await client.close()
+    }
+
+    @Test("list_files lists the fixture files through execute()")
+    func listFilesListsFixtureFiles() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let listed = try await Self.execute(
+            "list_files",
+            arguments: ["cwd": .string(repo.path)],
+            client: client
+        )
+        let paths = (listed.arrayValue ?? []).compactMap { $0["path"]?.stringValue }
+        #expect(paths.contains("a.txt"))
+        #expect(paths.contains("b.txt"))
+        #expect(paths.contains("c.txt"))
+        await client.close()
+    }
+
+    @Test("git_status reports the branch and dirty entries through execute()")
+    func gitStatusReportsBranchAndDirtyEntries() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        try "one\ntwo\nthree\n".write(to: repo.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+        let status = try await Self.execute(
+            "git_status",
+            arguments: ["threadId": .string(thread)],
+            client: client
+        )
+        #expect(!(status["branch"]?.stringValue ?? "").isEmpty)
+        let entries = status["entries"]?.arrayValue ?? []
+        let dirty = entries.first { $0["path"]?.stringValue == "a.txt" }
+        #expect(dirty != nil)
+        #expect(dirty?["status"]?.stringValue?.contains("M") == true)
+        await client.close()
+    }
+
+    @Test("git_diff returns the unstaged diff through execute()")
+    func gitDiffReturnsUnstagedDiff() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        try "one\ntwo\nthree\n".write(to: repo.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+        let diff = try await Self.execute(
+            "git_diff",
+            arguments: ["threadId": .string(thread)],
+            client: client
+        )
+        #expect(diff["staged"]?.boolValue == false)
+        #expect(diff["diff"]?.stringValue?.contains("a.txt") == true)
+        #expect(diff["diff"]?.stringValue?.contains("+three") == true)
+        await client.close()
+    }
+
+    @Test("git_log returns the fixture commits through execute()")
+    func gitLogReturnsFixtureCommits() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        let log = try await Self.execute(
+            "git_log",
+            arguments: ["threadId": .string(thread), "limit": .int(10)],
+            client: client
+        )
+        let commits = log["commits"]?.arrayValue ?? []
+        #expect(commits.count == 3)
+        #expect(commits.map { $0["subject"]?.stringValue ?? "" } == ["third", "second", "first"])
+        #expect(commits[0]["authorName"]?.stringValue == "Fixture")
+        await client.close()
+    }
+
+    @Test("git_push publishes the branch to a local bare remote through execute()")
+    func gitPushPublishesToLocalBareRemote() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let bare = tempRoot.appendingPathComponent("bare.git")
+        _ = try Self.gitOutput(["init", "--bare", "-q", bare.path])
+        try runGit(repo, ["remote", "add", "origin", bare.path])
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        let branch = try Self.gitOutput(["-C", repo.path, "rev-parse", "--abbrev-ref", "HEAD"])
+        let pushed = try await Self.execute(
+            "git_push",
+            arguments: ["threadId": .string(thread)],
+            client: client
+        )
+        #expect(pushed["result"]?["push"]?["outcome"]?.stringValue == "pushed")
+        #expect(pushed["result"]?["push"]?["upstream"]?.stringValue == "origin/\(branch)")
+        let head = try Self.gitOutput(["-C", repo.path, "rev-parse", "HEAD"])
+        let remoteHead = try Self.gitOutput(["--git-dir", bare.path, "rev-parse", "refs/heads/\(branch)"])
+        #expect(remoteHead == head)
+        await client.close()
+    }
+
+    @Test("git_pull fetches a commit from a local bare remote through execute()")
+    func gitPullFetchesFromLocalBareRemote() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let bare = tempRoot.appendingPathComponent("bare.git")
+        _ = try Self.gitOutput(["init", "--bare", "-q", bare.path])
+        try runGit(repo, ["remote", "add", "origin", bare.path])
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        let branch = try Self.gitOutput(["-C", repo.path, "rev-parse", "--abbrev-ref", "HEAD"])
+        let pushed = try await Self.execute(
+            "git_push",
+            arguments: ["threadId": .string(thread)],
+            client: client
+        )
+        #expect(pushed["result"]?["push"]?["outcome"]?.stringValue == "pushed")
+        _ = try Self.gitOutput(["--git-dir", bare.path, "symbolic-ref", "HEAD", "refs/heads/\(branch)"])
+        let clone = tempRoot.appendingPathComponent("clone")
+        _ = try Self.gitOutput(["clone", "-q", bare.path, clone.path])
+        try runGit(clone, ["checkout", "-q", branch])
+        let identity = ["-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false"]
+        try "from the remote\n".write(to: clone.appendingPathComponent("remote.txt"), atomically: true, encoding: .utf8)
+        try runGit(clone, ["add", "--", "remote.txt"])
+        try runGit(clone, identity + ["commit", "-qm", "from remote"])
+        try runGit(clone, ["push", "-q", "origin", branch])
+        let pulled = try await Self.execute(
+            "git_pull",
+            arguments: ["threadId": .string(thread)],
+            client: client
+        )
+        #expect(pulled["pulled"]?.boolValue == true)
+        #expect(try String(contentsOf: repo.appendingPathComponent("remote.txt"), encoding: .utf8) == "from the remote\n")
+        await client.close()
+    }
+
+    @Test("git_branch_list lists local branches through execute()")
+    func gitBranchListListsLocalBranches() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        try runGit(repo, ["branch", "spare"])
+        let listed = try await Self.execute(
+            "git_branch_list",
+            arguments: ["threadId": .string(thread)],
+            client: client
+        )
+        let branches = listed["branches"]?["branches"]?.arrayValue ?? []
+        let names = branches.compactMap { $0["name"]?.stringValue }
+        #expect(names.contains("spare"))
+        let current = listed["branches"]?["currentBranch"]?.stringValue ?? ""
+        #expect(!current.isEmpty)
+        #expect(branches.first { $0["isCurrent"]?.boolValue == true }?["name"]?.stringValue == current)
+        await client.close()
+    }
+
+    @Test("git_branch_checkout switches branches through execute()")
+    func gitBranchCheckoutSwitchesBranches() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let threadID = try await Self.makeThread(in: repo, client: client)
+        let thread = threadID.uuidString.lowercased()
+        try runGit(repo, ["branch", "spare"])
+        let switched = try await Self.execute(
+            "git_branch_checkout",
+            arguments: ["threadId": .string(thread), "name": .string("spare")],
+            client: client
+        )
+        #expect(switched["branch"]?.stringValue == "spare")
+        let status = try await Self.execute(
+            "git_status",
+            arguments: ["threadId": .string(thread)],
+            client: client
+        )
+        #expect(status["branch"]?.stringValue == "spare")
         await client.close()
     }
 }

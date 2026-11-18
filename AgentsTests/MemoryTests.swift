@@ -218,4 +218,21 @@ struct MemoryTests {
         #expect(deletedAgain["deleted"]?.boolValue == false)
         await client.close()
     }
+
+    @Test("save_to_memory stores a fact and mem_retrieve reads it back")
+    func saveToMemoryStoresFact() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let stored = try await SystemToolRegistry.execute(
+            "save_to_memory", arguments: ["key": .string("editor"), "value": .string("uses tabs"), "scope": .string("global")],
+            toolset: .system, runtime: client
+        )
+        #expect(stored["overwritten"]?.boolValue == false)
+        let retrieved = try await SystemToolRegistry.execute(
+            "mem_retrieve", arguments: ["key": .string("editor"), "scope": .string("global")],
+            toolset: .system, runtime: client
+        )
+        #expect(retrieved["value"]?.stringValue == "uses tabs")
+        await client.close()
+    }
 }
