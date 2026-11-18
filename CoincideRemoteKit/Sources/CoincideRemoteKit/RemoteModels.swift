@@ -314,6 +314,7 @@ public struct RemoteThreadSummary: Codable, Hashable, Sendable, Identifiable {
     public var scheduleCount: Int?
     /// When its next active schedule runs, if one is active.
     public var nextScheduledRun: Date?
+    public var toolset: String?
 
     public init(
         id: UUID, projectID: UUID, title: String, createdAt: Date = Date(), updatedAt: Date = Date(),
@@ -322,7 +323,8 @@ public struct RemoteThreadSummary: Codable, Hashable, Sendable, Identifiable {
         isHidden: Bool = false, branch: String? = nil, hasWorktree: Bool = false, isRunning: Bool = false,
         isStarting: Bool = false, pendingApprovals: Int = 0, pendingQuestions: Int = 0, unseen: String? = nil,
         queuedMessages: Int = 0, hasDraft: Bool = false, itemCount: Int = 0, runningSince: Date? = nil,
-        hasBackgroundWork: Bool? = nil, scheduleCount: Int? = nil, nextScheduledRun: Date? = nil
+        hasBackgroundWork: Bool? = nil, scheduleCount: Int? = nil, nextScheduledRun: Date? = nil,
+        toolset: String? = nil
     ) {
         self.scheduleCount = scheduleCount
         self.nextScheduledRun = nextScheduledRun
@@ -351,6 +353,7 @@ public struct RemoteThreadSummary: Codable, Hashable, Sendable, Identifiable {
         self.itemCount = itemCount
         self.runningSince = runningSince
         self.hasBackgroundWork = hasBackgroundWork
+        self.toolset = toolset
     }
 
     /// The agent waits for the user: an approval or a question.

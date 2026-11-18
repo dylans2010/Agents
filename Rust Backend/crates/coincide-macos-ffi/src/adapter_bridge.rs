@@ -181,8 +181,12 @@ fn execute_adapter_call(
             adapter.dismiss_question(thread_id, item_id, &adapter.runs()?)?;
             Ok(("ok", Value::Null))
         }
-        Request::NewThread { project_id } => {
-            let id = adapter.new_thread(project_id, &adapter.workspace_runs()?)?;
+        Request::NewThread {
+            project_id,
+            system_prompt,
+            toolset,
+        } => {
+            let id = adapter.new_thread(project_id, &adapter.workspace_runs()?, system_prompt, toolset)?;
             Ok(("thread", protocol::value_body(id)))
         }
         Request::NewBotConversation { bot_id } => {
@@ -2246,7 +2250,7 @@ fn ensure_project_helper_thread(
             Uuid::parse_str(&existing.id).map_err(|_| RemoteError::bad_request())?,
         );
     }
-    let created = runtime.adapter.new_thread(Some(project_uuid), &runs)?;
+    let created = runtime.adapter.new_thread(Some(project_uuid), &runs, None, None)?;
     resolve_thread_id(
         runtime,
         Uuid::parse_str(&created).map_err(|_| RemoteError::bad_request())?,
@@ -2436,7 +2440,7 @@ fn handle_pull_request_action(
             .ok_or_else(|| RemoteError::failed("Pull request head branch is unavailable."))?;
         let new_tid = runtime
             .adapter
-            .new_thread(Some(project_uuid), &runtime.adapter.workspace_runs()?)?;
+            .new_thread(Some(project_uuid), &runtime.adapter.workspace_runs()?, None, None)?;
         let resolved = resolve_thread_id(
             runtime,
             Uuid::parse_str(&new_tid).map_err(|_| RemoteError::bad_request())?,

@@ -93,6 +93,8 @@ impl Engine {
                     | "selection"
                     | "accessMode"
                     | "interactionMode"
+                    | "systemPrompt"
+                    | "toolset"
             )),
             "New-thread request contains unsupported options"
         );
@@ -269,6 +271,26 @@ impl Engine {
             if let Some(value) = fields.get(key) {
                 thread[key] = value.clone();
             }
+        }
+        let system_prompt = fields
+            .get("systemPrompt")
+            .filter(|value| !value.is_null())
+            .map(|value| value.as_str().context("System prompt must be text"))
+            .transpose()?
+            .filter(|prompt| !prompt.trim().is_empty());
+        let toolset = fields
+            .get("toolset")
+            .filter(|value| !value.is_null())
+            .map(|value| value.as_str().context("Toolset must be text"))
+            .transpose()?;
+        crate::agent::validate_system_prompt_and_toolset(system_prompt, toolset)?;
+        if let Some(toolset) = toolset {
+            thread["toolset"] = json!(toolset);
+        }
+        if let Some(prompt) = system_prompt {
+            thread["systemPrompt"] = json!(prompt);
+            let provider = thread["selection"]["provider"].as_str().unwrap_or("codex");
+            crate::agent::ensure_system_prompt_supported(provider)?;
         }
         if let Some(cwd) = cwd {
             thread["worktreePath"] = json!(cwd);

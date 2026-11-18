@@ -101,12 +101,14 @@ public struct RemoteSendRequest: Codable, Hashable, Sendable {
     public var text: String
     public var images: [RemoteImage]
     public var delivery: Delivery
+    public var systemPrompt: String?
 
-    public init(threadID: UUID, text: String, images: [RemoteImage] = [], delivery: Delivery = .automatic) {
+    public init(threadID: UUID, text: String, images: [RemoteImage] = [], delivery: Delivery = .automatic, systemPrompt: String? = nil) {
         self.threadID = threadID
         self.text = text
         self.images = images
         self.delivery = delivery
+        self.systemPrompt = systemPrompt
     }
 }
 
@@ -219,7 +221,7 @@ public enum RemoteRequest: Hashable, Sendable {
     case dismissQuestion(threadID: UUID, itemID: UUID)
     case updateSettings(RemoteThreadSettings)
     /// Nil starts a chat.
-    case newThread(projectID: UUID?)
+    case newThread(projectID: UUID?, systemPrompt: String?, toolset: String?)
     case threadAction(threadID: UUID, action: RemoteThreadAction)
     /// The changes of one turn (the id of the item that opened it), or the thread's uncommitted changes for nil.
     case diff(threadID: UUID, turnID: UUID?)
@@ -381,6 +383,8 @@ private struct RequestBody: Codable {
     var answers: [String: [String]]?
     var includeArchived: Bool?
     var action: RemoteThreadAction?
+    var systemPrompt: String?
+    var toolset: String?
     var botID: UUID?
     var deletesConversations: Bool?
     var key: String?
@@ -464,7 +468,9 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
             let f = try fields()
             request = .dismissQuestion(threadID: try need(f.threadID, "threadID"), itemID: try need(f.itemID, "itemID"))
         case "updateSettings": request = .updateSettings(try body(RemoteThreadSettings.self))
-        case "newThread": request = .newThread(projectID: try fields().projectID)
+        case "newThread":
+            let f = try fields()
+            request = .newThread(projectID: f.projectID, systemPrompt: f.systemPrompt, toolset: f.toolset)
         case "threadAction":
             let f = try fields()
             request = .threadAction(threadID: try need(f.threadID, "threadID"), action: try need(f.action, "action"))
@@ -593,7 +599,10 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case .dismissQuestion(let threadID, let itemID):
             f.threadID = threadID
             f.itemID = itemID
-        case .newThread(let projectID): f.projectID = projectID
+        case .newThread(let projectID, let systemPrompt, let toolset):
+            f.projectID = projectID
+            f.systemPrompt = systemPrompt
+            f.toolset = toolset
         case .setProjectExpanded(let projectID, let expanded):
             f.projectID = projectID
             f.expanded = expanded

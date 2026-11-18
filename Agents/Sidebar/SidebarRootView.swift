@@ -7,13 +7,14 @@ public extension Notification.Name {
 }
 
 public extension AppModel {
-    /// Creates a new projectless chat conversation (`RemoteRequest.newThread(projectID: nil)`),
+    /// Creates a new projectless chat conversation (`RemoteRequest.newThread` with the selected toolset),
     /// bypassing `selectedProject` fallback.
     @discardableResult
     func createNewChat() async -> UUID? {
         guard let client = runtime else { return nil }
         do {
-            let newID = try await client.newThread(projectID: nil)
+            let prompt = agentToolset == .system ? systemPromptForSelectedThread.text : nil
+            let newID = try await client.newThread(projectID: nil, systemPrompt: prompt, toolset: agentToolset)
             await refreshWorkspace()
             selectThread(newID)
             return newID

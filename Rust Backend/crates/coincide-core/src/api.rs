@@ -417,6 +417,7 @@ impl Engine {
                 "worktreePath",
                 "draft",
                 "botID",
+                "toolset",
                 "rustMessageQueue",
             ] {
                 if let Some(value) = thread.get(key) {
@@ -1673,6 +1674,11 @@ impl Engine {
         let cwd = self.working_directory(&v)?;
         ensure!(cwd.is_dir(), "Working directory does not exist");
         let bot_instructions = self.bot_instructions(&v, &cwd)?;
+        let system_instructions = self.system_instructions(&v)?;
+        ensure!(
+            codex_profile.is_none() || system_instructions.is_none(),
+            "System Tools cannot be used with a named Codex profile: a per-thread system prompt needs the default Codex session"
+        );
         let mode_policy = if v["selection"]["provider"] == "codex" {
             Some(if let Some(policy) = named_policy {
                 policy
@@ -2013,7 +2019,7 @@ impl Engine {
                     },
                     images,
                     if matches!(provider.as_str(), "codex" | "claude") {
-                        bot_instructions
+                        system_instructions.or(bot_instructions)
                     } else {
                         None
                     },

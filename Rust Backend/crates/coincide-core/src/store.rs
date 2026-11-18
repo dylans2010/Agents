@@ -794,6 +794,7 @@ impl Store {
                 'worktreePath', document -> '$.worktreePath',
                 'draft', document -> '$.draft',
                 'botID', document -> '$.botID',
+                'toolset', document -> '$.toolset',
                 'rustMessageQueue', document -> '$.rustMessageQueue'
             ), json_array_length(document, '$.items') FROM threads WHERE id=?1",
             [id],
@@ -2263,6 +2264,19 @@ fn validate_patch(patch: &serde_json::Map<String, Value>) -> Result<()> {
         match key.as_str() {
             "title" | "draft" => ensure!(value.is_string(), "{key} must be text"),
             "isPinned" | "isArchived" => ensure!(value.is_boolean(), "{key} must be boolean"),
+            "systemPrompt" => ensure!(
+                value.is_null()
+                    || value.as_str().is_some_and(|prompt| {
+                        !prompt.trim().is_empty()
+                            && prompt.len() <= crate::agent::MAX_INSTRUCTIONS_BYTES
+                            && !prompt.contains('\0')
+                    }),
+                "System prompt must be text of at most 64 KiB without NUL"
+            ),
+            "toolset" => ensure!(
+                value.as_str().is_some_and(|toolset| matches!(toolset, "system" | "provider")),
+                "Toolset must be \"system\" or \"provider\""
+            ),
             "snoozedUntil" => ensure!(
                 value.is_null() || snooze_timestamp(value).is_some(),
                 "Invalid snooze date"

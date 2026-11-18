@@ -55,6 +55,7 @@ struct ThreadFields {
     item_count: usize,
     queued: usize,
     bot_id: Option<String>,
+    toolset: Option<String>,
 }
 
 /// A pending provider request: its id, method and parameters.
@@ -474,6 +475,7 @@ impl Adapter {
                 .as_str()
                 .and_then(|id| Uuid::parse_str(id).ok())
                 .map(|id| upper(&id.to_string())),
+            toolset: document["toolset"].as_str().map(str::to_owned),
         }
     }
 
@@ -578,6 +580,7 @@ impl Adapter {
             queued_messages: fields.queued,
             has_draft: fields.has_draft,
             item_count: fields.item_count,
+            toolset: fields.toolset.clone(),
             running_since: runs.started_at.get(&id).copied(),
             id,
         }
@@ -1510,6 +1513,35 @@ impl Adapter {
         })
     }
 
+    fn bind_system_prompt(&self, request: &SendRequest, document: &Value) -> Result<(), RemoteError> {
+        let Some(prompt) = request
+            .system_prompt
+            .as_deref()
+            .filter(|prompt| !prompt.trim().is_empty())
+        else {
+            return Ok(());
+        };
+        if document["toolset"].as_str() == Some("provider") {
+            return Err(RemoteError::failed(
+                "This thread uses Provider Tools, so a system prompt cannot be applied to it.",
+            ));
+        }
+        if document["systemPrompt"]
+            .as_str()
+            .is_some_and(|stored| !stored.trim().is_empty())
+        {
+            return Ok(());
+        }
+        crate::agent::validate_system_prompt_and_toolset(Some(prompt), Some("system"))
+            .map_err(|error| RemoteError::failed(error.to_string()))?;
+        let (resolved, _) = self.document(request.thread_id)?;
+        self.call(
+            "threads.patch",
+            json!({"threadId": resolved, "patch": {"systemPrompt": prompt, "toolset": "system"}}),
+        )?;
+        Ok(())
+    }
+
     /// Sends as the composer does: while a turn runs it steers or queues per the
     /// follow-up setting (the alternate delivery does the other), and approvals
     /// still waiting are declined so the message redirects the agent.
@@ -1522,6 +1554,7 @@ impl Adapter {
             ));
         }
         let images = self.import_remote_images(request, &document)?;
+        self.bind_system_prompt(request, &document)?;
         if !runs.running.contains(&upper(&id)) {
             self.with_engine(|engine| {
                 if images.is_empty() {
@@ -1593,7 +1626,18 @@ impl Adapter {
 
     /// A new thread in the project, or a chat for none, reusing an untouched
     /// one there as New Thread does.
-    pub fn new_thread(&self, project: Option<Uuid>, runs: &Runs) -> Result<String, RemoteError> {
+    pub fn new_thread(
+        &self,
+        project: Option<Uuid>,
+        runs: &Runs,
+        system_prompt: Option<String>,
+        toolset: Option<String>,
+    ) -> Result<String, RemoteError> {
+        let system_prompt = system_prompt
+            .as_deref()
+            .filter(|prompt| !prompt.trim().is_empty());
+        crate::agent::validate_system_prompt_and_toolset(system_prompt, toolset.as_deref())
+            .map_err(|error| RemoteError::failed(error.to_string()))?;
         let workspace = self.workspace(false, runs)?;
         let project = match project {
             Some(project) => workspace
@@ -1619,6 +1663,29 @@ impl Adapter {
                 && !t.is_hidden
                 && !t.has_worktree
         }) {
+            if system_prompt.is_some() || toolset.is_some() {
+                let empty_id =
+                    Uuid::parse_str(&empty.id).map_err(|_| RemoteError::bad_request())?;
+                let (resolved, document) = self.document(empty_id)?;
+                if system_prompt.is_some() {
+                    let provider = document["selection"]["provider"]
+                        .as_str()
+                        .unwrap_or("codex");
+                    crate::agent::ensure_system_prompt_supported(provider)
+                        .map_err(|error| RemoteError::failed(error.to_string()))?;
+                }
+                let mut patch = serde_json::Map::new();
+                if let Some(prompt) = system_prompt {
+                    patch.insert("systemPrompt".into(), json!(prompt));
+                }
+                if let Some(toolset) = toolset.as_deref() {
+                    patch.insert("toolset".into(), json!(toolset));
+                }
+                self.call(
+                    "threads.patch",
+                    json!({"threadId": resolved, "patch": patch}),
+                )?;
+            }
             return Ok(empty.id.clone());
         }
         let project_id = if project.id == NO_PROJECT {
@@ -1626,7 +1693,14 @@ impl Adapter {
         } else {
             json!(project.id)
         };
-        let created = self.call("threads.create", json!({"projectId":project_id}))?;
+        let mut params = json!({"projectId": project_id});
+        if let Some(prompt) = system_prompt {
+            params["systemPrompt"] = json!(prompt);
+        }
+        if let Some(toolset) = toolset.as_deref() {
+            params["toolset"] = json!(toolset);
+        }
+        let created = self.call("threads.create", params)?;
         Ok(upper(created["id"].as_str().unwrap_or_default()))
     }
 
@@ -2389,6 +2463,7 @@ mod tests {
                     data: png.clone(),
                 }],
                 delivery: Delivery::Automatic,
+                system_prompt: None,
             };
             let images = adapter.import_remote_images(&request, &thread).unwrap();
             adapter.queue_remote_payload(&thread, "", &images).unwrap();

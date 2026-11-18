@@ -53,6 +53,7 @@ public struct GeneralSettingsPane: View {
     public var body: some View {
         Form {
             appearanceSection
+            agentToolsSection
             externalToolsSection
             dynamicEnginePreferencesSections
             storageAndMigrationSection
@@ -110,6 +111,25 @@ public struct GeneralSettingsPane: View {
     }
 
     // MARK: - 2. External Tools
+
+    private var agentToolsSection: some View {
+        Section {
+            Picker("Agent Tools", selection: $appModel.agentToolset) {
+                ForEach(AgentToolset.allCases) { toolset in
+                    Text(toolset.title).tag(toolset)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text(appModel.agentToolset.detail)
+                .font(.caption)
+                .foregroundStyle(AppTheme.secondaryLabel)
+        } header: {
+            Text("Agent Tools")
+        } footer: {
+            Text("Applies to new conversations. Existing conversations keep the toolset they were created with. System Tools delivers the Agents system prompt to Codex and Claude; other providers report an error instead of silently dropping it.")
+        }
+    }
 
     private var externalToolsSection: some View {
         Section {

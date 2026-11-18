@@ -95,6 +95,7 @@ fn remote_waits_for_steering_ack_and_never_requeues_unknown_delivery() {
             text: "remote follow-up".into(),
             images: vec![],
             delivery: Delivery::Automatic,
+            system_prompt: None,
         };
         let (send, receive) = mpsc::channel();
         let worker = std::thread::spawn(move || {
@@ -181,6 +182,7 @@ fn remote_image_steering_delivers_only_after_ack_and_preserves_the_desktop_draft
             data: png.into_inner(),
         }],
         delivery: Delivery::Automatic,
+        system_prompt: None,
     };
     let (tx, rx) = mpsc::channel();
     let worker = std::thread::spawn(move || tx.send(adapter.send(&request, &runs)).unwrap());

@@ -178,6 +178,8 @@ pub struct SendRequest {
     pub images: Vec<Image>,
     #[serde(default)]
     pub delivery: Delivery,
+    #[serde(default)]
+    pub system_prompt: Option<String>,
 }
 
 /// Composer settings sent by a paired phone. Missing fields keep their value.
@@ -324,6 +326,8 @@ pub enum Request {
     },
     NewThread {
         project_id: Option<Uuid>,
+        system_prompt: Option<String>,
+        toolset: Option<String>,
     },
     NewBotConversation {
         bot_id: Uuid,
@@ -514,6 +518,24 @@ impl ClientMessage {
                 project_id: match fields.get("projectID") {
                     None | Some(Value::Null) => None,
                     some => Some(uuid(some)?),
+                },
+                system_prompt: match fields.get("systemPrompt") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(
+                        value
+                            .as_str()
+                            .ok_or_else(RemoteError::bad_request)?
+                            .to_owned(),
+                    ),
+                },
+                toolset: match fields.get("toolset") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(
+                        value
+                            .as_str()
+                            .ok_or_else(RemoteError::bad_request)?
+                            .to_owned(),
+                    ),
                 },
             },
             "newBotConversation" => Request::NewBotConversation {
@@ -855,6 +877,8 @@ pub struct ThreadSummary {
     pub queued_messages: usize,
     pub has_draft: bool,
     pub item_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub toolset: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub running_since: Option<f64>,
 }

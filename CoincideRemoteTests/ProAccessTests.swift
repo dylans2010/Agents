@@ -58,7 +58,7 @@ struct ProAccessTests {
     @Test func actingNeedsPro() {
         let thread = UUID()
         let actions: [RemoteRequest] = [
-            .stop(threadID: thread), .newThread(projectID: nil), .gitAction(RemoteGitActionRequest(threadID: thread, action: .push)),
+            .stop(threadID: thread), .newThread(projectID: nil, systemPrompt: nil, toolset: nil), .gitAction(RemoteGitActionRequest(threadID: thread, action: .push)),
             .deleteBot(botID: UUID(), deletesConversations: false), .settingsAction(key: "general.remote"),
             .runScript(threadID: thread, scriptID: UUID()),
         ]

@@ -440,8 +440,12 @@ impl Session {
                 adapter.dismiss_question(thread_id, item_id, &runs()?)?;
                 self.respond(id, "ok", None);
             }
-            Request::NewThread { project_id } => {
-                let thread = adapter.new_thread(project_id, &runs()?)?;
+            Request::NewThread {
+                project_id,
+                system_prompt,
+                toolset,
+            } => {
+                let thread = adapter.new_thread(project_id, &runs()?, system_prompt, toolset)?;
                 self.respond(id, "thread", Some(protocol::value_body(thread)));
             }
             Request::NewBotConversation { bot_id } => {

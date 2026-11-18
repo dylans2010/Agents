@@ -685,6 +685,38 @@ fn validate_instructions(provider: &Provider, instructions: Option<&str>) -> Res
     }
     Ok(())
 }
+pub(crate) fn validate_system_prompt_and_toolset(
+    system_prompt: Option<&str>,
+    toolset: Option<&str>,
+) -> Result<()> {
+    if let Some(toolset) = toolset {
+        ensure!(
+            matches!(toolset, "system" | "provider"),
+            "Toolset must be \"system\" or \"provider\""
+        );
+    }
+    if let Some(prompt) = system_prompt {
+        ensure!(!prompt.trim().is_empty(), "System prompt must not be empty");
+        ensure!(
+            prompt.len() <= MAX_INSTRUCTIONS_BYTES,
+            "System prompt exceeds 64 KiB"
+        );
+        ensure!(
+            !prompt.contains('\0'),
+            "System prompt cannot contain NUL"
+        );
+    }
+    if toolset == Some("provider") && system_prompt.is_some() {
+        bail!("A system prompt cannot be combined with the provider toolset");
+    }
+    Ok(())
+}
+pub(crate) fn ensure_system_prompt_supported(provider: &str) -> Result<()> {
+    ensure!(
+        matches!(provider, "codex" | "claude"),
+        "System Tools are not supported for provider \"{provider}\": a per-thread system prompt can only be delivered to Codex and Claude. Switch this thread to Provider Tools, or switch its provider to Codex or Claude."
+    )
+}
 
 pub(crate) struct OwnedChild(Child, #[cfg(windows)] Option<windows_job::Job>);
 impl OwnedChild {

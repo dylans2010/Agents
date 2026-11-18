@@ -376,8 +376,8 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         _ = try await adapterCall(.updateSettings(settings))
     }
 
-    public func newThread(projectID: UUID? = nil) async throws -> UUID {
-        let res = try await adapterCall(.newThread(projectID: projectID))
+    public func newThread(projectID: UUID? = nil, systemPrompt: String? = nil, toolset: AgentToolset? = nil) async throws -> UUID {
+        let res = try await adapterCall(.newThread(projectID: projectID, systemPrompt: systemPrompt, toolset: toolset?.rawValue))
         guard case .thread(let id) = res else {
             throw AgentsRuntimeError.unexpectedResult(expected: "thread", actual: "\(res)")
         }

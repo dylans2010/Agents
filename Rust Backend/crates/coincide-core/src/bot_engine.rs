@@ -155,6 +155,35 @@ impl Engine {
         Ok(Some(instructions.into()))
     }
 
+    pub(super) fn system_instructions(&self, thread: &Value) -> Result<Option<String>> {
+        let toolset = match thread.get("toolset") {
+            None | Some(Value::Null) => return Ok(None),
+            Some(value) => value
+                .as_str()
+                .context("Toolset must be text")?,
+        };
+        match toolset {
+            "provider" => Ok(None),
+            "system" => {
+                let prompt = thread["systemPrompt"]
+                    .as_str()
+                    .filter(|prompt| !prompt.trim().is_empty());
+                let Some(prompt) = prompt else {
+                    return Ok(None);
+                };
+                ensure!(
+                    thread.get("rustBotContext").is_none_or(Value::is_null)
+                        && thread["botID"].is_null(),
+                    "A bot conversation cannot also carry a system prompt"
+                );
+                let provider = thread["selection"]["provider"].as_str().unwrap_or("");
+                crate::agent::ensure_system_prompt_supported(provider)?;
+                Ok(Some(prompt.to_owned()))
+            }
+            other => bail!("Unsupported toolset \"{other}\""),
+        }
+    }
+
     pub(super) fn preserve_bot_branch(&self, source: &Value, branch: &mut Value) -> Result<()> {
         if source.get("rustBotContext").is_none() && source["botID"].is_null() {
             return Ok(());

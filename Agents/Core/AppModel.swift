@@ -57,6 +57,10 @@ public final class AppModel {
     }
     public var selectedSettingsTab: SettingsTab = .general
 
+    public var agentToolset: AgentToolset {
+        didSet { AgentToolset.save(agentToolset) }
+    }
+
     // MARK: - Typography & Appearance Preferences
 
     public var fontScale: Double {
@@ -133,6 +137,7 @@ public final class AppModel {
         self.appearancePreference = AppearancePreference(
             rawValue: defaults.string(forKey: Self.appearanceKey) ?? ""
         ) ?? .system
+        self.agentToolset = AgentToolset.load(from: defaults)
         self.selectedThreadID = defaults.string(forKey: Self.selectedThreadDefaultsKey)
     }
 
@@ -418,7 +423,8 @@ public final class AppModel {
             return nil
         }()
         do {
-            let newID = try await client.newThread(projectID: resolvedProject)
+            let prompt = agentToolset == .system ? systemPromptForSelectedThread.text : nil
+            let newID = try await client.newThread(projectID: resolvedProject, systemPrompt: prompt, toolset: agentToolset)
             await refreshWorkspace()
             selectThread(newID)
             return newID
@@ -435,6 +441,14 @@ public final class AppModel {
     public var systemPromptForSelectedThread: SystemPrompt {
         let selection = selectedThread?.selection
         return systemAssets.systemPrompt(for: nil, provider: selection?.provider, model: selection?.modelID)
+    }
+
+    public func toolset(for thread: RemoteThreadSummary?) -> AgentToolset {
+        AgentToolset.effective(stored: thread?.toolset)
+    }
+
+    public func systemPrompt(for thread: RemoteThreadSummary?) -> SystemPrompt {
+        systemAssets.systemPrompt(for: nil, provider: thread?.selection.provider, model: thread?.selection.modelID)
     }
 
     public func promptAddProjectFolder() {
@@ -455,7 +469,8 @@ public final class AppModel {
         do {
             let id = try await client.createProject(path: path, name: name)
             await refreshWorkspace()
-            let newThread = try? await client.newThread(projectID: id)
+            let prompt = agentToolset == .system ? systemPromptForSelectedThread.text : nil
+            let newThread = try? await client.newThread(projectID: id, systemPrompt: prompt, toolset: agentToolset)
             await refreshWorkspace()
             if let newThread {
                 selectThread(newThread)
@@ -621,9 +636,13 @@ public final class AppModel {
         }
         guard let targetThread else { return nil }
 
+        let targetSummary = workspace.threads.first { $0.id == targetThread }
+        let effectiveToolset = toolset(for: targetSummary)
+        let systemPromptText: String? = effectiveToolset == .system ? systemPrompt(for: targetSummary).text : nil
+
         do {
             let outcome = try await client.send(
-                RemoteSendRequest(threadID: targetThread, text: text, images: images, delivery: delivery)
+                RemoteSendRequest(threadID: targetThread, text: text, images: images, delivery: delivery, systemPrompt: systemPromptText)
             )
             await refreshWorkspace()
             if selectedThreadUUID == targetThread {

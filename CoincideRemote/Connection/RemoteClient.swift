@@ -865,7 +865,7 @@ final class RemoteClient {
     }
 
     func newThread(in projectID: UUID?) async -> UUID? {
-        guard case .thread(let id)? = await perform(.newThread(projectID: projectID)) else { return nil }
+        guard case .thread(let id)? = await perform(.newThread(projectID: projectID, systemPrompt: nil, toolset: nil)) else { return nil }
         await refreshWorkspace()
         return id
     }
