@@ -29,6 +29,7 @@ public struct SidebarRootView: View {
     @Bindable public var appModel: AppModel
 
     @AppStorage("coincide.dismissedLegacyImportBanner") private var dismissedLegacyImportBanner: Bool = false
+    @AppStorage(AssistantLibrarySidebarSelection.userDefaultsKey) private var librarySelectionRaw: String = ""
     @State private var isImportingLegacy: Bool = false
     @State private var isSearchPresented: Bool = false
 
@@ -48,6 +49,15 @@ public struct SidebarRootView: View {
 
     private var trimmedQuery: String {
         appModel.sidebarSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private var librarySelection: AssistantLibrarySidebarSelection? {
+        get { AssistantLibrarySidebarSelection(storedValue: librarySelectionRaw) }
+        set { librarySelectionRaw = newValue?.storedValue ?? "" }
+    }
+
+    private var libraryRecentCount: Int {
+        UserDefaults.standard.stringArray(forKey: AssistantLibraryViewModel.recentIDsDefaultsKey)?.count ?? 0
     }
 
     private var searchDisplayQuery: String {
@@ -163,6 +173,10 @@ public struct SidebarRootView: View {
                     }
                 } else {
                     botsSection
+
+                    if trimmedQuery.isEmpty {
+                        librarySection
+                    }
 
                     if !pinnedThreads.isEmpty {
                         pinnedSection
@@ -355,6 +369,75 @@ public struct SidebarRootView: View {
                     .accessibilityLabel("New bot")
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var librarySection: some View {
+        let catalog = appModel.assistantCatalog
+        let favoriteCount = catalog.allDefinitions.filter {
+            AssistantLibraryViewModel.isFavorite($0, in: catalog)
+        }.count
+        let counts = catalog.allDefinitions.reduce(into: [AssistantCategory: Int]()) { partial, definition in
+            partial[definition.category, default: 0] += 1
+        }
+        Section {
+            SidebarLibraryRow(
+                title: "All Assistants",
+                systemImage: "square.stack.3d.up",
+                count: catalog.allDefinitions.count,
+                isSelected: librarySelection == .all
+            ) {
+                librarySelection = .all
+            }
+
+            SidebarLibraryRow(
+                title: "Favorites",
+                systemImage: "star.fill",
+                count: favoriteCount,
+                isSelected: librarySelection == .favorites
+            ) {
+                librarySelection = .favorites
+            }
+
+            SidebarLibraryRow(
+                title: "Recently Used",
+                systemImage: "clock",
+                count: libraryRecentCount,
+                isSelected: librarySelection == .recent
+            ) {
+                librarySelection = .recent
+            }
+
+            ForEach(AssistantCategory.allCases, id: \.self) { category in
+                SidebarLibraryRow(
+                    title: category.displayName,
+                    systemImage: Self.symbolName(for: category),
+                    count: counts[category] ?? 0,
+                    isSelected: librarySelection == .category(category)
+                ) {
+                    librarySelection = .category(category)
+                }
+            }
+        } header: {
+            HStack(spacing: 6) {
+                Text("Library")
+                Text("\(catalog.allDefinitions.count)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppTheme.tertiaryLabel)
+                Spacer()
+            }
+        }
+    }
+
+    private nonisolated static func symbolName(for category: AssistantCategory) -> String {
+        switch category {
+        case .codeMaintenance: "wrench.and.screwdriver"
+        case .codeReviewSecurity: "shield.checkered"
+        case .buildingFixing: "hammer"
+        case .repositoryIntelligence: "magnifyingglass"
+        case .gitWorkflowAutomation: "arrow.triangle.2.circlepath"
+        case .specializedProductivity: "sparkles"
         }
     }
 
@@ -766,6 +849,47 @@ public struct SidebarRootView: View {
         case "name": "Name"
         default: raw.capitalized
         }
+    }
+}
+
+private struct SidebarLibraryRow: View {
+    let title: String
+    let systemImage: String
+    let count: Int
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.secondaryLabel)
+                .frame(width: 20, height: 20)
+                .accessibilityHidden(true)
+
+            Text(title)
+                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(AppTheme.primaryLabel)
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppTheme.tertiaryLabel)
+                    .monospacedDigit()
+            }
+        }
+        .padding(.vertical, 2)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
+                .fill(isSelected ? AppTheme.unemphasizedSelectedBackground.opacity(0.65) : .clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .accessibilityLabel(title)
     }
 }
 
