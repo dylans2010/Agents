@@ -871,3 +871,191 @@ public struct RemoteUsage: Codable, Hashable, Sendable, Identifiable {
         self.checkedAt = checkedAt
     }
 }
+
+public struct RemoteAssistant: Codable, Hashable, Sendable, Identifiable {
+    public enum Category: String, Codable, Hashable, Sendable {
+        case codeMaintenance = "code-maintenance"
+        case codeReviewSecurity = "code-review-security"
+        case buildingFixing = "building-fixing"
+        case repositoryIntelligence = "repository-intelligence"
+        case gitWorkflowAutomation = "git-workflow-automation"
+        case specializedProductivity = "specialized-productivity"
+        case unknown
+
+        public init(from decoder: Decoder) throws {
+            self = Category(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .unknown
+        }
+    }
+
+    public enum PermissionProfile: String, Codable, Hashable, Sendable {
+        case readOnly = "read-only"
+        case workspaceModify = "workspace-modify"
+        case terminal
+        case approvalRequired = "approval-required"
+        case unknown
+
+        public init(from decoder: Decoder) throws {
+            self = PermissionProfile(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .unknown
+        }
+    }
+
+    public enum Source: String, Codable, Hashable, Sendable {
+        case custom
+        case override
+        case unknown
+
+        public init(from decoder: Decoder) throws {
+            self = Source(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .unknown
+        }
+    }
+
+    public var id: UUID
+    public var name: String
+    public var description: String
+    public var icon: String
+    public var category: Category
+    public var systemPrompt: String
+    public var intendedTasks: [String]
+    public var expectedOutputFormat: String
+    public var allowedTools: [String]?
+    public var provider: String?
+    public var model: String?
+    public var permissionProfile: PermissionProfile
+    public var inputRequirements: [String]?
+    public var version: Int
+    public var source: Source
+    public var isFavorite: Bool
+    public var lastUsedAt: Date?
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID, name: String, description: String = "", icon: String = "", category: Category,
+        systemPrompt: String, intendedTasks: [String] = [], expectedOutputFormat: String = "",
+        allowedTools: [String]? = nil, provider: String? = nil, model: String? = nil,
+        permissionProfile: PermissionProfile = .readOnly, inputRequirements: [String]? = nil, version: Int = 1,
+        source: Source = .custom, isFavorite: Bool = false, lastUsedAt: Date? = nil, createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.icon = icon
+        self.category = category
+        self.systemPrompt = systemPrompt
+        self.intendedTasks = intendedTasks
+        self.expectedOutputFormat = expectedOutputFormat
+        self.allowedTools = allowedTools
+        self.provider = provider
+        self.model = model
+        self.permissionProfile = permissionProfile
+        self.inputRequirements = inputRequirements
+        self.version = version
+        self.source = source
+        self.isFavorite = isFavorite
+        self.lastUsedAt = lastUsedAt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, description, icon, category, systemPrompt, intendedTasks, expectedOutputFormat, allowedTools,
+            provider, model, permissionProfile, inputRequirements, version, source, isFavorite, lastUsedAt, createdAt,
+            updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = (try? container.decode(String.self, forKey: .name)) ?? ""
+        description = (try? container.decode(String.self, forKey: .description)) ?? ""
+        icon = (try? container.decode(String.self, forKey: .icon)) ?? ""
+        category = (try? container.decode(Category.self, forKey: .category)) ?? .unknown
+        systemPrompt = (try? container.decode(String.self, forKey: .systemPrompt)) ?? ""
+        intendedTasks = (try? container.decode([String].self, forKey: .intendedTasks)) ?? []
+        expectedOutputFormat = (try? container.decode(String.self, forKey: .expectedOutputFormat)) ?? ""
+        allowedTools = try? container.decodeIfPresent([String].self, forKey: .allowedTools)
+        provider = try? container.decodeIfPresent(String.self, forKey: .provider)
+        model = try? container.decodeIfPresent(String.self, forKey: .model)
+        permissionProfile = (try? container.decode(PermissionProfile.self, forKey: .permissionProfile)) ?? .readOnly
+        inputRequirements = try? container.decodeIfPresent([String].self, forKey: .inputRequirements)
+        version = (try? container.decode(Int.self, forKey: .version)) ?? 1
+        source = (try? container.decode(Source.self, forKey: .source)) ?? .unknown
+        isFavorite = (try? container.decode(Bool.self, forKey: .isFavorite)) ?? false
+        lastUsedAt = try? container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+        createdAt = (try? container.decode(Date.self, forKey: .createdAt)) ?? Date()
+        updatedAt = (try? container.decode(Date.self, forKey: .updatedAt)) ?? Date()
+    }
+}
+
+public struct RemoteAssistantDraft: Codable, Hashable, Sendable {
+    public var id: UUID?
+    public var name: String
+    public var description: String
+    public var icon: String
+    public var category: RemoteAssistant.Category
+    public var systemPrompt: String
+    public var intendedTasks: [String]
+    public var expectedOutputFormat: String
+    public var allowedTools: [String]?
+    public var provider: String?
+    public var model: String?
+    public var permissionProfile: RemoteAssistant.PermissionProfile
+    public var inputRequirements: [String]?
+    public var version: Int
+    public var source: RemoteAssistant.Source
+    public var isFavorite: Bool
+
+    public init(
+        id: UUID? = nil, name: String, description: String = "", icon: String = "",
+        category: RemoteAssistant.Category, systemPrompt: String, intendedTasks: [String] = [],
+        expectedOutputFormat: String = "", allowedTools: [String]? = nil, provider: String? = nil,
+        model: String? = nil, permissionProfile: RemoteAssistant.PermissionProfile = .readOnly,
+        inputRequirements: [String]? = nil, version: Int = 1, source: RemoteAssistant.Source = .custom,
+        isFavorite: Bool = false
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.icon = icon
+        self.category = category
+        self.systemPrompt = systemPrompt
+        self.intendedTasks = intendedTasks
+        self.expectedOutputFormat = expectedOutputFormat
+        self.allowedTools = allowedTools
+        self.provider = provider
+        self.model = model
+        self.permissionProfile = permissionProfile
+        self.inputRequirements = inputRequirements
+        self.version = version
+        self.source = source
+        self.isFavorite = isFavorite
+    }
+}
+
+public struct RemoteAssistants: Codable, Hashable, Sendable {
+    public var assistants: [RemoteAssistant]
+    public var baseline: String
+    public var origin: String
+
+    public init(assistants: [RemoteAssistant] = [], baseline: String = "", origin: String = "empty") {
+        self.assistants = assistants
+        self.baseline = baseline
+        self.origin = origin
+    }
+
+    private enum CodingKeys: String, CodingKey { case assistants, baseline, origin }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let lenient = (try? container.decode([LenientAssistant].self, forKey: .assistants)) ?? []
+        assistants = lenient.compactMap(\.assistant)
+        baseline = (try? container.decode(String.self, forKey: .baseline)) ?? ""
+        origin = (try? container.decode(String.self, forKey: .origin)) ?? "empty"
+    }
+
+    private struct LenientAssistant: Decodable {
+        var assistant: RemoteAssistant?
+        init(from decoder: Decoder) throws { assistant = try? RemoteAssistant(from: decoder) }
+    }
+}

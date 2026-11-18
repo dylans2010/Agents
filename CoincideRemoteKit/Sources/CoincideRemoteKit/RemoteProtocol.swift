@@ -239,6 +239,9 @@ public enum RemoteRequest: Hashable, Sendable {
     case saveBot(RemoteBotDraft)
     /// Deletes a bot; its conversations stay as chats unless `deletesConversations`. An older Mac answers `unsupported`.
     case deleteBot(botID: UUID, deletesConversations: Bool)
+    case assistants
+    case saveAssistant(RemoteAssistantDraft)
+    case deleteAssistant(assistantID: UUID)
     /// The Mac's Settings, described page by page (`RemoteSettingsSnapshot`). Answers `settings`, then sends a
     /// `settings` event whenever they change. An older Mac answers `unsupported`.
     case settings
@@ -336,6 +339,9 @@ public enum RemoteRequest: Hashable, Sendable {
         case .newBotConversation: "newBotConversation"
         case .saveBot: "saveBot"
         case .deleteBot: "deleteBot"
+        case .assistants: "assistants"
+        case .saveAssistant: "saveAssistant"
+        case .deleteAssistant: "deleteAssistant"
         case .settings: "settings"
         case .changeSetting: "changeSetting"
         case .settingsAction: "settingsAction"
@@ -386,6 +392,7 @@ private struct RequestBody: Codable {
     var systemPrompt: String?
     var toolset: String?
     var botID: UUID?
+    var assistantID: UUID?
     var deletesConversations: Bool?
     var key: String?
     var value: RemoteSettingValue?
@@ -488,6 +495,9 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case "deleteBot":
             let f = try fields()
             request = .deleteBot(botID: try need(f.botID, "botID"), deletesConversations: f.deletesConversations ?? false)
+        case "assistants": request = .assistants
+        case "saveAssistant": request = .saveAssistant(try body(RemoteAssistantDraft.self))
+        case "deleteAssistant": request = .deleteAssistant(assistantID: try need(try fields().assistantID, "assistantID"))
         case "settings": request = .settings
         case "changeSetting":
             let f = try fields()
@@ -545,6 +555,7 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case .updateSettings(let settings): try container.encode(settings, forKey: .body); return
         case .presence(let presence): try container.encode(presence, forKey: .body); return
         case .saveBot(let draft): try container.encode(draft, forKey: .body); return
+        case .saveAssistant(let draft): try container.encode(draft, forKey: .body); return
         case .saveSettingsDocument(let document): try container.encode(document, forKey: .body); return
         case .usageDashboard(let query): try container.encode(query, forKey: .body); return
         case .forkThread(let fork): try container.encode(fork, forKey: .body); return
@@ -559,7 +570,7 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case .pullRequests(let query): try container.encode(query, forKey: .body); return
         case .pullRequest(let reference): try container.encode(reference, forKey: .body); return
         case .pullRequestAction(let command): try container.encode(command, forKey: .body); return
-        case .ping, .usageLimits, .settings, .scheduledTasks: return
+        case .ping, .usageLimits, .settings, .scheduledTasks, .assistants: return
         case .composerNotice(let threadID), .gitState(let threadID): f.threadID = threadID
         case .projectDefaults(let projectID), .removeProject(let projectID): f.projectID = projectID
         case .changeSetting(let key, let value):
@@ -570,6 +581,7 @@ public struct RemoteClientMessage: Hashable, Sendable, Codable {
         case .deleteBot(let botID, let deletesConversations):
             f.botID = botID
             f.deletesConversations = deletesConversations
+        case .deleteAssistant(let assistantID): f.assistantID = assistantID
         case .workspace(let includeArchived): f.includeArchived = includeArchived
         case .openThread(let threadID, let limit):
             f.threadID = threadID
@@ -646,6 +658,8 @@ public enum RemoteResult: Hashable, Sendable {
     case usage([RemoteUsage])
     /// A bot the phone saved. Only a phone that asked (`saveBot`) ever gets it.
     case bot(UUID)
+    /// An assistant the app saved. Only a caller that asked (`saveAssistant`) ever gets it.
+    case assistant(UUID)
     /// The Mac's Settings. Only a phone that asked (`settings`) ever gets it.
     case settings(RemoteSettingsSnapshot)
     /// A preview's pixels. Only a phone that asked (`media`) ever gets it.
@@ -668,6 +682,8 @@ public enum RemoteResult: Hashable, Sendable {
     case projectDefaults(RemoteProjectDefaults)
     /// The scheduled tasks. Only a phone that asked (`scheduledTasks` and their changes) ever gets them.
     case scheduledTasks(RemoteScheduledTasks)
+    /// The assistants. Only a caller that asked (`assistants` and their changes) ever gets them.
+    case assistants(RemoteAssistants)
     /// A folder's git state. Only a phone that asked (`gitState`) ever gets it.
     case gitState(RemoteGitState)
     /// What a git action did. Only a phone that asked (`gitAction`) ever gets it.
@@ -685,6 +701,7 @@ public enum RemoteResult: Hashable, Sendable {
         case .composerNotice: "composerNotice"
         case .projectDefaults: "projectDefaults"
         case .scheduledTasks: "scheduledTasks"
+        case .assistants: "assistants"
         case .gitState: "gitState"
         case .gitAction: "gitAction"
         case .pullRequests: "pullRequests"
@@ -699,6 +716,7 @@ public enum RemoteResult: Hashable, Sendable {
         case .diff: "diff"
         case .usage: "usage"
         case .bot: "bot"
+        case .assistant: "assistant"
         case .settings: "settings"
         case .media: "media"
         case .completions: "completions"
@@ -830,6 +848,7 @@ public enum RemoteServerMessage: Hashable, Sendable, Codable {
             case "diff": result = .diff(try body(RemoteDiff.self))
             case "usage": result = .usage(try body(ValueBody<[RemoteUsage]>.self).value)
             case "bot": result = .bot(try body(ValueBody<UUID>.self).value)
+            case "assistant": result = .assistant(try body(ValueBody<UUID>.self).value)
             case "settings": result = .settings(try body(RemoteSettingsSnapshot.self))
             case "media": result = .media(try body(RemoteMediaData.self))
             case "completions": result = .completions(try body(ValueBody<[RemoteCompletion]>.self).value)
@@ -841,6 +860,7 @@ public enum RemoteServerMessage: Hashable, Sendable, Codable {
             case "composerNotice": result = .composerNotice(try body(RemoteComposerNotice.self))
             case "projectDefaults": result = .projectDefaults(try body(RemoteProjectDefaults.self))
             case "scheduledTasks": result = .scheduledTasks(try body(RemoteScheduledTasks.self))
+            case "assistants": result = .assistants(try body(RemoteAssistants.self))
             case "gitState": result = .gitState(try body(RemoteGitState.self))
             case "gitAction": result = .gitAction(try body(RemoteGitActionResult.self))
             case "pullRequests": result = .pullRequests(try body(RemotePullRequestList.self))
@@ -899,6 +919,7 @@ public enum RemoteServerMessage: Hashable, Sendable, Codable {
             case .diff(let diff): try container.encode(diff, forKey: .body)
             case .usage(let usage): try container.encode(ValueBody(value: usage), forKey: .body)
             case .bot(let id): try container.encode(ValueBody(value: id), forKey: .body)
+            case .assistant(let id): try container.encode(ValueBody(value: id), forKey: .body)
             case .settings(let snapshot): try container.encode(snapshot, forKey: .body)
             case .media(let media): try container.encode(media, forKey: .body)
             case .completions(let completions): try container.encode(ValueBody(value: completions), forKey: .body)
@@ -910,6 +931,7 @@ public enum RemoteServerMessage: Hashable, Sendable, Codable {
             case .composerNotice(let notice): try container.encode(notice, forKey: .body)
             case .projectDefaults(let defaults): try container.encode(defaults, forKey: .body)
             case .scheduledTasks(let tasks): try container.encode(tasks, forKey: .body)
+            case .assistants(let assistants): try container.encode(assistants, forKey: .body)
             case .gitState(let state): try container.encode(state, forKey: .body)
             case .gitAction(let result): try container.encode(result, forKey: .body)
             case .pullRequests(let list): try container.encode(list, forKey: .body)

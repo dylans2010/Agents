@@ -462,6 +462,27 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         _ = try await adapterCall(.deleteBot(botID: botID, deletesConversations: deletesConversations))
     }
 
+    public func listAssistants() async throws -> RemoteAssistants {
+        let res = try await adapterCall(.assistants)
+        guard case .assistants(let assistants) = res else {
+            throw AgentsRuntimeError.unexpectedResult(expected: "assistants", actual: "\(res)")
+        }
+        return assistants
+    }
+
+    @discardableResult
+    public func saveAssistant(_ draft: RemoteAssistantDraft) async throws -> UUID {
+        let res = try await adapterCall(.saveAssistant(draft))
+        guard case .assistant(let id) = res else {
+            throw AgentsRuntimeError.unexpectedResult(expected: "assistant", actual: "\(res)")
+        }
+        return id
+    }
+
+    public func deleteAssistant(_ assistantID: UUID) async throws {
+        _ = try await adapterCall(.deleteAssistant(assistantID: assistantID))
+    }
+
     public func fetchSettings() async throws -> RemoteSettingsSnapshot {
         let res = try await adapterCall(.settings)
         guard case .settings(let snapshot) = res else {

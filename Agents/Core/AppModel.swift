@@ -93,6 +93,7 @@ public final class AppModel {
     public var activeDiffScope: DiffScope = .uncommitted
     public var activeGitState: RemoteGitState?
     public var scheduledTasks: RemoteScheduledTasks = RemoteScheduledTasks()
+    public var assistants: [RemoteAssistant] = []
     public var remoteServer: RemoteServerSnapshot = RemoteServerSnapshot()
     public var settingsSnapshot: RemoteSettingsSnapshot = RemoteSettingsSnapshot()
     public var usageLimits: [RemoteUsage] = []
@@ -228,6 +229,7 @@ public final class AppModel {
 
             Task {
                 await refreshScheduledTasks()
+                await refreshAssistants()
                 await refreshRemoteServer()
             }
 
@@ -953,6 +955,50 @@ public final class AppModel {
         guard let client = runtime else { return }
         if let tasks = try? await client.fetchScheduledTasks() {
             self.scheduledTasks = tasks
+        }
+    }
+
+    public func refreshAssistants() async {
+        guard let client = runtime else { return }
+        if let assistants = try? await client.listAssistants() {
+            self.assistants = assistants.assistants
+        }
+    }
+
+    public static func unknownAllowedTools(in draft: RemoteAssistantDraft) -> [String] {
+        let known = Set(SystemToolRegistry.systemTools.map(\.name))
+        return (draft.allowedTools ?? []).filter { !known.contains($0) }
+    }
+
+    @discardableResult
+    public func saveAssistant(_ draft: RemoteAssistantDraft) async -> UUID? {
+        guard let client = runtime else { return nil }
+        let unknown = Self.unknownAllowedTools(in: draft)
+        guard unknown.isEmpty else {
+            presentError(AgentsRuntimeError.desktopFailure(
+                "Unknown assistant tools: \(unknown.joined(separator: ", ")). Assistants can only use tools from the system toolset."
+            ))
+            return nil
+        }
+        do {
+            let id = try await client.saveAssistant(draft)
+            await refreshAssistants()
+            presentToast("Saved Assistant", detail: draft.name, style: .success)
+            return id
+        } catch {
+            presentError(error)
+            return nil
+        }
+    }
+
+    public func deleteAssistant(_ assistant: RemoteAssistant) async {
+        guard let client = runtime else { return }
+        do {
+            try await client.deleteAssistant(assistant.id)
+            await refreshAssistants()
+            presentToast("Assistant Deleted", style: .info)
+        } catch {
+            presentError(error)
         }
     }
 
