@@ -13,6 +13,8 @@ public enum AssistantValidationIssue: Hashable, Sendable {
     case emptySystemPrompt
     case systemPromptTooLong
     case systemPromptHasNUL
+    case emptyModel
+    case modelTooLong
     case tooManyIntendedTasks
     case intendedTaskTooLong(index: Int)
     case intendedTaskHasNUL(index: Int)
@@ -35,6 +37,7 @@ public struct AssistantDefinition: Hashable, Sendable, Identifiable {
     public static let descriptionLimit = 4096
     public static let iconLimit = 128
     public static let systemPromptLimit = 1_048_576
+    public static let modelLimit = 256
     public static let intendedTaskLimit = 512
     public static let intendedTasksLimit = 32
     public static let outputFormatLimit = 4096
@@ -110,7 +113,8 @@ public struct AssistantDefinition: Hashable, Sendable, Identifiable {
     }
 
     public static func builtInID(category: AssistantCategory, slug: String) -> String {
-        "builtin.\(category.rawValue).\(slug)"
+        precondition(Self.isValidSlug(slug), "Invalid assistant slug: \(slug)")
+        return "builtin.\(category.rawValue).\(slug)"
     }
 
     public static func customID(_ id: UUID) -> String {
@@ -221,19 +225,19 @@ public struct AssistantDefinition: Hashable, Sendable, Identifiable {
         if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             issues.append(.emptyName)
         }
-        if name.count > Self.nameLimit {
+        if name.unicodeScalars.count > Self.nameLimit {
             issues.append(.nameTooLong)
         }
         if name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
             issues.append(.nameHasControlCharacters)
         }
-        if description.count > Self.descriptionLimit {
+        if description.unicodeScalars.count > Self.descriptionLimit {
             issues.append(.descriptionTooLong)
         }
         if description.contains("\0") {
             issues.append(.descriptionHasNUL)
         }
-        if icon.count > Self.iconLimit {
+        if icon.unicodeScalars.count > Self.iconLimit {
             issues.append(.iconTooLong)
         }
         if icon.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
@@ -242,7 +246,7 @@ public struct AssistantDefinition: Hashable, Sendable, Identifiable {
         if systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             issues.append(.emptySystemPrompt)
         }
-        if systemPrompt.count > Self.systemPromptLimit {
+        if systemPrompt.utf8.count > Self.systemPromptLimit {
             issues.append(.systemPromptTooLong)
         }
         if systemPrompt.contains("\0") {
@@ -252,14 +256,14 @@ public struct AssistantDefinition: Hashable, Sendable, Identifiable {
             issues.append(.tooManyIntendedTasks)
         }
         for (index, task) in intendedTasks.enumerated() {
-            if task.count > Self.intendedTaskLimit {
+            if task.unicodeScalars.count > Self.intendedTaskLimit {
                 issues.append(.intendedTaskTooLong(index: index))
             }
             if task.contains("\0") {
                 issues.append(.intendedTaskHasNUL(index: index))
             }
         }
-        if expectedOutputFormat.count > Self.outputFormatLimit {
+        if expectedOutputFormat.unicodeScalars.count > Self.outputFormatLimit {
             issues.append(.expectedOutputFormatTooLong)
         }
         if expectedOutputFormat.contains("\0") {
@@ -271,7 +275,7 @@ public struct AssistantDefinition: Hashable, Sendable, Identifiable {
                 if tool.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     issues.append(.emptyToolName)
                 }
-                if tool.count > Self.toolNameLimit {
+                if tool.unicodeScalars.count > Self.toolNameLimit {
                     issues.append(.toolNameTooLong(name: tool))
                 }
                 if tool.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
@@ -285,12 +289,19 @@ public struct AssistantDefinition: Hashable, Sendable, Identifiable {
                 issues.append(.unknownTool(name: unknown))
             }
         }
+        if let model = modelConfig.model {
+            if model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                issues.append(.emptyModel)
+            } else if model.unicodeScalars.count > Self.modelLimit {
+                issues.append(.modelTooLong)
+            }
+        }
         if let requirements = inputRequirements {
             if requirements.count > Self.inputRequirementsLimit {
                 issues.append(.tooManyInputRequirements)
             }
             for (index, requirement) in requirements.enumerated() {
-                if requirement.count > Self.inputRequirementLimit {
+                if requirement.unicodeScalars.count > Self.inputRequirementLimit {
                     issues.append(.inputRequirementTooLong(index: index))
                 }
                 if requirement.contains("\0") {

@@ -3,24 +3,39 @@ import Foundation
 public enum AssistantModelConfig: Hashable, Sendable {
     case appDefault
     case specific(provider: String, model: String)
+    case providerOnly(String)
+    case modelOnly(String)
     case currentAppModel
 
     public init(provider: String?, model: String?) {
-        if let provider, let model {
+        switch (provider, model) {
+        case let (provider?, model?):
             self = .specific(provider: provider, model: model)
-        } else {
+        case let (provider?, nil):
+            self = .providerOnly(provider)
+        case let (nil, model?):
+            self = .modelOnly(model)
+        case (nil, nil):
             self = .appDefault
         }
     }
 
     public var provider: String? {
-        if case .specific(let provider, _) = self { return provider }
-        return nil
+        switch self {
+        case .specific(let provider, _), .providerOnly(let provider):
+            return provider
+        case .appDefault, .modelOnly, .currentAppModel:
+            return nil
+        }
     }
 
     public var model: String? {
-        if case .specific(_, let model) = self { return model }
-        return nil
+        switch self {
+        case .specific(_, let model), .modelOnly(let model):
+            return model
+        case .appDefault, .providerOnly, .currentAppModel:
+            return nil
+        }
     }
 
     public func resolvingCurrent(provider: String?, model: String?) -> AssistantModelConfig {

@@ -56,12 +56,12 @@ struct AssistantCatalogTests {
             source: source)
     }
 
-    @Test("Catalog loads with zero presets: empty, no crash, no conflicts")
-    func emptyCatalogLoadsWithZeroPresets() {
-        #expect(BuiltInPresets.all.isEmpty)
+    @Test("Catalog loads with its built-in presets: counts agree, no conflicts")
+    func catalogLoadsWithBuiltInPresets() {
+        #expect(!BuiltInPresets.all.isEmpty)
         let catalog = AssistantCatalog()
-        #expect(catalog.allDefinitions.isEmpty)
-        #expect(catalog.builtInDefinitions.isEmpty)
+        #expect(catalog.allDefinitions.count == BuiltInPresets.all.count)
+        #expect(catalog.builtInDefinitions.count == BuiltInPresets.all.count)
         #expect(catalog.customDefinitions.isEmpty)
         #expect(catalog.duplicateBuiltinIDs.isEmpty)
         #expect(catalog.unmatchedOverrideIDs.isEmpty)
@@ -169,6 +169,53 @@ struct AssistantCatalogTests {
         #expect(resolved == .specific(provider: "codex", model: "gpt-5"))
         #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: nil, model: nil) == .appDefault)
         #expect(specific.resolvingCurrent(provider: "codex", model: "gpt-5") == specific)
+    }
+
+    @Test("Model config preserves provider-only and model-only halves")
+    func modelConfigPreservesHalves() {
+        let providerOnly = AssistantModelConfig(provider: "claude", model: nil)
+        #expect(providerOnly == .providerOnly("claude"))
+        #expect(providerOnly.provider == "claude")
+        #expect(providerOnly.model == nil)
+        let modelOnly = AssistantModelConfig(provider: nil, model: "gpt-5")
+        #expect(modelOnly == .modelOnly("gpt-5"))
+        #expect(modelOnly.provider == nil)
+        #expect(modelOnly.model == "gpt-5")
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: "claude", model: nil) == .providerOnly("claude"))
+        #expect(AssistantModelConfig.currentAppModel.resolvingCurrent(provider: nil, model: "gpt-5") == .modelOnly("gpt-5"))
+        #expect(providerOnly.resolvingCurrent(provider: "codex", model: "gpt-5") == providerOnly)
+        #expect(modelOnly.resolvingCurrent(provider: "codex", model: "gpt-5") == modelOnly)
+    }
+
+    @Test("Provider-only and model-only configs survive a stored record and an override")
+    func halfModelConfigRoundTripsThroughStoredAndOverride() {
+        let providerOnlyRecord = RemoteAssistant(
+            id: UUID(), name: "Helper", category: .buildingFixing,
+            systemPrompt: "Help.", provider: "claude", model: nil, source: .custom)
+        #expect(AssistantDefinition(stored: providerOnlyRecord)?.modelConfig == .providerOnly("claude"))
+        let modelOnlyRecord = RemoteAssistant(
+            id: UUID(), name: "Helper", category: .buildingFixing,
+            systemPrompt: "Help.", provider: nil, model: "gpt-5", source: .custom)
+        #expect(AssistantDefinition(stored: modelOnlyRecord)?.modelConfig == .modelOnly("gpt-5"))
+        let preset = Self.preset()
+        let override = RemoteAssistant(
+            id: preset.persistenceID!, name: preset.name, description: preset.description,
+            icon: preset.icon, category: preset.category.remote, systemPrompt: preset.systemPrompt,
+            intendedTasks: preset.intendedTasks, expectedOutputFormat: preset.expectedOutputFormat,
+            allowedTools: preset.allowedTools, provider: "codex", model: nil,
+            permissionProfile: preset.permissionProfile.remote,
+            inputRequirements: preset.inputRequirements, version: preset.version, source: .override)
+        let resolved = preset.applyingOverride(override)
+        #expect(resolved.modelConfig == .providerOnly("codex"))
+        #expect(resolved.customized == true)
+        let modelOverride = RemoteAssistant(
+            id: preset.persistenceID!, name: preset.name, description: preset.description,
+            icon: preset.icon, category: preset.category.remote, systemPrompt: preset.systemPrompt,
+            intendedTasks: preset.intendedTasks, expectedOutputFormat: preset.expectedOutputFormat,
+            allowedTools: preset.allowedTools, provider: nil, model: "gpt-5",
+            permissionProfile: preset.permissionProfile.remote,
+            inputRequirements: preset.inputRequirements, version: preset.version, source: .override)
+        #expect(preset.applyingOverride(modelOverride).modelConfig == .modelOnly("gpt-5"))
     }
 
     @Test("An override changes only the fields it differs in and flags the preset customized")
@@ -282,6 +329,17 @@ struct AssistantCatalogTests {
         #expect(plain.versionGap(for: "builtin.code-maintenance.nope") == nil)
     }
 
+    @Test("A newer override than its preset is not a version gap")
+    func versionGapIgnoresNewerOverride() {
+        let preset = Self.preset(version: 2)
+        let catalog = AssistantCatalog(
+            builtIns: [preset],
+            stored: [Self.record(for: preset, name: "Renamed", version: 3)])
+        #expect(catalog.versionGap(for: preset.id) == nil)
+        #expect(catalog.builtInDefinitions.first?.name == "Renamed")
+        #expect(catalog.builtInDefinitions.first?.customized == true)
+    }
+
     @Test("Duplicate preset IDs are reported deterministically and the first wins")
     func duplicateIDsFirstWins() {
         let first = Self.preset(name: "First")
@@ -317,6 +375,50 @@ struct AssistantCatalogTests {
         #expect(Self.preset().validationIssues().isEmpty)
     }
 
+    @Test("Validation rejects an empty or overlong model and accepts a 256-character model")
+    func validationRejectsEmptyAndOverlongModel() {
+        let empty = Self.preset(modelConfig: .modelOnly(""))
+        #expect(empty.validationIssues().contains(.emptyModel))
+        let blank = Self.preset(modelConfig: .modelOnly("   "))
+        #expect(blank.validationIssues().contains(.emptyModel))
+        let tooLong = Self.preset(modelConfig: .modelOnly(String(repeating: "m", count: 257)))
+        #expect(tooLong.validationIssues().contains(.modelTooLong))
+        let atLimit = Self.preset(modelConfig: .modelOnly(String(repeating: "m", count: 256)))
+        #expect(!atLimit.validationIssues().contains(.modelTooLong))
+        #expect(!atLimit.validationIssues().contains(.emptyModel))
+        let providerOnly = Self.preset(modelConfig: .providerOnly("claude"))
+        #expect(!providerOnly.validationIssues().contains(where: {
+            if case .emptyModel = $0 { return true }
+            if case .modelTooLong = $0 { return true }
+            return false
+        }))
+    }
+
+    @Test("Validation counts Unicode scalars for text and UTF-8 bytes for the system prompt")
+    func validationCountsUnicodeScalarsAndUTF8Bytes() {
+        let combining = Self.preset(name: String(repeating: "e\u{301}", count: 1024))
+        #expect(combining.validationIssues().contains(.nameTooLong))
+        let atLimit = Self.preset(name: String(repeating: "e\u{301}", count: 512))
+        #expect(!atLimit.validationIssues().contains(.nameTooLong))
+        let multibytePrompt = Self.preset(systemPrompt: String(repeating: "é", count: 600_000))
+        #expect(multibytePrompt.validationIssues().contains(.systemPromptTooLong))
+        let exactBytes = Self.preset(systemPrompt: String(repeating: "é", count: 524_288))
+        #expect(!exactBytes.validationIssues().contains(.systemPromptTooLong))
+    }
+
+    @Test("IDs built from invalid slugs fail validation")
+    func invalidSlugIDFailsValidation() {
+        for id in [
+            "builtin.code-maintenance.HasCaps",
+            "builtin.code-maintenance.-leading-dash",
+            "builtin.code-maintenance.trailing-dash-",
+            "builtin.code-maintenance.double--dash",
+            "builtin.code-maintenance.has space",
+        ] {
+            #expect(Self.preset(id: id).validationIssues().contains(.invalidStableID), "Expected invalid ID: \(id)")
+        }
+    }
+
     @Test("An override with no matching preset is reported as unmatched")
     func orphanOverrideReported() {
         let orphanID = UUID(uuidString: "CCCCCCCC-3333-4333-8333-333333333333")!
@@ -338,5 +440,14 @@ struct AssistantCatalogTests {
         #expect(found?.name == "Renamed")
         #expect(found?.customized == true)
         #expect(catalog.definition(forPersistenceID: UUID()) == nil)
+    }
+
+    @Test("AppModel reports assistants as not loaded until a refresh attempt resolves")
+    @MainActor
+    func assistantsLoadedFlagResolves() async {
+        let model = AppModel()
+        #expect(model.assistantsLoaded == false)
+        await model.refreshAssistants()
+        #expect(model.assistantsLoaded == true)
     }
 }

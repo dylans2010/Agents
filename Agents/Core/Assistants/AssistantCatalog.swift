@@ -75,7 +75,7 @@ public struct AssistantCatalog: Sendable {
     public func versionGap(for stableID: String) -> (preset: Int, customizedAgainst: Int)? {
         guard let preset = builtinPreset(for: stableID) else { return nil }
         guard let record = overrideRecord(matching: preset) else { return nil }
-        guard record.version != preset.version else { return nil }
+        guard preset.version > record.version else { return nil }
         return (preset: preset.version, customizedAgainst: record.version)
     }
 

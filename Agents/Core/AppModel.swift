@@ -94,6 +94,7 @@ public final class AppModel {
     public var activeGitState: RemoteGitState?
     public var scheduledTasks: RemoteScheduledTasks = RemoteScheduledTasks()
     public var assistants: [RemoteAssistant] = []
+    public private(set) var assistantsLoaded: Bool = false
 
     public var assistantCatalog: AssistantCatalog {
         AssistantCatalog(stored: assistants)
@@ -1007,6 +1008,7 @@ public final class AppModel {
     }
 
     public func refreshAssistants() async {
+        defer { assistantsLoaded = true }
         guard let client = runtime else { return }
         if let assistants = try? await client.listAssistants() {
             self.assistants = assistants.assistants
