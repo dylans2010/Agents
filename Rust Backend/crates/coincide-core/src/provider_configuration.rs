@@ -272,6 +272,15 @@ fn sensitive_for_profile(key: &str) -> bool {
         || key.starts_with("OPENAI_")
         || key.starts_with("CODEX_")
 }
+pub(crate) fn credential_environment_key(key: &str) -> bool {
+    let upper = key.to_ascii_uppercase();
+    sensitive_for_profile(key)
+        || upper.contains("AUTH")
+        || upper.starts_with("GROK_")
+        || upper.starts_with("CLAUDE_")
+        || upper.starts_with("ANTHROPIC_")
+        || upper.starts_with("OPENCODE_")
+}
 fn validate_environment(values: &BTreeMap<String, String>) -> Result<()> {
     ensure!(
         values.len() <= 128
@@ -954,7 +963,10 @@ impl Engine {
             },
         })
     }
-    pub fn apply_native_provider_configuration(&mut self, prepared: Prepared) -> Result<Snapshot> {
+    pub fn apply_native_provider_configuration(
+        &mut self,
+        mut prepared: Prepared,
+    ) -> Result<Snapshot> {
         self.require_admissions()?;
         ensure!(
             source(&self.store)? == (prepared.source.clone(), prepared.identity),
@@ -982,6 +994,10 @@ impl Engine {
             baseline == prepared.baseline,
             "Provider configuration changed; drafts were retained"
         );
+        prepared
+            .record
+            .environment
+            .retain(|key, _| !credential_environment_key(key));
         payload["providers"][&prepared.provider] = serde_json::to_value(&prepared.record)?;
         self.store
             .mark_native_provider_configuration(&prepared.provider)?;
@@ -1446,7 +1462,7 @@ pub(crate) mod tests {
                 provider,
                 &baseline,
                 Some(binary),
-                BTreeMap::from([("SYNTHETIC_API_KEY".into(), value.into())]),
+                BTreeMap::from([("SYNTHETIC_CUSTOM_VAR".into(), value.into())]),
             )
             .unwrap();
         engine.apply_native_provider_configuration(plan).unwrap();
@@ -1477,6 +1493,36 @@ pub(crate) mod tests {
         });
     }
     #[test]
+    fn credential_environment_values_are_not_persisted() {
+        let (_root, mut engine, binary) = fixture();
+        let baseline = engine
+            .native_provider_configuration("claude")
+            .unwrap()
+            .baseline;
+        let plan = engine
+            .prepare_native_provider_configuration(
+                "claude",
+                &baseline,
+                Some(&binary),
+                BTreeMap::from([
+                    ("ANTHROPIC_API_KEY".into(), "synthetic-persisted-key".into()),
+                    ("SYNTHETIC_CUSTOM_VAR".into(), "synthetic-kept".into()),
+                ]),
+            )
+            .unwrap();
+        engine.apply_native_provider_configuration(plan).unwrap();
+        let snapshot = engine.native_provider_configuration("claude").unwrap();
+        assert!(!snapshot.environment.contains_key("ANTHROPIC_API_KEY"));
+        assert_eq!(
+            snapshot.environment.get("SYNTHETIC_CUSTOM_VAR").map(String::as_str),
+            Some("synthetic-kept")
+        );
+        assert!(credential_environment_key("ANTHROPIC_API_KEY"));
+        assert!(credential_environment_key("CURSOR_AUTH_TOKEN"));
+        assert!(!credential_environment_key("SYNTHETIC_CUSTOM_VAR"));
+        assert!(!credential_environment_key("FAST_AGENT_MODEL"));
+    }
+    #[test]
     fn discovery_snapshot_retains_approved_custom_paths_without_exposing_environment() {
         let (_root, mut engine, binary) = fixture();
         save(&mut engine, "claude", &binary, "private-synthetic-value");
@@ -1505,7 +1551,7 @@ pub(crate) mod tests {
         {
             let _runtime = antigravity_runtime_copy(&binary, &copied).unwrap();
             apply_to_child(&mut Command::new(&copied), false).unwrap();
-            assert_eq!(effective_var("SYNTHETIC_API_KEY").unwrap(), "synthetic");
+            assert_eq!(effective_var("SYNTHETIC_CUSTOM_VAR").unwrap(), "synthetic");
             assert!(apply_to_child(&mut Command::new(root.path().join("other")), false).is_err());
         }
         assert!(apply_to_child(&mut Command::new(&copied), false).is_err());
@@ -1841,7 +1887,7 @@ pub(crate) mod tests {
             first
                 .native_provider_configuration("codex")
                 .unwrap()
-                .environment["SYNTHETIC_API_KEY"],
+                .environment["SYNTHETIC_CUSTOM_VAR"],
             "fixture-not-a-real-key"
         );
         assert!(first.store.document("settings.json").unwrap().is_none());
@@ -1889,7 +1935,7 @@ pub(crate) mod tests {
                 assert!(
                     child
                         .get_envs()
-                        .any(|(key, value)| key == "SYNTHETIC_API_KEY"
+                        .any(|(key, value)| key == "SYNTHETIC_CUSTOM_VAR"
                             && value == Some(std::ffi::OsStr::new("fixture-first")))
                 );
                 assert!(apply_to_child(&mut Command::new(&binary), true).is_err());

@@ -592,7 +592,7 @@ mod tests {
             assert!(
                 command
                     .get_envs()
-                    .any(|(key, value)| key == "SYNTHETIC_API_KEY"
+                    .any(|(key, value)| key == "SYNTHETIC_CUSTOM_VAR"
                         && value == Some(std::ffi::OsStr::new("synthetic-only")))
             );
             Ok(0)

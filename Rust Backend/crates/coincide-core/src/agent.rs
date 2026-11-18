@@ -64,6 +64,12 @@ pub(crate) fn opencode_workspace_metadata(
 pub(crate) fn opencode_lithos_model_ids() -> Vec<String> {
     opencode::lithos_model_ids()
 }
+pub(crate) fn provider_error_code(error: &Value) -> String {
+    match error.get("code").and_then(Value::as_i64) {
+        Some(code) => format!("code {code}"),
+        None => "unknown code".to_string(),
+    }
+}
 pub(crate) fn acp_model_metadata(
     executable: &std::path::Path,
     cwd: &std::path::Path,
@@ -1308,7 +1314,7 @@ fn run(
                 compact_confirmed = true;
             }
             if frame.get("error").is_some() && frame.get("id").is_some() {
-                bail!("Codex rejected request: {}", frame["error"]);
+                bail!("Codex rejected request: {}", provider_error_code(&frame["error"]));
             }
             if frame["id"].as_u64() == Some(stage) && frame.get("result").is_some() {
                 match stage {
@@ -1551,7 +1557,10 @@ fn run(
                     events.send(Event::Usage)?;
                 }
                 if frame["params"]["turn"]["status"] == "failed" {
-                    bail!("Codex turn failed: {}", frame["params"]["turn"]["error"]);
+                    bail!(
+                        "Codex turn failed: {}",
+                        provider_error_code(&frame["params"]["turn"]["error"])
+                    );
                 }
                 if compact {
                     ensure!(
@@ -1819,6 +1828,21 @@ pub(crate) fn set_provider_session_for_account(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn provider_error_codes_never_carry_provider_text() {
+        let error = json!({"code":-32000,"message":"synthetic-key-echo","data":{"key":"synthetic-key-echo"}});
+        let code = provider_error_code(&error);
+        assert_eq!(code, "code -32000");
+        assert!(!code.contains("synthetic-key-echo"));
+        assert_eq!(
+            provider_error_code(&json!({"message":"synthetic-key-echo"})),
+            "unknown code"
+        );
+        assert_eq!(
+            provider_error_code(&json!("synthetic-key-echo")),
+            "unknown code"
+        );
+    }
     #[cfg(unix)]
     #[test]
     fn provider_child_unblocks_sigchld_without_changing_other_signals_or_parent() {

@@ -601,15 +601,12 @@ fn run_flavored(
                 bail!("{}", crate::acp_registry::SIGN_IN_REQUIRED);
             }
             if frame["error"]["code"] == -32000 {
-                let message = frame["error"]["message"]
-                    .as_str()
-                    .unwrap_or("The agent rejected the request");
-                bail!(
-                    "ACP rejected request: {}",
-                    json!({"code":-32000,"message":message})
-                );
+                bail!("ACP rejected request: code -32000");
             }
-            bail!("ACP rejected request: {}", frame["error"]);
+            bail!(
+                "ACP rejected request: {}",
+                crate::agent::provider_error_code(&frame["error"])
+            );
         }
         let result = frame.get("result").context("ACP response has no result")?;
         if stopping.is_some() {

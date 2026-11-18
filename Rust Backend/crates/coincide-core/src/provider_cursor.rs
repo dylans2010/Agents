@@ -268,7 +268,10 @@ pub(super) fn run(
                     "Cursor authentication is unavailable or expired; configure a valid environment credential. No interactive login was started"
                 );
             }
-            bail!("Cursor rejected request: {}", frame["error"]);
+            bail!(
+                "Cursor rejected request: {}",
+                crate::agent::provider_error_code(&frame["error"])
+            );
         }
         let result = frame
             .get("result")

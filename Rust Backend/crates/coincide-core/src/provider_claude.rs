@@ -286,10 +286,7 @@ impl Mapper {
             }
             Some("assistant") => {
                 if let Some(error) = frame["error"].as_str() {
-                    ensure!(
-                        error == "max_output_tokens",
-                        "Claude assistant error: {error}"
-                    );
+                    ensure!(error == "max_output_tokens", "Claude assistant error");
                 }
                 let message = &frame["message"];
                 let message_id = message["id"]
@@ -564,8 +561,7 @@ pub(super) fn run(
                 );
                 ensure!(
                     frame["response"]["subtype"] == "success",
-                    "Claude initialization failed: {}",
-                    frame["response"]["error"]
+                    "Claude initialization failed"
                 );
                 initialized = true;
                 if stopping.is_none() {

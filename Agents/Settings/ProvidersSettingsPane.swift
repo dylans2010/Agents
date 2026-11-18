@@ -515,6 +515,17 @@ public struct ProvidersSettingsPane: View {
         }
     }
 
+    private func isCredentialEnvironmentKey(_ name: String) -> Bool {
+        let upper = name.uppercased()
+        return ["KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "AUTH", "PROXY"].contains { upper.contains($0) }
+            || upper.hasPrefix("OPENAI_")
+            || upper.hasPrefix("CODEX_")
+            || upper.hasPrefix("GROK_")
+            || upper.hasPrefix("CLAUDE_")
+            || upper.hasPrefix("ANTHROPIC_")
+            || upper.hasPrefix("OPENCODE_")
+    }
+
     private func environmentVariablesSection(_ provider: DesktopProviderInfo) -> some View {
         Section {
             if envPairs.isEmpty {
@@ -529,9 +540,15 @@ public struct ProvidersSettingsPane: View {
                             .font(.system(size: 11.5, design: .monospaced))
                             .frame(minWidth: 140, idealWidth: 180, maxWidth: 240)
 
-                        TextField("Value", text: $pair.value)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(size: 11.5, design: .monospaced))
+                        if isCredentialEnvironmentKey(pair.key) {
+                            SecureField("Value", text: $pair.value)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 11.5, design: .monospaced))
+                        } else {
+                            TextField("Value", text: $pair.value)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 11.5, design: .monospaced))
+                        }
 
                         Button(role: .destructive) {
                             envPairs.removeAll { $0.id == pair.id }
