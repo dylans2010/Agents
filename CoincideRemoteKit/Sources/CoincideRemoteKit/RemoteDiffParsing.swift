@@ -2,6 +2,12 @@ import Foundation
 
 /// Splits git's unified diff into files, and reads a file's patch into lines for display.
 public enum RemoteDiffParsing {
+    public static let maxLineLength = 3_000
+
+    private static func displayText(_ text: String) -> String {
+        guard text.count > maxLineLength else { return text }
+        return String(text.prefix(maxLineLength)) + " …"
+    }
     /// The files of `git diff` output, each with its hunks. Files past `maxFiles`, and patch text past `maxPatchBytes`
     /// in total, are left out and the result marked truncated.
     public static func split(_ patch: String, title: String, maxFiles: Int = 300, maxPatchBytes: Int = 2_000_000) -> RemoteDiff {
@@ -92,17 +98,17 @@ public enum RemoteDiffParsing {
                 let numbers = hunkStarts(text)
                 old = numbers.old
                 new = numbers.new
-                result.append(Line(id: index, kind: .hunk, text: text))
+                result.append(Line(id: index, kind: .hunk, text: displayText(text)))
             } else if text.hasPrefix("+") {
-                result.append(Line(id: index, kind: .addition, text: String(text.dropFirst()), newLine: new))
+                result.append(Line(id: index, kind: .addition, text: displayText(String(text.dropFirst())), newLine: new))
                 new += 1
             } else if text.hasPrefix("-") {
-                result.append(Line(id: index, kind: .deletion, text: String(text.dropFirst()), oldLine: old))
+                result.append(Line(id: index, kind: .deletion, text: displayText(String(text.dropFirst())), oldLine: old))
                 old += 1
             } else if text.hasPrefix("\\") {
-                result.append(Line(id: index, kind: .note, text: text))
+                result.append(Line(id: index, kind: .note, text: displayText(text)))
             } else if !(text.isEmpty && index > 0 && result.isEmpty) {
-                result.append(Line(id: index, kind: .context, text: String(text.dropFirst()), oldLine: old, newLine: new))
+                result.append(Line(id: index, kind: .context, text: displayText(String(text.dropFirst())), oldLine: old, newLine: new))
                 old += 1
                 new += 1
             }

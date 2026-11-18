@@ -314,6 +314,53 @@ fn files_are_not_restored_when_another_thread_worked_in_the_folder() {
 }
 
 #[test]
+fn files_are_not_restored_when_the_thread_moved_folders() {
+    let (_dir, mut engine, id, root) = fixture();
+    let user = item("user", "change");
+    seed(&mut engine, &id, std::slice::from_ref(&user));
+    let user_id = text(&user, "id");
+    run_turn(&mut engine, &id, &user_id, &root, || {
+        std::fs::write(root.join("file.txt"), "changed\n").unwrap();
+    });
+    let moved = root.join("elsewhere");
+    std::fs::create_dir(&moved).unwrap();
+    let mut thread = engine.store.thread(&id).unwrap();
+    thread["worktreePath"] = json!(moved.display().to_string());
+    engine.store.save(&thread).unwrap();
+    assert_eq!(
+        engine
+            .execute(
+                "checkpoints.canRestore",
+                &json!({"threadId":id,"userItemId":user_id})
+            )
+            .unwrap()["canRestore"],
+        false
+    );
+    let error = engine
+        .execute(
+            "threads.rewind",
+            &json!({"threadId":id,"itemId":user_id,"revertFiles":true}),
+        )
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .starts_with("The folder this turn ran in is no longer")
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("file.txt")).unwrap(),
+        "changed\n"
+    );
+    assert_eq!(
+        engine.store.thread(&id).unwrap()["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn checkpoints_follow_the_setting_and_skip_folders_outside_git() {
     let (dir, mut engine, id, root) = fixture();
     engine

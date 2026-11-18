@@ -595,7 +595,7 @@ pub fn restore_checkpoint(directory: &Path, id: &str, confirm: bool) -> Result<V
     )?;
     validate_oid(&commit)?;
     git(directory, &["reset", "--hard", &commit])?;
-    git(directory, &["clean", "-fdx"])?;
+    git(directory, &["clean", "-fd"])?;
     let head = text(directory, &["rev-parse", "--verify", "HEAD"])?;
     Ok(json!({"restored": true, "id": id, "commit": commit, "head": head}))
 }
@@ -798,6 +798,8 @@ mod tests {
         let id = created["id"].as_str().unwrap().to_owned();
         std::fs::write(root.join("a.txt"), "destroyed\n").unwrap();
         std::fs::write(root.join("scratch.txt"), "untracked\n").unwrap();
+        std::fs::write(root.join(".gitignore"), "ignored.txt\n").unwrap();
+        std::fs::write(root.join("ignored.txt"), "local-only\n").unwrap();
         assert!(restore_checkpoint(root, &id, false).is_err());
         assert!(restore_checkpoint(root, "not-a-uuid", true).is_err());
         let restored = restore_checkpoint(root, &id, true).unwrap();
@@ -805,6 +807,7 @@ mod tests {
         assert_eq!(restored["id"], id);
         assert_eq!(read(root, "a.txt"), "one\ntwo\n");
         assert!(!root.join("scratch.txt").exists());
+        assert!(root.join("ignored.txt").exists());
         let listed = checkpoints(root).unwrap();
         assert_eq!(listed["checkpoints"].as_array().unwrap().len(), 1);
     }

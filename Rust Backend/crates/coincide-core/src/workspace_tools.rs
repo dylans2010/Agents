@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::{
     collections::VecDeque,
     fs::{self, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Read, Write},
     path::{Component, Path, PathBuf},
 };
 #[cfg(unix)]
@@ -607,11 +607,33 @@ fn write_regular_utf8(target: &Path, bytes: &[u8]) -> Result<()> {
                 meta.is_file() && !meta.file_type().is_symlink(),
                 "Refusing to overwrite symlink or non-regular file"
             );
-            let mut file = native_file::open_regular(target, true)?;
-            file.seek(SeekFrom::Start(0))?;
-            file.write_all(bytes)?;
-            file.set_len(bytes.len() as u64)?;
-            file.sync_all()?;
+            let parent = target.parent().context("Invalid file path")?;
+            let temp = parent.join(format!(
+                ".coincide-write-{}-{}",
+                std::process::id(),
+                uuid::Uuid::new_v4().as_simple()
+            ));
+            let mut options = OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+            let mut file = options.open(&temp)?;
+            let written = (|| -> Result<()> {
+                file.write_all(bytes)?;
+                file.sync_all()?;
+                fs::set_permissions(&temp, meta.permissions())?;
+                Ok(())
+            })();
+            if let Err(error) = written {
+                let _ = fs::remove_file(&temp);
+                return Err(error);
+            }
+            drop(file);
+            if let Err(error) = fs::rename(&temp, target) {
+                let _ = fs::remove_file(&temp);
+                return Err(error.into());
+            }
+            sync_parent_dir(parent);
         }
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             let mut options = OpenOptions::new();
@@ -625,4 +647,56 @@ fn write_regular_utf8(target: &Path, bytes: &[u8]) -> Result<()> {
         Err(err) => return Err(err.into()),
     }
     Ok(())
+}
+
+#[cfg(unix)]
+fn sync_parent_dir(dir: &Path) {
+    if let Ok(file) = OpenOptions::new().read(true).open(dir) {
+        let _ = file.sync_all();
+    }
+}
+
+#[cfg(not(unix))]
+fn sync_parent_dir(_dir: &Path) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_file_replaces_content_and_keeps_permissions_without_leftovers() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let target = root.join("script.sh");
+        std::fs::write(&target, "#!/bin/sh\necho old\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let written = write_file(&json!({
+            "cwd": root.display().to_string(),
+            "path": "script.sh",
+            "content": "#!/bin/sh\necho new\n",
+        }))
+        .unwrap();
+        assert_eq!(written["saved"], true);
+        assert_eq!(
+            std::fs::read_to_string(&target).unwrap(),
+            "#!/bin/sh\necho new\n"
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+                0o755
+            );
+        }
+        let entries: Vec<_> = std::fs::read_dir(root)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(entries, vec![std::ffi::OsString::from("script.sh")]);
+    }
 }

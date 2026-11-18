@@ -16,6 +16,7 @@ pub(super) const METHODS: &[&str] = &[
 
 const UNAVAILABLE: &str = "There is no checkpoint for this turn.";
 const MISSING_FOLDER: &str = "The folder this turn ran in no longer exists.";
+const MOVED_FOLDER: &str = "The folder this turn ran in is no longer this conversation's folder, so restoring its files would write to the wrong place.";
 const SHARED_FOLDER: &str = "Another thread has worked in this folder since this turn, so restoring files would undo its changes too. Rewind the conversation without restoring files instead.";
 
 type BeforeSlot = Arc<Mutex<Option<std::result::Result<(String, f64), String>>>>;
@@ -343,6 +344,13 @@ impl Engine {
         Ok(true)
     }
 
+    fn checkpoint_folder_matches(&self, thread: &Value, folder: &Path) -> bool {
+        let resolve = |path: &Path| path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        self.working_directory(thread)
+            .map(|current| resolve(&current) == resolve(folder))
+            .unwrap_or(false)
+    }
+
     fn can_restore_turn(&mut self, thread_id: &str, user_item_id: &str) -> Result<bool> {
         let Some(checkpoint) = self.checkpoint(thread_id, user_item_id) else {
             return Ok(false);
@@ -351,6 +359,14 @@ impl Engine {
             return Ok(false);
         };
         if !Path::new(&checkpoint.cwd).is_dir() {
+            return Ok(false);
+        }
+        if !self
+            .store
+            .thread(thread_id)
+            .ok()
+            .is_some_and(|thread| self.checkpoint_folder_matches(&thread, Path::new(&checkpoint.cwd)))
+        {
             return Ok(false);
         }
         self.restore_isolated(thread_id, Path::new(&checkpoint.cwd), since)
@@ -490,6 +506,10 @@ impl Engine {
             let before = checkpoint.before.clone().context(UNAVAILABLE)?;
             let cwd = PathBuf::from(&checkpoint.cwd);
             ensure!(cwd.is_dir(), MISSING_FOLDER);
+            ensure!(
+                self.checkpoint_folder_matches(&thread, &cwd),
+                MOVED_FOLDER
+            );
             ensure!(
                 self.restore_isolated(thread_id, &cwd, checkpoint.before_at.unwrap_or(f64::MIN))?,
                 SHARED_FOLDER
