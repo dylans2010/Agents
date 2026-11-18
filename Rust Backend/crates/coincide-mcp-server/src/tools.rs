@@ -8541,6 +8541,46 @@ fn artifact_path(name: &str, tool: &str) -> Result<String, CallError> {
     Ok(format!(".assist_temp/artifacts/{file_name}"))
 }
 
+const MAX_ARTIFACT_COUNT: usize = 100;
+const MAX_ARTIFACT_STORE_BYTES: u64 = 32 * 1024 * 1024;
+
+fn check_artifact_store_capacity(cwd: &str, artifact_path: &str, final_len: usize) -> Result<(), CallError> {
+    let entries = read_dir_entries(cwd, ".assist_temp/artifacts", false).unwrap_or_default();
+    let file_name = artifact_path.rsplit('/').next().unwrap_or(artifact_path);
+    let mut count = 0usize;
+    let mut total_bytes: u64 = 0;
+    let mut target_bytes: u64 = 0;
+    let mut target_exists = false;
+    for entry in &entries {
+        let Some(entry_name) = entry["name"].as_str() else {
+            continue;
+        };
+        if !entry_name.ends_with(".md") {
+            continue;
+        }
+        count += 1;
+        let size = entry["sizeBytes"].as_u64().unwrap_or(0);
+        total_bytes += size;
+        if entry_name == file_name {
+            target_exists = true;
+            target_bytes = size;
+        }
+    }
+    let new_count = count + usize::from(!target_exists);
+    if new_count > MAX_ARTIFACT_COUNT {
+        return Err(failed(format!(
+            "Artifact store is full: {count} artifacts already exist (limit {MAX_ARTIFACT_COUNT}). Delete an old artifact first."
+        )));
+    }
+    let new_total = total_bytes - target_bytes + final_len as u64;
+    if new_total > MAX_ARTIFACT_STORE_BYTES {
+        return Err(failed(format!(
+            "Artifact store is full: this write would bring the store to {new_total} bytes (limit {MAX_ARTIFACT_STORE_BYTES}). Delete an old artifact first."
+        )));
+    }
+    Ok(())
+}
+
 fn parse_csv(text: &str) -> Vec<Vec<String>> {
     let mut rows: Vec<Vec<String>> = Vec::new();
     let mut row: Vec<String> = Vec::new();
@@ -17654,16 +17694,18 @@ pub fn call(
             }
             let artifact_path = artifact_path(&artifact_name, name)?;
             let append = opt_bool(&args, "append").unwrap_or(false);
-            if append {
+            let final_content = if append {
                 let mut existing = read_text_file_at(&cwd, &artifact_path).unwrap_or_default();
                 if !existing.is_empty() && !existing.ends_with('\n') {
                     existing.push('\n');
                 }
                 existing.push_str(&content);
-                write_text_file(&cwd, &artifact_path, &existing)?;
+                existing
             } else {
-                write_text_file(&cwd, &artifact_path, &content)?;
-            }
+                content
+            };
+            check_artifact_store_capacity(&cwd, &artifact_path, final_content.len())?;
+            write_text_file(&cwd, &artifact_path, &final_content)?;
             Ok(json!({"name": artifact_name, "path": artifact_path, "kind": kind, "appended": append}))
         }
         "list_artifacts" => {
@@ -17707,10 +17749,10 @@ pub fn call(
             if !opt_bool(&args, "confirm").unwrap_or(false) {
                 return Err(failed("Deleting an artifact is permanent; pass confirm=true."));
             }
-            if artifact_name == "agent_notes.md" {
+            let artifact_path = artifact_path(&artifact_name, name)?;
+            if artifact_path == ".assist_temp/artifacts/agent_notes.md" {
                 return Err(failed("agent_notes.md is protected and cannot be deleted."));
             }
-            let artifact_path = artifact_path(&artifact_name, name)?;
             coincide_core::workspace_tools::delete_file(&json!({"cwd": cwd, "path": artifact_path}))
                 .map_err(|error| failed(error.to_string()))?;
             Ok(json!({"name": artifact_name, "path": artifact_path, "deleted": true}))

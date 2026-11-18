@@ -4633,15 +4633,18 @@ public nonisolated enum SystemToolRegistry {
             }
             let artifactPath = try Self.artifactRelativePath(name: artifactName, tool: name)
             let append = optionalBool(arguments, "append") ?? false
+            let finalContent: String
             if append {
                 var existing = (try? await runtime.readWorkspaceFile(cwd: cwd, path: artifactPath))?.content ?? ""
                 if !existing.isEmpty, !existing.hasSuffix("\n") {
                     existing += "\n"
                 }
-                try await runtime.writeWorkspaceFile(cwd: cwd, path: artifactPath, content: existing + content)
+                finalContent = existing + content
             } else {
-                try await runtime.writeWorkspaceFile(cwd: cwd, path: artifactPath, content: content)
+                finalContent = content
             }
+            try await Self.checkArtifactStoreCapacity(artifactPath: artifactPath, finalByteCount: finalContent.utf8.count, tool: name, runtime: runtime, cwd: cwd)
+            try await runtime.writeWorkspaceFile(cwd: cwd, path: artifactPath, content: finalContent)
             return .object(["name": .string(artifactName), "path": .string(artifactPath), "kind": .string(kind), "appended": .bool(append)])
         case "list_artifacts":
             let cwd = try requiredString(arguments, "cwd", tool: name)
@@ -4667,10 +4670,10 @@ public nonisolated enum SystemToolRegistry {
             let cwd = try requiredString(arguments, "cwd", tool: name)
             let artifactName = try requiredString(arguments, "name", tool: name)
             try Self.requireConfirm(arguments, tool: name, message: "Deleting an artifact is permanent; pass confirm=true.")
-            guard artifactName != "agent_notes.md" else {
+            let artifactPath = try Self.artifactRelativePath(name: artifactName, tool: name)
+            guard artifactPath != ".assist_temp/artifacts/agent_notes.md" else {
                 throw SystemToolError.executionFailed(tool: name, message: "agent_notes.md is protected and cannot be deleted.")
             }
-            let artifactPath = try Self.artifactRelativePath(name: artifactName, tool: name)
             try await runtime.deleteWorkspaceFile(cwd: cwd, path: artifactPath)
             return .object(["name": .string(artifactName), "path": .string(artifactPath), "deleted": .bool(true)])
         case "format_json_file":
@@ -12020,6 +12023,25 @@ public nonisolated enum SystemToolRegistry {
         }
         let fileName = name.hasSuffix(".md") ? name : name + ".md"
         return ".assist_temp/artifacts/" + fileName
+    }
+
+    private static let maxArtifactCount = 100
+    private static let maxArtifactStoreBytes = 32 * 1024 * 1024
+
+    private static func checkArtifactStoreCapacity(artifactPath: String, finalByteCount: Int, tool: String, runtime: AgentsRuntimeClient, cwd: String) async throws {
+        let entries = (try? await runtime.readWorkspaceDirectory(cwd: cwd, path: ".assist_temp/artifacts", recursive: false)) ?? []
+        let artifacts = entries.filter { $0.name.hasSuffix(".md") }
+        let fileName = (artifactPath as NSString).lastPathComponent
+        let target = artifacts.first { $0.name == fileName }
+        let newCount = artifacts.count + (target == nil ? 1 : 0)
+        guard newCount <= maxArtifactCount else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Artifact store is full: \(artifacts.count) artifacts already exist (limit \(maxArtifactCount)). Delete an old artifact first.")
+        }
+        let totalBytes = artifacts.reduce(0) { $0 + Int($1.sizeBytes ?? 0) }
+        let newTotal = totalBytes - Int(target?.sizeBytes ?? 0) + finalByteCount
+        guard newTotal <= maxArtifactStoreBytes else {
+            throw SystemToolError.executionFailed(tool: tool, message: "Artifact store is full: this write would bring the store to \(newTotal) bytes (limit \(maxArtifactStoreBytes)). Delete an old artifact first.")
+        }
     }
 
     private static func jsonObject(from text: String, tool: String) throws -> Any {

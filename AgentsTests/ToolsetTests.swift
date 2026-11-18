@@ -696,6 +696,14 @@ struct ToolsetTests {
         } catch {
             Issue.record("Unexpected error for deleting agent_notes.md: \(error)")
         }
+        do {
+            _ = try await Self.run("delete_artifact", arguments: ["cwd": .string(cwd), "name": .string("agent_notes"), "confirm": .bool(true)], client: client)
+            Issue.record("Expected executionFailed for deleting agent_notes without the .md suffix")
+        } catch let error as SystemToolError {
+            #expect(error == .executionFailed(tool: "delete_artifact", message: "agent_notes.md is protected and cannot be deleted."))
+        } catch {
+            Issue.record("Unexpected error for deleting agent_notes without the .md suffix: \(error)")
+        }
         let deleted = try await Self.run("delete_artifact", arguments: ["cwd": .string(cwd), "name": .string("notes"), "confirm": .bool(true)], client: client)
         #expect(deleted["deleted"]?.boolValue == true)
         let afterDelete = try await Self.run("list_artifacts", arguments: ["cwd": .string(cwd)], client: client)
