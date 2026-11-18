@@ -788,12 +788,12 @@ This slice registers the 6, so the catalog is now covered 279 of 300
   test run was performed in this environment; the tests are written, not
   executed.
 
-### Hardening wave (Slices 69–126)
+### Hardening wave (Slices 69–128)
 
 The per-slice log above ends at Slice 18 (the registry build-out). The
 hardening slices below did not add registry tools, so they are logged here
 instead of as `### Slice N:` entries — one or two lines each: what was
-done, how it was verified, verdict. Slices 69–126 only; slices 19–68 have
+done, how it was verified, verdict. Slices 69–128 only; slices 19–68 have
 no entries in this file either and are not backfilled here. Full record:
 `docs/HARDENING-AUDIT.md`.
 
@@ -972,6 +972,18 @@ no entries in this file either and are not backfilled here. Full record:
   re-verification. No code change: the hovered-state swallowing question
   is Mac-gate owed. No test added; totals unchanged at 29 defects /
   27 tests. Full record: `docs/HARDENING-AUDIT.md`.
+- **Slice 128** — First defect audit of the GPUI desktop crate
+  (`coincide-desktop`): BUILT — workspace member and heavily built/tested
+  by CI (`rust.yml`), though not shipped (`project.yml` builds only the
+  FFI crate and the MCP server). 0 defects found across the updater
+  transport/lifecycle, credentials/fill permits, downloads, open targets,
+  terminal handoff, Appshots FFI, community links, cookie/session/history
+  import, and App-state collection caps — all already bounded. No code
+  change, no test added; totals unchanged at 29 defects / 27 tests.
+  Rust test total re-counted at 3,003 (desktop 1,149). Registry counts
+  unchanged at 332. Statically verified only; `cargo test
+  -p coincide-desktop` on Dylan's Mac is owed. Full record:
+  `docs/HARDENING-AUDIT.md`.
 
 ## The MCP server
 

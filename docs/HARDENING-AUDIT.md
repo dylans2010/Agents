@@ -1,4 +1,4 @@
-# Hardening Audit — Slices 71–126
+# Hardening Audit — Slices 71–128
 
 ## Summary
 
@@ -38,7 +38,13 @@ all description-only, following the Slice 105/109 precedent, so the
 totals stay at **29 defects fixed and 27 regression tests**. Slice 126,
 appended after that, qualified the Slice 124 diff-row combined-children
 claim — all description-only, following the Slice 105/109 precedent, so
-the totals stay at **29 defects fixed and 27 regression tests**. The remaining
+the totals stay at **29 defects fixed and 27 regression tests**. Slice 128,
+appended after that, audited the GPUI desktop crate
+(`coincide-desktop`) — CI-built but not shipped — across the updater,
+credentials, download, open-target, terminal-handoff, FFI, import, and
+collection-cap surfaces and found 0 defects — all description-only,
+following the Slice 105/109 precedent, so the totals stay at
+**29 defects fixed and 27 regression tests**. The remaining
 known gaps are listed under [Documented, not fixed](#documented-not-fixed)
 instead of being silently dropped. Every SHA, count, and line number below
 was verified against the repo at the time of writing (local `main`
@@ -904,7 +910,7 @@ terminal session row without swallowing its close button — the row
 VoiceOver-activatable, while the close button at `:686` must stay
 separately reachable; any fix must keep both.
 
-## Slice 126 — Qualify diff-row combined-children claim; record hovered-state follow-up
+## Slice 126 — Qualify diff-row combined-children claim; record hovered-state follow-up (remote `7fe85375`)
 
 **Audited:** the Slice 125 verification report on Slice 124 — the one
 docs-precision finding (F1) — re-checked against the code at HEAD.
@@ -952,14 +958,156 @@ declaration at `tools.rs:14`); zero new `//` comments in added lines
 (docs only, no Swift changed); `git diff --stat` shows only this record
 and the `SYSTEM-TOOLSET.md` hardening entry. Audit baseline: local `main`
 `a15a133e`, remote `main` `70ccd083957f102dd55dd3cfc190d074e6c38137`,
-same tree `9dea8822ea538fac1b5a8747e1bc6c8aca828642`. Remote SHA to be
-backfilled by the next slice, as this slice backfilled Slice 124's.
+same tree `9dea8822ea538fac1b5a8747e1bc6c8aca828642`. Remote SHA backfilled
+by Slice 128 as `7fe853752a988d1f2ab1e40f4945f89a2ca63f1f` (tree
+`075ee67ba1cb1cc688314412ede0acc0f04087b1`, same as local `38a34d15`).
 
 **Mac-gate checks owed:** (1) in the hovered state the diff row has the
 same swallowing property Slice 124 declined to introduce in the terminal
 row — look at whether the hover buttons should be excluded from the
 combined element or left as-is, given they are hover-only and their
 actions are duplicated in the context menu.
+
+## Slice 128 — coincide-desktop (GPUI) audit: CI-built, 0 defects found
+
+**Audited:** `Rust Backend/crates/coincide-desktop/` (296 files under
+`src/`), the legacy GPUI desktop app — its first defect audit in this
+program. Bounded to the highest-risk surfaces in the defect classes of
+Slices 39/43/53/81/118: auth/credentials, update/feed handling,
+provider/error text, unbounded collections/caches, network fetches, and
+file writes. Statically verified only — no build or test run here, as for
+every slice in this record. No cargo, no Swift toolchain.
+
+**Build status — BUILT (not unbuilt legacy code).** The crate is a
+workspace member (`Rust Backend/Cargo.toml:2`, `members` includes
+`crates/coincide-desktop`) and CI builds and tests it extensively:
+`.github/workflows/rust.yml:154` (`cargo build -p coincide-desktop
+--locked`), `:187` (`cargo test -p coincide-desktop --locked --features
+native-notifications,native-microphone,native-computer-use`), `:190`
+(updater-helper transport tests), `:193-273` (six native-SDK example
+builds), `:352,611` (`cargo check`, with and without
+`preview-updater-helper`), plus macOS/Windows/Linux jobs (`:415,668`).
+`.github/workflows/ci.yml:132-133` confirms rust.yml covers coincide-core
+and coincide-desktop. It is NOT shipped: `project.yml:47,50` builds only
+`coincide-macos-ffi` and `coincide-mcp-server`, and no crate depends on it
+(no `coincide-desktop` in the `Cargo.toml` of coincide-core,
+coincide-macos-ffi, or coincide-mcp-server). So the audit proceeded as a
+live-code audit, and the Slice 65 standing note (updater dead in the
+shipped app) still applies to what ships — but the crate itself is
+compiled and tested by CI, so a defect here would be a live defect, not
+dead code.
+
+**Defects fixed (0):** no code change. Per area, with the evidence that
+closed each one:
+
+- **Updater transport** (`updater_helper_transport.rs`): commands bounded
+  to `MAX_FRAME / 2` (`:333-358`); proposals bound by nonce/digest/
+  session/sequence checks, a 16-frame cap, and 64-hex tree hashes
+  (`:552-565,630-720`); worker failures truncated to 1,024 chars (`:460`);
+  consent fencing blocks session reuse after clean consent
+  (`:360-382,419-520`).
+- **Updater lifecycle** (`updater_lifecycle.rs`): install target pinned
+  to an absolute `Coincide Rust.app` path with no `..` components, and
+  handshake/shutdown deadlines capped at 900 s / 600 s (`:167-200`); poll
+  drains at most 8 events per tick (`:263`); failure after consent is
+  `ConsentUncertain`, never retried or claimed disarmed (`:226-243`).
+- **Update feed** (core-owned, read for the desktop display): feed bytes
+  capped by `config.limits.metadata_bytes` (default 2 MiB), artifact URL
+  must equal the configured platform-specific URL exactly, archive size
+  capped, SHA-256 format-checked
+  (`coincide-core/src/updater.rs:79-80,373-376,392,630-690`); the desktop
+  only displays the validated `release.version`
+  (`updater_settings.rs:226,520-525`).
+- **Credentials** (`credentials.rs`, `browser_credentials_macos.rs`,
+  `voice_credentials.rs`): approval is native-only with a 300 s expiry
+  and a one-use id (`credentials.rs:26-40`); fill permits last 9 s, are
+  revocable, and a timed-out job never fills (`:129,192,209-232`);
+  `FillJob` carries no Debug/Serialize (`:129`); voice keys go through
+  `Zeroizing` and the OS secret store
+  (`voice_credentials.rs:68-81,325`); no secret appears in any log line
+  (grep for `password|token|secret|api_key|bearer|credential` across
+  `println!`/`eprintln!`/`debug!`/`info!`/`warn!`/`error!`/`trace!` is
+  empty).
+- **Downloads** (desktop callers + core registry, read-only): every
+  platform validates the URL/origin and the navigation epoch before
+  admitting (`browser_downloads_macos.rs:428-460`,
+  `browser_downloads_linux.rs:349-397`,
+  `browser_downloads_windows.rs:196-230`, incl. the 128-active cap at
+  `:206`); the registry caps 8 active / 50 records, truncates refusal
+  reasons to 512 chars, sanitizes the server-suggested name to a leaf of
+  at most 180 chars with control/RTL characters stripped, and writes
+  into a per-download UUID directory at mode 0o700 with symlink checks
+  (`coincide-core/src/browser_protocol.rs:605-650,705-740,895-938`).
+- **Open targets** (`open_targets.rs`, `main.rs:4347-4348`): targets come
+  from a fixed built-in discovery list (`open_targets.rs:52-240`);
+  settings select by `id` only, never by program path (`:451-464`);
+  spawned children are reaped every tick (`main.rs:4347-4348`); editor
+  URLs are percent-encoded (`:326-336`).
+- **Terminal handoff and shell PATH** (`provider_setup_terminal.rs`,
+  `main.rs:8098-8147`): fixed terminal/launcher names found on PATH,
+  literal path arguments, no shell, 10 s launcher deadline
+  (`provider_setup_terminal.rs:26-57,81-135`); the login-shell PATH probe
+  runs a fixed `printf` command with output capped at 64 KiB and `$SHELL`
+  checked to be a file (`main.rs:8098,8147`).
+- **Appshots FFI** (`appshots_platform.rs:86-170`): native pointers
+  null-checked before `CStr::from_ptr`, capture bytes capped at 20 MiB
+  (`:149`), native errors surfaced as fixed strings.
+- **Community links** (`community_links.rs:159-195`): report URLs are
+  query-escaped, version fields folded to one line and capped at 120
+  chars (`MAX_FIELD`, `:5`).
+- **Cookie/session/history import** (`browser_cookie_import.rs`,
+  `cookie_import_flow.rs`, `session_import.rs`, `browser_settings.rs`):
+  cookie readback comparison short-circuits above 1,000 entries
+  (`browser_cookie_import.rs:83,297`); session preview caps visible
+  messages and characters (`session_import.rs:94-151`); profile import is
+  capped at 1 MiB (`browser_settings.rs:98`, `MAX_DOCUMENT`) and saved
+  atomically at mode 0o600 with symlink refusal and rollback
+  (`:569-640`).
+- **Unbounded collections** (`main.rs` App state): follow-up backlog
+  capped at 32 (`composer_follow_up_mount.rs:483`); image previews
+  capped at 128 with eviction and decoded assets at 32
+  (`main.rs:5568,5664`); sidebar row bounds cleared on every sidebar
+  render (`navigation.rs:911-913`); tool-detail scrolls cleared on
+  thread change (`main.rs:3151`); queued messages are replaced wholesale
+  from the engine read and cleared on selection (`queue.rs:525`,
+  `main.rs:3208`); `open_target_children` reaped per tick (above).
+- **Keep-awake admin path** (`persistent_awake.rs:73-87,629-652,665-700`):
+  the privileged `osascript` script is built only from fixed commands
+  and validated integers (`u32` parsed from `pmset`, `u8::from(bool)`);
+  stderr is truncated to 512 chars (`:647`); the audio-helper binary is
+  symlink-checked with a 10 s deadline and a cleared environment
+  (`:665-700`).
+- **No network client in the crate:** `Cargo.toml` declares no
+  `reqwest`/`ureq`/`hyper`/`curl` dependency and no `std::net` listener
+  exists outside tests, so there is no desktop-owned fetch surface to
+  bound; fetches live in coincide-core (out of scope) or the WebKit/Wry
+  views.
+
+**Tests added (0):** docs-only slice; no defect to regress. Rust test
+total re-counted at HEAD: **3,003** (2,222 short-form `#[test]` + 736
+fully-qualified `#[::core::prelude::v1::test]` + 45
+`#[gpui_kit::test]`); the desktop crate holds 1,149 of them (368
+short-form, 2 of which are in `swift_link_options.rs`, + 736 + 45). The
+brief's 3,002 / 1,148 expectation was off by one short-form test against
+this HEAD; the recount above is the verified figure.
+
+**Verification:** re-read of every cited file/line above; registry counts
+unchanged at 332 tools per side (Swift `SystemToolDefinition(` 332; Rust
+`ToolDef {` 333 raw in `coincide-mcp-server/src/tools.rs`, incl. the
+struct declaration at `:14`, i.e. 332 in `DEFINITIONS` at `:47`); zero
+new `//` comments (docs only, no `.rs` changed); `git diff --stat`
+shows only this record and the `SYSTEM-TOOLSET.md` hardening entry.
+Audit baseline: local `main` `38a34d15`, remote `main`
+`7fe853752a988d1f2ab1e40f4945f89a2ca63f1f`, same tree
+`075ee67ba1cb1cc688314412ede0acc0f04087b1`. Remote SHA to be backfilled by
+the next slice. (Also backfilled Slice 126's remote SHA `7fe85375` in its
+heading above.)
+
+**Mac-gate checks owed:** (1) `cargo test -p coincide-desktop` on
+Dylan's Mac — the 1,149 desktop tests (updater transport/lifecycle,
+credential approval/fill, download, import suites) have never run here;
+(2) the CI `rust.yml` desktop jobs remain the compile gate for this
+crate, since it is not built by `project.yml`.
 
 ## Documented, not fixed
 
