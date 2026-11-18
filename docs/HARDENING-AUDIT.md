@@ -2067,6 +2067,37 @@ tool catalog (`tools.rs`); both files were outside this slice's
 scope, and the Swift inspector calls the route directly through
 the FFI fallthrough, so it works without those listings.
 
+## Audit P2 — CoincideRemote Liquid Glass verdict (2026-11-18, program continuation)
+
+**Verdict:** exactly 7 raw `glassEffect` sites in CoincideRemote;
+**0 of 7** safely centralizable through the existing Mac `AppTheme`
+helpers.
+
+**Why 0 of 7:**
+
+- `AppTheme.swift` is macOS-only: it imports AppKit and uses
+  `NSAppearance`/`NSColor`, and it is not compiled into the iOS
+  target. The iOS app's `project-shared.yml` sources are
+  `CoincideRemote/` + `CoincideRemoteKit` + RevenueCat only —
+  `AppTheme` is not among them — so no existing Mac helper is
+  reachable from any of the 7 sites.
+- The helpers also lack the variants the sites need:
+  `PaywallView.swift:71`, `MainTabView.swift:472`, and `:481` use
+  `.interactive()` and/or `.circle`, for which no `AppTheme` helper
+  exists; `ThreadView.swift:618` and `TranscriptRows.swift:579` use
+  `.rect(cornerRadius: 18)`, whose equivalence to
+  `RoundedRectangle` cannot be proven statically.
+
+**Future-work plan:** add iOS-local helpers in
+`CoincideRemote/UI/Theme.swift` — `glassCapsule`, `glassPanel`,
+`glassPanelTinted`, plus new `glassCapsuleInteractive` /
+`glassCircleInteractive` — then swap all 7 sites to them, with an
+Xcode build + visual check on a Mac as the gate.
+
+**Not done in this program:** this is new code, not centralization,
+and it is not statically verifiable — so it is recorded here and
+left for a future slice.
+
 ## Documented, not fixed
 
 Items the audits found, recorded, and deliberately left open. None of
