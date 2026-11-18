@@ -43,6 +43,7 @@ pub mod local_usage;
 pub mod opencode_usage;
 pub mod organization;
 pub mod assistants;
+pub mod assistant_tasks;
 pub mod passkeys;
 pub mod platform_host;
 pub mod provider_usage;

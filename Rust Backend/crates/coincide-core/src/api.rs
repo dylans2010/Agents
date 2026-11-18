@@ -582,6 +582,7 @@ impl Engine {
                 | "projects.list"
                 | "bots.list"
                 | "assistants.list"
+                | "tasks.list"
                 | "threads.list"
                 | "threads.read"
                 | "composer.commands"
@@ -649,6 +650,249 @@ impl Engine {
             Err(error) => json!({"error":{"message":error.to_string()}}),
         }
     }
+}
+
+impl Engine {
+    fn assistant_tasks_command(&mut self, method: &str, params: &Value) -> Result<Value> {
+        use crate::assistant_tasks::{
+            AssistantTaskDocument, check_run_now, due_tasks, find_task, load, mark_missed,
+            next_run_at, persist, record_missed_runs, run_now_prompt, validate_task,
+        };
+        ensure!(
+            crate::assistant_tasks::METHODS.contains(&method),
+            "Unknown automated task method"
+        );
+        let object = params.as_object().context("Task params must be an object")?;
+        let allowed: &[&str] = match method {
+            "tasks.list" => &[],
+            "tasks.save" => &["task", "baseline"],
+            "tasks.delete" => &["taskId", "baseline"],
+            "tasks.run_now" => &["taskId", "parentThreadId"],
+            "tasks.due" => &[],
+            "tasks.mark_missed" => &["taskId", "reason"],
+            "tasks.recover" => &[],
+            _ => &[],
+        };
+        ensure!(
+            object.keys().all(|key| allowed.contains(&key.as_str())),
+            "Unknown automated task parameter"
+        );
+        let now = chrono::Utc::now();
+        let now_secs = now.timestamp();
+        let mut snapshot = load(&self.store)?;
+        let response = |snapshot: &crate::assistant_tasks::TasksSnapshot,
+                        task: Option<&Value>| {
+            let mut result = json!({
+                "baseline": snapshot.baseline,
+                "origin": snapshot.origin,
+                "version": 1,
+            });
+            if let Some(task) = task {
+                result["task"] = task.clone();
+            } else {
+                result["tasks"] = snapshot.document["tasks"].clone();
+            }
+            result
+        };
+        match method {
+            "tasks.list" => Ok(response(&snapshot, None)),
+            "tasks.due" => {
+                let typed: AssistantTaskDocument = serde_json::from_value(
+                    snapshot.document.clone(),
+                )
+                .context("Automated tasks document is invalid")?;
+                let due = due_tasks(&typed, now)?;
+                Ok(json!({"dueTasks": due, "now": now_secs}))
+            }
+            "tasks.recover" => {
+                let mut typed: AssistantTaskDocument = serde_json::from_value(
+                    snapshot.document.clone(),
+                )
+                .context("Automated tasks document is invalid")?;
+                let missed = record_missed_runs(&mut typed, now)?;
+                if !missed.is_empty() {
+                    snapshot.document["tasks"] = serde_json::to_value(&typed.tasks)?;
+                    persist(&mut self.store, &mut snapshot)?;
+                    self.revision += 1;
+                }
+                Ok(json!({"missedTaskIds": missed}))
+            }
+            "tasks.mark_missed" => {
+                let id = Uuid::parse_str(required(params, "taskId")?)
+                    .context("Invalid automated task UUID")?;
+                let reason = params
+                    .get("reason")
+                    .and_then(Value::as_str)
+                    .unwrap_or("Run skipped by the task manager.");
+                let position = find_task(&snapshot.document, id)?;
+                let mut task = validate_task(&snapshot.document["tasks"][position])?;
+                let stored_next = task.next_run_at.context("Task has no missed run to record")?;
+                ensure!(
+                    stored_next <= now_secs,
+                    "Task has no missed run to record"
+                );
+                let occurrence = chrono::DateTime::from_timestamp(stored_next, 0)
+                    .context("Invalid automated task next run")?;
+                mark_missed(&mut task, occurrence, now, reason)?;
+                task.updated_at = now_secs;
+                snapshot.document["tasks"][position] = serde_json::to_value(&task)?;
+                persist(&mut self.store, &mut snapshot)?;
+                self.revision += 1;
+                let saved = snapshot.document["tasks"][position].clone();
+                Ok(response(&snapshot, Some(&saved)))
+            }
+            "tasks.run_now" => {
+                let id = Uuid::parse_str(required(params, "taskId")?)
+                    .context("Invalid automated task UUID")?;
+                let position = find_task(&snapshot.document, id)?;
+                let mut task = validate_task(&snapshot.document["tasks"][position])?;
+                let assistant = assistants_api::find_assistant(
+                    &self.store,
+                    Uuid::parse_str(&task.assistant_id).context("Invalid assistant UUID")?,
+                )?;
+                check_run_now(&task, &assistant, now)?;
+                let parent_id = required(params, "parentThreadId")?;
+                let parent = self.store.thread(parent_id)?;
+                ensure!(
+                    parent["projectID"].as_str() == Some(task.workspace_id.as_str()),
+                    "Parent thread belongs to another workspace"
+                );
+                if task.limits.max_concurrent == 1 {
+                    if let Some(worker_id) = &task.last_worker_id {
+                        if let Ok(record) =
+                            crate::worker_store::load_worker(&self.store, worker_id)
+                        {
+                            let status =
+                                record.get("status").and_then(Value::as_str).unwrap_or("");
+                            ensure!(
+                                crate::worker_store::is_terminal(status),
+                                "Automated task '{}' already has a running worker",
+                                task.name
+                            );
+                        }
+                    }
+                }
+                let spawned = self.workers_spawn(&json!({
+                    "parentThreadId": parent_id,
+                    "name": task.name,
+                    "task": run_now_prompt(&task),
+                    "targetFiles": [],
+                    "assistantId": task.assistant_id,
+                }))?;
+                let worker = spawned["workers"][0].clone();
+                task.run_count += 1;
+                task.last_run_at = Some(now_secs);
+                task.last_worker_id = worker["id"].as_str().map(str::to_owned);
+                task.last_outcome = None;
+                task.last_message = None;
+                task.next_run_at = next_run_at(&task, now)?.map(|next| next.timestamp());
+                task.updated_at = now_secs;
+                snapshot.document["tasks"][position] = serde_json::to_value(&task)?;
+                persist(&mut self.store, &mut snapshot)?;
+                self.revision += 1;
+                let saved = snapshot.document["tasks"][position].clone();
+                let mut result = response(&snapshot, Some(&saved));
+                result["worker"] = worker;
+                Ok(result)
+            }
+            _ => {
+                let baseline = required(params, "baseline")?;
+                ensure!(
+                    baseline.len() == 64
+                        && baseline.bytes().all(|byte| byte.is_ascii_hexdigit()),
+                    "Invalid automated task baseline"
+                );
+                ensure!(
+                    baseline == snapshot.baseline,
+                    "Automated task document changed; reload before saving"
+                );
+                if method == "tasks.delete" {
+                    let id = Uuid::parse_str(required(params, "taskId")?)
+                        .context("Invalid automated task UUID")?;
+                    let position = find_task(&snapshot.document, id)?;
+                    snapshot.document["tasks"]
+                        .as_array_mut()
+                        .context("Invalid automated tasks envelope")?
+                        .remove(position);
+                    persist(&mut self.store, &mut snapshot)?;
+                    self.revision += 1;
+                    return Ok(json!({"deleted": true, "taskId": id.to_string()}));
+                }
+                let mut incoming = validate_task(&params["task"])?;
+                let id = Uuid::parse_str(&incoming.id).context("Invalid automated task UUID")?;
+                ensure!(
+                    crate::assistant_tasks::assistant_exists(
+                        &self.store,
+                        Uuid::parse_str(&incoming.assistant_id)
+                            .context("Invalid assistant UUID")?
+                    )?,
+                    "Unknown assistant '{}'",
+                    incoming.assistant_id
+                );
+                ensure!(
+                    crate::assistant_tasks::workspace_exists(
+                        &self.store,
+                        Uuid::parse_str(&incoming.workspace_id)
+                            .context("Invalid workspace UUID")?
+                    )?,
+                    "Unknown workspace '{}'",
+                    incoming.workspace_id
+                );
+                if incoming.schedule.kind == "once" && incoming.is_active() {
+                    ensure!(
+                        next_run_at(&incoming, now)?.is_some(),
+                        "Choose a future date for a one-time task"
+                    );
+                }
+                incoming.next_run_at = next_run_at(&incoming, now)?.map(|next| next.timestamp());
+                let tasks = snapshot.document["tasks"]
+                    .as_array_mut()
+                    .context("Invalid automated tasks envelope")?;
+                let position = match tasks.iter().position(|existing| {
+                    existing["id"]
+                        .as_str()
+                        .and_then(|value| Uuid::parse_str(value).ok())
+                        == Some(id)
+                }) {
+                    Some(position) => {
+                        let stored: crate::assistant_tasks::AssistantTask =
+                            serde_json::from_value(tasks[position].clone())
+                                .context("Stored automated task is invalid")?;
+                        incoming.created_at = stored.created_at;
+                        incoming.run_count = stored.run_count;
+                        incoming.last_run_at = stored.last_run_at;
+                        incoming.last_outcome = stored.last_outcome;
+                        incoming.last_message = stored.last_message;
+                        incoming.last_missed_at = stored.last_missed_at;
+                        incoming.missed_count = stored.missed_count;
+                        incoming.last_worker_id = stored.last_worker_id;
+                        incoming.updated_at = now_secs;
+                        tasks[position] = serde_json::to_value(&incoming)?;
+                        position
+                    }
+                    None => {
+                        ensure!(
+                            tasks.len() < crate::organization::RECORD_LIMIT,
+                            "Too many automated tasks"
+                        );
+                        if incoming.created_at <= 0 {
+                            incoming.created_at = now_secs;
+                        }
+                        incoming.updated_at = now_secs;
+                        tasks.push(serde_json::to_value(&incoming)?);
+                        tasks.len() - 1
+                    }
+                };
+                persist(&mut self.store, &mut snapshot)?;
+                self.revision += 1;
+                let saved = snapshot.document["tasks"][position].clone();
+                Ok(response(&snapshot, Some(&saved)))
+            }
+        }
+    }
+}
+
+impl Engine {
     fn execute(&mut self, method: &str, p: &Value) -> Result<Value> {
         self.require_admissions()?;
         let _provider_configuration_scope = self.native_provider_scope_for_command(method, p)?;
@@ -675,6 +919,9 @@ impl Engine {
         }
         if assistants_api::METHODS.contains(&method) {
             return self.assistants_command(method, p);
+        }
+        if crate::assistant_tasks::METHODS.contains(&method) {
+            return self.assistant_tasks_command(method, p);
         }
         if project_management_api::METHODS.contains(&method) {
             return self.project_command(method, p);
