@@ -53,6 +53,7 @@ private struct ApprovalAttentionCard: View {
 
     @State private var noteText: String = ""
     @State private var submittingOptionID: String? = nil
+    @State private var didRespond = false
 
     private var targetFilePath: String? {
         guard let detail = item.detail?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -75,9 +76,9 @@ private struct ApprovalAttentionCard: View {
     var body: some View {
         let approval = item.approval ?? RemoteApproval(
             options: [
-                RemoteApproval.Option(id: "allowOnce", label: "Allow Once", kind: "allowOnce"),
-                RemoteApproval.Option(id: "allowAlways", label: "Allow Always", kind: "allowAlways"),
-                RemoteApproval.Option(id: "deny", label: "Deny", kind: "deny"),
+                RemoteApproval.Option(id: "accept", label: "Allow once", kind: "allowOnce"),
+                RemoteApproval.Option(id: "decline", label: "Decline", kind: "deny"),
+                RemoteApproval.Option(id: "cancel", label: "Cancel request", kind: "cancel"),
             ]
         )
 
@@ -137,6 +138,12 @@ private struct ApprovalAttentionCard: View {
                     .textSelection(.enabled)
             }
 
+            if item.isClipped {
+                Text("Details truncated for display.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(AppTheme.tertiaryLabel)
+            }
+
             if approval.acceptsText {
                 TextField(
                     approval.textPlaceholder ?? "Optional instructions or reason…",
@@ -163,7 +170,7 @@ private struct ApprovalAttentionCard: View {
 
     @ViewBuilder
     private func approvalOptionButton(_ option: RemoteApproval.Option) -> some View {
-        let isBusy = submittingOptionID != nil
+        let isBusy = submittingOptionID != nil || didRespond
         let isPrimary = option.kind == "allowOnce"
         let isDestructive = option.kind == "deny" || option.kind == "cancel"
 
@@ -203,12 +210,14 @@ private struct ApprovalAttentionCard: View {
         submittingOptionID = option.id
         let trimmedNote = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
-            await appModel.respondToApproval(
+            if await appModel.respondToApproval(
                 itemID: item.id,
                 optionID: option.id,
                 text: trimmedNote.isEmpty ? nil : trimmedNote,
                 threadID: threadID
-            )
+            ) {
+                didRespond = true
+            }
             submittingOptionID = nil
         }
     }
@@ -225,6 +234,7 @@ private struct QuestionAttentionCard: View {
     @State private var customAnswers: [String: String] = [:]
     @State private var isSubmitting = false
     @State private var isDismissing = false
+    @State private var didResolve = false
 
     private var questionsList: [RemoteQuestionSet.Question] {
         item.questions?.questions ?? []
@@ -275,7 +285,9 @@ private struct QuestionAttentionCard: View {
                 Button {
                     isDismissing = true
                     Task {
-                        await appModel.dismissQuestion(itemID: item.id, threadID: threadID)
+                        if await appModel.dismissQuestion(itemID: item.id, threadID: threadID) {
+                            didResolve = true
+                        }
                         isDismissing = false
                     }
                 } label: {
@@ -284,7 +296,7 @@ private struct QuestionAttentionCard: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(isSubmitting || isDismissing)
+                .disabled(isSubmitting || isDismissing || didResolve)
             }
 
             ScrollView(.vertical, showsIndicators: true) {
@@ -307,11 +319,13 @@ private struct QuestionAttentionCard: View {
                     isSubmitting = true
                     let payload = compiledAnswers
                     Task {
-                        await appModel.answerQuestion(
+                        if await appModel.answerQuestion(
                             itemID: item.id,
                             answers: payload,
                             threadID: threadID
-                        )
+                        ) {
+                            didResolve = true
+                        }
                         isSubmitting = false
                     }
                 } label: {
@@ -324,7 +338,7 @@ private struct QuestionAttentionCard: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
-                .disabled(!canSubmit || isSubmitting || isDismissing)
+                .disabled(!canSubmit || isSubmitting || isDismissing || didResolve)
                 .keyboardShortcut(.return, modifiers: [.command])
             }
         }

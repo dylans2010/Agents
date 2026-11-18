@@ -707,13 +707,14 @@ public final class AppModel {
         }
     }
 
+    @discardableResult
     public func respondToApproval(
         itemID: UUID,
         optionID: String,
         text: String? = nil,
         threadID: UUID? = nil
-    ) async {
-        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+    ) async -> Bool {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return false }
         do {
             try await client.respond(thread: tid, requestID: itemID, optionID: optionID, text: text)
             boostPollForNewActivity()
@@ -721,17 +722,20 @@ public final class AppModel {
                 activeTranscript = transcript
             }
             await refreshWorkspace()
+            return true
         } catch {
             presentError(error)
+            return false
         }
     }
 
+    @discardableResult
     public func answerQuestion(
         itemID: UUID,
         answers: [String: [String]],
         threadID: UUID? = nil
-    ) async {
-        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+    ) async -> Bool {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return false }
         do {
             try await client.answer(thread: tid, requestID: itemID, answers: answers)
             boostPollForNewActivity()
@@ -739,21 +743,26 @@ public final class AppModel {
                 activeTranscript = transcript
             }
             await refreshWorkspace()
+            return true
         } catch {
             presentError(error)
+            return false
         }
     }
 
-    public func dismissQuestion(itemID: UUID, threadID: UUID? = nil) async {
-        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return }
+    @discardableResult
+    public func dismissQuestion(itemID: UUID, threadID: UUID? = nil) async -> Bool {
+        guard let client = runtime, let tid = threadID ?? selectedThreadUUID else { return false }
         do {
             try await client.dismissQuestion(thread: tid, requestID: itemID)
             if let transcript = try? await client.openThread(tid), selectedThreadUUID == tid {
                 activeTranscript = transcript
             }
             await refreshWorkspace()
+            return true
         } catch {
             presentError(error)
+            return false
         }
     }
 
