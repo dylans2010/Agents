@@ -5,6 +5,7 @@ public enum BuiltInPresets {
             BuildingFixingPresets.all,
             CodeMaintenancePresets.all,
             CodeReviewSecurityPresets.all,
+            GitWorkflowAutomationPresets.all,
         ]
     }
 
