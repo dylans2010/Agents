@@ -2204,8 +2204,8 @@ limitation of the audited component, or a question owed to Dylan.
   count short-form `#[test]` attributes, fully-qualified
   `#[::core::prelude::v1::test]` attributes, and `#[gpui_kit::test]`
   attributes, and sum them. At HEAD the
-  expected total is **3,012** (2,231 + 736 + 45). Method and per-crate table:
-  `docs/MAC-GATE.md:139-173`. Known wrinkle documented there: one `//`
+  expected total is **3,016** (2,235 + 736 + 45). Method and per-crate table:
+  `docs/MAC-GATE.md:139-176`. Known wrinkle documented there: one `//`
   comment line in `crates/coincide-desktop/src/diff_panel_ui_tests.rs:5`
   mentions the glob import and must not be counted as an attribute; and
   the 1,033 `#[gpui::test]` / 25 `#[crate::test]` lines a repo-wide grep

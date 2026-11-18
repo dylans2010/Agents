@@ -152,7 +152,7 @@ reading "The glob brings GPUI's test attribute, which expands to
 grep finds 45 real attributes, all in `coincide-desktop`. The true
 total is **3,016** test attributes. Method: attribute count over
 `crates/` only, `vendor/` excluded. 3,012 was correct at Slice 146;
-the +4 is four workers retention/delete tests added in W8/W9
+the +4 is four workers retention/delete tests added in W5/W8
 (coincide-core 1,832 → 1,836). Do not count the 1,033
 `#[gpui::test]` or 25 `#[crate::test]` lines a repo-wide grep finds:
 every one of them is inside `Rust Backend/vendor/` (the vendored gpui
