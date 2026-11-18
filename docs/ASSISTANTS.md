@@ -37,7 +37,7 @@ Fields, in order:
 | `systemPrompt` | `String` | Non-empty, at most 1 MiB UTF-8, no NUL |
 | `intendedTasks` | `[String]` | At most 32, each at most 512 scalars, no NUL |
 | `expectedOutputFormat` | `String` | At most 4096 scalars, no NUL |
-| `allowedTools` | `[String]?` | `nil` means unrestricted; a list must be unique, non-empty names of at most 256 scalars, and every name must exist in the 333-tool registry |
+| `allowedTools` | `[String]?` | `nil` means unrestricted; a list must be unique, non-empty names of at most 256 scalars, and every name must exist in the 337-tool registry |
 | `modelConfig` | `AssistantModelConfig` | App default unless the assistant pins a provider and/or model |
 | `permissionProfile` | `AssistantPermissionProfile` | Default `.readOnly`; **stored, not enforced** (see Enforcement) |
 | `inputRequirements` | `[String]?` | At most 16, each at most 512 scalars, no NUL |
@@ -303,7 +303,7 @@ permission profile (not enforced — see Enforcement).
 
 Across the 60 presets, 154 distinct registry tool names are used.
 Every preset's `allowedTools` is non-empty and every name exists in
-the 333-tool registry — asserted per category by
+the 337-tool registry — asserted per category by
 `allowedToolsExistInRegistry`-style tests that call
 `SystemToolRegistry.unknownToolNames(in:)` and expect an empty result.
 
@@ -329,9 +329,9 @@ each `*PresetsTests.swift` file:
 
 40 of the 60 presets declare `.readOnly`. The guarantee "a read-only
 preset grants no mutating tool" is **not** enforced by a single
-registry-wide sweep: there is no classification of the 333 registry
+registry-wide sweep: there is no classification of the 337 registry
 tools as mutating vs read-only anywhere in the code, and no test
-iterates all 333 tools for this purpose. What exists, and what the
+iterates all 337 tools for this purpose. What exists, and what the
 "0 violations" claim rests on, is per-category disjointness tests in
 the six `*PresetsTests.swift` files, each against its own
 hand-written set of mutating tool names:
@@ -462,7 +462,7 @@ from it.
    `validate_allowed_tools`): toolset must be `"system"` or
    `"provider"`; a system prompt cannot combine with the provider
    toolset; a non-empty `allowedTools` cannot combine with the
-   provider toolset; at most 333 tools, names non-empty, at most
+   provider toolset; at most 337 tools, names non-empty, at most
    256 characters, no control characters, no duplicates; a system
    prompt is at most 64 KiB and contains no NUL. If `toolset` is
    `"system"` or `allowedTools` is present, the thread's provider
@@ -480,7 +480,7 @@ from it.
    `allowedTools` over the control socket (`threads.read`, via
    `assets.rs`: `stored_allowed_tools`) on every call, with no
    caching, and `list_json_filtered` returns only the allowed
-   definitions. A null or absent list means all 333. Unknown names
+   definitions. A null or absent list means all 337. Unknown names
    in the list are ignored, never surfaced.
 3. **MCP `tools/call` rejection** (F3). `tools::call` reads the
    same stored list and `ensure_allowed` rejects a disallowed name
@@ -592,6 +592,14 @@ prompt from the SystemAssets (mandatory `Safeguards.md` and
 budget (`defaultMaxEstimatedTokens`), and the composed text is what
 is stored on the thread as its system prompt.
 
+New threads inherit the selected thread's assistant, too.
+`AppModel.createNewThread` and `AppModel.addProject` both seed the
+new thread's stored prompt from `systemPromptForSelectedThread`,
+which composes with the selected thread's assistant descriptor — so
+the selected thread's assistant role text is baked into the new
+thread's stored prompt (S-SUB1 M5 ripple; previously the seed was
+baseline-only).
+
 Rust worker spawn does **not** compose. `spawn_one_worker` writes
 the assistant's raw stored `systemPrompt` onto the child thread,
 with no Safeguards/Identity/assets assembly. That is Gap 2, still
@@ -600,6 +608,19 @@ prompt composer) remains open"). A worker spawned from an assistant
 therefore runs on the bare assistant prompt, while a thread launched
 from the same assistant in the app runs on the composed prompt.
 Do not describe the two as equivalent.
+
+The same gap covers `tasks.run_now`: it spawns through
+`workers_spawn` with no `systemPrompt`, so the worker inherits the
+parent thread's stored prompt or gets none — never a composed
+prompt. Composing there would need a Rust-side path or a Swift-side
+`run_now`; that is a decision owed, not implemented.
+
+Swift-side worker composition degrades silently.
+`AgentsFFIBridge.spawnWorkers` fetches the workspace and lists
+assistants with `try?` when a worker has no supplied prompt; if
+either call fails, the parent stays unknown and the assistant list
+stays empty, and the worker still spawns on a generic baseline
+prompt with no error surfaced.
 
 ## Automation execution: two schedulers, split ownership
 
@@ -631,8 +652,9 @@ that outcome and the Assistants settings master and per-category
 toggles allow it; a run-now prompt longer than 500 characters is
 capped with an explicit `… [truncated]` marker. Worker cancel is a
 request, not a result: `workers.cancel` leaves the status alone
-until the provider turn ends, and the app keeps the run in a
-`cancelling` state until a status poll confirms it terminal.
+until the provider turn ends, and the app tracks the run in the
+DashboardVM `cancellingIDs` set until a status poll confirms it
+terminal — there is no `.cancelling` status case.
 
 ## What is NOT built yet
 
@@ -645,7 +667,9 @@ where it lives.
   background work goes through `workers.spawn` with `assistantId`.
   A second launch stack, `AssistantExecutionManager`, was removed:
   it had no production callers, and `refreshAssistants` rebuilt it
-  whenever the catalog changed, dropping its in-memory runs. Run
+  only when the catalog changed and `activeRunCount() == 0`, so a
+  rebuild could drop terminal runs still held in memory, never a
+  mid-active run. Run
   state lives only in the runtime workspace. No queue, no run
   record, no progress surface beyond those two paths.
 - **Permission-profile enforcement (E1).** The four profiles are

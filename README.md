@@ -46,7 +46,7 @@ The iOS companion app and its tests live in `CoincideRemote/`, `CoincideRemoteKi
 | `project.yml` | XcodeGen project specification for `Agents.app` and `AgentsTests` |
 | `Rust Backend/crates/coincide-core/` | Portable Rust application core, SQLite storage, terminal PTYs, Git/GitHub, and Google Antigravity + provider runtimes |
 | `Rust Backend/crates/coincide-macos-ffi/` | C-ABI static library bridge (`libcoincide_macos_ffi.a`) linking `coincide-core` into native Swift 6 |
-| `Rust Backend/crates/coincide-mcp-server/` | Standalone stdio MCP server (`coincide-mcp-server`) serving the 333 System Tools plus SystemAssets resources/prompts to provider CLIs |
+| `Rust Backend/crates/coincide-mcp-server/` | Standalone stdio MCP server (`coincide-mcp-server`) serving the 337 System Tools plus SystemAssets resources/prompts to provider CLIs |
 | `Rust Backend/crates/coincide-desktop/` | Earlier cross-platform GPUI desktop implementation |
 | `CoincideRemote/`, `CoincideRemoteKit/` | iOS companion and shared cross-platform `Codable` protocol package |
 | `docs/` | Historical acceptance records and feature documentation |
@@ -61,7 +61,7 @@ Assist's system prompt and tool guidance come from System Assets (`Agents/Resour
 
 ## System Toolset
 
-Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs 333 tools (64 distinct actions) behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction for **Codex and Claude**: Codex gets the system prompt only (no MCP mount), while Claude gets both the prompt (`--append-system-prompt`) and the MCP mount. Cursor, Grok, Antigravity, and ACP providers get the MCP mount; OpenCode and Lithos reject System Tools. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
+Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs 337 tools (64 distinct actions) behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction for **Codex and Claude**: Codex gets the system prompt only (no MCP mount), while Claude gets both the prompt (`--append-system-prompt`) and the MCP mount. Cursor, Grok, Antigravity, and ACP providers get the MCP mount; OpenCode and Lithos reject System Tools. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
 
 ## Liquid Glass
 

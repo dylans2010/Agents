@@ -99,7 +99,7 @@ is **143** `@Test` functions. The two `@Test(` hits in
 generator (`SystemToolRegistry.swift`, the stub and placeholder
 generators), not real tests, and are excluded from the 143. The
 registry test asserts the tool count directly
-(`AgentsTests/ToolsetTests.swift`, `#expect(tools.count == 333)`).
+(`AgentsTests/ToolsetTests.swift`, `#expect(tools.count == 337)`).
 
 ### Step 4 — Run the Coincide Remote iOS tests
 
@@ -246,7 +246,7 @@ real workspace, and confirm the toolset behavior matches the documented
 split:
 
 - **Claude**: system prompt (`--append-system-prompt`) plus the MCP
-  mount. Confirm the 333 system tools are offered through the mount and a
+  mount. Confirm the 337 system tools are offered through the mount and a
   tool call round-trips through `coincide-mcp-server`.
 - **Codex**: system prompt only, no MCP mount. Confirm the prompt is
   delivered and no MCP mount is attempted.
@@ -258,12 +258,12 @@ split:
 The mount plumbing is `mcp::mount_for` / `session_servers_for` /
 `claude_config_path` in `Rust Backend/crates/coincide-core/src`
 (`api.rs`, `provider_acp.rs`, `provider_antigravity.rs`,
-`provider_claude.rs`). The 333-tool registry is
+`provider_claude.rs`). The 337-tool registry is
 `Agents/Core/SystemTools/SystemToolRegistry.swift` (Swift mirror) and
-`Rust Backend/crates/coincide-mcp-server/src/tools.rs` (the 333
+`Rust Backend/crates/coincide-mcp-server/src/tools.rs` (the 337
 `DEFINITIONS` entries the server actually serves). Both sides were
-measured at 333 with 64 distinct actions at time of writing, and tests
-assert 333 on both sides (`AgentsTests/ToolsetTests.swift`,
+measured at 337 with 64 distinct actions at time of writing, and tests
+assert 337 on both sides (`AgentsTests/ToolsetTests.swift`,
 `tools.rs` cross-check test).
 
 ### 2.2 Turn-completion watermark
@@ -387,7 +387,7 @@ reference: `docs/ASSISTANTS.md`.
 - **Catalog.** Run the 8 assistant Swift suites (Step 3 covers them)
   and the Rust assistants tests (Step 5). They assert the 60 presets,
   unique valid slugs, prompts ≥600 characters with ≥2 domain keywords
-  each, every `allowedTools` name existing in the 333-tool registry,
+  each, every `allowedTools` name existing in the 337-tool registry,
   and the read-only presets granting no mutating tool (per-category
   hand-written mutating lists — see `docs/ASSISTANTS.md`).
 - **Enforcement.** Create a thread carrying a read-only preset's

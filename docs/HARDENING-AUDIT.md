@@ -2192,12 +2192,12 @@ limitation of the audited component, or a question owed to Dylan.
   exists (Slice 147 INFO-3). Documented, not fixed.
 ## How to re-verify
 
-- **Registry 333 check.** Count the `ToolDef {` entries inside the
+- **Registry 337 check.** Count the `ToolDef {` entries inside the
   `DEFINITIONS` slice in
-  `Rust Backend/crates/coincide-mcp-server/src/tools.rs:47` — expect 333
-  (re-verified at HEAD: exactly 333; the one further `ToolDef {` match is the
+  `Rust Backend/crates/coincide-mcp-server/src/tools.rs:47` — expect 337
+  (re-verified at HEAD: exactly 337; the one further `ToolDef {` match is the
   `pub struct ToolDef {` declaration at `tools.rs:14`, not a registry entry). Cross-check the same
-  333 names, actions, and order against
+  337 names, actions, and order against
   `Agents/Core/SystemTools/SystemToolRegistry.swift`; the canonical
   description is `docs/SYSTEM-TOOLSET.md:57-61`.
 - **MAC-GATE count method.** From `Rust Backend`, excluding `vendor/`:

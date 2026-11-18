@@ -715,7 +715,7 @@ registered in Slice 11, so it is skipped, not double-registered.
 
 Canonical retrieval: `SystemAssetIndex.search` (`Agents/Core/SystemAssets/SystemAssetIndex.swift`) is the single reference ranking, and the Rust MCP server runs the same algorithm ported once (`Rust Backend/crates/coincide-mcp-server/src/system_assets_search.rs`) over the same bundled documents, so both `search_skills` paths return identical ranked sections (Swift folds via ICU; the Rust port uses a best-effort Latin folding table, so diacritic-heavy non-ASCII queries can rank differently); `SystemAssetManager.retrieve` stays the Swift facade and `SystemPromptBuilder` ranks through the same `search`. Ranking is lexical only: exact filename or document ID scores 100, exact title 90, exact section heading 80, a phrase hit 70 plus one per occurrence up to 10, otherwise per-token title 5, heading 4, body 1 capped at 69, with ties broken by filename then section heading. Queries are normalized (case- and diacritic-insensitive, whitespace-collapsed) and tokenized on non-alphanumerics before any postings lookup, since `postings(for:)` returns nothing for multi-word or hyphenated tokens. Complete-document access never depends on ranking: any document is readable in full through `SystemAssetManager.document(fileName:)` on the Swift side and the `agents-asset://` resource (also linked as `resourceUri` on each Rust result) on the Rust side.
 
-Asset tools: besides `search_skills`, the registry carries four read-only SystemAssets tools, all executing against the same bundled index on both sides with identical result shapes. `system_asset_read` returns one document in full, or one section by heading, with an optional `maxChars` cap; `system_asset_list` returns the corpus with optional category/tag filters and offset/limit paging; `system_asset_get_metadata` returns one document's title, category, tags, dependencies, dependents, SHA-256 content hash, section count, and token estimate; `system_asset_search_related` returns the documents linked to one document through declared dependencies, in both directions, each tagged `dependency` or `dependent`. There is deliberately no `system_asset_search` tool: `search_skills` already is the search tool, running the canonical ranking above, so a second search entry would duplicate it. All four are read-only and allowed for the read-only and approval-required profiles; no deny-list entry exists for them.
+Asset tools: besides `search_skills`, the registry carries four read-only SystemAssets tools, all executing against the same bundled index on both sides with identical result shapes. `system_asset_read` returns one document in full, or one section by heading, with an optional `maxChars` cap; `system_asset_list` returns the corpus with optional category/tag filters and offset/limit paging; `system_asset_get_metadata` returns one document's title, category, tags, dependencies, dependents, SHA-256 content hash, section count, and token estimate; `system_asset_search_related` returns the documents linked to one document through declared dependencies, in both directions, each tagged `dependency` or `dependent`. There is deliberately no `system_asset_search` tool: `search_skills` already is the search tool, running the canonical ranking above, so a second search entry would duplicate it. All four are read-only and allowed for the read-only and approval-required profiles; no deny-list entry exists for them. Counting diverges by side in the same way the search folding above already does: Swift counts grapheme clusters while Rust counts Unicode scalars (`characterCount`, `maxChars`, `estimatedTokens`), so the two sides disagree on non-ASCII text; all fixtures are ASCII, so nothing catches it. `system_asset_search_related` also differs on a self edge: Rust `related_documents` would include a self-dependency edge, while Swift `relatedDocumentIDs` removes the document itself; no bundled asset self-depends, so the difference is unobservable today.
 - Bug fixes in this slice: `g6DiskSpace` took the mount point from the
   `iused` column of `df` output; it now takes columns 8+ like the Rust
   side. `colorset_builder` verified by checking the written Contents.json
@@ -1520,7 +1520,7 @@ nobody over-claims it:
   note the list is checked per category by hand-written mutating-tool
   sets in the `*PresetsTests.swift` files, not by a registry-wide
   sweep (see `docs/ASSISTANTS.md`, "The read-only guarantee").
-- **One deny list, not two.** `Agents/Resources/ProfileDenyLists.json` is the single source of truth for the read-only (150 tools) and approval-required (86 tools) deny lists. Rust `profile_gate.rs` keeps its const arrays as the runtime enforcement authority and a test pins them to the manifest; Swift `SystemToolRegistry` loads the manifest from the app bundle at runtime and keeps no hand-maintained copy, failing closed (deny everything) if the file is missing. A cross-side parity test on each side fails if either side drifts from the manifest. The lists are the union of the two sides' old lists (the stricter side won every differing tool; the 20 reconciled tools and their reasons are recorded in the manifest's `notes.reconciliation`); approval-required is not a subset of read-only by design: 28 terminal-executing pure readers stay allowed for read-only and denied for approval-required.
+- **One deny list, not two.** `Agents/Resources/ProfileDenyLists.json` is the single source of truth for the read-only (150 tools) and approval-required (86 tools) deny lists. Rust `profile_gate.rs` keeps its const arrays as the runtime enforcement authority and a test pins them to the manifest; Swift `SystemToolRegistry` loads the manifest from the app bundle at runtime and keeps no hand-maintained copy, failing closed (deny everything) if the file is missing or unparseable. A cross-side parity test on each side fails if either side drifts from the manifest. The lists are the union of the two sides' old lists (the stricter side won every differing tool; the 20 reconciled tools and their reasons are recorded in the manifest's `notes.reconciliation`); approval-required is not a subset of read-only by design: 28 terminal-executing pure readers stay allowed for read-only and denied for approval-required.
 - **Validation rejections that do exist:** a non-empty
   `allowedTools` cannot combine with the provider toolset; a
   system prompt cannot combine with it either; System Tools are
@@ -1536,6 +1536,18 @@ nobody over-claims it:
   assistant gets the assistant's raw stored prompt (Gap 2, open).
   The two are not equivalent; do not claim the worker got the
   composed prompt.
+- **Stored prompt vs per-turn prompt can diverge.** The thread's
+  stored prompt is the composed text frozen at launch, built from
+  the stored selection; each Swift turn recomposes from the live
+  assistant config and the stored selection. In assistant-config
+  mismatch cases the two can differ — Swift turns are all
+  consistent (they always use the fresh per-turn composition), and
+  only a Rust-side send that omits `systemPrompt` could see the
+  stored text.
+- **M2 regression-test caveat.** `appModelLaunchAssistantAppliesModelConfig`
+  (the S-SUB1-fix3 save-first regression test for the launch-seed
+  fix) could go vacuous if a future asset change materially raised
+  ModelProviders' rank for that query.
 
 ## What is still NOT implemented (honest list)
 
@@ -1764,8 +1776,10 @@ when the original text names one. Inside `AgentsFFIBridge`, only the
 sites cross into Swift unsanitized, so any call site that displays those
 errors must sanitize them with `ErrorSanitizer.displayMessage(for:)` (or
 `sanitizeText` for a raw engine string) before display. Display-time
-sanitization in `presentError` and the stored `lastError` paths is what
-covers those errors.
+sanitization in AppModel's `presentError` and stored `lastError` paths is what
+covers those errors — the Computer Use pane is outside it:
+`ComputerUseController.lastError` is rendered raw at
+`ComputerUseSettingsPane.swift:67`, and `ComputerUseStatus.error` at `:63`.
 Programmatic error kinds pass through untouched: `AgentsRuntimeError` cases
 and `RemoteError.code` values are preserved exactly, and only the
 human-readable message is sanitized. Diagnostic output uses the same stripping

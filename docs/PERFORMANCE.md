@@ -1,7 +1,7 @@
 # Performance Notes (Slice 15)
 
 All items below were verified in the code before changing. No tool behavior,
-UI layout, or registry count changed (registry stays at 333 tools). No build
+UI layout, or registry count changed (registry stays at 337 tools). No build
 or test was run for this slice: there is no Swift or Rust toolchain in this
 environment, so everything below is statically validated only. The Xcode
 build, `swift test`, and `cargo test` runs on Dylan's Mac remain the gate.
