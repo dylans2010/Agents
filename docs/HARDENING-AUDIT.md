@@ -1912,13 +1912,17 @@ tree (`77475429`) and HEAD, with a third derivation script
 cross-checking the strict classification against the Slice 143
 arm-shared rule; the 42-set compared set-equal with the docs' listed
 42; Swift `@Test` 143 (124 + 19) and Rust 3,012 re-measured; program
-diff 224 files +55,570/−3,596 re-measured against the program base
+diff 224 files +55,778/−3,596 re-measured against the program base
 `04b235e3`. Brace balance re-checked on all three changed files
 (deltas zero vs. the parent); zero new `//` comments; no secrets; no
 registry definition, param, or description changed. Full diff read —
 only the three intended files, only the intended hunks. The local
-pre-push commit SHA and tree are in the slice's push report; the
-remote SHA is owed backfill by a later slice.
+pre-push commit SHA and tree are in the slice's push report. Remote SHA
+backfilled by Slice 152 as
+`e9a46e9cae70af8bad914d307673d5332332ed2c` (tree
+`66e6d43460f3ba5d05fddd77740992c77306ee40`, parent
+`1c1905f7d2deea0ad76ad723b0b8e21e0e351cc3`, same tree as local
+`b6caaffb`).
 
 **Mac-gate checks owed:** the corrected `read_file` test, plus the
 Xcode build as usual; no new Mac-gate surface beyond the test
@@ -2229,7 +2233,7 @@ limitation of the audited component, or a question owed to Dylan.
   `AgentsTests` + 19 bare `@Test func` in `CoincideRemoteTests`), Rust
   3,012 (2,231 real short-form + 736 fully-qualified + 45 `gpui_kit`);
   program diff 224 files +55,570/−3,596 against the program base
-  `04b235e3`. Finding 1 (MAJOR): `readFileReadsRealContent`
+  `04b235e3`, measured at Slice 148's HEAD `7c4d94cf`. Finding 1 (MAJOR): `readFileReadsRealContent`
   (`ToolsetTests.swift:2980`) expected `"alpha\nbeta"` for a file
   written as `"alpha\nbeta\n"`, but the Swift `execute()` path returns
   the file bytes verbatim — the line-joining `workspace::read_file`
@@ -2248,6 +2252,33 @@ limitation of the audited component, or a question owed to Dylan.
   six `computer_use.*` tools instead; that identification is wrong —
   only `use_app` of that set is in the gap); restated in Slice 150
   with the classification rule documented.
+  **Slice 151 re-verification (no commit):** Slice 151 re-verified Slice
+  150 read-only and passed it **PASS WITH MINORs** — one MINOR finding,
+  fixed in Slice 152. Finding 1 confirmed: the `read_file` expectation is
+  now `"alpha\nbeta\n"` (`ToolsetTests.swift:2990`), the fixture unchanged,
+  and the chain re-traced end-to-end (arm
+  `SystemToolRegistry.swift:3846-3850` → FFI bridge
+  `AgentsFFIBridge.swift:1191-1200` → `workspace_ops.rs:444-445` →
+  `read_workspace_text` (`workspace_tools.rs:233-254`) verbatim → decoder
+  prefers `"content"` (`DesktopModels.swift:1484-1487`); the line-joining
+  `workspace::read_file` (`workspace.rs:738`) serves engine `files.read`
+  (`api.rs:810`) only; no live "read joins lines" claim remains in this
+  record). Finding 2 confirmed: action-`terminal.*` group 62 tools;
+  strict 1 → 4, loose 3 → 6; the sentence is coherent. Finding 3
+  confirmed: the gap set is exactly `fetch_documentation`,
+  `github_repo`, `reverse_analyze`, `search_web`, `svg_to_png`,
+  `use_app`; restated figures 168 → 184 / 50.6% → 55.4% /
+  validation-only 78 → 77; the 42-set is set-equal to the docs' list;
+  the classification rule as documented reproduces the numbers. 5
+  spot-checked tests confirmed (`git_push`, `git_branch_list`,
+  `write_file`, `search_files`, `take_screenshot`); the Slice 148
+  backfill API-verified; Swift `@Test` 143 (124 + 19), Rust 3,012
+  (2,231 + 736 + 45); program diff 224 files +55,778/−3,596. MINOR (F1):
+  the Slice 150 Verification paragraph's program-diff figure +55,570 is
+  stale at HEAD `b6caaffb` — that was the value at Slice 148's HEAD
+  `7c4d94cf`; re-measured against the program base `04b235e3` it is
+  +55,778; corrected in Slice 152, which also qualified the Slice 149
+  note's +55,570 with its rev.
 - **Slices with no commit (87, 89, 90).** There is nothing to re-read in
   git for these; re-run the sweep (Rust: per-crate module-tree + def/use
   indexing; Swift: declaration/candidate indexing over the named targets)
