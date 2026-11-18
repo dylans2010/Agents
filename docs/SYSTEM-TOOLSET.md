@@ -53,7 +53,7 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
   before toolsets existed have no stored value and behave as Provider Tools.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
-- No send or switch silently changes a thread's toolset. When an assistant's
+- No send or switch silently changes a thread's toolset, except when the send itself supplies a system prompt or allowed tools, which explicitly binds System Tools. When an assistant's
   permission profile needs a ceiling and the thread has no stored toolset,
   the send is refused with an error instead of flipping the thread to
   System Tools; when the thread is stored as System Tools the ceiling list
