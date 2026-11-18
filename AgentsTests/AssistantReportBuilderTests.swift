@@ -494,6 +494,35 @@ struct AssistantReportBuilderTests {
         #expect(review.findings.allSatisfy { $0.file == nil && $0.line == nil })
         #expect(review.findings.map(\.title).contains("Timeout at 10:30 in retry logic"))
         #expect(review.findings.map(\.title).contains("Compression ratio 3:1 is too low"))
+        #expect(review.findings.map(\.title).contains("See v1:2 for details"))
+        #expect(review.findings.map(\.title).contains("Chapter 2:3 covers setup"))
+    }
+
+    @Test("Allowlisted extensionless filenames parse as file refs, other bare tokens do not")
+    func extensionlessAllowlistedFileRefsParse() {
+        let result = """
+            ## Findings
+            - Critical: Hardcoded secret in Makefile:10
+            - Low: Outdated step in Dockerfile:5
+            - Low: Stale dependency in Gemfile:3
+            - Low: Timeout at 10:30 in retry logic
+            - Low: Compression ratio 3:1 is too low
+            """
+        let report = AssistantReportBuilder.build(.init(
+            record: Self.makeRecord(result: result),
+            definition: Self.makeDefinition(category: .codeReviewSecurity)
+        ))
+        guard case .review(let review) = report else {
+            Issue.record("Expected a review report")
+            return
+        }
+        #expect(review.findings.count == 5)
+        #expect(review.findings.first { $0.file == "Makefile" }?.line == 10)
+        #expect(review.findings.first { $0.file == "Dockerfile" }?.line == 5)
+        #expect(review.findings.first { $0.file == "Gemfile" }?.line == 3)
+        #expect(review.findings.filter { $0.file == nil }.count == 2)
+        #expect(review.findings.map(\.title).contains("Timeout at 10:30 in retry logic"))
+        #expect(review.findings.map(\.title).contains("Compression ratio 3:1 is too low"))
     }
 
     @Test("Severity colors use the AppTheme semantic tokens")

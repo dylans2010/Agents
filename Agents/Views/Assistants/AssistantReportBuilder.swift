@@ -174,6 +174,11 @@ struct AssistantParsedResult {
 }
 
 enum AssistantResultTextParser {
+    private static let extensionlessFileNames: Set<String> = [
+        "Makefile", "Dockerfile", "Gemfile", "Rakefile", "LICENSE", "CHANGELOG",
+        "COPYING", "AUTHORS", "Vagrantfile", "Brewfile", "Podfile", "Fastfile"
+    ]
+
     static func parse(_ result: String?) -> AssistantParsedResult {
         var parsed = AssistantParsedResult(
             summary: nil, findings: [], evidence: [], recommendations: [], actionsTaken: [],
@@ -377,7 +382,9 @@ enum AssistantResultTextParser {
             guard let colon = candidate.lastIndex(of: ":") else { continue }
             let path = String(candidate[..<colon])
             let number = String(candidate[candidate.index(after: colon)...])
-            guard !path.isEmpty, path.contains("."), let lineNumber = Int(number) else { continue }
+            guard !path.isEmpty, let lineNumber = Int(number) else { continue }
+            let fileName = path.components(separatedBy: "/").last ?? path
+            guard path.contains(".") || extensionlessFileNames.contains(fileName) else { continue }
             var remaining = words
             remaining.remove(at: index)
             let title = remaining.joined(separator: " ").trimmingCharacters(in: .whitespaces)
