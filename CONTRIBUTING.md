@@ -6,8 +6,8 @@ Please read and follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report securit
 
 ## Reporting bugs and requesting features
 
-- **Bug:** [open the bug report form](https://github.com/apoorvdarshan/coincide/issues/new?template=bug_report.yml). Include your macOS version, the Agents version, which agent CLI (and its version) was involved, exact steps, and any error text or logs.
-- **Feature:** [open the feature request form](https://github.com/apoorvdarshan/coincide/issues/new?template=feature_request.yml). Describe the problem first, then the change you'd like.
+- **Bug:** [open the bug report form](https://github.com/dylans2010/Agents/issues/new?template=bug_report.yml). Include your macOS version, the Agents version, which agent CLI (and its version) was involved, exact steps, and any error text or logs.
+- **Feature:** [open the feature request form](https://github.com/dylans2010/Agents/issues/new?template=feature_request.yml). Describe the problem first, then the change you'd like.
 
 Never paste API keys, tokens, cookies or private code into an issue, a log or a screenshot. Agent CLI output can contain them, so check before you post.
 

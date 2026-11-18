@@ -60,7 +60,7 @@ Everything goes between your devices, and to your agents' providers only when yo
 Coincide is an independent project, not affiliated with Anthropic, OpenAI, Cursor, xAI or Google. Agent names and logos are trademarks of their owners and are shown only to identify them.
 
 Website: https://coincide.dev
-Source code: https://github.com/apoorvdarshan/coincide
+Source code: https://github.com/dylans2010/Agents
 ```
 
 ## Privacy URL
@@ -123,7 +123,7 @@ version with the catalog's Ready to Submit subscriptions and in-app purchases.
 
 ## Reviewer Notes
 ```
-Coincide is the iPhone and iPad companion to Coincide, a free, open-source Mac app for running AI coding agents (https://coincide.dev, source code: https://github.com/apoorvdarshan/coincide). With a Mac, you pair once by scanning a code from Coincide's Settings › General › Remote; the phone then connects directly to that Mac over the local network or Tailscale. There is no account, server or sign-in.
+Coincide is the iPhone and iPad companion to Coincide, a free, open-source Mac app for running AI coding agents (https://coincide.dev, source code: https://github.com/dylans2010/Agents). With a Mac, you pair once by scanning a code from Coincide's Settings › General › Remote; the phone then connects directly to that Mac over the local network or Tailscale. There is no account, server or sign-in.
 
 To review without a Mac: on the first screen, tap "Explore the Demo". It opens a sample Mac with projects, threads, bots, diffs, scheduled tasks, usage and settings, under a banner that says it's a demo. Nothing in the demo connects to a Mac or the network. "Exit Demo" (in the banner, or Settings › Macs) goes back to the pairing screen.
 

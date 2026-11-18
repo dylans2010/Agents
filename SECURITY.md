@@ -15,7 +15,7 @@ Agents is in early development. Security fixes go into `main` and ship in the ne
 
 Please report vulnerabilities **privately**, not in a public issue, pull request or discussion.
 
-Use GitHub's [private vulnerability reporting](https://github.com/apoorvdarshan/coincide/security/advisories/new) (the repository's **Security** tab → **Report a vulnerability**). Only the maintainer can see the report, and we can work on a fix and an advisory together there. If you cannot use it, open an issue that only asks for a private contact, with no details of the problem.
+Use GitHub's [private vulnerability reporting](https://github.com/dylans2010/Agents/security/advisories/new) (the repository's **Security** tab → **Report a vulnerability**). Only the maintainer can see the report, and we can work on a fix and an advisory together there. If you cannot use it, open an issue that only asks for a private contact, with no details of the problem.
 
 Please include:
 

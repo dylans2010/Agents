@@ -64,8 +64,8 @@ project.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement. Agents has one
-maintainer, Apoorv Darshan ([@apoorvdarshan](https://github.com/apoorvdarshan)
-on GitHub). To report privately, use the contact options on his GitHub profile;
+maintainer, Dylan ([@dylans2010](https://github.com/dylans2010)
+on GitHub). To report privately, use the contact options on the maintainer's GitHub profile;
 you can also use GitHub's "Report content" option on any comment, issue or pull
 request. Please do not report conduct in a public issue. All complaints will be
 reviewed and investigated promptly and fairly.
