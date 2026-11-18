@@ -52,6 +52,10 @@ struct AntigravityProbeStatusTests {
         #expect(result.probeMode == "handshake")
         #expect(result.authenticated == nil)
         #expect(result.executablePath == "/Volumes/Apps/agy_acp_server.par")
+        #expect(result.probeUsedKey == false)
+        #expect(result.probeAccountId == nil)
+        #expect(result.probeProtocolVersion == 1)
+        #expect(result.probeAuthMethods == ["gemini-api-key"])
     }
 
     @Test("Rejected probe result decodes not ok with the server detail")
@@ -64,5 +68,38 @@ struct AntigravityProbeStatusTests {
         #expect(result.probeMode == "invalid-key")
         #expect(result.authenticated == nil)
         #expect(result.message == "Antigravity server rejected API-key authentication: API key not valid. Please pass a valid API key.")
+        #expect(result.probeUsedKey == true)
+        #expect(result.probeAccountId == nil)
+        #expect(result.probeProtocolVersion == 1)
+        #expect(result.probeAuthMethods == ["gemini-api-key"])
+    }
+
+    @Test("Probe result without a probe decodes empty probe fields")
+    func probeResultWithoutProbe() throws {
+        let result = try decodeProbe("""
+        {"provider":"antigravity","executable":"/Volumes/Apps/agy_acp_server.par","approved":true}
+        """)
+        #expect(result.probeState == nil)
+        #expect(result.probeMode == nil)
+        #expect(result.probeDetail == nil)
+        #expect(result.probeUsedKey == false)
+        #expect(result.probeAccountId == nil)
+        #expect(result.probeProtocolVersion == nil)
+        #expect(result.probeAuthMethods.isEmpty)
+    }
+
+    @Test("Authenticated probe result decodes used key and account id")
+    func authenticatedProbeResult() throws {
+        let result = try decodeProbe("""
+        {"provider":"antigravity","probe":{"state":"authenticated","mode":"authenticate","executable":"/Volumes/Apps/agy_acp_server.par","accountId":"3f2b8c1e-9d4a-4b6f-8e2d-1c0a9b8f7e6d","keyRevision":"r1","usedKey":true,"protocolVersion":1,"authMethods":["gemini-api-key"],"serverName":"antigravity-acp","serverVersion":"1.0","authenticateResultKeys":["account"],"errorCode":null,"detail":null,"checkedAtUnix":1763472000,"durationMs":812},"antigravityStatus":null}
+        """)
+        #expect(result.ok == true)
+        #expect(result.probeState == "authenticated")
+        #expect(result.probeMode == "authenticate")
+        #expect(result.authenticated == true)
+        #expect(result.probeUsedKey == true)
+        #expect(result.probeAccountId == "3f2b8c1e-9d4a-4b6f-8e2d-1c0a9b8f7e6d")
+        #expect(result.probeProtocolVersion == 1)
+        #expect(result.probeAuthMethods == ["gemini-api-key"])
     }
 }

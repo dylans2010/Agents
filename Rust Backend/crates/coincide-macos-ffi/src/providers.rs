@@ -466,7 +466,8 @@ fn probe_antigravity(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<V
     }))
 }
 
-pub fn create_key_account(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {    let provider = req_str(params, &["provider"], "provider")?;
+pub fn create_key_account(runtime: &CoincideMacOSRuntime, params: &Value) -> Result<Value> {
+    let provider = req_str(params, &["provider"], "provider")?;
     let name = req_str(params, &["name"], "name")?;
     let api_key = req_str(params, &["apiKey", "key"], "apiKey")?;
 

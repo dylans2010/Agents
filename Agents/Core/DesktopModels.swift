@@ -603,6 +603,10 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
     public var probeState: String?
     public var probeMode: String?
     public var probeDetail: String?
+    public var probeUsedKey: Bool
+    public var probeAccountId: String?
+    public var probeProtocolVersion: Int?
+    public var probeAuthMethods: [String]
 
     public init(
         provider: String,
@@ -617,7 +621,11 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
         modelsCount: Int? = nil,
         probeState: String? = nil,
         probeMode: String? = nil,
-        probeDetail: String? = nil
+        probeDetail: String? = nil,
+        probeUsedKey: Bool = false,
+        probeAccountId: String? = nil,
+        probeProtocolVersion: Int? = nil,
+        probeAuthMethods: [String] = []
     ) {
         self.provider = provider
         self.ok = ok
@@ -632,6 +640,10 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
         self.probeState = probeState
         self.probeMode = probeMode
         self.probeDetail = probeDetail
+        self.probeUsedKey = probeUsedKey
+        self.probeAccountId = probeAccountId
+        self.probeProtocolVersion = probeProtocolVersion
+        self.probeAuthMethods = probeAuthMethods
     }
 
     public init(from decoder: Decoder) throws {
@@ -653,6 +665,10 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
             self.probeState = probe["state"]?.stringValue
             self.probeMode = probe["mode"]?.stringValue
             self.probeDetail = probe["detail"]?.stringValue
+            self.probeUsedKey = probe["usedKey"]?.boolValue ?? false
+            self.probeAccountId = probe["accountId"]?.stringValue
+            self.probeProtocolVersion = probe["protocolVersion"]?.intValue
+            self.probeAuthMethods = probe["authMethods"]?.arrayValue?.compactMap { $0.stringValue } ?? []
             if self.executablePath == nil {
                 self.executablePath = probe["executable"]?.stringValue
             }
@@ -666,6 +682,10 @@ public nonisolated struct ProviderProbeResult: Codable, Hashable, Sendable {
             self.probeState = nil
             self.probeMode = nil
             self.probeDetail = nil
+            self.probeUsedKey = false
+            self.probeAccountId = nil
+            self.probeProtocolVersion = nil
+            self.probeAuthMethods = []
         }
         if let probeState = self.probeState {
             self.ok = probeState == "handshakeOk" || probeState == "authenticated"

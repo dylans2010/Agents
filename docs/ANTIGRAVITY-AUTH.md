@@ -113,7 +113,7 @@ error message.
 
 The probe refuses to execute a binary that is not approved, and
 refuses to run with an unknown account or an account that has no
-stored key. It has a 60-second total deadline.
+stored key. It has a 60-second deadline on the server handshake.
 
 ### States
 
@@ -136,8 +136,11 @@ and a truncated detail string:
   presented key. The key is accepted by Gemini through this runtime.
 - `authRejected`: the server rejected `authenticate`, did not offer
   `gemini-api-key`, or asked for interactive sign-in (the browser
-  shim was triggered). The detail carries the server's error code
-  and message, truncated to 500 characters.
+  shim was triggered). The error code is recorded in the separate
+  `errorCode` field; `detail` carries only the server's error
+  message, truncated to 500 characters, and is fixed text with no
+  code when the server did not offer `gemini-api-key` or asked for
+  interactive sign-in.
 - `unreachable`: the runtime could not be launched, exited before
   answering, answered with invalid frames, or did not answer within
   60 seconds. The detail says which.

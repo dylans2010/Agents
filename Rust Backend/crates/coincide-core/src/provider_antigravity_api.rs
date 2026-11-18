@@ -276,6 +276,12 @@ mod tests {
                     ))
                     .unwrap();
                 assert_eq!(status["authenticationVerified"], false);
+                let mut mismatched =
+                    report("authenticated", Some(&account.id), Some(&account.revision), true);
+                mismatched["executable"] = json!("/elsewhere/agy_acp_server.par");
+                let status = engine.record_antigravity_probe(&mismatched).unwrap();
+                assert_eq!(status["handshakeVerified"], false);
+                assert_eq!(status["authenticationVerified"], false);
                 assert!(engine
                     .record_antigravity_probe(&json!({"state": "claimed"}))
                     .is_err());

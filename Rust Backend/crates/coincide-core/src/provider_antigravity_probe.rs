@@ -97,6 +97,7 @@ fn execute(probe: &AntigravityProbe, report: &mut AntigravityProbeReport, starte
     let profile = match Profile::prepare_probe(&probe_dir) {
         Ok(profile) => profile,
         Err(error) => {
+            let _ = fs::remove_dir_all(&probe_dir);
             report.state = AntigravityProbeState::Unreachable;
             report.detail = Some(format!(
                 "Antigravity probe profile could not be prepared: {}",
@@ -108,6 +109,7 @@ fn execute(probe: &AntigravityProbe, report: &mut AntigravityProbeReport, starte
     handshake(probe, &profile, executable, report, started);
     drop(profile);
     let _ = fs::remove_dir_all(&probe_dir);
+    let _ = fs::remove_dir(probe.data_dir.join("providers/antigravity/probe"));
 }
 
 fn handshake(
@@ -289,10 +291,6 @@ fn handshake(
                     .and_then(Value::as_str)
                     .map(|version| sanitize(version));
             }
-            if report.mode == "handshake" {
-                report.state = AntigravityProbeState::HandshakeOk;
-                return;
-            }
             if !report
                 .auth_methods
                 .iter()
@@ -302,6 +300,10 @@ fn handshake(
                 report.detail = Some(
                     "Antigravity server did not offer gemini-api-key authentication".into(),
                 );
+                return;
+            }
+            if report.mode == "handshake" {
+                report.state = AntigravityProbeState::HandshakeOk;
                 return;
             }
             if let Err(error) = transport.write(&authenticate_frame()) {
@@ -457,6 +459,7 @@ sys.stdin.readline()
                 .unwrap()
                 .contains("API key not valid"));
             assert!(!probe_dir(engine).exists());
+            assert!(!report.to_json().to_string().contains("coincide-probe-invalid-key"));
         });
     }
 
@@ -480,6 +483,7 @@ sys.stdin.readline()
                 .unwrap()
                 .contains("did not offer gemini-api-key"));
             assert!(!probe_dir(engine).exists());
+            assert!(!report.to_json().to_string().contains("synthetic-owned-account-key"));
         });
     }
 
@@ -492,6 +496,7 @@ sys.stdin.readline()
             let report = probe.run();
             assert_eq!(report.state, AntigravityProbeState::Unreachable);
             assert!(!probe_dir(engine).exists());
+            assert!(!report.to_json().to_string().contains("synthetic-owned-account-key"));
         });
     }
 }
