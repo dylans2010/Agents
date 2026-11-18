@@ -151,13 +151,11 @@ struct AssistantTaskManagerTests {
         }
 
         func tasksDue() async throws -> JSONValue {
-            for task in tasks where task.isActive {
-                if let reason = AssistantTaskManager.unavailableTriggerReason(task.trigger) {
-                    throw FakeTaskError(message: reason)
-                }
-            }
             let due = tasks.filter { task in
                 guard task.isActive else {
+                    return false
+                }
+                if AssistantTaskManager.unavailableTriggerReason(task.trigger) != nil {
                     return false
                 }
                 if let maxRuns = task.limits.maxRuns, task.runCount >= maxRuns {
@@ -482,20 +480,27 @@ struct AssistantTaskManagerTests {
         #expect(listedAfter.tasks.isEmpty)
     }
 
-    @Test("Poll degrades to a cycle error when the due call fails")
-    func pollDegradesToCycleErrorWhenDueCallFails() async throws {
+    @Test("Poll skips an active task with an unavailable trigger and still runs the due timer task")
+    func pollSkipsActiveUnavailableTriggerAndRunsDueTimerTask() async throws {
         let fake = FakeTaskRuntime()
         let assistantID = UUID()
         let workspaceID = UUID()
         let manager = await makeManager(fake: fake, assistantID: assistantID, workspaceID: workspaceID)
         let gitTriggered = Self.makeTask(name: "GitTriggered", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000, trigger: "gitCommit")
-        await fake.setTasks([gitTriggered])
+        let due = Self.makeTask(name: "Due", assistantID: assistantID, workspaceID: workspaceID, nextRunAt: 1_789_999_000)
+        await fake.setTasks([gitTriggered, due])
         let outcome = await manager.pollNow()
-        #expect(outcome.ran.isEmpty)
+        #expect(outcome.ran.count == 1)
+        #expect(outcome.ran[0].task.name == "Due")
         #expect(outcome.skipped.isEmpty)
         #expect(outcome.failed.isEmpty)
-        #expect(outcome.cycleError?.contains("not available") == true)
-        #expect(await fake.runNowCalls.isEmpty)
+        #expect(outcome.cycleError == nil)
+        #expect(await fake.runNowCalls.count == 1)
+        #expect(await fake.markMissedCalls.isEmpty)
+        let listed = try await manager.listTasks()
+        let skipped = listed.tasks.first { $0.name == "GitTriggered" }
+        #expect(skipped?.lastOutcome == nil)
+        #expect(skipped?.missedCount == 0)
     }
 
     @Test("Static skip reason flags max-runs and unavailable triggers without a runtime")
