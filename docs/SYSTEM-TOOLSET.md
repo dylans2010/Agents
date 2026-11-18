@@ -28,12 +28,15 @@ transcript).
   The prompt is resolved from the thread document, so it survives resume,
   steering, and queued turns. Forks copy the whole thread document, so a fork
   keeps the parent's toolset and prompt.
-- MCP delivery: for MCP-capable providers the stored prompt is NOT injected
-  as instructions. Instead the launch carries an `McpMount` (thread id and
-  data directory) and the provider session is mounted with the
+- MCP delivery: for MCP-capable providers the launch carries an `McpMount`
+  (thread id and data directory) and the provider session is mounted with the
   `coincide-mcp-server` stdio server, which serves the 332 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
-  prompt. See "The MCP server" below.
+  prompt. Claude is the exception: it gets the mount AND the stored prompt
+  injected via `--append-system-prompt`. For the other MCP-capable providers
+  (Cursor, Grok Build, Antigravity, ACP registry agents) the stored prompt
+  is NOT injected as instructions — it reaches the model only via
+  `prompts/get`. See "The MCP server" below.
 
 ## The two toolsets
 
@@ -151,7 +154,7 @@ Production tool execution is the Rust MCP server, not the Swift registry: `tools
 | `project_diff` | `git.diff` | engine | Engine `git.diff`, async workspace channel polled via `workspace.result` |
 | `git_branch_manager` | `git.branches.list` | engine | Dispatches on `action`: list/create/checkout/delete via Engine `git.branches.*`, polled via `git.actions.result`; delete requires `confirm=true` |
 | `save_to_memory` | `memory.store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::store_entry` (SQLite `memory_entries`) |
-| `use_mcp` | `mcp.tools` | desktop | Local meta-tool over the live registry: `list` / `list_tools` / recursive `SystemToolRegistry.execute`; only the `coincide` server exists |
+| `use_mcp` | `mcp.tools` | desktop | Local meta-tool over the live registry: `list` / `list_tools` / recursive `SystemToolRegistry.execute` (Swift mirror); Rust: recursive `tools::call` (`use_mcp` arm, tools.rs:17299, recursing at :17336); only the `coincide` server exists |
 | `take_screenshot` | `computer_use.request` | engine | Engine `computer_use.request` (`get_desktop_state` with `include_screenshot`), polled via `computer_use.result`; FFI Pump drains it into the native macOS executor |
 | `start_subagent` | `workers.spawn` | desktop | FFI `workers.*` arm -> `Engine::workers_spawn` (record in SQLite `worker_records`) (alias of `use_workers`) |
 | `git_stash_operator` | `git.stash` | engine | Engine `git.stash` (`workspace_git::stash` on the hardened `git()` runner), polled via `workspace.result`; pop/drop require `confirm=true` |

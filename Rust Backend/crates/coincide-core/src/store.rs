@@ -123,6 +123,28 @@ fn draft_revision(db: &Connection, id: &str) -> Result<Option<Vec<u8>>> {
         .optional()?)
 }
 
+fn quarantine_document(db: &Connection, name: &str) -> Result<()> {
+    let mut quarantine = format!("{name}.corrupt");
+    let mut suffix = 2;
+    while db
+        .query_row(
+            "SELECT 1 FROM documents WHERE name=?1",
+            [&quarantine],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some()
+    {
+        quarantine = format!("{name}.corrupt-{suffix}");
+        suffix += 1;
+    }
+    let _ = db.execute(
+        "UPDATE documents SET name=?1 WHERE name=?2",
+        params![quarantine, name],
+    );
+    Ok(())
+}
+
 fn legacy_document(db: &Connection, name: &str) -> Result<Option<(Value, bool)>> {
     let from_documents: Option<String> = db
         .query_row(
@@ -135,24 +157,7 @@ fn legacy_document(db: &Connection, name: &str) -> Result<Option<(Value, bool)>>
         match serde_json::from_str(&document) {
             Ok(value) => return Ok(Some((value, true))),
             Err(_) => {
-                let mut quarantine = format!("{name}.corrupt");
-                let mut suffix = 2;
-                while db
-                    .query_row(
-                        "SELECT 1 FROM documents WHERE name=?1",
-                        [&quarantine],
-                        |_| Ok(()),
-                    )
-                    .optional()?
-                    .is_some()
-                {
-                    quarantine = format!("{name}.corrupt-{suffix}");
-                    suffix += 1;
-                }
-                let _ = db.execute(
-                    "UPDATE documents SET name=?1 WHERE name=?2",
-                    params![quarantine, name],
-                );
+                quarantine_document(db, name)?;
                 return Ok(None);
             }
         }
@@ -186,6 +191,8 @@ fn migrate_memory_entries(db: &mut Connection) -> Result<()> {
             if from_documents {
                 db.execute("DELETE FROM documents WHERE name='memory.json'", [])?;
             }
+        } else if from_documents {
+            quarantine_document(db, "memory.json")?;
         }
         return Ok(());
     };
@@ -230,6 +237,9 @@ fn migrate_worker_documents(db: &mut Connection) -> Result<()> {
     if (document.get("workers").is_some() && workers.is_none())
         || (document.get("plans").is_some() && plans.is_none())
     {
+        if from_documents {
+            quarantine_document(db, "workers.json")?;
+        }
         return Ok(());
     }
     let shape_present = workers.is_some() || plans.is_some();
@@ -243,6 +253,8 @@ fn migrate_worker_documents(db: &mut Connection) -> Result<()> {
                     .is_some_and(|object| object.is_empty()))
         {
             db.execute("DELETE FROM documents WHERE name='workers.json'", [])?;
+        } else if from_documents {
+            quarantine_document(db, "workers.json")?;
         }
         return Ok(());
     }
@@ -3383,6 +3395,143 @@ mod saved_usage_tests {
             )
             .unwrap();
         assert!(store.saved_usage_snapshot().is_err());
+    }
+}
+
+#[cfg(test)]
+mod legacy_quarantine_tests {
+    use super::*;
+    #[test]
+    fn corrupt_and_misshaped_legacy_documents_are_quarantined_once_with_bytes_intact() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("quarantine.sqlite");
+        let store = Store::open(&path).unwrap();
+        store
+            .connection()
+            .unwrap()
+            .execute_batch("PRAGMA ignore_check_constraints=ON")
+            .unwrap();
+        store
+            .connection()
+            .unwrap()
+            .execute(
+                "INSERT INTO documents(name,document) VALUES('memory.json','broken')",
+                [],
+            )
+            .unwrap();
+        store
+            .connection()
+            .unwrap()
+            .execute(
+                "INSERT INTO documents(name,document) VALUES('workers.json','broken')",
+                [],
+            )
+            .unwrap();
+        drop(store);
+        let reopened = Store::open(&path).unwrap();
+        let memory: String = reopened
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT document FROM documents WHERE name='memory.json.corrupt'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(memory, "broken");
+        let workers: String = reopened
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT document FROM documents WHERE name='workers.json.corrupt'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(workers, "broken");
+        let remaining: i64 = reopened
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT count(*) FROM documents WHERE name IN ('memory.json','workers.json')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(remaining, 0);
+        drop(reopened);
+        let reopened = Store::open(&path).unwrap();
+        let quarantined: i64 = reopened
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT count(*) FROM documents WHERE name LIKE '%.corrupt%'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(quarantined, 2);
+        let memory: String = reopened
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT document FROM documents WHERE name='memory.json.corrupt'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(memory, "broken");
+        let workers: String = reopened
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT document FROM documents WHERE name='workers.json.corrupt'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(workers, "broken");
+        let second_dir = tempfile::tempdir().unwrap();
+        let second_path = second_dir.path().join("misshaped.sqlite");
+        let store = Store::open(&second_path).unwrap();
+        store
+            .connection()
+            .unwrap()
+            .execute(
+                "INSERT INTO documents(name,document) VALUES('memory.json','{\"entries\":\"not-an-object\"}')",
+                [],
+            )
+            .unwrap();
+        store
+            .connection()
+            .unwrap()
+            .execute(
+                "INSERT INTO documents(name,document) VALUES('workers.json','{\"workers\":[]}')",
+                [],
+            )
+            .unwrap();
+        drop(store);
+        let reopened = Store::open(&second_path).unwrap();
+        let memory: String = reopened
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT document FROM documents WHERE name='memory.json.corrupt'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(memory, "{\"entries\":\"not-an-object\"}");
+        let workers: String = reopened
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT document FROM documents WHERE name='workers.json.corrupt'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(workers, "{\"workers\":[]}");
     }
 }
 
