@@ -821,6 +821,55 @@ impl OwnedChild {
             bail!("Child process status unavailable on this platform")
         }
     }
+    pub(crate) fn exit_status_text(&self) -> Result<Option<String>> {
+        #[cfg(unix)]
+        {
+            let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+            let result = unsafe {
+                libc::waitid(
+                    libc::P_PID,
+                    self.0.id(),
+                    &mut info,
+                    libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                )
+            };
+            if result != 0 {
+                if std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                    return Ok(None);
+                }
+                bail!("Child process status unavailable");
+            }
+            if unsafe { info.si_pid() } == 0 {
+                return Ok(None);
+            }
+            Ok(Some(if info.si_code == libc::CLD_EXITED {
+                format!("exit status: {}", unsafe { info.si_status() })
+            } else {
+                format!("terminated by signal {}", unsafe { info.si_status() })
+            }))
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            use windows_sys::Win32::{
+                Foundation::WAIT_OBJECT_0,
+                System::Threading::{GetExitCodeProcess, WaitForSingleObject},
+            };
+            if unsafe { WaitForSingleObject(self.0.as_raw_handle(), 0) } != WAIT_OBJECT_0 {
+                return Ok(None);
+            }
+            let mut code = 1;
+            ensure!(
+                unsafe { GetExitCodeProcess(self.0.as_raw_handle(), &mut code) } != 0,
+                "Child process status unavailable"
+            );
+            Ok(Some(format!("exit status: {code}")))
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            bail!("Child process status unavailable on this platform")
+        }
+    }
 }
 impl Drop for OwnedChild {
     fn drop(&mut self) {
@@ -1818,6 +1867,42 @@ mod tests {
         })
         .join()
         .unwrap();
+    }
+    #[cfg(unix)]
+    #[test]
+    fn provider_exit_observation_never_reaps_before_group_teardown() {
+        for (script, expected) in [
+            ("exit 3", "exit status: 3"),
+            ("kill -TERM $$", "terminated by signal 15"),
+        ] {
+            let mut command = std::process::Command::new("/bin/sh");
+            command.arg("-c").arg(script);
+            let child = OwnedChild::spawn(&mut command).unwrap();
+            let pid = child.0.id() as i32;
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let observed = loop {
+                if let Some(status) = child.exit_status_text().unwrap() {
+                    break status;
+                }
+                assert!(Instant::now() < deadline, "provider child did not exit");
+                std::thread::sleep(Duration::from_millis(10));
+            };
+            assert_eq!(observed, expected);
+            assert_eq!(
+                child.exit_status_text().unwrap().as_deref(),
+                Some(expected)
+            );
+            drop(child);
+            let mut status = 0;
+            assert_eq!(
+                unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) },
+                -1
+            );
+            assert_eq!(
+                std::io::Error::last_os_error().raw_os_error(),
+                Some(libc::ECHILD)
+            );
+        }
     }
     #[test]
     fn account_selection_never_resumes_or_overwrites_another_accounts_session() {

@@ -420,8 +420,7 @@ impl Transport {
                     .child
                     .as_mut()
                     .context("Provider child is unavailable")?
-                    .0
-                    .try_wait()?
+                    .exit_status_text()?
                 {
                     bail!("Provider exited before completing the turn: {status}");
                 }
