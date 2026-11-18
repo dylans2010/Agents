@@ -173,8 +173,6 @@ impl Coincide {
             })
             .child(div().flex_1())
             // The same links as Settings > About; never fetched during render.
-            // Keep essential destinations reachable in short windows: Swift
-            // hides Ko-fi, Product Hunt, GitHub, then Discord in that order.
             .children(
                 community_links(f32::from(window.viewport_size().height))
                     .into_iter()

@@ -1,6 +1,5 @@
 import Foundation
 
-/// Agents' public pages, for both apps. Plain links: nothing here is fetched.
 public enum CoincideLinks {
     public static let repository = URL(string: "https://github.com/dylans2010/Agents")!
     /// Coincide's page on Product Hunt, to upvote it.
@@ -10,17 +9,8 @@ public enum CoincideLinks {
     public static let remoteAppStoreReview: URL? = nil
 }
 
-/// Help & Community, as both apps list it in Settings and the Mac also in its Help menu, command palette and rail: help
-/// and reports, the source code and the Product Hunt page. Each
-/// app supplies the titles and symbols and lists the links `offered(on:)` its platform, so a link added here shows up
-/// in every place of the apps that offer it.
-///
-/// Report an Issue and Request a Feature open the repository's GitHub issue form. A bug report's form fills in
-/// only its version fields, with the versions of the apps and systems involved, never logs, paths or account names.
 public enum CommunityLink: String, CaseIterable, Sendable, Identifiable {
-    /// The bug report form (`bug_report.yml`).
     case reportIssue
-    /// The feature request form (`feature_request.yml`).
     case requestFeature
     case starOnGitHub
     /// Coincide's Product Hunt page, to upvote it.
@@ -33,7 +23,6 @@ public enum CommunityLink: String, CaseIterable, Sendable, Identifiable {
         case remote
     }
 
-    /// How the links are grouped: under Help & Community.
     public enum Group: String, CaseIterable, Sendable {
         case community
     }
@@ -44,7 +33,6 @@ public enum CommunityLink: String, CaseIterable, Sendable, Identifiable {
         .community
     }
 
-    /// Whether the app on `platform` lists the link: every link is on both.
     public func isOffered(on platform: Platform) -> Bool {
         true
     }

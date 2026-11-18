@@ -454,7 +454,6 @@ pub(super) fn entries() -> Vec<Entry> {
             &["Version", "License", "GitHub", "T3 Code"],
         ),
     ];
-    // Help & Community, in About.
     entries.extend(community_links::LINKS.iter().map(|link| Entry {
         title: link.title.into(),
         destination: Pane(S::About, None),

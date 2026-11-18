@@ -84,8 +84,6 @@ pub enum MenuRequest {
     Command(Command),
     App(AppAction),
 }
-/// Help & Community, as Swift's Help menu lists `CommunityLink.offered(on: .mac)`:
-/// reports, then the source code and the Product Hunt page.
 pub const HELP_LINKS: [&[(&str, &str, Option<Command>)]; 1] = [&[
     (
         "Report an Issue…",

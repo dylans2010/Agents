@@ -1,7 +1,3 @@
-//! Help & Community, from Swift's CommunityLink.
-//! Settings › About lists them and Settings search finds them. Report an Issue
-//! and Request a Feature open the repository's GitHub issue form, and a bug
-//! report's form starts with only this computer's versions filled in.
 use gpui_kit::assets::IconName;
 
 const REPOSITORY: &str = "https://github.com/dylans2010/Agents";
@@ -21,7 +17,6 @@ impl Group {
     }
 }
 
-/// The two links that open a GitHub form.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Report {
     template: &'static str,

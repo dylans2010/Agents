@@ -722,9 +722,12 @@ stay at 63 (no new action: `terminal.create` x58 -> x60,
 catalog IDs: 271 registered by exact name, 1 alias-covered
 (`conversation_context_manager` via `context_persistence_store`), 1
 duplicate (`code_review` of `autonomous_review_engine`), 20 with no real
-backend, and these 6 implementable. This slice registers the 6, so the
-catalog is now covered 278 of 299 (271 exact + 1 alias-covered + 6 new);
-the remaining 21 are 20 NONE plus 1 duplicate.
+backend, and these 6 implementable. That triage missed the hyphenated
+`plan-AskUser` (line 165 of `AvailableTools.md`), so the true count is
+300 catalog entries: 272 registered by exact name before this slice.
+This slice registers the 6, so the catalog is now covered 279 of 300
+(278 exact + 1 alias-covered); the remaining 21 are 20 NONE plus
+1 duplicate.
 
 - `svg_to_png` reuses the exact `sips -s format png` invocation from
   `image_convert_format`, plus `--resampleHeightWidth` when both width
@@ -1133,7 +1136,7 @@ What is enforced for real in this slice:
 
 ## What is still NOT implemented (honest list)
 
-The 299-ID catalog in `AvailableTools.md` is a specification, not a
+The 300-entry catalog in `AvailableTools.md` is a specification, not a
 registry. After slice 18, 332 tools are real. These catalog tools are NOT
 implemented, and why:
 
@@ -1202,14 +1205,19 @@ implemented, and why:
   only local/new/previous worktrees, so the Worktrees card is a read-only
   list until that action is wired.
 - Everything else in the catalog: exact counts after Slice 18. The
-  catalog has 299 true IDs. 278 are covered: 271 registered by exact
-  name, 1 alias-covered (`conversation_context_manager` via the
-  registered `context_persistence_store`), and 6 registered by this
-  slice (`svg_to_png`, `intel_generate_tests`, `search_web`,
-  `reverse_analyze`, `report_to_user`, `intel_explain_code`). The
-  remaining 21 are 20 with no real backend (NONE) plus 1 duplicate
-  (`code_review`, a duplicate of the registered
-  `autonomous_review_engine`). The 20 NONE tools, with reasons:
+  catalog has 300 entries. 279 are covered: 278 registered by exact
+  name (272 before this slice, plus the 6 registered by this slice:
+  `svg_to_png`, `intel_generate_tests`, `search_web`,
+  `reverse_analyze`, `report_to_user`, `intel_explain_code`), and 1
+  alias-covered (`conversation_context_manager` via the registered
+  `context_persistence_store`). The remaining 21 are 20 with no real
+  backend (NONE) plus 1 duplicate (`code_review`, a duplicate of the
+  registered `autonomous_review_engine`). Entries are counted by
+  bullet: one entry per ``- `id` `` line in `AvailableTools.md`,
+  excluding the prose bullet at line 176 (the `safe_undo` note under
+  Known Limitations); the line-487 bullet carries a second ID,
+  `read_url_content`, so counting IDs instead of bullets gives 301 IDs
+  with 280 covered. The 20 NONE tools, with reasons:
   - Artboards ×8 (`artboard_list`, `artboard_get`, `artboard_create`,
     `artboard_update`, `artboard_delete`, `artboard_compile`,
     `artboard_run_app`, `fix_artboards`): no Visual UI Builder

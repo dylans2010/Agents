@@ -3,9 +3,6 @@ import StoreKit
 import SwiftUI
 import UIKit
 
-/// Help & Community on the phone, as in the Mac's Settings › About: each link offered here
-/// (`CommunityLink.offered(on: .remote)`) with its title and tile. A bug report's
-/// GitHub form has the versions of both apps and both systems filled in.
 extension CommunityLink {
     var title: String {
         switch self {
@@ -75,8 +72,6 @@ extension CommunityLink {
     }
 }
 
-/// Settings' Help & Community rows at the foot of the sidebar, with Rate Coincide Remote
-/// among the first.
 struct HelpCommunityRows: View {
     var body: some View {
         ForEach(CommunityLink.Group.allCases, id: \.self) { group in
@@ -87,8 +82,6 @@ struct HelpCommunityRows: View {
     }
 }
 
-/// One link in the sidebar's look, with the arrow of a row that leaves the app. Report an Issue and Request a Feature
-/// open the repository's GitHub issue form.
 struct CommunityLinkRow: View {
     let link: CommunityLink
     @Environment(RemoteClient.self) private var client
