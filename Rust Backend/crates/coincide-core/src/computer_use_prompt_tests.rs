@@ -179,7 +179,11 @@ fn standard_chat_turn_carries_no_transport(root: &Path) {
         assert!(prompt.contains("What windows are open?"));
         assert_clean(prompt, &forbidden);
     }
-    let stored = String::from_utf8_lossy(&fs::read(root.join("state.sqlite")).unwrap());
+    let mut stored_bytes = fs::read(root.join("state.sqlite")).unwrap();
+    if let Ok(wal) = fs::read(root.join("state.sqlite-wal")) {
+        stored_bytes.extend_from_slice(&wal);
+    }
+    let stored = String::from_utf8_lossy(&stored_bytes);
     assert!(
         !stored.contains(token.as_str()),
         "durable thread state carries the transport token"
