@@ -125,6 +125,20 @@ pub fn dispatch_desktop_action(runtime: &CoincideMacOSRuntime, raw_json: &str) -
             let source_dir = str_param(&params, &["sourceDir", "source"]);
             discovery::import_legacy_store(&runtime.engine, &runtime.data_dir, source_dir)
         }
+        "terminal.create" => dispatch_engine_method(runtime, "terminal.create", params),
+        "terminal.write" => dispatch_engine_method(runtime, "terminal.write", params),
+        "terminal.read" => dispatch_engine_method(runtime, "terminal.read", params),
+        "git.status" => dispatch_engine_method(runtime, "git.status", params),
+        "git.diff" => dispatch_engine_method(runtime, "git.diff", params),
+        "git.log" => dispatch_engine_method(runtime, "git.log", params),
+        "git.show" => dispatch_engine_method(runtime, "git.show", params),
+        "git.diff.range" => dispatch_engine_method(runtime, "git.diff.range", params),
+        "git.diff.branch" => dispatch_engine_method(runtime, "git.diff.branch", params),
+        "git.actions.run" => dispatch_engine_method(runtime, "git.actions.run", params),
+        "git.actions.pull" => dispatch_engine_method(runtime, "git.actions.pull", params),
+        "git.branches.list" => dispatch_engine_method(runtime, "git.branches.list", params),
+        "git.branches.create" => dispatch_engine_method(runtime, "git.branches.create", params),
+        "git.branches.checkout" => dispatch_engine_method(runtime, "git.branches.checkout", params),
         // Direct pass-through for any Engine RPC method (e.g. `terminal.create`, `terminal.write`,
         // `projects.create`, `threads.create`, `settings.read`, etc.)
         other => dispatch_engine_method(runtime, other, params),

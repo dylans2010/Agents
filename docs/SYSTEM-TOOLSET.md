@@ -31,7 +31,7 @@ transcript).
 - MCP delivery: for MCP-capable providers the stored prompt is NOT injected
   as instructions. Instead the launch carries an `McpMount` (thread id and
   data directory) and the provider session is mounted with the
-  `coincide-mcp-server` stdio server, which serves the 61 system tools plus
+  `coincide-mcp-server` stdio server, which serves the 65 system tools plus
   the SystemAssets as resources and the stored prompt as a `prompts/get`
   prompt. See "The MCP server" below.
 
@@ -50,6 +50,78 @@ allowlist has no toolset key), so the setting is intentionally Swift-side.
   before toolsets existed have no stored value and behave as Provider Tools.
 - In Provider Tools mode no system prompt is created, sent, or stored, and
   `SystemToolRegistry.tools(for: .provider)` is empty.
+
+## The 65-tool registry
+
+Every tool in `Agents/Core/SystemTools/SystemToolRegistry.swift`, verified row by row against the MCP server table in `Rust Backend/crates/coincide-mcp-server/src/tools.rs` (same names, actions, and channels, in the same order). 65 tools, 42 distinct actions: several tools share one action (`computer_use.request` x20, `terminal.create` x3, `workspace.edit_file` x2, `git.actions.run` x2).
+
+| Tool | Action | Channel | Real backend |
+| --- | --- | --- | --- |
+| `read_file` | `workspace.read_file` | desktop | FFI `workspace.read_file` arm -> `coincide_core::workspace_tools::read_file` |
+| `write_file` | `workspace.write_file` | desktop | FFI `workspace.write_file` arm -> `coincide_core::workspace_tools::write_file` |
+| `list_files` | `workspace.files` | desktop | FFI `workspace.files` arm -> `coincide_core::workspace_tools::files` |
+| `search_files` | `workspace.search` | desktop | FFI `workspace.search` arm -> `coincide_core::workspace_tools::search` |
+| `create_terminal` | `terminal.create` | engine | Engine RPC `terminal.create` on the live engine |
+| `write_terminal` | `terminal.write` | engine | Engine RPC `terminal.write` on the live engine |
+| `read_terminal` | `terminal.read` | engine | Engine RPC `terminal.read` on the live engine |
+| `git_status` | `git.status` | engine | Engine `git.status`, async workspace channel polled via `workspace.result` |
+| `git_diff` | `git.diff` | engine | Engine `git.diff`, async workspace channel polled via `workspace.result` |
+| `git_log` | `git.log` | engine | Engine `git.log`, async workspace channel polled via `workspace.result` |
+| `git_show` | `git.show` | engine | Engine `git.show`, async workspace channel polled via `workspace.result` |
+| `git_diff_range` | `git.diff.range` | engine | Engine `git.diff.range`, async workspace channel polled via `workspace.result` |
+| `git_diff_branch` | `git.diff.branch` | engine | Engine `git.diff.branch`, async workspace channel polled via `workspace.result` |
+| `delete_file` | `workspace.delete_file` | desktop | FFI `workspace.delete_file` arm -> `coincide_core::workspace_tools::delete_file` |
+| `delete_directory` | `workspace.delete_directory` | desktop | FFI `workspace.delete_directory` arm -> `coincide_core::workspace_tools::delete_directory` |
+| `move_file` | `workspace.move_file` | desktop | FFI `workspace.move_file` arm -> `coincide_core::workspace_tools::move_file` |
+| `copy_file` | `workspace.copy_file` | desktop | FFI `workspace.copy_file` arm -> `coincide_core::workspace_tools::copy_file` |
+| `create_directory` | `workspace.create_dir` | desktop | FFI `workspace.create_dir` arm -> `coincide_core::workspace_tools::create_dir` |
+| `read_directory` | `workspace.read_dir` | desktop | FFI `workspace.read_dir` arm -> `coincide_core::workspace_tools::read_dir` |
+| `edit_file` | `workspace.edit_file` | desktop | FFI `workspace.edit_file` arm -> `coincide_core::workspace_tools::edit_file` |
+| `multi_edit_file` | `workspace.edit_file` | desktop | FFI `workspace.edit_file` arm -> `coincide_core::workspace_tools::edit_file` |
+| `search_regex` | `workspace.search_regex` | desktop | FFI `workspace.search_regex` arm -> `coincide_core::workspace_tools::search_regex` |
+| `run_build` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `run_tests` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `git_commit` | `git.actions.run` | engine | Engine `git.actions.run` (`action: commit`), polled via `git.actions.result` |
+| `git_push` | `git.actions.run` | engine | Engine `git.actions.run` (`action: push`), polled via `git.actions.result` |
+| `git_pull` | `git.actions.pull` | engine | Engine `git.actions.pull` (no extra params), polled via `git.actions.result` |
+| `git_branch_list` | `git.branches.list` | engine | Engine `git.branches.list` (optional `scope`), polled via `git.actions.result` |
+| `git_branch_create` | `git.branches.create` | engine | Engine `git.branches.create` (`name`), polled via `git.actions.result` |
+| `git_branch_checkout` | `git.branches.checkout` | engine | Engine `git.branches.checkout` (`name`), polled via `git.actions.result` |
+| `mem_store` | `memory.store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::store_entry` (SQLite `memory.json`) |
+| `mem_retrieve` | `memory.retrieve` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::retrieve_entry` (SQLite `memory.json`) |
+| `view_memory` | `memory.list` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::list_entries` (SQLite `memory.json`) |
+| `mem_delete` | `memory.delete` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::delete_entry` (SQLite `memory.json`) |
+| `mem_clear` | `memory.clear` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::clear_scope` (SQLite `memory.json`) |
+| `mem_context_snapshot` | `memory.snapshot` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::snapshot_context` (SQLite `memory.json`) |
+| `context_persistence_store` | `memory.context_store` | desktop | FFI `memory.*` arm -> `coincide_core::memory_store::context_store` (SQLite `memory.json`) |
+| `use_workers` | `workers.spawn` | desktop | FFI `workers.*` arm -> `Engine::workers_spawn` (record in SQLite `workers.json`) |
+| `list_workers` | `workers.list` | desktop | FFI `workers.*` arm -> `Engine::workers_list` (record in SQLite `workers.json`) |
+| `worker_status` | `workers.status` | desktop | FFI `workers.*` arm -> `Engine::workers_status` (record in SQLite `workers.json`) |
+| `worker_result` | `workers.result` | desktop | FFI `workers.*` arm -> `Engine::workers_result` (record in SQLite `workers.json`) |
+| `cancel_worker` | `workers.cancel` | desktop | FFI `workers.*` arm -> `Engine::workers_cancel` (record in SQLite `workers.json`) |
+| `intel_plan_task` | `workers.plan` | desktop | FFI `workers.*` arm -> `Engine::workers_plan` (record in SQLite `workers.json`) |
+| `intel_breakdown_task` | `workers.breakdown` | desktop | FFI `workers.*` arm -> `Engine::workers_breakdown` (record in SQLite `workers.json`) |
+| `execution_plan` | `workers.execution_plan` | desktop | FFI `workers.*` arm -> `Engine::workers_execution_plan` (record in SQLite `workers.json`) |
+| `list_apps` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `list_windows` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `get_window_state` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `get_desktop_state` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `verify_state` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `zoom` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `click` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `double_click` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `right_click` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `set_value` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `type_text` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `press_key` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `hotkey` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `scroll` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `drag` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `move_cursor` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `click_point` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `invoke_menu` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `launch_app` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
+| `set_window_frame` | `computer_use.request` | engine | Engine `computer_use.request`, polled via `computer_use.result`; FFI Pump drains it into the native macOS executor (ScreenCaptureKit / Accessibility / CGEvent) |
 
 ## The MCP server
 

@@ -17,6 +17,8 @@ cargo build --release --manifest-path "Rust Backend/Cargo.toml" -p coincide-maco
 # Build the stdio MCP server that serves the System Tools to provider CLIs
 cargo build --release --manifest-path "Rust Backend/Cargo.toml" -p coincide-mcp-server
 
+The Xcode preBuildScript runs both cargo builds on every build (cargo itself is incremental, so an unchanged tree rebuilds fast); it never skips a build because the artifacts already exist.
+
 # Generate Agents.xcodeproj and build the Release native macOS app
 xcodegen generate --spec project.yml
 xcodebuild -project Agents.xcodeproj -scheme Agents -configuration Release \
@@ -60,7 +62,7 @@ Assist's system prompt and tool guidance come from System Assets (`Agents/Resour
 
 ## System Toolset
 
-Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs the 26 verified core actions behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction only for **Codex and Claude**; other providers receive the tools and assets through the bundled MCP server instead. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
+Settings › General › Agent Tools offers two toolsets: **System Tools** (default) and **Provider Tools**. System Tools runs 65 tools (42 distinct core actions) behind a system prompt built from the System Assets; Provider Tools uses the provider's own tools with no system prompt. A per-thread system prompt is delivered as a genuine developer/system instruction only for **Codex and Claude**; other providers receive the tools and assets through the bundled MCP server instead. See [docs/SYSTEM-TOOLSET.md](docs/SYSTEM-TOOLSET.md).
 
 ## Liquid Glass
 

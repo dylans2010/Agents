@@ -17,6 +17,7 @@ settings:
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: YES
     SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
     MARKETING_VERSION: "0.2.0"
@@ -41,16 +42,12 @@ targets:
         script: |
           export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
           export MACOSX_DEPLOYMENT_TARGET="26.0"
-          if [ ! -f "${PROJECT_DIR}/Rust Backend/target/release/libcoincide_macos_ffi.a" ]; then
-            echo "Building libcoincide_macos_ffi.a via cargo..."
-            cd "${PROJECT_DIR}/Rust Backend"
-            MACOSX_DEPLOYMENT_TARGET="26.0" cargo build --release -p coincide-macos-ffi
-          fi
-          if [ ! -f "${PROJECT_DIR}/Rust Backend/target/release/coincide-mcp-server" ]; then
-            echo "Building coincide-mcp-server via cargo..."
-            cd "${PROJECT_DIR}/Rust Backend"
-            MACOSX_DEPLOYMENT_TARGET="26.0" cargo build --release -p coincide-mcp-server
-          fi
+          echo "Building libcoincide_macos_ffi.a via cargo..."
+          cd "${PROJECT_DIR}/Rust Backend"
+          MACOSX_DEPLOYMENT_TARGET="26.0" cargo build --release -p coincide-macos-ffi
+          echo "Building coincide-mcp-server via cargo..."
+          cd "${PROJECT_DIR}/Rust Backend"
+          MACOSX_DEPLOYMENT_TARGET="26.0" cargo build --release -p coincide-mcp-server
     postBuildScripts:
       - name: Bundle coincide-mcp-server
         basedOnDependencyAnalysis: false
