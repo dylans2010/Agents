@@ -3359,7 +3359,8 @@ impl Engine {
                     {
                         push_run_event(&mut run.events, dropped, event);
                     } else {
-                        run.events.push_back(event);
+                        let mut dropped = 0;
+                        push_run_event(&mut run.events, &mut dropped, event);
                     }
                 }
             }
@@ -3380,7 +3381,8 @@ impl Engine {
                 {
                     push_run_event(&mut run.events, dropped, failed);
                 } else {
-                    run.events.push_back(failed);
+                    let mut dropped = 0;
+                    push_run_event(&mut run.events, &mut dropped, failed);
                 }
                 self.failed_thread_workers.remove(&id);
             }

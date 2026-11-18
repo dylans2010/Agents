@@ -112,7 +112,7 @@ public struct AntigravitySettingsPane: View {
                 syncDraftFromProvider()
             }
             if let selected = probeAccountID,
-               !(provider?.keyAccounts.contains(where: { $0.id == selected }) ?? false) {
+               !(provider?.keyAccounts.first(where: { $0.id == selected })?.hasKey ?? false) {
                 probeAccountID = nil
             }
         }

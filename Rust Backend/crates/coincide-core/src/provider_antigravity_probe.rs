@@ -98,6 +98,7 @@ fn execute(probe: &AntigravityProbe, report: &mut AntigravityProbeReport, starte
         Ok(profile) => profile,
         Err(error) => {
             let _ = fs::remove_dir_all(&probe_dir);
+            let _ = fs::remove_dir(probe.data_dir.join("providers/antigravity/probe"));
             report.state = AntigravityProbeState::Unreachable;
             report.detail = Some(format!(
                 "Antigravity probe profile could not be prepared: {}",
