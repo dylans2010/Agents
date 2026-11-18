@@ -135,7 +135,7 @@ fn initialize_handshake_advertises_tools_resources_and_prompts() {
 #[test]
 fn tools_list_returns_the_real_registry() {
     let workspace = temp_dir("agents-mcp-workspace");
-    let mut session = Session::spawn(workspace.path(), None);
+    let (mut session, control) = spawn_bound(workspace.path(), None);
     initialize(&mut session);
     let response = session.request("tools/list", json!({}));
     let tools = response["result"]["tools"].as_array().unwrap();
@@ -490,6 +490,7 @@ fn tools_list_returns_the_real_registry() {
         assert!(tool["inputSchema"]["required"].is_array());
     }
     session.close();
+    control.stop();
 }
 
 #[test]
