@@ -524,9 +524,11 @@ public final class VoiceDictationController {
 
     private static let micDefaultsKey = "coincide.voice.microphoneUID"
     private static let localeDefaultsKey = "coincide.voice.localeIdentifier"
+    private static let maximumRecordingDuration: Duration = .seconds(600)
 
     @ObservationIgnored private let audioCapture = VoiceAudioCapture()
     @ObservationIgnored private var speechEngine: MacAppleSpeechEngine?
+    @ObservationIgnored private var recordingLimitTask: Task<Void, Never>?
 
     public init() {
         self.selectedMicrophoneUID = UserDefaults.standard.string(forKey: Self.micDefaultsKey)
@@ -607,6 +609,12 @@ public final class VoiceDictationController {
             isPreparing = false
             downloadProgress = nil
             isRecording = true
+            recordingLimitTask?.cancel()
+            recordingLimitTask = Task { [weak self] in
+                try? await Task.sleep(for: Self.maximumRecordingDuration)
+                guard !Task.isCancelled else { return }
+                _ = await self?.stopRecording()
+            }
         } catch {
             audioCapture.stop()
             await engine.cancel()
@@ -620,6 +628,8 @@ public final class VoiceDictationController {
 
     @discardableResult
     public func stopRecording() async -> String {
+        recordingLimitTask?.cancel()
+        recordingLimitTask = nil
         guard isRecording || isPreparing else { return "" }
         audioCapture.stop()
         isRecording = false
@@ -641,6 +651,8 @@ public final class VoiceDictationController {
     }
 
     public func cancelRecording() async {
+        recordingLimitTask?.cancel()
+        recordingLimitTask = nil
         audioCapture.stop()
         if let engine = speechEngine {
             speechEngine = nil

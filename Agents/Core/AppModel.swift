@@ -390,6 +390,7 @@ public final class AppModel {
     }
 
     private func handleSelectedThreadChanged() async {
+        await voiceDictation.cancelRecording()
         guard let client = runtime else { return }
         guard let uuid = selectedThreadUUID else {
             activeTranscript = nil
