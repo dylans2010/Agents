@@ -17065,16 +17065,22 @@ pub fn call(
             let args = default_parent_thread(state, args);
             engine_request(state, method, args)
         }
-        "list_workers" | "worker_status" | "worker_result" | "cancel_worker" => {
+        "list_workers" => {
+            let args = default_parent_thread(state, args);
+            engine_request(state, "workers.list", args)
+        }
+        "worker_status" | "worker_result" | "cancel_worker" => {
             let method = match name {
-                "list_workers" => "workers.list",
                 "worker_status" => "workers.status",
                 "worker_result" => "workers.result",
                 _ => "workers.cancel",
             };
             engine_request(state, method, args)
         }
-        "intel_breakdown_task" => engine_request(state, "workers.breakdown", args),
+        "intel_breakdown_task" => {
+            let args = default_parent_thread(state, args);
+            engine_request(state, "workers.breakdown", args)
+        }
         "list_apps" | "list_windows" | "get_window_state" | "get_desktop_state"
         | "verify_state" | "zoom" | "click" | "double_click" | "right_click" | "set_value"
         | "type_text" | "press_key" | "hotkey" | "scroll" | "drag" | "move_cursor"
@@ -21195,10 +21201,8 @@ pub fn call(
 
 fn default_parent_thread(state: &crate::ServerState, mut args: Value) -> Value {
     if let Some(object) = args.as_object_mut() {
-        if !object.contains_key("parentThreadId") {
-            if let Some(thread_id) = &state.thread_id {
-                object.insert("parentThreadId".to_owned(), json!(thread_id));
-            }
+        if let Some(thread_id) = &state.thread_id {
+            object.insert("parentThreadId".to_owned(), json!(thread_id));
         }
     }
     args
@@ -21357,6 +21361,40 @@ mod tests {
         };
         assert_eq!(
             with_session_defaults(&unbound, json!({"threadId": "model-thread"}))["threadId"],
+            "model-thread"
+        );
+    }
+
+    #[test]
+    fn session_parent_identity_wins_over_model_supplied_parent_thread_id() {
+        let state = crate::ServerState {
+            cwd: std::path::PathBuf::from("/tmp"),
+            thread_id: Some("session-thread".to_owned()),
+            socket: std::path::PathBuf::from("/tmp/control.sock"),
+            assets_dir: None,
+            control: std::sync::Mutex::new(coincide_core::control::ControlClient::new(
+                std::path::PathBuf::from("/tmp/control.sock"),
+            )),
+        };
+        assert_eq!(
+            default_parent_thread(&state, json!({"parentThreadId": "another-thread"}))["parentThreadId"],
+            "session-thread"
+        );
+        assert_eq!(
+            default_parent_thread(&state, json!({}))["parentThreadId"],
+            "session-thread"
+        );
+        let unbound = crate::ServerState {
+            cwd: std::path::PathBuf::from("/tmp"),
+            thread_id: None,
+            socket: std::path::PathBuf::from("/tmp/control.sock"),
+            assets_dir: None,
+            control: std::sync::Mutex::new(coincide_core::control::ControlClient::new(
+                std::path::PathBuf::from("/tmp/control.sock"),
+            )),
+        };
+        assert_eq!(
+            default_parent_thread(&unbound, json!({"parentThreadId": "model-thread"}))["parentThreadId"],
             "model-thread"
         );
     }
