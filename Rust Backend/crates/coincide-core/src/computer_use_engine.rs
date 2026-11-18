@@ -140,6 +140,12 @@ impl Engine {
         self.store
             .resolve_thread_id(thread)?
             .context("Computer Use thread not found")?;
+        self.computer_use
+            .authority
+            .as_ref()
+            .context("Computer Use desktop authority is not bound")?
+            .grant(thread)
+            .map_err(|failure| anyhow::anyhow!("Computer Use unavailable: {failure:?}"))?;
         Ok(json!({"threadId": thread, "screenshots": self.computer_use.screenshots.list(thread)}))
     }
     /// Trusted provider transport entry point. The context must come from the
@@ -614,6 +620,14 @@ mod tests {
         assert!(path.ends_with(".png"));
         assert!(std::path::Path::new(path).exists());
         assert_eq!(listed["threadId"], a);
+        e.computer_use
+            .authority
+            .as_ref()
+            .unwrap()
+            .native_revoke(thread);
+        assert!(e
+            .computer_use_screenshots_command(&json!({"threadId": a}))
+            .is_err());
     }
     #[test]
     fn replies_and_collection_require_exact_operation_and_thread() {

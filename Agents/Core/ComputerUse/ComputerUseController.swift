@@ -21,14 +21,6 @@ public struct ComputerUseStatus: Codable, Sendable {
     public var screenCaptureGranted: Bool {
         screenCapture.lowercased() == "granted"
     }
-
-    public var accessibilityDenied: Bool {
-        accessibility.lowercased() == "denied"
-    }
-
-    public var screenCaptureDenied: Bool {
-        screenCapture.lowercased() == "denied"
-    }
 }
 
 public struct ComputerUseScreenshot: Codable, Sendable, Identifiable {
@@ -166,7 +158,7 @@ public final class ComputerUseController {
                 throw AgentsRuntimeError.desktopFailure("Computer Use request did not return an operationId.")
             }
             var finished = false
-            for _ in 0..<60 {
+            for _ in 0..<40 {
                 let polled = try await runtime.computerUseResult(threadId: threadId, operationId: operationId)
                 if polled["ready"]?.boolValue == true {
                     record.result = polled["result"]

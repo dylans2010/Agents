@@ -998,6 +998,15 @@ static NSDictionary *CUSetFrame(CUContext *ctx, NSDictionary *r) {
   if (!isfinite(origin.x) || !isfinite(origin.y) || !isfinite(size.width) ||
       !isfinite(size.height) || size.width < 1 || size.height < 1)
     return CUError(@"invalid_request");
+  CGRect requested = CGRectMake(origin.x, origin.y, size.width, size.height);
+  BOOL onScreen = NO;
+  for (NSScreen *screen in NSScreen.screens)
+    if (CGRectIntersectsRect(requested, screen.frame)) {
+      onScreen = YES;
+      break;
+    }
+  if (!onScreen)
+    return CUError(@"invalid_request");
   if (CUIsBrowser(pid))
     return CUError(@"unsupported");
   NSDictionary *info = CUWindow(wid, pid);
