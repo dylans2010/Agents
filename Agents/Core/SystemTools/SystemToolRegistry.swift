@@ -4113,15 +4113,15 @@ public nonisolated enum SystemToolRegistry {
         case "intel_plan_task":
             let parentThreadId = try requiredString(arguments, "parentThreadId", tool: name)
             let task = try requiredString(arguments, "task", tool: name)
-            return try await runtime.planTask(parentThreadId: parentThreadId, task: task)
+            return workerPlanJSON(try await runtime.planTask(parentThreadId: parentThreadId, task: task))
         case "intel_breakdown_task":
             let planId = try requiredString(arguments, "planId", tool: name)
-            return try await runtime.breakdownTask(planId: planId, parentThreadId: optionalString(arguments, "parentThreadId"))
+            return workerPlanJSON(try await runtime.breakdownTask(planId: planId, parentThreadId: optionalString(arguments, "parentThreadId")))
         case "execution_plan":
             let parentThreadId = try requiredString(arguments, "parentThreadId", tool: name)
             let objective = try requiredString(arguments, "objective", tool: name)
             let mode = try requiredString(arguments, "mode", tool: name)
-            return try await runtime.executionPlan(parentThreadId: parentThreadId, objective: objective, mode: mode)
+            return workerPlanJSON(try await runtime.executionPlan(parentThreadId: parentThreadId, objective: objective, mode: mode))
         case "list_apps", "list_windows", "get_window_state", "get_desktop_state",
              "verify_state", "zoom", "click", "double_click", "right_click", "set_value",
              "type_text", "press_key", "hotkey", "scroll", "drag", "move_cursor",
@@ -11575,6 +11575,53 @@ public nonisolated enum SystemToolRegistry {
                 "transcriptItems": .int(Int64(progress.transcriptItems)),
                 "elapsedSeconds": .double(progress.elapsedSeconds),
             ])
+        }
+        return .object(object)
+    }
+
+    private static func workerPlanJSON(_ plan: WorkerPlan) -> JSONValue {
+        var object: [String: JSONValue] = [
+            "planId": .string(plan.planId),
+            "parentThreadId": .string(plan.parentThreadId),
+            "task": .string(plan.task),
+            "steps": .array(plan.steps.map { step in
+                .object([
+                    "name": .string(step.name),
+                    "task": .string(step.task),
+                    "targetFiles": .array(step.targetFiles.map { .string($0) }),
+                ])
+            }),
+            "createdAt": .double(plan.createdAt),
+        ]
+        if let objective = plan.objective {
+            object["objective"] = .string(objective)
+        } else {
+            object["objective"] = .null
+        }
+        if let mode = plan.mode {
+            object["mode"] = .string(mode)
+        } else {
+            object["mode"] = .null
+        }
+        if let markdown = plan.markdown {
+            object["markdown"] = .string(markdown)
+        } else {
+            object["markdown"] = .null
+        }
+        if let filesListed = plan.filesListed {
+            object["filesListed"] = .int(Int64(filesListed))
+        } else {
+            object["filesListed"] = .null
+        }
+        if let relevantFiles = plan.relevantFiles {
+            object["relevantFiles"] = .int(Int64(relevantFiles))
+        } else {
+            object["relevantFiles"] = .null
+        }
+        if let agentNotesPath = plan.agentNotesPath {
+            object["agentNotesPath"] = .string(agentNotesPath)
+        } else {
+            object["agentNotesPath"] = .null
         }
         return .object(object)
     }
