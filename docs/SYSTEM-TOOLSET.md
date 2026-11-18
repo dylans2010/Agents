@@ -67,7 +67,7 @@ Production tool execution is the Rust MCP server, not the Swift registry: `tools
 | `list_files` | `workspace.files` | desktop | FFI `workspace.files` arm -> `coincide_core::workspace_tools::files` |
 | `search_files` | `workspace.search` | desktop | FFI `workspace.search` arm -> `coincide_core::workspace_tools::search` |
 | `create_terminal` | `terminal.create` | engine | Engine RPC `terminal.create` on the live engine |
-| `write_terminal` | `terminal.write` | engine | Engine RPC `terminal.write` on the live engine |
+| `write_terminal` | `terminal.write` | engine | Engine RPC `terminal.write` on the live engine; sends the caller's arbitrary text, including newlines and control bytes, straight into the live shell's stdin with no confirmation step, so a provider agent holding a terminal ID can run any shell command in that terminal. Unlike the destructive tools, this is not confirm-gated: the grant is holding the terminal, not a per-write approval. Input is capped at 32 KiB per write by the engine (`Terminal::write`); larger writes are refused, not truncated. |
 | `read_terminal` | `terminal.read` | engine | Engine RPC `terminal.read` on the live engine |
 | `git_status` | `git.status` | engine | Engine `git.status`, async workspace channel polled via `workspace.result` |
 | `git_diff` | `git.diff` | engine | Engine `git.diff`, async workspace channel polled via `workspace.result` |
@@ -147,7 +147,7 @@ Production tool execution is the Rust MCP server, not the Swift registry: `tools
 | `code_replace` | `workspace.edit_file` | desktop | FFI `workspace.edit_file` arm -> `coincide_core::workspace_tools::edit_file` (exactly-once anchor), or read + write when `allowMultiple` is true |
 | `code_insert` | `workspace.write_file` | desktop | Read + write composition through the FFI `workspace.read_file` / `workspace.write_file` arms; `line` / `before` / `after` modes |
 | `code_multi_edit` | `workspace.edit_file` | desktop | FFI `workspace.edit_file` arm -> `coincide_core::workspace_tools::edit_file` with `edits` (alias of `multi_edit_file`) |
-| `use_terminal` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel |
+| `use_terminal` | `terminal.create` | engine | Creates a real terminal, runs the command, polls `terminal.read` for the `__AGENTS_TOOL_DONE__:$?` sentinel. No approval step: the command is typed into a fresh shell as given, and the terminal stays open in the drawer afterwards. |
 | `run_command` | `terminal.create` | engine | Same as `use_terminal` |
 | `git_log_viewer` | `git.log` | engine | Engine `git.log`, async workspace channel polled via `workspace.result` |
 | `git_branch_compare` | `git.diff.range` | engine | Engine `git.diff.range`, async workspace channel polled via `workspace.result` |

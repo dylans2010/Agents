@@ -318,8 +318,8 @@ public final class TerminalCanvasNSView: NSView {
     private func computedGridDimensions() -> (cols: Int, rows: Int) {
         let usableWidth = max(0, bounds.width - horizontalInset * 2)
         let usableHeight = max(0, bounds.height - verticalInset * 2)
-        let cols = max(20, Int(floor(usableWidth / max(1, cellWidth))))
-        let rows = max(4, Int(floor(usableHeight / max(1, cellHeight))))
+        let cols = min(500, max(20, Int(floor(usableWidth / max(1, cellWidth)))))
+        let rows = min(300, max(4, Int(floor(usableHeight / max(1, cellHeight)))))
         return (cols, rows)
     }
 
@@ -1071,11 +1071,32 @@ public final class TerminalCanvasNSView: NSView {
     private func sendInputToPTY(_ text: String) {
         guard let runtime, !terminalID.isEmpty, !text.isEmpty else { return }
         let targetID = terminalID
+        let chunks = Self.inputChunks(text, maxBytes: 16384)
         Task { [weak self] in
-            try? await runtime.sendTerminalInput(id: targetID, data: text)
+            for chunk in chunks {
+                do {
+                    try await runtime.sendTerminalInput(id: targetID, data: chunk)
+                } catch {
+                    break
+                }
+            }
             try? await Task.sleep(for: .milliseconds(12))
             await self?.pollViewportOnce(forceRedraw: true)
         }
+    }
+
+    private static func inputChunks(_ text: String, maxBytes: Int) -> [String] {
+        var chunks: [String] = []
+        var start = text.utf8.startIndex
+        while start < text.utf8.endIndex {
+            var end = text.utf8.index(start, offsetBy: maxBytes, limitedBy: text.utf8.endIndex) ?? text.utf8.endIndex
+            while end > start && end < text.utf8.endIndex && (text.utf8[end] & 0xC0) == 0x80 {
+                end = text.utf8.index(before: end)
+            }
+            chunks.append(String(decoding: text.utf8[start..<end], as: UTF8.self))
+            start = end
+        }
+        return chunks
     }
 
     private func translateKeyEvent(_ event: NSEvent, flags: NSEvent.ModifierFlags) -> String? {

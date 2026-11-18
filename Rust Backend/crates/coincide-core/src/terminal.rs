@@ -393,7 +393,9 @@ impl Terminal {
                     .as_ref()
                     .context("Terminal is stopping")?
                     .try_send(text.into_bytes())?,
-                Event::Title(title) => self.title = title,
+                Event::Title(title) => {
+                    self.title = title.chars().take(MAX_TITLE_CHARS).collect()
+                }
                 Event::Bell => self.bells = self.bells.wrapping_add(1),
                 _ => {}
             }
@@ -2022,6 +2024,17 @@ mod appearance_tests {
         assert!(terminal.poll().unwrap());
         assert!(terminal.revision > revision);
         assert_eq!(terminal.status()["progress"], Value::Null);
+    }
+
+    #[test]
+    fn oversized_osc_title_is_capped_at_receipt() {
+        let mut bytes = b"\x1b]2;".to_vec();
+        bytes.extend(std::iter::repeat_n(b'x', 3000));
+        bytes.push(0x07);
+        let mut terminal = Terminal::fixture_output(2, 10, &bytes);
+        terminal.poll().unwrap();
+        assert_eq!(terminal.title.chars().count(), MAX_TITLE_CHARS);
+        assert!(terminal.title.chars().all(|c| c == 'x'));
     }
 }
 
