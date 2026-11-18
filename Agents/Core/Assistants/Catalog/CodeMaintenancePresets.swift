@@ -172,7 +172,7 @@ public enum CodeMaintenancePresets {
             expectedOutputFormat: "A dependency audit report: a dependency inventory table (package, version, direct or transitive, used or unused), a risk list ordered by severity with the evidence for each risk, and a recommended action per risk. No dependency is changed.",
             allowedTools: [
                 "package_dependency_audit", "spm_dependency_tree", "dependency_graph",
-                "dependency_licenses", "dependency_resolution_engine",
+                "dependency_licenses",
                 "package_manifest_read", "package_manifest_validate",
                 "podfile_inspector", "carthage_cartfile_inspector",
                 "framework_linker_auditor",

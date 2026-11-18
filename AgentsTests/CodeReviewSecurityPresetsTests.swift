@@ -62,7 +62,7 @@ struct CodeReviewSecurityPresetsTests {
         "use_workers", "cancel_worker", "delete_worker", "start_subagent",
         "create_artifact", "delete_artifact", "execution_plan",
         "automated_repair_engine", "patch_application_engine",
-        "code_mutation_engine", "dead_code_eliminator",
+        "code_mutation_engine", "dead_code_eliminator", "preflight_checks",
         "plist_edit", "plist_editor", "import_cleanup",
         "batch_rename_files", "symbol_rename_project", "symbol_move_file",
         "safe_undo", "project_restore", "project_clean", "project_archive",

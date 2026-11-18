@@ -425,7 +425,6 @@ public enum CodeReviewSecurityPresets {
                 "todo_scan",
                 "recent_changes",
                 "change_impact_estimate",
-                "preflight_checks",
                 "read_file",
             ],
             modelConfig: .appDefault,
