@@ -205,6 +205,63 @@ struct WorkersTests {
         await client.close()
     }
 
+    @Test("Worker spawn rejects a non-string assistant id at parse time in both spawn tools")
+    func spawnRejectsNonStringAssistantId() async throws {
+        let (client, tempRoot) = try Self.makeClient()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        for tool in ["use_workers", "start_subagent"] {
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    tool,
+                    arguments: [
+                        "parentThreadId": .string(UUID().uuidString),
+                        "workers": .array([.object([
+                            "name": .string("alpha"),
+                            "task": .string("Do it."),
+                            "targetFiles": .array([]),
+                            "assistantId": .int(7),
+                        ])]),
+                    ],
+                    toolset: .system, runtime: client
+                )
+                Issue.record("Expected rejection for a non-string assistant id in \(tool)")
+            } catch let error as AgentsRuntimeError {
+                guard case .desktopFailure(let message) = error else {
+                    Issue.record("Unexpected runtime error: \(error)")
+                    return
+                }
+                #expect(message == "Assistant ID must be a UUID")
+            } catch {
+                Issue.record("Unexpected error: \(error)")
+            }
+        }
+        for tool in ["use_workers", "start_subagent"] {
+            do {
+                _ = try await SystemToolRegistry.execute(
+                    tool,
+                    arguments: [
+                        "parentThreadId": .string(UUID().uuidString),
+                        "workers": .array([.object([
+                            "name": .string("alpha"),
+                            "task": .string("Do it."),
+                            "targetFiles": .array([]),
+                            "assistantId": .null,
+                        ])]),
+                    ],
+                    toolset: .system, runtime: client
+                )
+                Issue.record("Expected failure for a missing parent thread in \(tool)")
+            } catch let error as AgentsRuntimeError {
+                guard case .desktopFailure(let message) = error, message == "Assistant ID must be a UUID" else {
+                    continue
+                }
+                Issue.record("Null assistant id was rejected client-side in \(tool)")
+            } catch {
+            }
+        }
+        await client.close()
+    }
+
     @Test("Worker spawn with a valid or empty assistant id reaches the engine")
     func spawnWithAssistantIdReachesEngine() async throws {
         let (client, tempRoot) = try Self.makeClient()

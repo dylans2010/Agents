@@ -2397,7 +2397,7 @@ fn ensure_project_helper_thread(
             Uuid::parse_str(&existing.id).map_err(|_| RemoteError::bad_request())?,
         );
     }
-    let created = runtime.adapter.new_thread(Some(project_uuid), &runs, None, None, None)?;
+    let created = runtime.adapter.new_thread(Some(project_uuid), &runs, None, None, None, None, None)?;
     resolve_thread_id(
         runtime,
         Uuid::parse_str(&created).map_err(|_| RemoteError::bad_request())?,
@@ -2587,7 +2587,7 @@ fn handle_pull_request_action(
             .ok_or_else(|| RemoteError::failed("Pull request head branch is unavailable."))?;
         let new_tid = runtime
             .adapter
-            .new_thread(Some(project_uuid), &runtime.adapter.workspace_runs()?, None, None, None)?;
+            .new_thread(Some(project_uuid), &runtime.adapter.workspace_runs()?, None, None, None, None, None)?;
         let resolved = resolve_thread_id(
             runtime,
             Uuid::parse_str(&new_tid).map_err(|_| RemoteError::bad_request())?,

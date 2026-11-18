@@ -617,6 +617,8 @@ struct ToolsetTests {
         let projectDir = tempRoot.appendingPathComponent("proj")
         try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
         let projectID = try await client.createProject(path: projectDir.path, name: "SliceF6bSelection")
+        _ = try await client.saveProjectDefaults(RemoteProjectDefaults(
+            projectID: projectID, usesGlobalDefaults: false, provider: "codex", modelID: "default"))
         let created = try await client.newThread(projectID: projectID)
         let workspace = try await client.fetchWorkspace()
         let summary = workspace.threads.first { $0.id == created }

@@ -307,7 +307,7 @@ struct AgentsRuntimeTests {
     @MainActor
     func appModelLaunchAssistantAppliesModelConfig() async throws {
         let shortID = String(UUID().uuidString.prefix(8)).lowercased()
-        let tempRoot = URL(fileURLWithPath: "/tmp/am-launch-model-\\(shortID)")
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-launch-model-\(shortID)")
         let dataDir = tempRoot.appendingPathComponent("d")
         let projectDir = tempRoot.appendingPathComponent("proj")
         try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
@@ -316,8 +316,14 @@ struct AgentsRuntimeTests {
         let model = AppModel()
         await model.bootstrap(dataDir: dataDir.path, startPolling: false)
 
-        let projID = await model.addProject(at: projectDir.path, name: "LaunchModelProject")
-        #expect(projID != nil)
+        guard let client = model.runtime else {
+            Issue.record("Expected a runtime client after bootstrap")
+            await model.shutdown()
+            return
+        }
+        let projID = try await client.createProject(path: projectDir.path, name: "LaunchModelProject")
+        _ = try await client.saveProjectDefaults(RemoteProjectDefaults(
+            projectID: projID, usesGlobalDefaults: false, provider: "codex", modelID: "default"))
 
         let configured = RemoteAssistant(
             id: UUID(),
@@ -348,6 +354,59 @@ struct AgentsRuntimeTests {
         #expect(defaultLaunched != nil)
         #expect(defaultLaunched?.selection.provider == "codex")
         #expect(defaultLaunched?.selection.modelID == "default")
+
+        await model.shutdown()
+    }
+
+    @Test("AppModel launches a current-app-model assistant on the selected thread's provider and model")
+    @MainActor
+    func appModelLaunchAssistantResolvesCurrentAppModel() async throws {
+        let shortID = String(UUID().uuidString.prefix(8)).lowercased()
+        let tempRoot = URL(fileURLWithPath: "/tmp/am-launch-current-\(shortID)")
+        let dataDir = tempRoot.appendingPathComponent("d")
+        let projectDir = tempRoot.appendingPathComponent("proj")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let model = AppModel()
+        await model.bootstrap(dataDir: dataDir.path, startPolling: false)
+
+        guard let client = model.runtime else {
+            Issue.record("Expected a runtime client after bootstrap")
+            await model.shutdown()
+            return
+        }
+        let projID = try await client.createProject(path: projectDir.path, name: "LaunchCurrentProject")
+
+        let configured = RemoteAssistant(
+            id: UUID(),
+            name: "Reviewer",
+            category: .codeReviewSecurity,
+            systemPrompt: "Review the diff for security issues.",
+            allowedTools: ["read_file"],
+            provider: "claude",
+            model: "claude-sonnet-4"
+        )
+        await model.launchAssistant(configured, task: "Review the latest diff.", in: projID)
+        await model.refreshWorkspace()
+        let launched = model.workspace.threads.first { $0.assistantId == configured.id.uuidString }
+        #expect(launched != nil)
+        #expect(launched?.selection.provider == "claude")
+        #expect(launched?.selection.modelID == "claude-sonnet-4")
+
+        let currentApp = RemoteAssistant(
+            id: UUID(),
+            name: "Generalist",
+            category: .codeReviewSecurity,
+            systemPrompt: "Help with the code.",
+            allowedTools: ["read_file"]
+        )
+        await model.launchAssistant(currentApp, modelConfig: .currentAppModel, task: "Help with the code.", in: projID)
+        await model.refreshWorkspace()
+        let currentLaunched = model.workspace.threads.first { $0.assistantId == currentApp.id.uuidString }
+        #expect(currentLaunched != nil)
+        #expect(currentLaunched?.selection.provider == "claude")
+        #expect(currentLaunched?.selection.modelID == "claude-sonnet-4")
 
         await model.shutdown()
     }

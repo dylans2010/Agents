@@ -4113,11 +4113,20 @@ public nonisolated enum SystemToolRegistry {
                 guard let task = raw["task"]?.stringValue, !task.isEmpty else {
                     throw SystemToolError.missingArgument(tool: name, argument: "task")
                 }
+                let assistantId: String?
+                if let rawAssistantId = raw["assistantId"], rawAssistantId != .null {
+                    guard let parsedAssistantId = rawAssistantId.stringValue else {
+                        throw AgentsRuntimeError.desktopFailure("Assistant ID must be a UUID")
+                    }
+                    assistantId = parsedAssistantId
+                } else {
+                    assistantId = nil
+                }
                 return WorkerSpawnRequest(
                     name: workerName,
                     task: task,
                     targetFiles: raw["targetFiles"]?.arrayValue?.compactMap(\.stringValue) ?? [],
-                    assistantId: raw["assistantId"]?.stringValue
+                    assistantId: assistantId
                 )
             }
             return try await runtime.spawnWorkers(parentThreadId: parentThreadId, workers: workers)
@@ -4462,11 +4471,20 @@ public nonisolated enum SystemToolRegistry {
                 guard let task = raw["task"]?.stringValue, !task.isEmpty else {
                     throw SystemToolError.missingArgument(tool: name, argument: "task")
                 }
+                let assistantId: String?
+                if let rawAssistantId = raw["assistantId"], rawAssistantId != .null {
+                    guard let parsedAssistantId = rawAssistantId.stringValue else {
+                        throw AgentsRuntimeError.desktopFailure("Assistant ID must be a UUID")
+                    }
+                    assistantId = parsedAssistantId
+                } else {
+                    assistantId = nil
+                }
                 return WorkerSpawnRequest(
                     name: workerName,
                     task: task,
                     targetFiles: raw["targetFiles"]?.arrayValue?.compactMap(\.stringValue) ?? [],
-                    assistantId: raw["assistantId"]?.stringValue
+                    assistantId: assistantId
                 )
             }
             return try await runtime.spawnWorkers(parentThreadId: parentThreadId, workers: workers)

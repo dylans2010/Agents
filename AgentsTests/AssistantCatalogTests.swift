@@ -218,6 +218,23 @@ struct AssistantCatalogTests {
         #expect(preset.applyingOverride(modelOverride).modelConfig == .modelOnly("gpt-5"))
     }
 
+    @Test("A current-app-model config does not survive a stored record or an override")
+    func currentAppModelDoesNotSurviveStoredRecordOrOverride() {
+        let record = RemoteAssistant(
+            id: UUID(), name: "Helper", category: .buildingFixing,
+            systemPrompt: "Help.", provider: nil, model: nil, source: .custom)
+        #expect(AssistantDefinition(stored: record)?.modelConfig == .appDefault)
+        let preset = Self.preset(modelConfig: .currentAppModel)
+        let override = RemoteAssistant(
+            id: preset.persistenceID!, name: preset.name, description: preset.description,
+            icon: preset.icon, category: preset.category.remote, systemPrompt: preset.systemPrompt,
+            intendedTasks: preset.intendedTasks, expectedOutputFormat: preset.expectedOutputFormat,
+            allowedTools: preset.allowedTools, provider: nil, model: nil,
+            permissionProfile: preset.permissionProfile.remote,
+            inputRequirements: preset.inputRequirements, version: preset.version, source: .override)
+        #expect(preset.applyingOverride(override).modelConfig == .appDefault)
+    }
+
     @Test("An override changes only the fields it differs in and flags the preset customized")
     func mergeOverrideChangesOnlyChangedFields() {
         let preset = Self.preset()

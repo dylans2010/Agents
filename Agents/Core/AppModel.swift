@@ -627,16 +627,16 @@ public final class AppModel {
         }
     }
 
-    public func launchAssistant(_ assistant: RemoteAssistant, task: String, in projectID: UUID? = nil) async {
+    public func launchAssistant(_ assistant: RemoteAssistant, modelConfig: AssistantModelConfig? = nil, task: String, in projectID: UUID? = nil) async {
         guard let client = runtime else { return }
         do {
-            let selection = AssistantModelConfig(provider: assistant.provider, model: assistant.model)
+            let resolvedConfig = (modelConfig ?? AssistantModelConfig(provider: assistant.provider, model: assistant.model))
                 .resolvingCurrent(provider: selectedThread?.selection.provider, model: selectedThread?.selection.modelID)
-                .selectionOverride
+            let selection = resolvedConfig.selectionOverride
             let prompt = systemPrompt(
                 for: nil,
-                provider: assistant.provider,
-                model: assistant.model,
+                provider: resolvedConfig.provider,
+                model: resolvedConfig.model,
                 assistant: AssistantPromptDescriptor(assistant)
             ).text
             let threadID = try await client.newThread(
