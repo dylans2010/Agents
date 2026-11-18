@@ -35,6 +35,9 @@ struct WorkersInspectorView: View {
     @State private var planObjective: String = ""
     @State private var planMode: String = "build"
     @State private var cancellingIDs: Set<String> = []
+    @State private var pendingDeleteWorker: WorkerRecord?
+    @State private var deletingIDs: Set<String> = []
+    @State private var retryingIDs: Set<String> = []
 
     private var filteredWorkers: [WorkerRecord] {
         switch scopeFilter {
@@ -120,6 +123,24 @@ struct WorkersInspectorView: View {
                 if Task.isCancelled { break }
                 await loadWorkers(silent: true)
             }
+        }
+        .confirmationDialog(
+            "Delete Worker Record?",
+            isPresented: Binding(
+                get: { pendingDeleteWorker != nil },
+                set: { if !$0 { pendingDeleteWorker = nil } }
+            ),
+            presenting: pendingDeleteWorker
+        ) { worker in
+            Button("Delete Record", role: .destructive) {
+                pendingDeleteWorker = nil
+                Task { await deleteSelectedWorker(worker) }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingDeleteWorker = nil
+            }
+        } message: { worker in
+            Text("This deletes the record for “\(worker.name)”. The worker thread itself is not deleted.")
         }
     }
 
@@ -432,6 +453,28 @@ struct WorkersInspectorView: View {
                         .font(.system(size: 10.5))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
+                if worker.status == "failed" || worker.status == "cancelled" {
+                    Button("Retry Worker") {
+                        Task { await retrySelectedWorker(worker) }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(retryingIDs.contains(worker.id))
+                    Text("Retry spawns a new worker with the same name, task, and target files on the same parent thread. The old record stays for history.")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                }
+                if worker.isTerminal {
+                    Button("Delete Worker", role: .destructive) {
+                        pendingDeleteWorker = worker
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(deletingIDs.contains(worker.id))
+                    Text("Delete removes the worker record only. The worker thread stays in the thread list.")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                }
             }
             .padding(10)
         }
@@ -554,6 +597,42 @@ struct WorkersInspectorView: View {
                 workers[index] = updated
             }
             errorText = nil
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    private func deleteSelectedWorker(_ worker: WorkerRecord) async {
+        guard let client = appModel.runtime else { return }
+        deletingIDs.insert(worker.id)
+        defer { deletingIDs.remove(worker.id) }
+        do {
+            _ = try await client.deleteWorker(workerId: worker.id)
+            workers.removeAll { $0.id == worker.id }
+            if selectedWorkerID == worker.id {
+                selectedWorkerID = nil
+            }
+            errorText = nil
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    private func retrySelectedWorker(_ worker: WorkerRecord) async {
+        guard let client = appModel.runtime else { return }
+        retryingIDs.insert(worker.id)
+        defer { retryingIDs.remove(worker.id) }
+        do {
+            let result = try await client.spawnWorkers(
+                parentThreadId: worker.parentThreadId,
+                workers: [WorkerSpawnRequest(name: worker.name, task: worker.task, targetFiles: worker.targetFiles)]
+            )
+            let spawned = result["workers"]?.arrayValue ?? []
+            if let first = spawned.first, let id = first["id"]?.stringValue {
+                selectedWorkerID = id
+            }
+            errorText = nil
+            await loadWorkers()
         } catch {
             errorText = error.localizedDescription
         }

@@ -1492,6 +1492,14 @@ public nonisolated final class AgentsRuntimeClient: @unchecked Sendable {
         )
     }
 
+    public func deleteWorker(workerId: String) async throws -> JSONValue {
+        try await desktopCall(
+            action: "workers.delete",
+            params: ["workerId": .string(workerId)],
+            as: JSONValue.self
+        )
+    }
+
     public func planTask(parentThreadId: String, task: String) async throws -> WorkerPlan {
         try await desktopCall(
             action: "workers.plan",

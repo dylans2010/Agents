@@ -498,6 +498,15 @@ public nonisolated enum SystemToolRegistry {
             ]
         ),
         SystemToolDefinition(
+            name: "delete_worker",
+            description: "Delete a finished worker's record. Only completed, failed, or cancelled workers can be deleted; deleting a running worker is an error, and the worker thread itself is never deleted.",
+            action: "workers.delete",
+            channel: .desktop,
+            parameters: [
+                SystemToolParameter(name: "workerId", type: "string", required: true, description: "Worker ID from use_workers or list_workers."),
+            ]
+        ),
+        SystemToolDefinition(
             name: "intel_plan_task",
             description: "Draft a plan for a complex task as worker steps. Mechanical sentence decomposition, not LLM planning; each step still needs disjoint targetFiles assigned before spawning.",
             action: "workers.plan",
@@ -4110,6 +4119,9 @@ public nonisolated enum SystemToolRegistry {
         case "cancel_worker":
             let workerId = try requiredString(arguments, "workerId", tool: name)
             return workerJSON(try await runtime.cancelWorker(workerId: workerId))
+        case "delete_worker":
+            let workerId = try requiredString(arguments, "workerId", tool: name)
+            return try await runtime.deleteWorker(workerId: workerId)
         case "intel_plan_task":
             let parentThreadId = try requiredString(arguments, "parentThreadId", tool: name)
             let task = try requiredString(arguments, "task", tool: name)

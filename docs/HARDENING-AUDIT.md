@@ -2002,6 +2002,71 @@ as usual; the new worker retention tests; the inspector tap-to-open,
 spawn past 50 finished workers for one parent confirming the oldest
 terminal record disappears while its child thread remains.
 
+## Slice W8 — workers.delete route + retry/respawn (2 fixes, 1 test)
+
+**Fixed (2):**
+
+1. **Manual `workers.delete` route.** `workers_api.rs` gains a
+   `workers.delete` engine route (`METHODS` + `workers_command`
+   dispatch + `workers_delete`), wired through the existing FFI
+   fallthrough: `workspace_ops.rs` passes unknown desktop actions
+   to `dispatch_engine_method`, and `Engine::execute` routes any
+   `workers.*` method in `workers_api::METHODS` to
+   `workers_command`, so no FFI dispatch file needed a new arm.
+   The route refreshes the record first (so a stale `running`
+   record that actually finished becomes terminal instead of
+   erroring), then deletes only terminal records
+   (`completed`/`failed`/`cancelled`) via the existing
+   `Store::worker_delete(id)` from Slice W5; deleting a running
+   worker returns an explicit error, never silently drops a live
+   worker. Only the record row is deleted, never the child thread.
+   Swift side mirrors `workers.cancel`: `deleteWorker(workerId:)`
+   in `AgentsFFIBridge.swift`, a `delete_worker` definition plus
+   dispatch case in `SystemToolRegistry.swift`, and a Delete
+   button in the inspector detail view for terminal records only,
+   behind the same `.confirmationDialog` pattern Git restore uses.
+2. **Retry/respawn for failed/cancelled workers.** A Retry button
+   in the inspector detail view re-spawns through the existing
+   `workers.spawn` path with the same name, task, target files,
+   and parent thread — no new Rust spawn path. A retry creates a
+   new worker record; the old failed/cancelled record stays for
+   history. No name-policy change was needed: `check_spawn_allowed`
+   in `worker_store.rs` only rejects a name already held by a
+   *running* worker for the same parent, so a terminal record's
+   name (and target files) are free to reuse.
+
+**Tests added (1):** in `workers_api.rs` —
+`delete_removes_terminal_records_and_refuses_running_workers`
+(running delete errors with the terminal-only message and leaves
+the record in place; cancel then delete succeeds, returns
+`{"deleted": true, "workerId": ...}`, and the record is gone;
+deleting again errors `Unknown worker`; the child thread still
+exists).
+
+**Verification:** static only (no Swift toolchain, no cargo in this
+environment, as for every slice in this record). Full diff read —
+only the intended files, only the intended hunks; brace balance
+re-checked on all changed files; zero new `//` comments; no secrets;
+no registry definition, param, or description changed except the
+new `delete_worker` tool; updater, Privacy URL, and
+`remote_protocol.rs:655` untouched. The local pre-push commit SHA
+and tree are in the slice's push report.
+
+**Mac-gate checks owed:** Xcode build + `swift test` + `cargo test`
+as usual; the new `workers.delete` test; the inspector Delete
+(terminal records only, confirmation dialog, record gone, child
+thread still listed) and Retry (failed/cancelled worker respawns
+with the same name, task, and target files, old record kept)
+exercised live, including a delete attempt on a running worker
+returning the explicit terminal-only error.
+
+**Left open by this slice:** no bulk `workers.clear` route.
+`workers.delete` is also not yet listed in the engine
+`methods.list` introspection surface (`api.rs`) or the MCP server
+tool catalog (`tools.rs`); both files were outside this slice's
+scope, and the Swift inspector calls the route directly through
+the FFI fallthrough, so it works without those listings.
+
 ## Documented, not fixed
 
 Items the audits found, recorded, and deliberately left open. None of
@@ -2020,8 +2085,17 @@ limitation of the audited component, or a question owed to Dylan.
   `settings.json`, 0 keeps everything), running records are always
   kept, and only record rows are deleted, never the child thread. The
   50 is a default this slice chose, not Dylan's decision — he can
-  change it in Settings › General › Workers. Still open: no manual
-  `workers.delete`/`clear` route and no retry/respawn.
+  change it in Settings › General › Workers. Slice W8 closed the
+  manual-delete and retry parts: a `workers.delete` engine route
+  (terminal records only; deleting a running worker is an explicit
+  error), a `delete_worker` system tool, an inspector Delete button
+  behind the same confirmation-dialog pattern as Git restore, and a
+  Retry button for failed/cancelled workers that re-spawns through
+  the existing `workers.spawn` path with the same name, task,
+  target files, and parent thread — the old record stays for
+  history, and no name-policy change was needed because spawn only
+  rejects a name already held by a *running* worker. Still open:
+  no bulk `workers.clear` route.
 - **MCP server is a sequential loop.** `main.rs` reads and dispatches one
   stdio frame at a time, so a slow `tools/call` blocks all other requests;
   there is no tools/call-level timeout (verified: no `timeout` in `main.rs`

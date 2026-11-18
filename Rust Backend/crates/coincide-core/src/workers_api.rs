@@ -8,6 +8,7 @@ pub(super) const METHODS: &[&str] = &[
     "workers.status",
     "workers.result",
     "workers.cancel",
+    "workers.delete",
     "workers.plan",
     "workers.breakdown",
     "workers.execution_plan",
@@ -58,6 +59,7 @@ impl Engine {
             "workers.status" => self.workers_status(p),
             "workers.result" => self.workers_result(p),
             "workers.cancel" => self.workers_cancel(p),
+            "workers.delete" => self.workers_delete(p),
             "workers.plan" => self.workers_plan(p),
             "workers.breakdown" => self.workers_breakdown(p),
             "workers.execution_plan" => self.workers_execution_plan(p),
@@ -350,6 +352,28 @@ impl Engine {
         Ok(present_record(&record))
     }
 
+    pub fn workers_delete(&mut self, params: &Value) -> Result<Value> {
+        let id = params
+            .get("workerId")
+            .and_then(Value::as_str)
+            .context("Missing required parameter 'workerId'")?;
+        let mut record = worker_store::load_worker(&self.store, id)?;
+        self.refresh_and_save(&mut record)?;
+        let status = record
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_owned();
+        if !worker_store::is_terminal(&status) {
+            bail!("Cannot delete worker '{id}': only completed, failed, or cancelled workers can be deleted; this worker is '{status}'");
+        }
+        if !self.store.worker_delete(id)? {
+            bail!("Unknown worker '{id}'");
+        }
+        self.revision += 1;
+        Ok(json!({"deleted": true, "workerId": id}))
+    }
+
     pub fn workers_plan(&mut self, params: &Value) -> Result<Value> {
         let parent_thread_id = params
             .get("parentThreadId")
@@ -634,6 +658,33 @@ mod tests {
         assert_eq!(still["status"], "cancelled");
         let repeat = engine.workers_cancel(&json!({"workerId": id})).unwrap();
         assert_eq!(repeat["status"], "cancelled");
+    }
+
+    #[test]
+    fn delete_removes_terminal_records_and_refuses_running_workers() {
+        let mut engine = test_engine();
+        let parent = make_thread(&mut engine);
+        let child = make_thread(&mut engine);
+        let (record, _sender) = insert_running_worker(&mut engine, &parent, &child, "alpha");
+        let id = text(&record, "id");
+        let running_error = engine
+            .workers_delete(&json!({"workerId": id}))
+            .unwrap_err();
+        assert!(running_error
+            .to_string()
+            .contains("only completed, failed, or cancelled"));
+        assert!(worker_store::load_worker(&engine.store, &id).is_ok());
+        let cancelled = engine.workers_cancel(&json!({"workerId": id})).unwrap();
+        assert_eq!(cancelled["status"], "cancelled");
+        let deleted = engine.workers_delete(&json!({"workerId": id})).unwrap();
+        assert_eq!(deleted["deleted"], true);
+        assert_eq!(deleted["workerId"], id);
+        assert!(worker_store::load_worker(&engine.store, &id).is_err());
+        let unknown = engine
+            .workers_delete(&json!({"workerId": id}))
+            .unwrap_err();
+        assert!(unknown.to_string().contains("Unknown worker"));
+        assert!(engine.store.thread(&child).is_ok());
     }
 
     #[test]
