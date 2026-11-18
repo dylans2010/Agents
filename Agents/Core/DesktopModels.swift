@@ -1331,6 +1331,13 @@ public nonisolated struct WorkerRecord: Codable, Hashable, Sendable, Identifiabl
         guard !failures.isEmpty else { return nil }
         return "Failed to \(action) \(failures.count) of \(attempted) workers: \(failures.joined(separator: "; "))"
     }
+
+    public func isOrphan(knownParentThreadIDs: Set<String>?) -> Bool {
+        guard let knownParentThreadIDs else { return false }
+        let parent = parentThreadId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !parent.isEmpty else { return true }
+        return !knownParentThreadIDs.contains(parent.lowercased())
+    }
 }
 
 public nonisolated struct WorkerPlanStep: Codable, Hashable, Sendable {

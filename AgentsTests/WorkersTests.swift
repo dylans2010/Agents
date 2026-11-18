@@ -372,6 +372,41 @@ struct WorkersTests {
         )
     }
 
+    private static func makeRecord(parentThreadId: String, status: String = "running") -> WorkerRecord {
+        WorkerRecord(
+            id: "w1", name: "alpha", parentThreadId: parentThreadId, threadId: "t1",
+            task: "Do the thing.", provider: "codex", targetFiles: ["a.swift"],
+            status: status, cancelRequested: false, transcriptStart: 0,
+            transcriptItems: 3, elapsedSeconds: 12.5, createdAt: 100, startedAt: 100,
+            completedAt: nil, error: nil, result: nil,
+            progress: WorkerProgress(stage: "running", transcriptItems: 3, elapsedSeconds: 12.5)
+        )
+    }
+
+    @Test("Orphan status is unknown until the thread list loads")
+    func orphanUnknownWithoutThreadList() {
+        #expect(!Self.makeRecord(parentThreadId: "p1").isOrphan(knownParentThreadIDs: nil))
+        #expect(!Self.makeRecord(parentThreadId: "").isOrphan(knownParentThreadIDs: nil))
+    }
+
+    @Test("Orphan status follows the loaded thread list")
+    func orphanFollowsThreadList() {
+        let known: Set<String> = ["p1", "p2"]
+        #expect(!Self.makeRecord(parentThreadId: "p1").isOrphan(knownParentThreadIDs: known))
+        #expect(!Self.makeRecord(parentThreadId: "P1").isOrphan(knownParentThreadIDs: known))
+        #expect(Self.makeRecord(parentThreadId: "gone").isOrphan(knownParentThreadIDs: known))
+        #expect(Self.makeRecord(parentThreadId: "gone", status: "completed").isOrphan(knownParentThreadIDs: known))
+        #expect(Self.makeRecord(parentThreadId: "p2", status: "failed").isOrphan(knownParentThreadIDs: known) == false)
+        #expect(Self.makeRecord(parentThreadId: "p1").isOrphan(knownParentThreadIDs: Set<String>()) == true)
+    }
+
+    @Test("A worker with no parent thread id is orphaned once the thread list loads")
+    func orphanWithNoParentThreadId() {
+        let known: Set<String> = ["p1"]
+        #expect(Self.makeRecord(parentThreadId: "").isOrphan(knownParentThreadIDs: known))
+        #expect(Self.makeRecord(parentThreadId: "   ").isOrphan(knownParentThreadIDs: known))
+    }
+
     @Test("Worker record and plan survive a Codable round trip")
     func workerRecordRoundTrips() throws {
         let encoder = RemoteProtocol.makeEncoder()

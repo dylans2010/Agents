@@ -26,6 +26,7 @@ struct WorkersInspectorView: View {
         case completed
         case failed
         case cancelled
+        case orphaned
 
         var id: String { rawValue }
 
@@ -36,6 +37,7 @@ struct WorkersInspectorView: View {
             case .completed: "Completed"
             case .failed: "Failed"
             case .cancelled: "Cancelled"
+            case .orphaned: "Orphaned"
             }
         }
     }
@@ -46,6 +48,7 @@ struct WorkersInspectorView: View {
     @State private var statusFilter: StatusFilter = .all
     @State private var consecutiveFailures = 0
     @State private var workers: [WorkerRecord] = []
+    @State private var knownThreadIDs: Set<String>?
     @State private var selectedWorkerID: String?
     @State private var isLoading: Bool = false
     @State private var errorText: String?
@@ -89,6 +92,8 @@ struct WorkersInspectorView: View {
             return scopedWorkers.filter { $0.status == "failed" }
         case .cancelled:
             return scopedWorkers.filter { $0.status == "cancelled" }
+        case .orphaned:
+            return scopedWorkers.filter { $0.isOrphan(knownParentThreadIDs: knownThreadIDs) }
         }
     }
 
@@ -194,6 +199,7 @@ struct WorkersInspectorView: View {
             if errorText == Self.pausedUpdatesNote {
                 errorText = nil
             }
+            Task { await loadWorkers() }
         }
         .confirmationDialog(
             "Delete Worker Record?",
@@ -284,7 +290,7 @@ struct WorkersInspectorView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 280)
+                .frame(maxWidth: 340)
                 Spacer(minLength: 4)
             }
             HStack(spacing: 8) {
@@ -462,10 +468,10 @@ struct WorkersInspectorView: View {
             Image(systemName: "person.2")
                 .font(.system(size: 22, weight: .regular))
                 .foregroundStyle(AppTheme.secondaryLabel)
-            Text(appModel.selectedThreadUUID == nil ? "Select a thread to see its workers." : "No workers yet.")
+            Text(statusFilter == .orphaned ? "No orphaned workers." : appModel.selectedThreadUUID == nil ? "Select a thread to see its workers." : "No workers yet.")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(AppTheme.primaryLabel)
-            Text("Spawn a worker to run a subagent on its own thread, or draft a plan to break work into worker tasks.")
+            Text(statusFilter == .orphaned ? "Workers whose parent thread was deleted will appear here." : "Spawn a worker to run a subagent on its own thread, or draft a plan to break work into worker tasks.")
                 .font(.system(size: 11))
                 .foregroundStyle(AppTheme.secondaryLabel)
                 .multilineTextAlignment(.center)
@@ -477,6 +483,7 @@ struct WorkersInspectorView: View {
 
     private func workerRow(_ worker: WorkerRecord) -> some View {
         let isSelected = selectedWorkerID == worker.id
+        let orphaned = worker.isOrphan(knownParentThreadIDs: knownThreadIDs)
         return Button {
             selectedWorkerID = isSelected ? nil : worker.id
         } label: {
@@ -487,6 +494,9 @@ struct WorkersInspectorView: View {
                         .foregroundStyle(AppTheme.primaryLabel)
                         .lineLimit(1)
                     Spacer()
+                    if orphaned {
+                        orphanBadge
+                    }
                     statusBadge(worker.status)
                 }
                 Text(worker.task)
@@ -523,22 +533,31 @@ struct WorkersInspectorView: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Worker \(worker.name), \(worker.status)")
+        .accessibilityLabel("Worker \(worker.name), \(worker.status)\(orphaned ? ", orphaned" : "")")
     }
 
     private func workerDetail(_ worker: WorkerRecord) -> some View {
-        ScrollView {
+        let orphaned = worker.isOrphan(knownParentThreadIDs: knownThreadIDs)
+        return ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Text(worker.name)
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryLabel)
                     Spacer()
+                    if orphaned {
+                        orphanBadge
+                    }
                     statusBadge(worker.status)
                 }
                 Text(worker.task)
                     .font(.system(size: 11.5))
                     .foregroundStyle(AppTheme.primaryLabel)
+                if orphaned {
+                    Text("Parent thread no longer exists.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppTheme.warning)
+                }
                 if !worker.targetFiles.isEmpty {
                     Text("Files: \(worker.targetFiles.joined(separator: ", "))")
                         .font(.system(size: 11))
@@ -592,8 +611,8 @@ struct WorkersInspectorView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(retryingIDs.contains(worker.id))
-                    Text("Retry spawns a new worker with the same name, task, and target files on the same parent thread. The old record stays for history.")
+                    .disabled(orphaned || retryingIDs.contains(worker.id))
+                    Text(orphaned ? "Retry needs the parent thread, which no longer exists. Cancel or delete this worker instead." : "Retry spawns a new worker with the same name, task, and target files on the same parent thread. The old record stays for history.")
                         .font(.system(size: 11))
                         .foregroundStyle(AppTheme.secondaryLabel)
                 }
@@ -612,6 +631,16 @@ struct WorkersInspectorView: View {
             .padding(10)
         }
         .frame(maxHeight: 320)
+    }
+
+    private var orphanBadge: some View {
+        Text("Orphaned")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(AppTheme.warning)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(AppTheme.warning.opacity(0.14)))
+            .accessibilityLabel("Orphaned worker")
     }
 
     private func statusBadge(_ status: String) -> some View {
@@ -656,6 +685,11 @@ struct WorkersInspectorView: View {
             let loaded = try await client.listWorkers(parentThreadId: parentId)
             if !Task.isCancelled {
                 workers = loaded
+            }
+            if scopeFilter == .allWorkers, !Task.isCancelled {
+                if let workspace = try? await client.fetchWorkspace(includeArchived: true) {
+                    knownThreadIDs = Set(workspace.threads.map { $0.id.uuidString.lowercased() })
+                }
             }
             return true
         } catch {
