@@ -26,6 +26,25 @@ struct TranscriptScrollView: View {
         return "\(transcript.items.count):\(lastID):\(lastLen):\(lastStatus):\(transcript.turn.isRunning):\(transcript.turn.isStarting)"
     }
 
+    private var failedWorkGroupIDs: [UUID] {
+        renderBlocks.compactMap { block in
+            if case .workGroup(let id, let items) = block, items.contains(where: { $0.status == "failed" }) {
+                return id
+            }
+            return nil
+        }
+    }
+
+    private var failedWorkGroupSignature: String {
+        failedWorkGroupIDs.map(\.uuidString).sorted().joined(separator: ",")
+    }
+
+    private func expandFailedWorkGroups() {
+        for id in failedWorkGroupIDs {
+            expandedWorkGroups.insert(id)
+        }
+    }
+
     var body: some View {
         let blocks = renderBlocks
         ScrollViewReader { proxy in
@@ -180,6 +199,7 @@ struct TranscriptScrollView: View {
                         .padding(.horizontal, 13)
                         .padding(.vertical, 7)
                         .glassCapsule()
+                        .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
                     .padding(.bottom, 12)
@@ -187,6 +207,10 @@ struct TranscriptScrollView: View {
                 }
             }
             .animation(.snappy(duration: 0.18), value: isNearBottom)
+            .onAppear { expandFailedWorkGroups() }
+            .onChange(of: failedWorkGroupSignature) { _, _ in
+                expandFailedWorkGroups()
+            }
         }
     }
 }

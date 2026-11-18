@@ -429,6 +429,10 @@ struct WorkGroupRow: View {
         items.contains { $0.status == "failed" }
     }
 
+    private var failedCount: Int {
+        items.filter { $0.status == "failed" }.count
+    }
+
     private var toolItems: [RemoteItem] {
         items.filter { $0.kind == .tool }
     }
@@ -507,6 +511,12 @@ struct WorkGroupRow: View {
                         Text(elapsedText)
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(AppTheme.tertiaryLabel)
+                    }
+
+                    if failedCount > 0 {
+                        Text("\(failedCount) failed")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(AppTheme.danger)
                     }
 
                     Image(systemName: "chevron.right")
@@ -595,6 +605,18 @@ struct ToolOrReasoningStepRow: View {
         return item.category?.capitalized ?? "Tool Call"
     }
 
+    private var stepElapsedText: String? {
+        guard let completedAt = item.completedAt else { return nil }
+        let seconds = completedAt.timeIntervalSince(item.createdAt)
+        guard seconds >= 0.4 else { return nil }
+        if seconds < 60 {
+            return String(format: "%.1fs", seconds)
+        }
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return "\(mins)m \(secs)s"
+    }
+
     private var statusBadge: (label: String, tint: Color)? {
         guard let status = item.status, !status.isEmpty else { return nil }
         switch status {
@@ -677,7 +699,7 @@ struct ToolOrReasoningStepRow: View {
                                     ProgressView().controlSize(.mini)
                                 }
                                 Text(badge.label)
-                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
                             }
                             .foregroundStyle(badge.tint)
                             .padding(.horizontal, 6)
@@ -685,9 +707,15 @@ struct ToolOrReasoningStepRow: View {
                             .background(badge.tint.opacity(0.12), in: Capsule())
                         }
 
+                        if let stepElapsedText {
+                            Text(stepElapsedText)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(AppTheme.tertiaryLabel)
+                        }
+
                         if hasExpandableBody {
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(AppTheme.tertiaryLabel)
                                 .rotationEffect(.degrees(isDetailOpen ? 90 : 0))
                         }
@@ -703,9 +731,9 @@ struct ToolOrReasoningStepRow: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "doc.text")
-                                .font(.system(size: 9.5))
+                                .font(.system(size: 11))
                             Text(target.display)
-                                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
                                 .lineLimit(1)
                         }
                         .foregroundStyle(AppTheme.info)
@@ -821,7 +849,7 @@ private struct ToolPayloadBox: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(label)
-                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(AppTheme.tertiaryLabel)
                 Spacer()
                 Button {
@@ -837,7 +865,7 @@ private struct ToolPayloadBox: View {
                         Image(systemName: copied ? "checkmark" : "doc.on.doc")
                         Text(copied ? "Copied" : "Copy")
                     }
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(copied ? AppTheme.success : AppTheme.secondaryLabel)
                 }
                 .buttonStyle(.plain)

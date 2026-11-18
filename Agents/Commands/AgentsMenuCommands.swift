@@ -2,6 +2,10 @@ import AppKit
 import CoincideRemoteKit
 import SwiftUI
 
+public extension Notification.Name {
+    static let coincideFocusComposer = Notification.Name("com.apoorvdarshan.coincide.focusComposer")
+}
+
 public struct AgentsMenuCommands: Commands {
     public let appModel: AppModel
 
@@ -81,6 +85,11 @@ public struct AgentsMenuCommands: Commands {
                 NotificationCenter.default.post(name: .coincideFocusSidebarSearch, object: nil)
             }
             .keyboardShortcut("f", modifiers: [.command, .option])
+
+            Button("Focus Composer") {
+                NotificationCenter.default.post(name: .coincideFocusComposer, object: nil)
+            }
+            .keyboardShortcut("l", modifiers: [.command])
         }
 
         // MARK: - View Menu (Inspector, Terminal, Palette & Zoom)

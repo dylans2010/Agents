@@ -54,6 +54,7 @@ private struct ApprovalAttentionCard: View {
     @State private var noteText: String = ""
     @State private var submittingOptionID: String? = nil
     @State private var didRespond = false
+    @State private var errorText: String? = nil
 
     private var targetFilePath: String? {
         guard let detail = item.detail?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -159,13 +160,15 @@ private struct ApprovalAttentionCard: View {
                 }
                 Spacer()
             }
+
+            if let errorText {
+                Text(errorText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppTheme.danger)
+            }
         }
         .padding(14)
         .glassPanelTinted(AppTheme.warning.opacity(0.10))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .strokeBorder(AppTheme.warning.opacity(0.55), lineWidth: 1.25)
-        )
     }
 
     @ViewBuilder
@@ -187,6 +190,7 @@ private struct ApprovalAttentionCard: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.regular)
+            .keyboardShortcut(.return, modifiers: [.command])
             .disabled(isBusy)
         } else {
             Button(role: isDestructive ? .destructive : nil) {
@@ -208,6 +212,7 @@ private struct ApprovalAttentionCard: View {
 
     private func submitOption(_ option: RemoteApproval.Option) {
         submittingOptionID = option.id
+        errorText = nil
         let trimmedNote = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
             if await appModel.respondToApproval(
@@ -217,6 +222,8 @@ private struct ApprovalAttentionCard: View {
                 threadID: threadID
             ) {
                 didRespond = true
+            } else {
+                errorText = "Couldn't send that response. Try again."
             }
             submittingOptionID = nil
         }
@@ -344,10 +351,6 @@ private struct QuestionAttentionCard: View {
         }
         .padding(14)
         .glassPanelTinted(AppTheme.accent.opacity(0.10))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .strokeBorder(AppTheme.accent.opacity(0.55), lineWidth: 1.25)
-        )
     }
 
     @ViewBuilder

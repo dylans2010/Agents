@@ -59,7 +59,7 @@ struct ComposerNSTextView: NSViewRepresentable {
     var onDropOrPasteURLs: ([URL]) -> Void
 
     static let minHeight: CGFloat = 38
-    static let maxHeight: CGFloat = 200
+    static let maxHeight: CGFloat = 320
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)

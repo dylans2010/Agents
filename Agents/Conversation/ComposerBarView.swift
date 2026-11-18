@@ -226,6 +226,9 @@ struct ComposerBarView: View {
             appModel.composerInsertedTextRequest = nil
             pendingEdit = ComposerProgrammaticEdit(.insertAtSelection(requestedText))
         }
+        .onReceive(NotificationCenter.default.publisher(for: .coincideFocusComposer)) { _ in
+            pendingEdit = ComposerProgrammaticEdit(.focus)
+        }
         .task {
             if appModel.usageLimits.isEmpty {
                 if let limits = try? await appModel.runtime?.fetchUsageLimits() {
@@ -680,6 +683,9 @@ struct ComposerBarView: View {
                         if isTurnRunning {
                             Text(canSteerRunningTurn ? "Steer" : "Queue")
                                 .font(.system(size: 11.5, weight: .semibold))
+                        } else if hasSendablePayload {
+                            Text("Send")
+                                .font(.system(size: 11.5, weight: .semibold))
                         }
                     }
                     .foregroundStyle(hasSendablePayload ? Color.white : AppTheme.tertiaryLabel)
@@ -695,8 +701,8 @@ struct ComposerBarView: View {
                 .accessibilityLabel(isTurnRunning ? (canSteerRunningTurn ? "Steer running turn" : "Queue follow-up message") : "Send message")
                 .help(
                     isTurnRunning
-                        ? "Send into running turn or queue (⌘-Click for alternate delivery)"
-                        : "Send message (Return)"
+                        ? "Send into running turn or queue (⌘Return or ⌘-Click for alternate delivery)"
+                        : "Send message (Return) · ⌘Return for alternate delivery"
                 )
             }
         }
