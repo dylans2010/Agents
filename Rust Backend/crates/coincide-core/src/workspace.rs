@@ -867,6 +867,8 @@ mod tests {
         assert!(detail["diff"].as_str().unwrap().contains("b.txt"));
         assert!(commit_detail(root, &"0".repeat(40)).is_err());
         assert!(commit_detail(root, "not-a-sha").is_err());
+        assert!(commit_detail(root, "--output=/tmp/pwned").is_err());
+        assert!(commit_detail(root, "--upload-pack=x").is_err());
         let first = commits[1]["sha"].as_str().unwrap().to_owned();
         let range = diff_range(root, &first, &head).unwrap();
         assert_eq!(range["from"], first);
@@ -875,6 +877,9 @@ mod tests {
         assert!(range["diff"].as_str().unwrap().contains("+two"));
         assert!(diff_range(root, "nope", &head).is_err());
         assert!(diff_range(root, &first, "--bad").is_err());
+        assert!(diff_range(root, "--output=/tmp/pwned", &head).is_err());
+        assert!(diff_range(root, &first, "--upload-pack=touch${IFS}/tmp/pwned").is_err());
+        assert!(diff_range(root, "--ext-diff", &head).is_err());
         let branch = branch_diff(root).unwrap();
         assert_eq!(branch["patch"], "");
     }

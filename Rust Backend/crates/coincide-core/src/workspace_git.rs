@@ -808,4 +808,91 @@ mod tests {
         let listed = checkpoints(root).unwrap();
         assert_eq!(listed["checkpoints"].as_array().unwrap().len(), 1);
     }
+
+    #[test]
+    fn option_like_refs_branches_and_paths_are_rejected() {
+        let dir = fixture_repo();
+        let root = dir.path();
+        std::fs::write(root.join("a.txt"), "one\n").unwrap();
+        commit(root, "first");
+        let head = head(root);
+        assert!(rollback(root, "--output=/tmp/pwned", true).is_err());
+        assert!(rollback(root, "--upload-pack=touch${IFS}/tmp/pwned", true).is_err());
+        assert!(rollback(root, "--help", true).is_err());
+        assert!(rollback(root, "HEAD@{1}", true).is_err());
+        assert!(rollback(root, "HEAD~x", true).is_err());
+        assert!(rollback(root, "HEAD^1001", true).is_err());
+        assert!(cherry_pick(root, "--output=/tmp/pwned", false, true).is_err());
+        assert!(cherry_pick(root, "--ext-diff", false, true).is_err());
+        assert!(cherry_pick(root, "--no-commit", false, true).is_err());
+        assert!(bisect(root, "start", None, Some("--upload-pack=x"), Some(&head)).is_err());
+        assert!(bisect(root, "start", None, Some(&head), Some("--output=/tmp/pwned")).is_err());
+        assert!(bisect(root, "good", Some("--output=/tmp/pwned"), None, None).is_err());
+        assert!(validate_branch(root, "--foo").is_err());
+        assert!(validate_branch(root, "-x").is_err());
+        assert!(validate_branch(root, "bad..name").is_err());
+        assert!(validate_branch(root, "user@host").is_err());
+        assert!(validate_branch(root, "feature/foo").is_ok());
+        assert!(validate_branch(root, "v1.2.3").is_ok());
+        assert!(validate_branch(root, "abc1234").is_ok());
+        assert!(validate_branch(root, "main").is_ok());
+        assert!(validate_branch(root, "HEAD~3").is_err());
+        std::fs::write(root.join("a.txt"), "one\ntwo\n").unwrap();
+        let pushed = stash(
+            root,
+            "push",
+            Some("wip"),
+            false,
+            None,
+            false,
+            Some(vec!["a.txt".into()]),
+        )
+        .unwrap();
+        assert_eq!(pushed["pushed"], true);
+        assert_eq!(read(root, "a.txt"), "one\n");
+        assert!(stash(
+            root,
+            "push",
+            None,
+            false,
+            None,
+            false,
+            Some(vec!["../escape.txt".into()])
+        )
+        .is_err());
+        assert!(stash(
+            root,
+            "push",
+            None,
+            false,
+            None,
+            false,
+            Some(vec!["/etc/passwd".into()])
+        )
+        .is_err());
+        assert!(stash(
+            root,
+            "push",
+            None,
+            false,
+            None,
+            false,
+            Some(vec!["--output=/tmp/pwned".into()])
+        )
+        .is_err());
+        assert!(stash(root, "show", None, false, Some("--output=/tmp/pwned"), false, None).is_err());
+        assert!(stash(root, "pop", None, false, Some("stash@{0}x"), true, None).is_err());
+        assert!(checkpoint_diff(root, "--output=/tmp/pwned").is_err());
+        assert!(checkpoint_diff(root, "not-a-uuid").is_err());
+        let parent = tempfile::tempdir().unwrap();
+        assert!(create_worktree(root, parent.path(), "one", "--foo", &head).is_err());
+        assert!(create_worktree(root, parent.path(), "one", "feature/x", "not-a-sha").is_err());
+        assert!(create_worktree(root, parent.path(), "bad/name", "feature/x", &head).is_err());
+        let created = create_worktree(root, parent.path(), "one", "feature/x", &head).unwrap();
+        assert_eq!(created["branch"], "feature/x");
+        assert_eq!(created["head"], head);
+        assert_eq!(created["populated"], false);
+        assert!(parent.path().join("one").is_dir());
+        assert!(create_worktree(root, parent.path(), "one", "feature/y", &head).is_err());
+    }
 }

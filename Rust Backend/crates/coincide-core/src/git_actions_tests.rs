@@ -542,3 +542,49 @@ fn push_pull_and_thread_worktrees_with_a_local_remote() {
     assert_eq!(used.worktree_path.as_deref(), Some(tree.path.as_str()));
     assert!(!used.is_current);
 }
+
+#[test]
+fn commit_with_escaping_pathspecs_fails_without_staging_outside_files() {
+    let dir = repository();
+    let root = dir.path();
+    let outside = tempfile::tempdir().unwrap();
+    let secret = outside.path().join("secret.txt");
+    std::fs::write(&secret, "secret\n").unwrap();
+    std::fs::write(root.join("readme.md"), "hello\nworld\n").unwrap();
+    for paths in [
+        vec!["../secret.txt".to_owned()],
+        vec!["../../secret.txt".to_owned()],
+        vec![secret.to_string_lossy().into_owned()],
+        vec!["--output=/tmp/pwned".to_owned()],
+    ] {
+        assert!(run(
+            &ActionRequest {
+                action: Some(StackedAction::Commit),
+                file_paths: Some(paths),
+                ..ActionRequest::default()
+            },
+            root,
+            &|_| {},
+        )
+        .is_err());
+    }
+    assert_eq!(std::fs::read_to_string(&secret).unwrap(), "secret\n");
+    let committed = run(
+        &ActionRequest {
+            action: Some(StackedAction::Commit),
+            file_paths: Some(vec!["readme.md".into()]),
+            ..ActionRequest::default()
+        },
+        root,
+        &|_| {},
+    )
+    .unwrap();
+    assert!(committed.commit.is_some());
+    assert!(ops::status(root).unwrap().files.is_empty());
+    let listed = Command::new("git")
+        .args(["ls-files", "--cached"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(!String::from_utf8_lossy(&listed.stdout).contains("secret.txt"));
+}
