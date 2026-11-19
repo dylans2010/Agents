@@ -126,7 +126,14 @@ public final class AssistantLibraryViewModel {
         self.onAddToAutomation = onAddToAutomation
         self.onLaunch = onLaunch
         self.recentStableIDs = Self.prunedRecentIDs(in: defaults, catalog: catalog)
-        defaults.set(recentStableIDs, forKey: Self.recentIDsDefaultsKey)
+        // The library builds this model during a SwiftUI view update, so only touch
+        // UserDefaults when pruning actually changed something. A write on every pass
+        // posts a defaults-change notification back into the render loop.
+        if let stored = defaults.stringArray(forKey: Self.recentIDsDefaultsKey),
+           stored != recentStableIDs
+        {
+            defaults.set(recentStableIDs, forKey: Self.recentIDsDefaultsKey)
+        }
         applySidebarSelection(initialSelection)
     }
 

@@ -160,10 +160,14 @@ public struct AssistantLibraryView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            NavigationSplitView {
+            // The library lives in the window's own navigation detail column, so it must not
+            // mount a second NavigationSplitView here: two nested split views fight over the
+            // same window chrome and can wedge the layout pass. A plain HSplitView gives the
+            // same two-pane behavior without the nesting.
+            HSplitView {
                 libraryListColumn
-                    .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 440)
-            } detail: {
+                    .frame(minWidth: 260, idealWidth: 320, maxWidth: 440)
+                    .frame(maxHeight: .infinity)
                 if let definition = viewModel.selectedDefinition {
                     AssistantLibraryDetailView(
                         definition: definition,
@@ -203,8 +207,10 @@ public struct AssistantLibraryView: View {
                     } description: {
                         Text("Choose an assistant to preview its instructions, capabilities, and model.")
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

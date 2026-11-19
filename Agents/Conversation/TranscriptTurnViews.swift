@@ -445,27 +445,78 @@ struct WorkGroupRow: View {
         items.filter { $0.kind == .reasoning }.count
     }
 
-    private var headerTitle: String {
+    private var groupHeadline: String {
         if isRunning {
-            if let runningTool = items.last(where: { $0.kind == .tool && $0.status == "running" }),
-               let title = runningTool.title, !title.isEmpty
-            {
-                return "Thinking & running tools · \(title)"
-            }
-            return "Thinking & running tools…"
+            let isCommandRunning = toolItems.contains { $0.status == "running" }
+            return isCommandRunning ? "Working…" : "Thinking…"
         }
 
         let totalSteps = items.count
         if toolItems.isEmpty && reasoningCount > 0 {
-            return reasoningCount == 1 ? "Reasoned" : "Completed \(reasoningCount) reasoning steps"
-        }
-        if totalSteps == 1, let single = toolItems.first, let title = single.title, !title.isEmpty {
-            return "Completed 1 step · \(title)"
-        }
-        if let lastTitle = toolItems.last?.title, !lastTitle.isEmpty {
-            return "Completed \(totalSteps) steps · \(lastTitle)"
+            return reasoningCount == 1 ? "Reasoned" : "Reasoned · \(reasoningCount) steps"
         }
         return "Completed \(totalSteps) \(totalSteps == 1 ? "step" : "steps")"
+    }
+
+    /// Secondary line: the most recent tool or reasoning title, kept quiet so the
+    /// row reads as one compact headline instead of a truncated sentence.
+    private var groupSubtitle: String? {
+        if isRunning {
+            if let runningTool = items.last(where: { $0.kind == .tool && $0.status == "running" }),
+               let title = runningTool.title?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !title.isEmpty
+            {
+                return title
+            }
+            return reasoningCount > 0 ? "Reasoning" : nil
+        }
+        if let lastToolTitle = toolItems.last?.title?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !lastToolTitle.isEmpty
+        {
+            return lastToolTitle
+        }
+        if let reasoning = items.last(where: { $0.kind == .reasoning }), !reasoning.text.isEmpty {
+            return ToolOrReasoningStepRow.reasoningTitle(for: reasoning.text)
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private var statusGlyph: some View {
+        if isRunning {
+            ProgressView()
+                .controlSize(.mini)
+                .frame(width: 15, height: 15)
+        } else if hasFailed {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 12.5))
+                .foregroundStyle(AppTheme.danger)
+                .frame(width: 15, height: 15)
+        } else {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 12.5))
+                .foregroundStyle(AppTheme.tertiaryLabel)
+                .frame(width: 15, height: 15)
+        }
+    }
+
+    @ViewBuilder
+    private var trailingElapsed: some View {
+        if isRunning, let startDate = runningStartDate {
+            TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                if let liveElapsed = Self.formatElapsed(context.date.timeIntervalSince(startDate)) {
+                    Text(liveElapsed)
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(AppTheme.tertiaryLabel)
+                        .monospacedDigit()
+                }
+            }
+        } else if let elapsedText {
+            Text(elapsedText)
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(AppTheme.tertiaryLabel)
+                .monospacedDigit()
+        }
     }
 
     private var runningStartDate: Date? {
@@ -497,59 +548,56 @@ struct WorkGroupRow: View {
                     isExpanded.toggle()
                 }
             } label: {
-                HStack(spacing: 8) {
-                    if isRunning {
-                        ProgressView()
-                            .controlSize(.mini)
-                            .frame(width: 15, height: 15)
-                    } else if hasFailed {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(AppTheme.danger)
-                    } else {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(AppTheme.secondaryLabel.opacity(0.85))
-                    }
+                HStack(alignment: .center, spacing: 9) {
+                    statusGlyph
 
-                    Text(headerTitle)
-                        .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(isRunning ? AppTheme.primaryLabel : AppTheme.secondaryLabel)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            Text(groupHeadline)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(isRunning ? AppTheme.primaryLabel : AppTheme.secondaryLabel)
 
-                    if isRunning, let startDate = runningStartDate {
-                        TimelineView(.periodic(from: .now, by: 1.0)) { context in
-                            if let liveElapsed = Self.formatElapsed(context.date.timeIntervalSince(startDate)) {
-                                Text(liveElapsed)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(AppTheme.tertiaryLabel)
+                            if failedCount > 0 {
+                                Text("\(failedCount) failed")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(AppTheme.danger)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1)
+                                    .background(AppTheme.danger.opacity(0.12), in: Capsule())
                             }
                         }
-                    } else if let elapsedText {
-                        Text(elapsedText)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(AppTheme.tertiaryLabel)
+
+                        if let subtitle = groupSubtitle {
+                            Text(subtitle)
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppTheme.tertiaryLabel)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
                     }
 
-                    if failedCount > 0 {
-                        Text("\(failedCount) failed")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(AppTheme.danger)
-                    }
+                    Spacer(minLength: 10)
+
+                    trailingElapsed
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppTheme.tertiaryLabel)
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundStyle(AppTheme.quaternaryLabel)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
-
-                    Spacer(minLength: 0)
+                        .frame(width: 11)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 5)
                 .padding(.horizontal, 8)
                 .background(
-                    isExpanded ? AppTheme.elevatedCardFill : Color.clear,
+                    AppTheme.elevatedCardFill.opacity(isExpanded ? 1 : 0.55),
                     in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall)
+                        .strokeBorder(
+                            AppTheme.separator.opacity(isExpanded ? 0.55 : 0.3),
+                            lineWidth: 0.75
+                        )
                 )
                 .contentShape(Rectangle())
             }
@@ -700,7 +748,7 @@ struct ToolOrReasoningStepRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .center, spacing: 6) {
                 Button {
                     guard hasExpandableBody else { return }
                     withAnimation(.snappy(duration: 0.18)) {
@@ -710,8 +758,8 @@ struct ToolOrReasoningStepRow: View {
                     HStack(spacing: 7) {
                         Image(systemName: symbolName)
                             .font(.system(size: 11.5, weight: .medium))
-                            .foregroundStyle(statusBadge?.tint ?? AppTheme.secondaryLabel)
-                            .frame(width: 16)
+                            .foregroundStyle(statusBadge?.tint ?? AppTheme.tertiaryLabel)
+                            .frame(width: 15)
 
                         Text(stepTitle)
                             .font(.system(size: 12))
@@ -725,24 +773,18 @@ struct ToolOrReasoningStepRow: View {
                                     ProgressView().controlSize(.mini)
                                 }
                                 Text(badge.label)
-                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                    .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
                             }
                             .foregroundStyle(badge.tint)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 1.5)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
                             .background(badge.tint.opacity(0.12), in: Capsule())
-                        }
-
-                        if let stepElapsedText {
-                            Text(stepElapsedText)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(AppTheme.tertiaryLabel)
                         }
 
                         if hasExpandableBody {
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(AppTheme.tertiaryLabel)
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundStyle(AppTheme.quaternaryLabel)
                                 .rotationEffect(.degrees(isDetailOpen ? 90 : 0))
                         }
                     }
@@ -751,28 +793,35 @@ struct ToolOrReasoningStepRow: View {
                 .buttonStyle(.plain)
                 .accessibilityValue(isDetailOpen ? "Expanded" : "Collapsed")
 
+                Spacer(minLength: 8)
+
                 // Clickable workspace file pills
-                ForEach(Array(detectedWorkspaceFiles.enumerated()), id: \.offset) { _, target in
+                ForEach(Array(detectedWorkspaceFiles.prefix(2).enumerated()), id: \.offset) { _, target in
                     Button {
                         appModel.openFileInInspector(path: target.path, line: target.line)
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3.5) {
                             Image(systemName: "doc.text")
-                                .font(.system(size: 11))
+                                .font(.system(size: 9.5))
                             Text(target.display)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
                                 .lineLimit(1)
                         }
                         .foregroundStyle(AppTheme.info)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(AppTheme.info.opacity(0.10), in: RoundedRectangle(cornerRadius: 4))
+                        .background(AppTheme.info.opacity(0.09), in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .help("Open \(target.path) in Workspace Inspector")
                 }
 
-                Spacer(minLength: 0)
+                if let stepElapsedText {
+                    Text(stepElapsedText)
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(AppTheme.tertiaryLabel)
+                        .monospacedDigit()
+                }
             }
 
             if isDetailOpen && hasExpandableBody {
@@ -1419,37 +1468,36 @@ struct InlineApprovalHistoryCard: View {
     var body: some View {
         let tint: Color = item.isWaiting ? AppTheme.warning : AppTheme.secondaryLabel
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: item.isWaiting ? "hand.raised.fill" : "checkmark.shield")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
-                .padding(.top, 2)
+            RoundedRectangle(cornerRadius: 6)
+                .fill(tint.opacity(0.12))
+                .frame(width: 24, height: 24)
+                .overlay(
+                    Image(systemName: item.isWaiting ? "hand.raised.fill" : "checkmark.shield.fill")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(tint)
+                )
+                .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
                     Text(item.title ?? "Permission Request")
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(AppTheme.primaryLabel)
+                        .lineLimit(1)
 
-                    if item.isWaiting {
-                        Text("Action required below")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(AppTheme.warning)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 1.5)
-                            .background(AppTheme.warning.opacity(0.14), in: Capsule())
-                    } else if let resolution = item.approval?.resolution, !resolution.isEmpty {
-                        Text(OutputRedactionGate.shared.redactedText(resolution))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(AppTheme.secondaryLabel)
-                    }
+                    approvalBadge
+
+                    Spacer(minLength: 0)
                 }
 
                 if let summary = Self.resolvedSummary(for: item) {
                     Text(summary)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 11.5, design: .monospaced))
                         .foregroundStyle(AppTheme.secondaryLabel)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
                         .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else if item.isWaiting, let detail = item.detail, !detail.isEmpty {
                     Text(OutputRedactionGate.shared.redactedText(detail))
                         .font(.system(size: 11.5, design: .monospaced))
@@ -1458,14 +1506,42 @@ struct InlineApprovalHistoryCard: View {
                         .textSelection(.enabled)
                 }
             }
-            Spacer()
         }
-        .padding(11)
-        .background(tint.opacity(0.06), in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+        .padding(.horizontal, 11)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.elevatedCardFill, in: RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .strokeBorder(tint.opacity(0.28), lineWidth: 1)
+                .strokeBorder(tint.opacity(0.30), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private var approvalBadge: some View {
+        if item.isWaiting {
+            approvalBadgeLabel("Waiting", tint: AppTheme.warning, icon: "clock")
+        } else if let resolution = item.approval?.resolution, !resolution.isEmpty {
+            let isApproved = resolution.lowercased().contains("approv")
+            approvalBadgeLabel(
+                OutputRedactionGate.shared.redactedText(resolution),
+                tint: isApproved ? AppTheme.success : AppTheme.warning,
+                icon: isApproved ? "checkmark" : "xmark"
+            )
+        }
+    }
+
+    private func approvalBadgeLabel(_ text: String, tint: Color, icon: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 8.5, weight: .bold))
+            Text(text.capitalized)
+                .font(.system(size: 10.5, weight: .semibold))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 1.5)
+        .background(tint.opacity(0.12), in: Capsule())
     }
 }
 

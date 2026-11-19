@@ -1251,67 +1251,151 @@ private struct ComposerCompletionsCard: View {
         }
     }
 
+    private func iconTint(for kind: RemoteCompletion.Kind) -> Color {
+        switch kind {
+        case .file: AppTheme.info
+        case .folder: AppTheme.info
+        case .command: AppTheme.accent
+        case .skill: AppTheme.merged
+        case .unknown: AppTheme.secondaryLabel
+        }
+    }
+
+    private func kindLabel(for kind: RemoteCompletion.Kind) -> String? {
+        switch kind {
+        case .file: "File"
+        case .folder: "Folder"
+        case .command: "Command"
+        case .skill: "Skill"
+        case .unknown: nil
+        }
+    }
+
+    private func keyCap(_ key: String, label: String) -> some View {
+        HStack(spacing: 3) {
+            Text(key)
+                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                .foregroundStyle(AppTheme.secondaryLabel)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(AppTheme.elevatedCardFill, in: RoundedRectangle(cornerRadius: 3.5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 3.5)
+                        .strokeBorder(AppTheme.separator.opacity(0.5), lineWidth: 0.5)
+                )
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(AppTheme.tertiaryLabel)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(trigger == "@" ? "WORKSPACE FILES" : "SLASH COMMANDS & SKILLS")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(AppTheme.tertiaryLabel)
-                Spacer()
-                Text("↑↓ Navigate · ↩ Insert · Esc Dismiss")
-                    .font(.system(size: 11))
-                    .foregroundStyle(AppTheme.tertiaryLabel)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.primary.opacity(0.025))
+            HStack(spacing: 7) {
+                HStack(spacing: 4) {
+                    Image(systemName: trigger == "@" ? "at" : "slash.circle.fill")
+                        .font(.system(size: 9.5, weight: .bold))
+                    Text(trigger == "@" ? "Workspace Files" : "Commands & Skills")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(AppTheme.secondaryLabel)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2.5)
+                .background(AppTheme.subtleHoverFill.opacity(0.7), in: Capsule())
 
-            Divider()
+                Text("\(completions.count)")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(AppTheme.tertiaryLabel)
+                    .monospacedDigit()
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 5) {
+                    keyCap("↑↓", label: "move")
+                    keyCap("↵", label: "insert")
+                    keyCap("esc", label: "close")
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+
+            Divider().opacity(0.6)
 
             ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: true) {
-                    LazyVStack(alignment: .leading, spacing: 2) {
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 1) {
                         ForEach(Array(completions.enumerated()), id: \.element.id) { idx, item in
                             let isSelected = idx == highlightedIndex
                             Button {
                                 onSelect(item)
                             } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: icon(for: item.kind))
-                                        .font(.system(size: 11.5, weight: .medium))
-                                        .foregroundStyle(isSelected ? AppTheme.accent : AppTheme.secondaryLabel)
-                                        .frame(width: 16)
+                                HStack(spacing: 9) {
+                                    RoundedRectangle(cornerRadius: 5.5)
+                                        .fill(iconTint(for: item.kind).opacity(isSelected ? 0.18 : 0.09))
+                                        .frame(width: 22, height: 22)
+                                        .overlay(
+                                            Image(systemName: icon(for: item.kind))
+                                                .font(.system(size: 10.5, weight: .semibold))
+                                                .foregroundStyle(iconTint(for: item.kind))
+                                        )
 
-                                    Text(item.title)
-                                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular, design: trigger == "@" ? .monospaced : .default))
-                                        .foregroundStyle(AppTheme.primaryLabel)
-                                        .lineLimit(1)
+                                    VStack(alignment: .leading, spacing: 0.5) {
+                                        HStack(spacing: 6) {
+                                            Text(item.title)
+                                                .font(.system(size: 12, weight: isSelected ? .semibold : .medium, design: trigger == "@" ? .monospaced : .default))
+                                                .foregroundStyle(AppTheme.primaryLabel)
+                                                .lineLimit(1)
 
-                                    if let detail = item.detail, !detail.isEmpty, detail != item.title {
-                                        Text(detail)
-                                            .font(.system(size: 11))
-                                            .foregroundStyle(AppTheme.secondaryLabel)
-                                            .lineLimit(1)
-                                            .truncationMode(.middle)
+                                            if trigger != "@", let kindLabel = kindLabel(for: item.kind) {
+                                                Text(kindLabel)
+                                                    .font(.system(size: 9, weight: .semibold))
+                                                    .foregroundStyle(AppTheme.tertiaryLabel)
+                                                    .padding(.horizontal, 4)
+                                                    .padding(.vertical, 0.5)
+                                                    .background(AppTheme.subtleHoverFill, in: RoundedRectangle(cornerRadius: 3))
+                                            }
+                                        }
+
+                                        if let detail = item.detail, !detail.isEmpty, detail != item.title {
+                                            Text(detail)
+                                                .font(.system(size: 10.5))
+                                                .foregroundStyle(AppTheme.tertiaryLabel)
+                                                .lineLimit(1)
+                                                .truncationMode(.middle)
+                                        }
                                     }
 
-                                    Spacer()
+                                    Spacer(minLength: 6)
+
+                                    if isSelected {
+                                        Image(systemName: "return")
+                                            .font(.system(size: 9.5, weight: .semibold))
+                                            .foregroundStyle(AppTheme.accent)
+                                    }
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5.5)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
                                 .background(
-                                    isSelected ? AppTheme.accent.opacity(0.14) : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: 6)
+                                    isSelected ? AppTheme.accent.opacity(0.10) : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 7)
                                 )
+                                .overlay(alignment: .leading) {
+                                    if isSelected {
+                                        Capsule()
+                                            .fill(AppTheme.accent)
+                                            .frame(width: 2)
+                                            .padding(.vertical, 6)
+                                    }
+                                }
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .id(idx)
                         }
                     }
-                    .padding(6)
+                    .padding(5)
                 }
-                .frame(maxHeight: 210)
+                .frame(maxHeight: 248)
                 .onChange(of: highlightedIndex) { _, target in
                     proxy.scrollTo(target, anchor: .center)
                 }

@@ -150,7 +150,7 @@ public struct ConversationRootView: View {
                         }
 
                         Text(thread.title.isEmpty ? "New Conversation" : thread.title)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 12.5, weight: .semibold))
                             .foregroundStyle(AppTheme.primaryLabel)
                             .lineLimit(1)
                             .frame(maxWidth: 240, alignment: .leading)
@@ -161,9 +161,9 @@ public struct ConversationRootView: View {
                                 .foregroundStyle(AppTheme.info)
                         }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .contentShape(RoundedRectangle(cornerRadius: 6))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Click to rename conversation")
@@ -210,21 +210,15 @@ public struct ConversationRootView: View {
                     }
                 } label: {
                     HStack(spacing: 5) {
-                        Image(systemName: project.isChats ? "bubble.left.and.bubble.right" : "folder.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(AppTheme.secondaryLabel)
+                        Image(systemName: project.isChats ? "bubble.left.and.bubble.right.fill" : "folder.fill")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(AppTheme.tertiaryLabel)
                         Text(project.name)
                             .font(.system(size: 11.5, weight: .medium))
                             .foregroundStyle(AppTheme.secondaryLabel)
                             .lineLimit(1)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3.5)
-                    .background(AppTheme.elevatedCardFill, in: Capsule())
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(AppTheme.separator.opacity(0.8), lineWidth: 1)
-                    )
+                    .modifier(ToolbarPillStyle())
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
@@ -244,26 +238,20 @@ public struct ConversationRootView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: isWorktree ? "square.split.2x1" : "arrow.triangle.branch")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(isWorktree ? AppTheme.accent : AppTheme.secondaryLabel)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(isWorktree ? AppTheme.accent : AppTheme.tertiaryLabel)
 
                         Text(branchLabel)
-                            .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundStyle(AppTheme.primaryLabel)
                             .lineLimit(1)
                             .frame(maxWidth: 150)
 
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(AppTheme.tertiaryLabel)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(AppTheme.quaternaryLabel)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3.5)
-                    .background(AppTheme.elevatedCardFill, in: Capsule())
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(AppTheme.separator.opacity(0.8), lineWidth: 1)
-                    )
+                    .modifier(ToolbarPillStyle())
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showCheckoutPopover, arrowEdge: .bottom) {
@@ -322,56 +310,82 @@ public struct ConversationRootView: View {
         // 2. Open In External Editor Split / Menu Button with real NSImage App Icons
         openInExternalAppToolbarItem
 
-        // 3. Find in Thread (`magnifyingglass`)
-        Button {
-            withAnimation(.snappy(duration: 0.18)) {
-                appModel.showFindBar.toggle()
-            }
-        } label: {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(appModel.showFindBar ? AppTheme.accent : AppTheme.primaryLabel)
-        }
-        .help("Find in Conversation (⌘F)")
-        .accessibilityLabel("Find in conversation")
-
-        // 4. Integrated Terminal (`terminal`)
-        Button {
-            appModel.toggleTerminal()
-        } label: {
-            Image(systemName: appModel.terminalVisible ? "terminal.fill" : "terminal")
-                .foregroundStyle(appModel.terminalVisible ? AppTheme.accent : AppTheme.primaryLabel)
-        }
-        .help("Toggle Integrated Terminal (⌘J)")
-        .accessibilityLabel("Toggle integrated terminal")
-
-        // 5. Workspace Inspector (`sidebar.right`) with Uncommitted Diff File Count Badge
-        Button {
-            appModel.toggleInspector()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "sidebar.right")
-                    .foregroundStyle(appModel.inspectorVisible ? AppTheme.accent : AppTheme.primaryLabel)
-
-                if uncommittedDiffFileCount > 0 {
-                    Text("\(uncommittedDiffFileCount)")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(AppTheme.onAccent)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(AppTheme.accent, in: Capsule())
+        // 3. Find, Terminal & Inspector controls, grouped into one quiet capsule
+        HStack(spacing: 1) {
+            toolbarIconButton(
+                systemName: "magnifyingglass",
+                isActive: appModel.showFindBar,
+                help: "Find in Conversation (⌘F)",
+                label: "Find in conversation"
+            ) {
+                withAnimation(.snappy(duration: 0.18)) {
+                    appModel.showFindBar.toggle()
                 }
             }
+
+            toolbarIconButton(
+                systemName: appModel.terminalVisible ? "terminal.fill" : "terminal",
+                isActive: appModel.terminalVisible,
+                help: "Toggle Integrated Terminal (⌘J)",
+                label: "Toggle integrated terminal"
+            ) {
+                appModel.toggleTerminal()
+            }
+
+            toolbarIconButton(
+                systemName: "sidebar.right",
+                isActive: appModel.inspectorVisible,
+                help: uncommittedDiffFileCount > 0
+                    ? "Toggle Workspace Inspector (\(uncommittedDiffFileCount) uncommitted \(uncommittedDiffFileCount == 1 ? "file" : "files"))"
+                    : "Toggle Workspace Inspector (⌥⌘I)",
+                label: uncommittedDiffFileCount > 0
+                    ? "Toggle workspace inspector, \(uncommittedDiffFileCount) uncommitted files"
+                    : "Toggle workspace inspector",
+                badge: uncommittedDiffFileCount > 0 ? uncommittedDiffFileCount : nil
+            ) {
+                appModel.toggleInspector()
+            }
         }
-        .help(
-            uncommittedDiffFileCount > 0
-                ? "Toggle Workspace Inspector (\(uncommittedDiffFileCount) uncommitted \(uncommittedDiffFileCount == 1 ? "file" : "files"))"
-                : "Toggle Workspace Inspector (⌥⌘I)"
+        .padding(2)
+        .background(AppTheme.elevatedCardFill, in: Capsule())
+        .overlay(
+            Capsule().strokeBorder(AppTheme.separator.opacity(0.65), lineWidth: 0.75)
         )
-        .accessibilityLabel(
-            uncommittedDiffFileCount > 0
-                ? "Toggle workspace inspector, \(uncommittedDiffFileCount) uncommitted files"
-                : "Toggle workspace inspector"
-        )
+    }
+
+    private func toolbarIconButton(
+        systemName: String,
+        isActive: Bool,
+        help: String,
+        label: String,
+        badge: Int? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(isActive ? AppTheme.accent : AppTheme.secondaryLabel)
+                .frame(width: 26, height: 22)
+                .background(
+                    isActive ? AppTheme.accent.opacity(0.12) : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 8)
+                )
+                .overlay(alignment: .topTrailing) {
+                    if let badge {
+                        Text("\(badge)")
+                            .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                            .foregroundStyle(AppTheme.onAccent)
+                            .padding(.horizontal, 3.5)
+                            .padding(.vertical, 0.5)
+                            .background(AppTheme.accent, in: Capsule())
+                            .offset(x: 4, y: -2)
+                    }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(label)
     }
 
     @ViewBuilder
@@ -434,13 +448,19 @@ public struct ConversationRootView: View {
                     Image(nsImage: preferred.icon)
                         .resizable()
                         .interpolation(.high)
-                        .frame(width: 15, height: 15)
+                        .frame(width: 13, height: 13)
                     Text(preferred.name)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(AppTheme.secondaryLabel)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(AppTheme.quaternaryLabel)
                 }
+                .modifier(ToolbarPillStyle())
             } primaryAction: {
                 openWorkspace(in: preferred)
             }
+            .menuIndicator(.hidden)
             .help("Open workspace in \(preferred.name) (or choose another app)")
         }
     }
@@ -621,5 +641,22 @@ public struct ConversationRootView: View {
                 appModel.activeDiff = diff
             }
         }
+    }
+}
+
+// MARK: - Shared Toolbar Pill Chrome
+
+/// One capsule treatment for every toolbar pill (folder, branch, editor) so
+/// heights, padding and hairlines stay identical across the header.
+private struct ToolbarPillStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .background(AppTheme.elevatedCardFill, in: Capsule())
+            .overlay(
+                Capsule().strokeBorder(AppTheme.separator.opacity(0.65), lineWidth: 0.75)
+            )
+            .contentShape(Capsule())
     }
 }
