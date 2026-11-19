@@ -7,7 +7,7 @@ public struct AssistantLaunchView: View {
     public let appModel: AppModel
     public let onLaunch: (UUID) -> Void
 
-    @StateObject private var viewModel: AssistantLaunchViewModel
+    @State private var viewModel: AssistantLaunchViewModel
     @Environment(\.dismiss) private var dismiss
 
     public init(
@@ -32,7 +32,7 @@ public struct AssistantLaunchView: View {
                 createdViewModel.setPaths(prefillPaths, forField: field.id)
             }
         }
-        self._viewModel = StateObject(wrappedValue: createdViewModel)
+        self._viewModel = State(initialValue: createdViewModel)
     }
 
     private var modelDescription: String {
@@ -57,28 +57,27 @@ public struct AssistantLaunchView: View {
     }
 
     public var body: some View {
-        @Bindable var viewModel = viewModel
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     headerCard
                     workspaceCard
-                    taskCard(viewModel: viewModel)
+                    taskCard(viewModel: $viewModel)
                     ForEach($viewModel.fields) { $field in
                         fieldCard(field: $field)
                     }
-                    extraInstructionsCard(viewModel: viewModel)
-                    if let error = viewModel.wrappedValue.launchError {
+                    extraInstructionsCard(viewModel: $viewModel)
+                    if let error = viewModel.launchError {
                         statusCard(text: error, systemImage: "xmark.octagon.fill", isError: true)
                     }
-                    if let threadID = viewModel.wrappedValue.launchedThreadID {
+                    if let threadID = viewModel.launchedThreadID {
                         statusCard(
                             text: "Launched conversation \(threadID.uuidString)",
                             systemImage: "checkmark.circle.fill",
                             isError: false
                         )
                     }
-                    if let warning = viewModel.wrappedValue.launchWarning {
+                    if let warning = viewModel.launchWarning {
                         statusCard(
                             text: "Launched, but a follow-up step failed: \(warning)",
                             systemImage: "exclamationmark.triangle.fill",
@@ -88,14 +87,14 @@ public struct AssistantLaunchView: View {
                 }
                 .padding(16)
             }
-            .disabled(viewModel.wrappedValue.isLaunching)
-            footerBar(viewModel: viewModel)
+            .disabled(viewModel.isLaunching)
+            footerBar(viewModel: $viewModel)
         }
         .frame(minWidth: 560, idealWidth: 620, maxWidth: 700, minHeight: 520, idealHeight: 640, maxHeight: 760)
         .onChange(of: appModel.activeCheckout?.branches ?? []) { _, newValue in
-            viewModel.wrappedValue.updateBranches(newValue)
+            viewModel.updateBranches(newValue)
         }
-        .onChange(of: viewModel.wrappedValue.launchedThreadID) { _, newValue in
+        .onChange(of: viewModel.launchedThreadID) { _, newValue in
             if let newValue {
                 onLaunch(newValue)
             }
@@ -137,7 +136,7 @@ public struct AssistantLaunchView: View {
         }
     }
 
-    private func taskCard(viewModel: Bindable<AssistantLaunchViewModel>) -> some View {
+    private func taskCard(viewModel: Binding<AssistantLaunchViewModel>) -> some View {
         sectionCard(title: "Task", symbol: "text.cursor") {
             VStack(alignment: .leading, spacing: 6) {
                 Text("What should \(assistant.name) do? The assistant's own instructions are applied automatically.")
@@ -266,7 +265,7 @@ public struct AssistantLaunchView: View {
         }
     }
 
-    private func extraInstructionsCard(viewModel: Bindable<AssistantLaunchViewModel>) -> some View {
+    private func extraInstructionsCard(viewModel: Binding<AssistantLaunchViewModel>) -> some View {
         sectionCard(title: "Additional instructions", symbol: "plus.bubble") {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Optional notes for this run, such as things to avoid or prefer.")
@@ -319,7 +318,7 @@ public struct AssistantLaunchView: View {
         )
     }
 
-    private func footerBar(viewModel: Bindable<AssistantLaunchViewModel>) -> some View {
+    private func footerBar(viewModel: Binding<AssistantLaunchViewModel>) -> some View {
         HStack {
             if viewModel.wrappedValue.isLaunching {
                 ProgressView()

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct RedactedOutput: Sendable {
+public nonisolated struct RedactedOutput: Sendable {
     public let text: String
     public let redactionCount: Int
 
@@ -14,7 +14,7 @@ public struct RedactedOutput: Sendable {
     }
 }
 
-public final class OutputRedactionGate: @unchecked Sendable {
+public nonisolated final class OutputRedactionGate: @unchecked Sendable {
     public static let redactionMarker = "[redacted]"
     public static let notificationExcerptLimit = 140
     public static let shared = OutputRedactionGate()

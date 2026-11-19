@@ -53,7 +53,7 @@ public struct SidebarRootView: View {
 
     private var librarySelection: AssistantLibrarySidebarSelection? {
         get { AssistantLibrarySidebarSelection(storedValue: librarySelectionRaw) }
-        set { librarySelectionRaw = newValue?.storedValue ?? "" }
+        nonmutating set { librarySelectionRaw = newValue?.storedValue ?? "" }
     }
 
     private var libraryRecentCount: Int {

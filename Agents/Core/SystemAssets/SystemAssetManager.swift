@@ -24,7 +24,7 @@ public nonisolated final class SystemAssetManager: Sendable {
         }
     }
 
-    public init(directory: URL) {
+    public convenience init(directory: URL) {
         self.init(directory: directory, storeDirectory: nil)
     }
 

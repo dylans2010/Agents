@@ -161,7 +161,7 @@ fn sanitize_patterns() -> [(&'static str, &'static str); 36] {
         (r"SystemAssets/\S+", "[asset]"),
         (r"~/\S+", "[path]"),
         (
-            r"/(?:Users|var|tmp|private|etc|opt|usr|Library|System|Applications|Volumes)/[^\s,;:\"']*",
+            r#"/(?:Users|var|tmp|private|etc|opt|usr|Library|System|Applications|Volumes)/[^\s,;:"']*"#,
             "[path]",
         ),
         (r"(?i)://[^/\s:]+:[^/\s@]+@", "://[redacted]@"),

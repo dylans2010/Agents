@@ -482,7 +482,7 @@ public struct AntigravitySettingsPane: View {
         defer { isProbing = false }
         do {
             let probeStartedAt = Date()
-            let res = try await runtime.checkProvider(provider: "antigravity", probe: true, accountID: accountID)
+            let res = try await runtime.checkProvider(provider: "antigravity", accountID: accountID, probe: true)
             self.probeResult = res
             self.probeRanAt = Date()
             await appModel.refreshProviders()

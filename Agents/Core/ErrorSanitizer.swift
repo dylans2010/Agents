@@ -1,7 +1,7 @@
 import CoincideRemoteKit
 import Foundation
 
-public enum ErrorSanitizer {
+public nonisolated enum ErrorSanitizer {
 
     public struct SanitizedError: Sendable {
         public let kind: String

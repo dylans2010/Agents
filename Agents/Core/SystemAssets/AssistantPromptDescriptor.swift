@@ -1,7 +1,7 @@
 import CoincideRemoteKit
 import Foundation
 
-public struct AssistantPromptDescriptor: Sendable, Hashable {
+public nonisolated struct AssistantPromptDescriptor: Sendable, Hashable {
     public var id: String
     public var name: String
     public var systemPrompt: String

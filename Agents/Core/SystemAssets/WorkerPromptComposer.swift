@@ -1,7 +1,7 @@
 import CoincideRemoteKit
 import Foundation
 
-public enum WorkerPromptComposer {
+public nonisolated enum WorkerPromptComposer {
     public static func canAcceptSystemPrompt(parentToolset: String?, assistant: RemoteAssistant?) -> Bool {
         guard parentToolset == "provider" else {
             return true

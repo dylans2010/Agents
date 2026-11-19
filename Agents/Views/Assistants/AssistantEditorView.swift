@@ -44,7 +44,7 @@ public struct AssistantEditorView: View {
 
     private var headerTint: Color {
         if let provider = viewModel.modelConfig.provider {
-            return AppTheme.color(for: provider)
+            return AgentBranding.color(for: provider)
         }
         return AppTheme.accent
     }

@@ -1,7 +1,7 @@
 import CoincideRemoteKit
 import Foundation
 
-public enum AssistantPermissionProfile: String, Codable, Hashable, Sendable, CaseIterable {
+public nonisolated enum AssistantPermissionProfile: String, Codable, Hashable, Sendable, CaseIterable {
     case readOnly = "read-only"
     case workspaceModify = "workspace-modify"
     case terminal

@@ -27,17 +27,17 @@ extension AgentsRuntimeClient: AssistantTaskRuntime {
     }
 }
 
-private func decodeTaskJSONValue<T: Decodable>(_ value: JSONValue, as type: T.Type) throws -> T {
+private nonisolated func decodeTaskJSONValue<T: Decodable>(_ value: JSONValue, as type: T.Type) throws -> T {
     let data = try JSONEncoder().encode(value)
     return try JSONDecoder().decode(type, from: data)
 }
 
-private func encodeTaskJSONValue<T: Encodable>(_ value: T) throws -> JSONValue {
+private nonisolated func encodeTaskJSONValue<T: Encodable>(_ value: T) throws -> JSONValue {
     let data = try JSONEncoder().encode(value)
     return try JSONDecoder().decode(JSONValue.self, from: data)
 }
 
-public enum AssistantTaskError: Error, LocalizedError, Sendable, Equatable {
+public nonisolated enum AssistantTaskError: Error, LocalizedError, Sendable, Equatable {
     case staleBaseline
     case taskNotFound(id: UUID)
     case invalidResult(String)
@@ -60,7 +60,7 @@ public enum AssistantTaskError: Error, LocalizedError, Sendable, Equatable {
     }
 }
 
-public struct AssistantTaskExecutionLimits: Codable, Hashable, Sendable {
+public nonisolated struct AssistantTaskExecutionLimits: Codable, Hashable, Sendable {
     public var maxRuns: Int?
     public var maxConcurrent: Int
 
@@ -76,7 +76,7 @@ public struct AssistantTaskExecutionLimits: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantTaskNotificationPrefs: Codable, Hashable, Sendable {
+public nonisolated struct AssistantTaskNotificationPrefs: Codable, Hashable, Sendable {
     public var onSuccess: Bool
     public var onFailure: Bool
     public var onMissed: Bool
@@ -95,7 +95,7 @@ public struct AssistantTaskNotificationPrefs: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantTaskFailurePolicy: Codable, Hashable, Sendable {
+public nonisolated struct AssistantTaskFailurePolicy: Codable, Hashable, Sendable {
     public var behavior: String
     public var maxRetries: Int
     public var backoffSeconds: Int
@@ -114,7 +114,7 @@ public struct AssistantTaskFailurePolicy: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantTaskApprovalRequirements: Codable, Hashable, Sendable {
+public nonisolated struct AssistantTaskApprovalRequirements: Codable, Hashable, Sendable {
     public var required: Bool
     public var actions: [String]
 
@@ -130,7 +130,7 @@ public struct AssistantTaskApprovalRequirements: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantTaskSchedule: Hashable, Sendable {
+public nonisolated struct AssistantTaskSchedule: Hashable, Sendable {
     public var kind: String
     public var timeZoneID: String
     public var date: JSONValue
@@ -202,7 +202,7 @@ extension AssistantTaskSchedule: Codable {
     }
 }
 
-public struct AssistantTaskHistoryEntry: Codable, Hashable, Sendable {
+public nonisolated struct AssistantTaskHistoryEntry: Codable, Hashable, Sendable {
     public var at: Int64
     public var outcome: String
     public var workerID: String?
@@ -223,7 +223,7 @@ public struct AssistantTaskHistoryEntry: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantTaskRecord: Hashable, Sendable {
+public nonisolated struct AssistantTaskRecord: Hashable, Sendable, Identifiable {
     public var id: UUID
     public var name: String
     public var assistantID: UUID
@@ -389,7 +389,7 @@ extension AssistantTaskRecord: Codable {
     }
 }
 
-public struct AssistantTaskList: Sendable {
+public nonisolated struct AssistantTaskList: Sendable {
     public var tasks: [AssistantTaskRecord]
     public var baseline: String
     public var origin: String
@@ -406,7 +406,7 @@ public struct AssistantTaskList: Sendable {
     }
 }
 
-public struct AssistantTaskDueEntry: Codable, Hashable, Sendable {
+public nonisolated struct AssistantTaskDueEntry: Codable, Hashable, Sendable {
     public var taskID: UUID
     public var taskName: String
     public var occurrence: Int64
@@ -434,7 +434,7 @@ public struct AssistantTaskDueEntry: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantTaskRunOutcome: Sendable, Hashable {
+public nonisolated struct AssistantTaskRunOutcome: Sendable, Hashable {
     public var task: AssistantTaskRecord
     public var workerID: String
     public var parentThreadID: UUID
@@ -446,7 +446,7 @@ public struct AssistantTaskRunOutcome: Sendable, Hashable {
     }
 }
 
-public struct AssistantTaskOutcomeRecord: Sendable {
+public nonisolated struct AssistantTaskOutcomeRecord: Sendable {
     public var task: AssistantTaskRecord
     public var outcome: String
     public var workerID: String
@@ -470,7 +470,7 @@ public struct AssistantTaskOutcomeRecord: Sendable {
     }
 }
 
-public struct AssistantTaskSkippedRun: Sendable, Hashable {
+public nonisolated struct AssistantTaskSkippedRun: Sendable, Hashable {
     public var task: AssistantTaskRecord
     public var reason: AssistantTaskSkipReason
 
@@ -480,7 +480,7 @@ public struct AssistantTaskSkippedRun: Sendable, Hashable {
     }
 }
 
-public struct AssistantTaskFailedRun: Sendable, Hashable {
+public nonisolated struct AssistantTaskFailedRun: Sendable, Hashable {
     public var task: AssistantTaskRecord
     public var message: String
 
@@ -490,7 +490,7 @@ public struct AssistantTaskFailedRun: Sendable, Hashable {
     }
 }
 
-public struct AssistantTaskDecodeFailure: Sendable, Hashable {
+public nonisolated struct AssistantTaskDecodeFailure: Sendable, Hashable {
     public var taskID: UUID?
     public var message: String
 
@@ -500,7 +500,7 @@ public struct AssistantTaskDecodeFailure: Sendable, Hashable {
     }
 }
 
-public struct AssistantTaskPollOutcome: Sendable {
+public nonisolated struct AssistantTaskPollOutcome: Sendable {
     public var ran: [AssistantTaskRunOutcome]
     public var outcomes: [AssistantTaskOutcomeRecord]
     public var skipped: [AssistantTaskSkippedRun]
@@ -525,7 +525,7 @@ public struct AssistantTaskPollOutcome: Sendable {
     }
 }
 
-public struct AssistantTaskMissedRun: Sendable, Hashable {
+public nonisolated struct AssistantTaskMissedRun: Sendable, Hashable {
     public var task: AssistantTaskRecord
     public var reason: String
     public var missedAt: Date?
@@ -539,7 +539,7 @@ public struct AssistantTaskMissedRun: Sendable, Hashable {
     }
 }
 
-public enum AssistantTaskSkipReason: Sendable, Equatable {
+public nonisolated enum AssistantTaskSkipReason: Sendable, Hashable {
     case disabled
     case paused
     case assistantMissing
@@ -602,7 +602,7 @@ public actor AssistantTaskManager {
         baseline
     }
 
-    public static func unavailableTriggerReason(_ trigger: String) -> String? {
+    public nonisolated static func unavailableTriggerReason(_ trigger: String) -> String? {
         switch trigger {
         case "timer":
             nil

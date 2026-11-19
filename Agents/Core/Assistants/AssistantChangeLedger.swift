@@ -1,12 +1,12 @@
 import CoincideRemoteKit
 import Foundation
 
-public enum AssistantChangeLedgerError: Error, Sendable {
+public nonisolated enum AssistantChangeLedgerError: Error, Sendable {
     case snapshotFailed(String)
     case runAlreadyActive(String)
 }
 
-public struct AssistantStatusEntry: Codable, Hashable, Sendable {
+public nonisolated struct AssistantStatusEntry: Codable, Hashable, Sendable {
     public var status: String
     public var path: String
     public var originalPath: String?
@@ -18,7 +18,7 @@ public struct AssistantStatusEntry: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantRunSnapshot: Codable, Hashable, Sendable {
+public nonisolated struct AssistantRunSnapshot: Codable, Hashable, Sendable {
     public var headSHA: String?
     public var branch: String?
     public var entries: [AssistantStatusEntry]
@@ -52,7 +52,7 @@ public struct AssistantRunSnapshot: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantRunChangeSet: Codable, Hashable, Sendable {
+public nonisolated struct AssistantRunChangeSet: Codable, Hashable, Sendable {
     public var files: [RemoteDiff.File]
     public var preExistingPaths: [String]
     public var committedDuringRun: Bool
@@ -74,14 +74,14 @@ public struct AssistantRunChangeSet: Codable, Hashable, Sendable {
     }
 }
 
-public enum AssistantRunDiffKind: String, Codable, Hashable, Sendable {
+public nonisolated enum AssistantRunDiffKind: String, Codable, Hashable, Sendable {
     case empty
     case changed
     case unavailable
     case readOnly
 }
 
-public struct AssistantRunDiffOutcome: Codable, Hashable, Sendable {
+public nonisolated struct AssistantRunDiffOutcome: Codable, Hashable, Sendable {
     public var kind: AssistantRunDiffKind
     public var changeSet: AssistantRunChangeSet?
     public var unavailableReason: String?
@@ -109,7 +109,7 @@ public struct AssistantRunDiffOutcome: Codable, Hashable, Sendable {
     }
 }
 
-public struct AssistantRunLedgerEntry: Codable, Hashable, Sendable {
+public nonisolated struct AssistantRunLedgerEntry: Codable, Hashable, Sendable {
     public var runId: String
     public var assistantId: String
     public var permissionProfile: RemoteAssistant.PermissionProfile
@@ -213,7 +213,7 @@ public actor AssistantChangeLedger {
         entries.removeValue(forKey: runId)
     }
 
-    public static func statusHash(entries: [AssistantStatusEntry]) -> String {
+    public nonisolated static func statusHash(entries: [AssistantStatusEntry]) -> String {
         let lines = entries
             .map { entry in
                 var line = "\(entry.status) \(entry.path)"
@@ -235,7 +235,7 @@ public actor AssistantChangeLedger {
         return String(format: "%016llx", hash)
     }
 
-    public static func parseStatusEntries(_ value: JSONValue) -> [AssistantStatusEntry] {
+    public nonisolated static func parseStatusEntries(_ value: JSONValue) -> [AssistantStatusEntry] {
         (value["entries"]?.arrayValue ?? []).compactMap { item in
             guard let status = item["status"]?.stringValue,
                   let path = item["path"]?.stringValue,
@@ -249,18 +249,18 @@ public actor AssistantChangeLedger {
         }
     }
 
-    public static func parseHeadSHA(_ value: JSONValue) -> String? {
+    public nonisolated static func parseHeadSHA(_ value: JSONValue) -> String? {
         value["commits"]?.arrayValue?.first?["sha"]?.stringValue
     }
 
-    public static func numstat(fromRangeFiles value: JSONValue?) -> JSONValue {
+    public nonisolated static func numstat(fromRangeFiles value: JSONValue?) -> JSONValue {
         .array(
-            value?.arrayValue?.compactMap { item in
+            value?.arrayValue?.compactMap { item -> JSONValue? in
                 guard let path = item["path"]?.stringValue, !path.isEmpty else { return nil }
                 var fields: [String: JSONValue] = [
                     "path": .string(path),
-                    "additions": .int(item["additions"]?.intValue ?? 0),
-                    "deletions": .int(item["deletions"]?.intValue ?? 0),
+                    "additions": .int(Int64(item["additions"]?.intValue ?? 0)),
+                    "deletions": .int(Int64(item["deletions"]?.intValue ?? 0)),
                 ]
                 if let oldPath = item["oldPath"]?.stringValue, !oldPath.isEmpty {
                     fields["oldPath"] = .string(oldPath)
@@ -270,7 +270,7 @@ public actor AssistantChangeLedger {
         )
     }
 
-    public static func buildDiff(
+    public nonisolated static func buildDiff(
         patch: String,
         numstat: JSONValue,
         untracked: [String],
